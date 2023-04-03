@@ -371,7 +371,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) *cwlogs.Event {
 	// Create EMF metrics if there are measurements
 	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html#CloudWatch_Embedded_Metric_Format_Specification_structure
 	if len(cWMetric.measurements) > 0 {
-		if config.EnableEMFVersion1 {
+		if config.Version == "1" {
 			/* 	EMF V1
 				"Version": 1,
 				"_aws": {
