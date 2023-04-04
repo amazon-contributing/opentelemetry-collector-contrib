@@ -373,7 +373,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) *cwlogs.Event {
 	if len(cWMetric.measurements) > 0 {
 		if config.Version == "1" {
 			/* 	EMF V1
-				"Version": 1,
+				"Version": "1",
 				"_aws": {
 					"CloudWatchMetrics": [
 					{
@@ -394,7 +394,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) *cwlogs.Event {
 		} else {
 			/* 	EMF V0
 				{
-					"Version": 0,
+					"Version": "0",
 					"CloudWatchMetrics": [
 					{
 						"Namespace": "ECS",
@@ -402,7 +402,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) *cwlogs.Event {
 						"Metrics": [{"Name": "memcached_commands_total"}]
 					}
 					],
-					"Timestamp": 1668387032641
+					"Timestamp": "1668387032641"
 			  	}
 			*/
 			fieldMap["Version"] = "0"
