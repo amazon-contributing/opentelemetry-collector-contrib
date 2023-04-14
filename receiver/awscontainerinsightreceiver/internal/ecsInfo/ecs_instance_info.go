@@ -51,12 +51,13 @@ type ContainerInstance struct {
 	ContainerInstanceArn string
 }
 
-func newECSInstanceInfo(ctx context.Context, ecsAgentEndpointProvider hostIPProvider,
+func newECSInstanceInfo(ctx context.Context, clusterName string, ecsAgentEndpointProvider hostIPProvider,
 	refreshInterval time.Duration, logger *zap.Logger, httpClient doer, readyC chan bool) containerInstanceInfoProvider {
 	cii := &containerInstanceInfo{
 		logger:                   logger,
 		httpClient:               httpClient,
 		refreshInterval:          refreshInterval,
+		clusterName:              clusterName,
 		ecsAgentEndpointProvider: ecsAgentEndpointProvider,
 		readyC:                   readyC,
 	}
@@ -104,6 +105,9 @@ func (cii *containerInstanceInfo) refresh(ctx context.Context) {
 }
 
 func (cii *containerInstanceInfo) GetClusterName() string {
+	if cii.clusterName != "" {
+		return cii.clusterName
+	}
 	cii.RLock()
 	defer cii.RUnlock()
 	return cii.clusterName
