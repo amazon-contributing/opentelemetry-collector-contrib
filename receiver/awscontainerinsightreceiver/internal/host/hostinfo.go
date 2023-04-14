@@ -52,10 +52,16 @@ type Info struct {
 	ec2TagsCreator      func(context.Context, *session.Session, string, string, string, time.Duration, *zap.Logger, ...ec2TagsOption) ec2TagsProvider
 }
 
-type machineInfoOption func(*Info)
+type Option func(*Info)
+
+func WithClusterName(name string) Option {
+	return func(info *Info) {
+		info.clusterName = name
+	}
+}
 
 // NewInfo creates a new Info struct
-func NewInfo(containerOrchestrator string, refreshInterval time.Duration, clusterName string, logger *zap.Logger, options ...machineInfoOption) (*Info, error) {
+func NewInfo(containerOrchestrator string, refreshInterval time.Duration, logger *zap.Logger, options ...Option) (*Info, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	mInfo := &Info{
 		cancel:           cancel,
@@ -65,7 +71,6 @@ func NewInfo(containerOrchestrator string, refreshInterval time.Duration, cluste
 		logger:           logger,
 
 		containerOrchestrator: containerOrchestrator,
-		clusterName:           clusterName,
 		awsSessionCreator:     awsutil.GetAWSConfigSession,
 		nodeCapacityCreator:   newNodeCapacity,
 		ec2MetadataCreator:    newEC2Metadata,

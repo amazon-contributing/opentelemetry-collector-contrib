@@ -88,7 +88,7 @@ func TestInfo(t *testing.T) {
 			return nil, errors.New("error")
 		}
 	}
-	m, err := NewInfo(ci.EKS, time.Minute, "", zap.NewNop(), nodeCapacityCreatorOpt)
+	m, err := NewInfo(ci.EKS, time.Minute, zap.NewNop(), nodeCapacityCreatorOpt)
 	assert.Nil(t, m)
 	assert.Error(t, err)
 
@@ -103,7 +103,7 @@ func TestInfo(t *testing.T) {
 			return nil, nil, errors.New("error")
 		}
 	}
-	m, err = NewInfo(ci.EKS, time.Minute, "", zap.NewNop(), nodeCapacityCreatorOpt, awsSessionCreatorOpt)
+	m, err = NewInfo(ci.EKS, time.Minute, zap.NewNop(), nodeCapacityCreatorOpt, awsSessionCreatorOpt)
 	assert.Nil(t, m)
 	assert.Error(t, err)
 
@@ -131,7 +131,7 @@ func TestInfo(t *testing.T) {
 			return &mockEC2Tags{}
 		}
 	}
-	m, err = NewInfo(ci.EKS, time.Minute, "", zap.NewNop(), awsSessionCreatorOpt,
+	m, err = NewInfo(ci.EKS, time.Minute, zap.NewNop(), awsSessionCreatorOpt,
 		nodeCapacityCreatorOpt, ec2MetadataCreatorOpt, ebsVolumeCreatorOpt, ec2TagsCreatorOpt)
 	assert.NoError(t, err)
 	assert.NotNil(t, m)
@@ -155,8 +155,11 @@ func TestInfo(t *testing.T) {
 	assert.Equal(t, "asg", m.GetAutoScalingGroupName())
 
 	// Test with cluster name override
-	m, err = NewInfo(ci.EKS, time.Minute, "override-cluster", zap.NewNop(), awsSessionCreatorOpt,
-		nodeCapacityCreatorOpt, ec2MetadataCreatorOpt, ebsVolumeCreatorOpt, ec2TagsCreatorOpt)
+	clusterNameOpt := func(m *Info) {
+		m.clusterName = "override-cluster"
+	}
+	m, err = NewInfo(ci.EKS, time.Minute, zap.NewNop(), awsSessionCreatorOpt,
+		nodeCapacityCreatorOpt, ec2MetadataCreatorOpt, ebsVolumeCreatorOpt, ec2TagsCreatorOpt, clusterNameOpt)
 	assert.NoError(t, err)
 	assert.NotNil(t, m)
 
@@ -170,7 +173,7 @@ func TestInfoForECS(t *testing.T) {
 			return nil, errors.New("error")
 		}
 	}
-	m, err := NewInfo(ci.ECS, time.Minute, "", zap.NewNop(), nodeCapacityCreatorOpt)
+	m, err := NewInfo(ci.ECS, time.Minute, zap.NewNop(), nodeCapacityCreatorOpt)
 	assert.Nil(t, m)
 	assert.Error(t, err)
 
@@ -185,7 +188,7 @@ func TestInfoForECS(t *testing.T) {
 			return nil, nil, errors.New("error")
 		}
 	}
-	m, err = NewInfo(ci.ECS, time.Minute, "", zap.NewNop(), nodeCapacityCreatorOpt, awsSessionCreatorOpt)
+	m, err = NewInfo(ci.ECS, time.Minute, zap.NewNop(), nodeCapacityCreatorOpt, awsSessionCreatorOpt)
 	assert.Nil(t, m)
 	assert.Error(t, err)
 
@@ -213,7 +216,7 @@ func TestInfoForECS(t *testing.T) {
 			return &mockEC2Tags{}
 		}
 	}
-	m, err = NewInfo(ci.ECS, time.Minute, "", zap.NewNop(), awsSessionCreatorOpt,
+	m, err = NewInfo(ci.ECS, time.Minute, zap.NewNop(), awsSessionCreatorOpt,
 		nodeCapacityCreatorOpt, ec2MetadataCreatorOpt, ebsVolumeCreatorOpt, ec2TagsCreatorOpt)
 	assert.NoError(t, err)
 	assert.NotNil(t, m)
