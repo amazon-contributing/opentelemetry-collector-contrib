@@ -94,7 +94,9 @@ func (cii *containerInstanceInfo) refresh(ctx context.Context) {
 	}
 
 	cii.Lock()
-	cii.clusterName = cluster
+	if cii.clusterName == "" { // Update cluster name only when it wasn't already provided via config
+		cii.clusterName = cluster
+	}
 	cii.containerInstanceID = instanceID
 	defer cii.Unlock()
 
@@ -105,9 +107,6 @@ func (cii *containerInstanceInfo) refresh(ctx context.Context) {
 }
 
 func (cii *containerInstanceInfo) GetClusterName() string {
-	if cii.clusterName != "" {
-		return cii.clusterName
-	}
 	cii.RLock()
 	defer cii.RUnlock()
 	return cii.clusterName

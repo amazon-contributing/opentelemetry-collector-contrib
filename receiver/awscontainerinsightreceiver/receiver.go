@@ -93,7 +93,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 	}
 	if acir.config.ContainerOrchestrator == ci.ECS {
 
-		ecsInfo, err := ecsinfo.NewECSInfo(acir.config.CollectionInterval, acir.config.ClusterName, hostinfo, host, acir.settings)
+		ecsInfo, err := ecsinfo.NewECSInfo(acir.config.CollectionInterval, hostinfo, host, acir.settings, ecsinfo.WithClusterName(acir.config.ClusterName))
 		if err != nil {
 			return err
 		}
