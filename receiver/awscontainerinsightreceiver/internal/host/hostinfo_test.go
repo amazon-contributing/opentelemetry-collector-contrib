@@ -155,11 +155,8 @@ func TestInfo(t *testing.T) {
 	assert.Equal(t, "asg", m.GetAutoScalingGroupName())
 
 	// Test with cluster name override
-	clusterNameOpt := func(m *Info) {
-		m.clusterName = "override-cluster"
-	}
 	m, err = NewInfo(ci.EKS, time.Minute, zap.NewNop(), awsSessionCreatorOpt,
-		nodeCapacityCreatorOpt, ec2MetadataCreatorOpt, ebsVolumeCreatorOpt, ec2TagsCreatorOpt, clusterNameOpt)
+		nodeCapacityCreatorOpt, ec2MetadataCreatorOpt, ebsVolumeCreatorOpt, ec2TagsCreatorOpt, WithClusterName("override-cluster"))
 	assert.NoError(t, err)
 	assert.NotNil(t, m)
 
