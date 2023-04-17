@@ -57,7 +57,7 @@ The "FullPodName" attribute is the pod name including suffix. If false FullPodNa
 
 **cluster_name (optional)**
 
-"ClusterName" can be used to explicitly provide the cluster's name for scenarios where it's not possible to auto-detect it using EC2 tags.
+"ClusterName" can be used to explicitly provide the cluster's name for EKS/ECS NOT on EC2 since it's not possible to auto-detect it using EC2 tags.
 
 ## Sample configuration for Container Insights 
 This is a sample configuration for AWS Container Insights using the `awscontainerinsightreceiver` and `awsemfexporter` for an EKS cluster:
