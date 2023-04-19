@@ -44,7 +44,7 @@ type Config struct {
 	// possible to auto-detect it using EC2 tags.
 	ClusterName string `mapstructure:"cluster_name"`
 
-	// The "LeaderLockName" is an optional attribute to override the name of the locking resource (e.g. config map) used during the leader
+	// LeaderLockName is an optional attribute to override the name of the locking resource (e.g. config map) used during the leader
 	// election process for EKS Container Insights. The elected leader is responsible for scraping cluster level metrics.
 	// The default value is "otel-container-insight-clusterleader".
 	LeaderLockName string `mapstructure:"leader_lock_name"`
