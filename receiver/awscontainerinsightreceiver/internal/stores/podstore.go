@@ -466,7 +466,6 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 			p.setPrevMeasurement(ci.TypePod, podKey, prevPodMeasurement{containersRestarts: curContainerRestarts})
 		}
 	} else if metric.GetTag(ci.MetricType) == ci.TypeContainer {
-		p.logger.Error("ANDREW WAS HERE")
 		if containerName := metric.GetTag(ci.ContainerNamekey); containerName != "" {
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				if containerStatus.Name == containerName {
