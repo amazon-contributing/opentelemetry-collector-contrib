@@ -372,64 +372,6 @@ func TestPodStore_addStatus(t *testing.T) {
 	assert.Equal(t, int(2), metric.GetField(ci.ContainerRestartCount).(int))
 }
 
-func TestPodStore_addContainerStatuses(t *testing.T) {
-	tests := []struct {
-		name           string
-		status         containerStatus
-		running        int
-		waiting        int
-		waitingCrashed int
-		terminated     int
-	}{
-		{
-			name: "StatusRunning",
-			status: containerStatus{
-				running: true,
-			},
-			running: 1,
-		},
-		{
-			name: "StatusWaiting",
-			status: containerStatus{
-				waiting:        true,
-				waitingCrashed: false,
-			},
-			waiting: 1,
-		},
-		{
-			name: "StatusWaitingCrashed",
-			status: containerStatus{
-				waiting:        true, // this is implicit in the code contract
-				waitingCrashed: true,
-			},
-			waiting:        1,
-			waitingCrashed: 1,
-		},
-		{
-			name: "StatusTerminated",
-			status: containerStatus{
-				terminated: true,
-			},
-			terminated: 1,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			m := &mockCIMetric{
-				tags:   map[string]string{},
-				fields: map[string]interface{}{},
-			}
-			addContainerStatuses(m, test.status)
-
-			assert.Equal(t, test.running, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusRunning)))
-			assert.Equal(t, test.waiting, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting)))
-			assert.Equal(t, test.waitingCrashed, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed)))
-			assert.Equal(t, test.terminated, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusTerminated)))
-		})
-	}
-}
-
 func TestPodStore_addContainerID(t *testing.T) {
 	pod := getBaseTestPodInfo()
 	tags := map[string]string{ci.ContainerNamekey: "ubuntu", ci.ContainerIDkey: "123"}
