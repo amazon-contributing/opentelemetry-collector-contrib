@@ -41,32 +41,34 @@ const (
 	Timestamp               = "Timestamp"
 
 	// The following constants are used for metric name construction
-	CPUTotal                   = "cpu_usage_total"
-	CPUUser                    = "cpu_usage_user"
-	CPUSystem                  = "cpu_usage_system"
-	CPULimit                   = "cpu_limit"
-	CPUUtilization             = "cpu_utilization"
-	CPURequest                 = "cpu_request"
-	CPUReservedCapacity        = "cpu_reserved_capacity"
-	CPUUtilizationOverPodLimit = "cpu_utilization_over_pod_limit"
+	CPUTotal                         = "cpu_usage_total"
+	CPUUser                          = "cpu_usage_user"
+	CPUSystem                        = "cpu_usage_system"
+	CPULimit                         = "cpu_limit"
+	CPUUtilization                   = "cpu_utilization"
+	CPURequest                       = "cpu_request"
+	CPUReservedCapacity              = "cpu_reserved_capacity"
+	CPUUtilizationOverPodLimit       = "cpu_utilization_over_pod_limit"
+	CPUUtilizationOverContainerLimit = "cpu_utilization_over_container_limit"
 
-	MemUsage                   = "memory_usage"
-	MemCache                   = "memory_cache"
-	MemRss                     = "memory_rss"
-	MemMaxusage                = "memory_max_usage"
-	MemSwap                    = "memory_swap"
-	MemFailcnt                 = "memory_failcnt"
-	MemMappedfile              = "memory_mapped_file"
-	MemWorkingset              = "memory_working_set"
-	MemPgfault                 = "memory_pgfault"
-	MemPgmajfault              = "memory_pgmajfault"
-	MemHierarchicalPgfault     = "memory_hierarchical_pgfault"
-	MemHierarchicalPgmajfault  = "memory_hierarchical_pgmajfault"
-	MemLimit                   = "memory_limit"
-	MemRequest                 = "memory_request"
-	MemUtilization             = "memory_utilization"
-	MemReservedCapacity        = "memory_reserved_capacity"
-	MemUtilizationOverPodLimit = "memory_utilization_over_pod_limit"
+	MemUsage                         = "memory_usage"
+	MemCache                         = "memory_cache"
+	MemRss                           = "memory_rss"
+	MemMaxusage                      = "memory_max_usage"
+	MemSwap                          = "memory_swap"
+	MemFailcnt                       = "memory_failcnt"
+	MemMappedfile                    = "memory_mapped_file"
+	MemWorkingset                    = "memory_working_set"
+	MemPgfault                       = "memory_pgfault"
+	MemPgmajfault                    = "memory_pgmajfault"
+	MemHierarchicalPgfault           = "memory_hierarchical_pgfault"
+	MemHierarchicalPgmajfault        = "memory_hierarchical_pgmajfault"
+	MemLimit                         = "memory_limit"
+	MemRequest                       = "memory_request"
+	MemUtilization                   = "memory_utilization"
+	MemReservedCapacity              = "memory_reserved_capacity"
+	MemUtilizationOverPodLimit       = "memory_utilization_over_pod_limit"
+	MemUtilizationOverContainerLimit = "memory_utilization_over_container_limit"
 
 	NetIfce       = "interface"
 	NetRxBytes    = "network_rx_bytes"
@@ -168,24 +170,26 @@ func init() {
 		// CPUSystem
 		// CPULimit
 		// CPURequest
-		CPUUtilization:             UnitPercent,
-		CPUReservedCapacity:        UnitPercent,
-		CPUUtilizationOverPodLimit: UnitPercent,
+		CPUUtilization:                   UnitPercent,
+		CPUReservedCapacity:              UnitPercent,
+		CPUUtilizationOverPodLimit:       UnitPercent,
+		CPUUtilizationOverContainerLimit: UnitPercent,
 
 		// memory metrics
-		MemUsage:                   UnitBytes,
-		MemCache:                   UnitBytes,
-		MemRss:                     UnitBytes,
-		MemMaxusage:                UnitBytes,
-		MemSwap:                    UnitBytes,
-		MemFailcnt:                 UnitCount,
-		MemMappedfile:              UnitBytes,
-		MemWorkingset:              UnitBytes,
-		MemRequest:                 UnitBytes,
-		MemLimit:                   UnitBytes,
-		MemUtilization:             UnitPercent,
-		MemReservedCapacity:        UnitPercent,
-		MemUtilizationOverPodLimit: UnitPercent,
+		MemUsage:                         UnitBytes,
+		MemCache:                         UnitBytes,
+		MemRss:                           UnitBytes,
+		MemMaxusage:                      UnitBytes,
+		MemSwap:                          UnitBytes,
+		MemFailcnt:                       UnitCount,
+		MemMappedfile:                    UnitBytes,
+		MemWorkingset:                    UnitBytes,
+		MemRequest:                       UnitBytes,
+		MemLimit:                         UnitBytes,
+		MemUtilization:                   UnitPercent,
+		MemReservedCapacity:              UnitPercent,
+		MemUtilizationOverPodLimit:       UnitPercent,
+		MemUtilizationOverContainerLimit: UnitPercent,
 
 		MemPgfault:                UnitCountPerSec,
 		MemPgmajfault:             UnitCountPerSec,
