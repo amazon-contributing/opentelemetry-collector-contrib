@@ -310,7 +310,7 @@ func TestPodStore_addStatus(t *testing.T) {
 	assert.Equal(t, "Running", metric.GetTag(ci.ContainerStatus))
 	val = metric.GetField(ci.ContainerRestartCount)
 	assert.Nil(t, val)
-	val = metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusRunning))
+	val = metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusRunning))
 	assert.NotNil(t, val)
 	assert.Equal(t, 1, val)
 
@@ -334,7 +334,7 @@ func TestPodStore_addStatus(t *testing.T) {
 	assert.Equal(t, "Terminated", metric.GetTag(ci.ContainerStatus))
 	assert.Equal(t, "OOMKilled", metric.GetTag(ci.ContainerLastTerminationReason))
 	assert.Equal(t, int(1), metric.GetField(ci.ContainerRestartCount).(int))
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusTerminated)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusTerminated)))
 
 	pod.Status.ContainerStatuses[0].State.Terminated = nil
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}
@@ -344,8 +344,8 @@ func TestPodStore_addStatus(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting)))
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashed)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "SomeOtherReason"}
 
@@ -354,8 +354,8 @@ func TestPodStore_addStatus(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting)))
-	assert.Equal(t, 0, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
+	assert.Equal(t, 0, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashed)))
 
 	// test delta of restartCount
 	pod.Status.ContainerStatuses[0].RestartCount = 3

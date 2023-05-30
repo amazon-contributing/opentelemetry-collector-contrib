@@ -470,27 +470,27 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				if containerStatus.Name == containerName {
 					possibleStatuses := map[string]int{
-						ci.ContainerStatusRunning:              0,
-						ci.ContainerStatusWaiting:              0,
-						ci.ContainerStatusWaitingReasonCrashed: 0,
-						ci.ContainerStatusTerminated:           0,
+						ci.StatusRunning:              0,
+						ci.StatusWaiting:              0,
+						ci.StatusWaitingReasonCrashed: 0,
+						ci.StatusTerminated:           0,
 					}
 					switch {
 					case containerStatus.State.Running != nil:
 						metric.AddTag(ci.ContainerStatus, "Running")
-						possibleStatuses[ci.ContainerStatusRunning] = 1
+						possibleStatuses[ci.StatusRunning] = 1
 					case containerStatus.State.Waiting != nil:
 						metric.AddTag(ci.ContainerStatus, "Waiting")
-						possibleStatuses[ci.ContainerStatusWaiting] = 1
+						possibleStatuses[ci.StatusWaiting] = 1
 						if containerStatus.State.Waiting.Reason != "" {
 							metric.AddTag(ci.ContainerStatusReason, containerStatus.State.Waiting.Reason)
 							if strings.Contains(containerStatus.State.Waiting.Reason, "Crash") {
-								possibleStatuses[ci.ContainerStatusWaitingReasonCrashed] = 1
+								possibleStatuses[ci.StatusWaitingReasonCrashed] = 1
 							}
 						}
 					case containerStatus.State.Terminated != nil:
 						metric.AddTag(ci.ContainerStatus, "Terminated")
-						possibleStatuses[ci.ContainerStatusTerminated] = 1
+						possibleStatuses[ci.StatusTerminated] = 1
 						if containerStatus.State.Terminated.Reason != "" {
 							metric.AddTag(ci.ContainerStatusReason, containerStatus.State.Terminated.Reason)
 						}

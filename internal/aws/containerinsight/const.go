@@ -86,17 +86,17 @@ const (
 	FSInodesfree  = "filesystem_inodes_free"
 	FSUtilization = "filesystem_utilization"
 
-	StatusConditionReady                = "status_condition_ready"
-	StatusConditionDiskPressure         = "status_condition_disk_pressure"
-	StatusConditionMemoryPressure       = "status_condition_memory_pressure"
-	StatusConditionPIDPressure          = "status_condition_pid_pressure"
-	StatusConditionNetworkUnavailable   = "status_condition_network_unavailable"
-	StatusCapacityPods                  = "status_capacity_pods"
-	StatusAllocatablePods               = "status_allocatable_pods"
-	ContainerStatusRunning              = "status_running"
-	ContainerStatusTerminated           = "status_terminated"
-	ContainerStatusWaiting              = "status_waiting"
-	ContainerStatusWaitingReasonCrashed = "status_waiting_reason_crashed"
+	StatusConditionReady              = "status_condition_ready"
+	StatusConditionDiskPressure       = "status_condition_disk_pressure"
+	StatusConditionMemoryPressure     = "status_condition_memory_pressure"
+	StatusConditionPIDPressure        = "status_condition_pid_pressure"
+	StatusConditionNetworkUnavailable = "status_condition_network_unavailable"
+	StatusCapacityPods                = "status_capacity_pods"
+	StatusAllocatablePods             = "status_allocatable_pods"
+	StatusRunning                     = "status_running"
+	StatusTerminated                  = "status_terminated"
+	StatusWaiting                     = "status_waiting"
+	StatusWaitingReasonCrashed        = "status_waiting_reason_crashed"
 
 	RunningPodCount       = "number_of_running_pods"
 	RunningContainerCount = "number_of_running_containers"
@@ -223,10 +223,10 @@ func init() {
 		StatusAllocatablePods:             UnitCount,
 
 		// kube-state-metrics equivalents
-		ContainerStatusRunning:              UnitCount,
-		ContainerStatusTerminated:           UnitCount,
-		ContainerStatusWaiting:              UnitCount,
-		ContainerStatusWaitingReasonCrashed: UnitCount,
+		StatusRunning:              UnitCount,
+		StatusTerminated:           UnitCount,
+		StatusWaiting:              UnitCount,
+		StatusWaitingReasonCrashed: UnitCount,
 
 		// cluster metrics
 		NodeCount:       UnitCount,
