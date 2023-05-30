@@ -35,11 +35,6 @@ const (
 	ContainerStatusReason          = "container_status_reason"
 	ContainerLastTerminationReason = "container_last_termination_reason"
 
-	ContainerStatusRunning              = "kube_pod_container_status_running"
-	ContainerStatusTerminated           = "kube_pod_container_status_terminated"
-	ContainerStatusWaiting              = "kube_pod_container_status_waiting"
-	ContainerStatusWaitingReasonCrashed = "kube_pod_container_status_waiting_reason_crashed"
-
 	// Pod Owners
 	ReplicaSet            = "ReplicaSet"
 	ReplicationController = "ReplicationController"

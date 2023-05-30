@@ -310,7 +310,7 @@ func TestPodStore_addStatus(t *testing.T) {
 	assert.Equal(t, "Running", metric.GetTag(ci.ContainerStatus))
 	val = metric.GetField(ci.ContainerRestartCount)
 	assert.Nil(t, val)
-	val = metric.GetField(ci.ContainerStatusRunning)
+	val = metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusRunning))
 	assert.NotNil(t, val)
 	assert.Equal(t, 1, val)
 
@@ -334,7 +334,7 @@ func TestPodStore_addStatus(t *testing.T) {
 	assert.Equal(t, "Terminated", metric.GetTag(ci.ContainerStatus))
 	assert.Equal(t, "OOMKilled", metric.GetTag(ci.ContainerLastTerminationReason))
 	assert.Equal(t, int(1), metric.GetField(ci.ContainerRestartCount).(int))
-	assert.Equal(t, 1, metric.GetField(ci.ContainerStatusTerminated))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusTerminated)))
 
 	pod.Status.ContainerStatuses[0].State.Terminated = nil
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}
@@ -344,8 +344,18 @@ func TestPodStore_addStatus(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
-	assert.Equal(t, 1, metric.GetField(ci.ContainerStatusWaiting))
-	assert.Equal(t, 1, metric.GetField(ci.ContainerStatusWaitingReasonCrashed))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed)))
+
+	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "SomeOtherReason"}
+
+	tags = map[string]string{ci.MetricType: ci.TypeContainer, ci.K8sNamespace: "default", ci.K8sPodNameKey: "cpu-limit", ci.ContainerNamekey: "ubuntu"}
+	metric = generateMetric(fields, tags)
+
+	podStore.addStatus(metric, pod)
+	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting)))
+	assert.Equal(t, 0, metric.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed)))
 
 	// test delta of restartCount
 	pod.Status.ContainerStatuses[0].RestartCount = 3
@@ -360,6 +370,64 @@ func TestPodStore_addStatus(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, int(2), metric.GetField(ci.ContainerRestartCount).(int))
+}
+
+func TestPodStore_addContainerStatuses(t *testing.T) {
+	tests := []struct {
+		name           string
+		status         containerStatus
+		running        int
+		waiting        int
+		waitingCrashed int
+		terminated     int
+	}{
+		{
+			name: "StatusRunning",
+			status: containerStatus{
+				running: true,
+			},
+			running: 1,
+		},
+		{
+			name: "StatusWaiting",
+			status: containerStatus{
+				waiting:        true,
+				waitingCrashed: false,
+			},
+			waiting: 1,
+		},
+		{
+			name: "StatusWaitingCrashed",
+			status: containerStatus{
+				waiting:        true, // this is implicit in the code contract
+				waitingCrashed: true,
+			},
+			waiting:        1,
+			waitingCrashed: 1,
+		},
+		{
+			name: "StatusTerminated",
+			status: containerStatus{
+				terminated: true,
+			},
+			terminated: 1,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := &mockCIMetric{
+				tags:   map[string]string{},
+				fields: map[string]interface{}{},
+			}
+			addContainerStatuses(m, test.status)
+
+			assert.Equal(t, test.running, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusRunning)))
+			assert.Equal(t, test.waiting, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting)))
+			assert.Equal(t, test.waitingCrashed, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed)))
+			assert.Equal(t, test.terminated, m.GetField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusTerminated)))
+		})
+	}
 }
 
 func TestPodStore_addContainerID(t *testing.T) {

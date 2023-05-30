@@ -101,6 +101,13 @@ type podClient interface {
 	ListPods() ([]corev1.Pod, error)
 }
 
+type containerStatus struct {
+	running        bool
+	waiting        bool
+	waitingCrashed bool
+	terminated     bool
+}
+
 type PodStore struct {
 	cache            *mapWithExpiry
 	prevMeasurements map[string]*mapWithExpiry // preMeasurements per each Type (Pod, Container, etc)
@@ -467,31 +474,32 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 		}
 	} else if metric.GetTag(ci.MetricType) == ci.TypeContainer {
 		if containerName := metric.GetTag(ci.ContainerNamekey); containerName != "" {
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.Name == containerName {
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.Name == containerName {
+					var cs containerStatus
 					switch {
-					case containerStatus.State.Running != nil:
+					case status.State.Running != nil:
 						metric.AddTag(ci.ContainerStatus, "Running")
-						metric.AddField(ci.ContainerStatusRunning, 1)
-					case containerStatus.State.Waiting != nil:
+						cs.running = true
+					case status.State.Waiting != nil:
 						metric.AddTag(ci.ContainerStatus, "Waiting")
-						metric.AddField(ci.ContainerStatusWaiting, 1)
-						if containerStatus.State.Waiting.Reason != "" {
-							metric.AddTag(ci.ContainerStatusReason, containerStatus.State.Waiting.Reason)
-							if strings.Contains(containerStatus.State.Waiting.Reason, "Crash") {
-								metric.AddField(ci.ContainerStatusWaitingReasonCrashed, 1)
+						cs.waiting = true
+						if status.State.Waiting.Reason != "" {
+							metric.AddTag(ci.ContainerStatusReason, status.State.Waiting.Reason)
+							if strings.Contains(status.State.Waiting.Reason, "Crash") {
+								cs.waitingCrashed = true
 							}
 						}
-					case containerStatus.State.Terminated != nil:
+					case status.State.Terminated != nil:
 						metric.AddTag(ci.ContainerStatus, "Terminated")
-						metric.AddField(ci.ContainerStatusTerminated, 1)
-						if containerStatus.State.Terminated.Reason != "" {
-							metric.AddTag(ci.ContainerStatusReason, containerStatus.State.Terminated.Reason)
+						cs.terminated = true
+						if status.State.Terminated.Reason != "" {
+							metric.AddTag(ci.ContainerStatusReason, status.State.Terminated.Reason)
 						}
 					}
 
-					if containerStatus.LastTerminationState.Terminated != nil && containerStatus.LastTerminationState.Terminated.Reason != "" {
-						metric.AddTag(ci.ContainerLastTerminationReason, containerStatus.LastTerminationState.Terminated.Reason)
+					if status.LastTerminationState.Terminated != nil && status.LastTerminationState.Terminated.Reason != "" {
+						metric.AddTag(ci.ContainerLastTerminationReason, status.LastTerminationState.Terminated.Reason)
 					}
 					containerKey := createContainerKeyFromMetric(metric)
 					if containerKey != "" {
@@ -499,16 +507,44 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 						if ok {
 							prevMeasurement := content.(prevContainerMeasurement)
 							result := 0
-							if int(containerStatus.RestartCount) > prevMeasurement.restarts {
-								result = int(containerStatus.RestartCount) - prevMeasurement.restarts
+							if int(status.RestartCount) > prevMeasurement.restarts {
+								result = int(status.RestartCount) - prevMeasurement.restarts
 							}
 							metric.AddField(ci.ContainerRestartCount, result)
 						}
-						p.setPrevMeasurement(ci.TypeContainer, containerKey, prevContainerMeasurement{restarts: int(containerStatus.RestartCount)})
+						p.setPrevMeasurement(ci.TypeContainer, containerKey, prevContainerMeasurement{restarts: int(status.RestartCount)})
 					}
+
+					addContainerStatuses(metric, cs)
 				}
 			}
 		}
+	}
+}
+
+func addContainerStatuses(metric CIMetric, s containerStatus) {
+	if s.running {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusRunning), 1)
+	} else {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusRunning), 0)
+	}
+
+	if s.waiting {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting), 1)
+	} else {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaiting), 0)
+	}
+
+	if s.waitingCrashed {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed), 1)
+	} else {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusWaitingReasonCrashed), 0)
+	}
+
+	if s.terminated {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusTerminated), 1)
+	} else {
+		metric.AddField(ci.MetricName(ci.TypeContainer, ci.ContainerStatusTerminated), 0)
 	}
 }
 
