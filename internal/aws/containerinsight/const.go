@@ -88,6 +88,10 @@ const (
 	FSInodesfree  = "filesystem_inodes_free"
 	FSUtilization = "filesystem_utilization"
 
+	Processes                = "processes"
+	ProcessesThreads         = "processes_threads"
+	ProcessesFileDescriptors = "processes_file_descriptors"
+
 	StatusConditionReady              = "status_condition_ready"
 	StatusConditionDiskPressure       = "status_condition_disk_pressure"
 	StatusConditionMemoryPressure     = "status_condition_memory_pressure"
@@ -226,6 +230,11 @@ func init() {
 		FSInodes:      UnitCount,
 		FSInodesfree:  UnitCount,
 		FSUtilization: UnitPercent,
+
+		// processes metrics
+		Processes:                UnitCount,
+		ProcessesFileDescriptors: UnitCount,
+		ProcessesThreads:         UnitCount,
 
 		// status & spec metrics
 		StatusConditionReady:              UnitCount,
