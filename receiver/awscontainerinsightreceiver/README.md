@@ -745,6 +745,7 @@ kubectl apply -f config.yaml
 | container_memory_max_usage                        | Bytes        |
 | container_memory_pgfault                          | Count/Second |
 | container_memory_pgmajfault                       | Count/Second |
+| container_memory_failures_total                   | Count/Second |
 | container_memory_request                          | Bytes        |
 | container_memory_rss                              | Bytes        |
 | container_memory_swap                             | Bytes        |

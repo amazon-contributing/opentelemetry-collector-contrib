@@ -61,6 +61,7 @@ const (
 	MemWorkingset                    = "memory_working_set"
 	MemPgfault                       = "memory_pgfault"
 	MemPgmajfault                    = "memory_pgmajfault"
+	MemFailuresTotal                 = "memory_failures_total"
 	MemHierarchicalPgfault           = "memory_hierarchical_pgfault"
 	MemHierarchicalPgmajfault        = "memory_hierarchical_pgmajfault"
 	MemLimit                         = "memory_limit"
@@ -197,6 +198,7 @@ func init() {
 
 		MemPgfault:                UnitCountPerSec,
 		MemPgmajfault:             UnitCountPerSec,
+		MemFailuresTotal:          UnitCountPerSec,
 		MemHierarchicalPgfault:    UnitCountPerSec,
 		MemHierarchicalPgmajfault: UnitCountPerSec,
 
