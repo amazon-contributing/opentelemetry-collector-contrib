@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -453,6 +454,9 @@ func (p *PodStore) decorateMem(metric CIMetric, pod *corev1.Pod) {
 func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 	if metric.GetTag(ci.MetricType) == ci.TypePod {
 		metric.AddTag(ci.PodStatus, string(pod.Status.Phase))
+		p.addPodStatusMetrics(metric, pod)
+		p.addPodConditionMetrics(metric, pod)
+
 		var curContainerRestarts int
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			curContainerRestarts += int(containerStatus.RestartCount)
@@ -524,6 +528,35 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 					}
 				}
 			}
+		}
+	}
+}
+
+func (p *PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
+	for _, metricName := range ci.PodPhaseMetricNames {
+		metric.AddField(metricName, 0)
+	}
+
+	statusMetricName, validStatus := ci.PodPhaseMetricNames[pod.Status.Phase]
+	if validStatus {
+		metric.AddField(statusMetricName, 1)
+	}
+}
+
+func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
+	for _, metricName := range ci.PodConditionMetricNames {
+		metric.AddField(metricName, 0)
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		conditionValue, conditionIsUnKnown := strconv.ParseBool(string(condition.Status))
+		if conditionIsUnKnown != nil {
+			continue
+		}
+		conditionKey := condition.Type
+		statusMetricName, conditionKeyValid := ci.PodConditionMetricNames[conditionKey]
+		if conditionKeyValid && conditionValue {
+			metric.AddField(statusMetricName, 1)
 		}
 	}
 }
