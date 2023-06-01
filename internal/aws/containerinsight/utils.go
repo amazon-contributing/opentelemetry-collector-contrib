@@ -108,7 +108,7 @@ func getPrefixByMetricType(mType string) string {
 	namespace := "namespace_"
 	deployment := "deployment_"
 	daemonSet := "daemonset_"
-	podStatusPrefix := "kube_pod_status_"
+	podStatusPrefix := "pod_status_"
 
 	switch mType {
 	case TypeInstance:

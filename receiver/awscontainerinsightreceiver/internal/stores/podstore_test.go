@@ -295,14 +295,14 @@ func TestPodStore_addContainerCount(t *testing.T) {
 }
 
 const (
-	PodFailedMetricName      = "kube_pod_status_failed"
-	PodPendingMetricName     = "kube_pod_status_pending"
-	PodRunningMetricName     = "kube_pod_status_running"
-	PodSucceededMetricName   = "kube_pod_status_succeeded"
-	PodUnknownMetricName     = "kube_pod_status_unknown"
-	PodReadyMetricName       = "kube_pod_status_ready"
-	PodScheduledMetricName   = "kube_pod_status_scheduled"
-	PodInitializedMetricName = "kube_pod_status_initialized"
+	PodFailedMetricName      = "pod_status_failed"
+	PodPendingMetricName     = "pod_status_pending"
+	PodRunningMetricName     = "pod_status_running"
+	PodSucceededMetricName   = "pod_status_succeeded"
+	PodUnknownMetricName     = "pod_status_unknown"
+	PodReadyMetricName       = "pod_status_ready"
+	PodScheduledMetricName   = "pod_status_scheduled"
+	PodInitializedMetricName = "pod_status_initialized"
 )
 
 func TestPodStore_addStatus_adds_pod_failed_metric(t *testing.T) {
