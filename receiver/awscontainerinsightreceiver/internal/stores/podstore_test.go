@@ -816,7 +816,7 @@ func generatePodInfo(sourceFileName string) *corev1.Pod {
 		panic(fmt.Sprintf("reading file failed %v", err))
 	}
 	pods := corev1.PodList{}
-	err = json.Unmarshal(podInfoJson, &pods)
+	err = json.Unmarshal(podInfoJSON, &pods)
 	if err != nil {
 		panic(fmt.Sprintf("unmarshal pod err %v", err))
 	}
