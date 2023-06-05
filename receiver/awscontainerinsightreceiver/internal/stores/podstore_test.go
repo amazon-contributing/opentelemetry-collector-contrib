@@ -811,12 +811,12 @@ func runAddStatusToGetDecoratedCIMetric(podInfoSourceFileName string) CIMetric {
 }
 
 func generatePodInfo(sourceFileName string) *corev1.Pod {
-	podInfoJson, err := os.ReadFile(sourceFileName)
+	podInfoJSON, err := os.ReadFile(sourceFileName)
 	if err != nil {
 		panic(fmt.Sprintf("reading file failed %v", err))
 	}
 	pods := corev1.PodList{}
-	err = json.Unmarshal([]byte(podInfoJson), &pods)
+	err = json.Unmarshal(podInfoJson, &pods)
 	if err != nil {
 		panic(fmt.Sprintf("unmarshal pod err %v", err))
 	}
