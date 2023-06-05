@@ -49,17 +49,17 @@ var (
 	re = regexp.MustCompile(splitRegexStr)
 
 	PodPhaseMetricNames = map[corev1.PodPhase]string{
-		corev1.PodPending:   ci.MetricName(ci.TypePodStatus, "pending"),
-		corev1.PodRunning:   ci.MetricName(ci.TypePodStatus, "running"),
-		corev1.PodSucceeded: ci.MetricName(ci.TypePodStatus, "succeeded"),
-		corev1.PodFailed:    ci.MetricName(ci.TypePodStatus, "failed"),
-		corev1.PodUnknown:   ci.MetricName(ci.TypePodStatus, "unknown"),
+		corev1.PodPending:   ci.MetricName(ci.TypePod, ci.StatusPending),
+		corev1.PodRunning:   ci.MetricName(ci.TypePod, ci.StatusRunning),
+		corev1.PodSucceeded: ci.MetricName(ci.TypePod, ci.StatusSucceeded),
+		corev1.PodFailed:    ci.MetricName(ci.TypePod, ci.StatusFailed),
+		corev1.PodUnknown:   ci.MetricName(ci.TypePod, ci.StatusUnknown),
 	}
 
 	PodConditionMetricNames = map[corev1.PodConditionType]string{
-		corev1.PodReady:       ci.MetricName(ci.TypePodStatus, "ready"),
-		corev1.PodScheduled:   ci.MetricName(ci.TypePodStatus, "scheduled"),
-		corev1.PodInitialized: ci.MetricName(ci.TypePodStatus, "initialized"),
+		corev1.PodReady:       ci.MetricName(ci.TypePod, ci.StatusReady),
+		corev1.PodScheduled:   ci.MetricName(ci.TypePod, ci.StatusScheduled),
+		corev1.PodInitialized: ci.MetricName(ci.TypePod, ci.StatusInitialized),
 	}
 )
 
