@@ -108,7 +108,6 @@ func getPrefixByMetricType(mType string) string {
 	namespace := "namespace_"
 	deployment := "deployment_"
 	daemonSet := "daemonset_"
-	podStatusPrefix := "pod_status_"
 
 	switch mType {
 	case TypeInstance:
@@ -149,8 +148,6 @@ func getPrefixByMetricType(mType string) string {
 		prefix = deployment
 	case TypeClusterDaemonSet:
 		prefix = daemonSet
-	case TypePodStatus:
-		prefix = podStatusPrefix
 	default:
 		log.Printf("E! Unexpected MetricType: %s", mType)
 	}
