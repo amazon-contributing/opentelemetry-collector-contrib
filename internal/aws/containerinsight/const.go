@@ -14,7 +14,6 @@
 package containerinsight // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"strings"
 	"time"
 )
@@ -167,8 +166,6 @@ const (
 )
 
 var metricToUnitMap map[string]string
-var PodPhaseMetricNames map[corev1.PodPhase]string
-var PodConditionMetricNames map[corev1.PodConditionType]string
 
 func init() {
 	metricToUnitMap = map[string]string{
@@ -275,19 +272,5 @@ func init() {
 		ContainerCount:        UnitCount,
 		ContainerRestartCount: UnitCount,
 		RunningTaskCount:      UnitCount,
-	}
-
-	PodPhaseMetricNames = map[corev1.PodPhase]string{
-		corev1.PodPending:   MetricName(TypePodStatus, "pending"),
-		corev1.PodRunning:   MetricName(TypePodStatus, "running"),
-		corev1.PodSucceeded: MetricName(TypePodStatus, "succeeded"),
-		corev1.PodFailed:    MetricName(TypePodStatus, "failed"),
-		corev1.PodUnknown:   MetricName(TypePodStatus, "unknown"),
-	}
-
-	PodConditionMetricNames = map[corev1.PodConditionType]string{
-		corev1.PodReady:       MetricName(TypePodStatus, "ready"),
-		corev1.PodScheduled:   MetricName(TypePodStatus, "scheduled"),
-		corev1.PodInitialized: MetricName(TypePodStatus, "initialized"),
 	}
 }

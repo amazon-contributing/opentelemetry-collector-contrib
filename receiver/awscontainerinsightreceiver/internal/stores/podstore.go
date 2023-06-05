@@ -21,7 +21,6 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +47,20 @@ const (
 
 var (
 	re = regexp.MustCompile(splitRegexStr)
+
+	PodPhaseMetricNames = map[corev1.PodPhase]string{
+		corev1.PodPending:   ci.MetricName(ci.TypePodStatus, "pending"),
+		corev1.PodRunning:   ci.MetricName(ci.TypePodStatus, "running"),
+		corev1.PodSucceeded: ci.MetricName(ci.TypePodStatus, "succeeded"),
+		corev1.PodFailed:    ci.MetricName(ci.TypePodStatus, "failed"),
+		corev1.PodUnknown:   ci.MetricName(ci.TypePodStatus, "unknown"),
+	}
+
+	PodConditionMetricNames = map[corev1.PodConditionType]string{
+		corev1.PodReady:       ci.MetricName(ci.TypePodStatus, "ready"),
+		corev1.PodScheduled:   ci.MetricName(ci.TypePodStatus, "scheduled"),
+		corev1.PodInitialized: ci.MetricName(ci.TypePodStatus, "initialized"),
+	}
 )
 
 type cachedEntry struct {
@@ -533,29 +546,29 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 }
 
 func (p *PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
-	for _, metricName := range ci.PodPhaseMetricNames {
+	for _, metricName := range PodPhaseMetricNames {
 		metric.AddField(metricName, 0)
 	}
 
-	statusMetricName, validStatus := ci.PodPhaseMetricNames[pod.Status.Phase]
+	statusMetricName, validStatus := PodPhaseMetricNames[pod.Status.Phase]
 	if validStatus {
 		metric.AddField(statusMetricName, 1)
 	}
 }
 
 func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
-	for _, metricName := range ci.PodConditionMetricNames {
+	for _, metricName := range PodConditionMetricNames {
 		metric.AddField(metricName, 0)
 	}
 
 	for _, condition := range pod.Status.Conditions {
-		conditionValue, conditionIsUnKnown := strconv.ParseBool(string(condition.Status))
-		if conditionIsUnKnown != nil {
+		if condition.Status != corev1.ConditionTrue {
 			continue
 		}
+
 		conditionKey := condition.Type
-		statusMetricName, conditionKeyValid := ci.PodConditionMetricNames[conditionKey]
-		if conditionKeyValid && conditionValue {
+		statusMetricName, conditionKeyValid := PodConditionMetricNames[conditionKey]
+		if conditionKeyValid {
 			metric.AddField(statusMetricName, 1)
 		}
 	}
