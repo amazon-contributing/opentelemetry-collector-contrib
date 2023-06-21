@@ -442,16 +442,16 @@ func makeXRayAttributes(attributes map[string]pcommon.Value, resource pcommon.Re
 			case strings.HasPrefix(key, awsxray.AWSXraySegmentMetadataAttributePrefix) && value.Type() == pcommon.ValueTypeStr:
 				namespace := strings.TrimPrefix(key, awsxray.AWSXraySegmentMetadataAttributePrefix)
 				var metaVal map[string]interface{}
-				if err := json.Unmarshal([]byte(value.Str()), &metaVal); err != nil {
+				err := json.Unmarshal([]byte(value.Str()), &metaVal)
+				switch {
+				case err != nil:
 					// if unable to unmarshal, keep the original key/value
 					defaultMetadata[key] = value.Str()
-					continue
-				}
-				if strings.EqualFold(namespace, defaultMetadataNamespace) {
+				case strings.EqualFold(namespace, defaultMetadataNamespace):
 					for k, v := range metaVal {
 						defaultMetadata[k] = v
 					}
-				} else {
+				default:
 					metadata[namespace] = metaVal
 				}
 			default:
