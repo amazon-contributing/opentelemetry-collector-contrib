@@ -499,6 +499,31 @@ func TestSpanWithAttributesAllIndexed(t *testing.T) {
 	assert.Equal(t, "val2", segment.Annotations["attr2_2"])
 }
 
+func TestSpanWithAttributesSegmentMetadata(t *testing.T) {
+	spanName := "/api/locations"
+	parentSpanID := newSegmentID()
+	attributes := make(map[string]interface{})
+	attributes["attr1@1"] = "val1"
+	attributes[awsxray.AWSXraySegmentMetadataAttributePrefix+"default"] = "{\"custom_key\": \"custom_value\"}"
+	attributes[awsxray.AWSXraySegmentMetadataAttributePrefix+"http"] = "{\"connection\":{\"reused\":false,\"was_idle\":false}}"
+	resource := constructDefaultResource()
+	span := constructServerSpan(parentSpanID, spanName, ptrace.StatusCodeError, "OK", attributes)
+
+	segment, _ := MakeSegment(span, resource, nil, false, nil)
+
+	assert.NotNil(t, segment)
+	assert.Equal(t, 0, len(segment.Annotations))
+	assert.Equal(t, 2, len(segment.Metadata))
+	assert.Equal(t, "val1", segment.Metadata["default"]["attr1@1"])
+	assert.Equal(t, "custom_value", segment.Metadata["default"]["custom_key"])
+	assert.Nil(t, segment.Metadata["default"][awsxray.AWSXraySegmentMetadataAttributePrefix+"default"])
+	assert.Nil(t, segment.Metadata["default"][awsxray.AWSXraySegmentMetadataAttributePrefix+"http"])
+	assert.Equal(t, map[string]interface{}{
+		"reused":   false,
+		"was_idle": false,
+	}, segment.Metadata["http"]["connection"])
+}
+
 func TestResourceAttributesCanBeIndexed(t *testing.T) {
 	spanName := "/api/locations"
 	parentSpanID := newSegmentID()
