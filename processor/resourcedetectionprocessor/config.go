@@ -37,7 +37,7 @@ type Config struct {
 	DetectorConfig DetectorConfig `mapstructure:",squash"`
 	// HTTP client settings for the detector
 	// Timeout default is 5s
-	confighttp.HTTPClientSettings `mapstructure:",squash,omitempty"`
+	confighttp.HTTPClientSettings `mapstructure:"-"`
 	// Attributes is an allowlist of attributes to add.
 	// If a supplied attribute is not a valid atrtibute of a supplied detector it will be ignored.
 	Attributes []string `mapstructure:"attributes"`
