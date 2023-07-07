@@ -5,7 +5,7 @@ go 1.19
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.13.1
-	github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp v0.0.0-20230707194349-39ae49eef109
+	github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp v0.0.0-20230707200125-ad855e558e13
 	github.com/aws/aws-sdk-go v1.44.255
 	github.com/aws/aws-sdk-go-v2/config v1.18.25
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.3
