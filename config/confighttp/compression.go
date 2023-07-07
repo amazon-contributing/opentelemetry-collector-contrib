@@ -3,7 +3,7 @@
 
 // This file contains helper functions regarding compression/decompression for confighttp.
 
-package confighttp //import "github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp"
+package confighttp //import "github.com/amazon-contributing/opentelemetry-collector-contrib/config/confighttp"
 
 import (
 	"bytes"

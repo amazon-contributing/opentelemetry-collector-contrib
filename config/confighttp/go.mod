@@ -1,4 +1,4 @@
-module github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp
+module github.com/amazon-contributing/opentelemetry-collector-contrib/config/confighttp
 
 go 1.19
 
