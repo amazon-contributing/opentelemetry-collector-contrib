@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package confighttp //import "github.com/amazon-contributing/opentelemetry-collector-contrib/config/confighttp"
+package confighttp //import "github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp"
 
 import (
 	"bytes"
