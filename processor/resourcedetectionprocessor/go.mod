@@ -5,7 +5,7 @@ go 1.19
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.13.1
-	github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp v0.0.0-20230707200125-ad855e558e13
+	github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp v0.0.0-20230707201559-3340b6d80571
 	github.com/aws/aws-sdk-go v1.44.255
 	github.com/aws/aws-sdk-go-v2/config v1.18.25
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.3
@@ -14,7 +14,6 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders v0.79.0
 	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/collector/component v0.81.0
-	go.opentelemetry.io/collector/config/confighttp v0.81.0
 	go.opentelemetry.io/collector/config/configopaque v0.81.0
 	go.opentelemetry.io/collector/config/configtls v0.81.0
 	go.opentelemetry.io/collector/confmap v0.81.0
@@ -99,6 +98,7 @@ require (
 	go.opentelemetry.io/collector v0.81.0 // indirect
 	go.opentelemetry.io/collector/config/configauth v0.81.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v0.81.0 // indirect
+	go.opentelemetry.io/collector/config/confighttp v0.81.0 // indirect
 	go.opentelemetry.io/collector/config/configtelemetry v0.81.0 // indirect
 	go.opentelemetry.io/collector/config/internal v0.81.0 // indirect
 	go.opentelemetry.io/collector/extension v0.81.0 // indirect
