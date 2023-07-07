@@ -23,7 +23,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 
-	"github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/config/confighttp"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 )
 
