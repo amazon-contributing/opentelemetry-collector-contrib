@@ -15,7 +15,7 @@
 package resourcedetectionprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor"
 
 import (
-	"go.opentelemetry.io/collector/config/confighttp"
+	"github.com/JayPolanco/opentelemetry-collector-contrib/config/confighttp"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/ec2"
