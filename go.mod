@@ -2,8 +2,6 @@ module github.com/open-telemetry/opentelemetry-collector-contrib
 
 go 1.19
 
-replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders => github.com/amazon-contributing/opentelemetry-collector-contrib/internal/metadataproviders v0.0.0-20230703182150-99d61791f081
-
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/alibabacloudlogserviceexporter v0.77.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awscloudwatchlogsexporter v0.77.0
@@ -686,7 +684,7 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sco
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet => ./internal/kubelet
 
-replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders => ./internal/metadataproviders
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders => github.com/amazon-contributing/opentelemetry-collector-contrib/internal/metadataproviders v0.0.0-20230703182150-99d61791f081
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent => ./internal/sharedcomponent
 
