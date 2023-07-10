@@ -130,6 +130,7 @@ pkg/batchperresourceattr/                                @open-telemetry/collect
 pkg/experimentalmetricmetadata/                          @open-telemetry/collector-contrib-approvers @rmfitzpatrick
 
 override/aws/                                            @open-telemetry/collector-contrib-approvers @sethAmazon
+config/confighttp/                                       @open-telemetry/collector-contrib-approvers @JayPolanco
 
 processor/attributesprocessor/                           @open-telemetry/collector-contrib-approvers @boostchicken
 processor/cumulativetodeltaprocessor/                    @open-telemetry/collector-contrib-approvers @TylerHelmuth
