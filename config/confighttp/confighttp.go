@@ -6,13 +6,14 @@ package confighttp // import "github.com/amazon-contributing/opentelemetry-colle
 import (
 	"crypto/tls"
 	"errors"
-	"go.uber.org/zap"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
