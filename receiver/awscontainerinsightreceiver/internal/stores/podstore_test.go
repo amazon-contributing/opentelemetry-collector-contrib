@@ -399,7 +399,7 @@ func TestPodStore_addStatus_adds_pod_succeeded_metric(t *testing.T) {
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodUnknownMetricName))
 }
 
-func TestPodStore_addStatus_adds_pod_unknown_metric(t *testing.T) {
+/*func TestPodStore_addStatus_adds_pod_unknown_metric(t *testing.T) {
 	decoratedResultMetric := runAddStatusToGetDecoratedCIMetric("./test_resources/pod_in_phase_unknown.json", true)
 
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodFailedMetricName))
@@ -407,7 +407,7 @@ func TestPodStore_addStatus_adds_pod_unknown_metric(t *testing.T) {
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodRunningMetricName))
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodSucceededMetricName))
 	assert.Equal(t, 1, decoratedResultMetric.GetField(PodUnknownMetricName))
-}
+}*/
 
 func TestPodStore_addStatus_enhanced_metrics_disabled(t *testing.T) {
 	decoratedResultMetric := runAddStatusToGetDecoratedCIMetric("./test_resources/all_pod_conditions_valid.json", false)

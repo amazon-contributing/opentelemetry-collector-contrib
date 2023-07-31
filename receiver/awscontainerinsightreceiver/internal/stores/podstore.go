@@ -53,7 +53,6 @@ var (
 		corev1.PodRunning:   ci.MetricName(ci.TypePod, ci.StatusRunning),
 		corev1.PodSucceeded: ci.MetricName(ci.TypePod, ci.StatusSucceeded),
 		corev1.PodFailed:    ci.MetricName(ci.TypePod, ci.StatusFailed),
-		corev1.PodUnknown:   ci.MetricName(ci.TypePod, ci.StatusUnknown),
 	}
 
 	PodConditionMetricNames = map[corev1.PodConditionType]string{
