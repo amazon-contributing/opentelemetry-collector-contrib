@@ -56,9 +56,8 @@ var (
 	}
 
 	PodConditionMetricNames = map[corev1.PodConditionType]string{
-		corev1.PodReady:       ci.MetricName(ci.TypePod, ci.StatusReady),
-		corev1.PodScheduled:   ci.MetricName(ci.TypePod, ci.StatusScheduled),
-		corev1.PodInitialized: ci.MetricName(ci.TypePod, ci.StatusInitialized),
+		corev1.PodReady:     ci.MetricName(ci.TypePod, ci.StatusReady),
+		corev1.PodScheduled: ci.MetricName(ci.TypePod, ci.StatusScheduled),
 	}
 
 	PodConditionUnknownMetric = ci.MetricName(ci.TypePod, ci.StatusUnknown)
