@@ -423,6 +423,16 @@ func TestPodStore_addStatus_adds_all_pod_conditions_as_metrics_when_true_false_u
 	assert.Equal(t, 1, decoratedResultMetric.GetField(PodInitializedMetricName))
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodReadyMetricName))
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodScheduledMetricName))
+	assert.Equal(t, 1, decoratedResultMetric.GetField(PodUnknownMetricName))
+}
+
+func TestPodStore_addStatus_adds_all_pod_conditions_as_metrics_when_Ready_Scheduled_Condition_Unknown(t *testing.T) {
+	decoratedResultMetric := runAddStatusToGetDecoratedCIMetric("./test_resources/all_pod_conditions_valid.json", true)
+
+	assert.Equal(t, 1, decoratedResultMetric.GetField(PodInitializedMetricName))
+	assert.Equal(t, 0, decoratedResultMetric.GetField(PodReadyMetricName))
+	assert.Equal(t, 0, decoratedResultMetric.GetField(PodScheduledMetricName))
+	assert.Equal(t, 1, decoratedResultMetric.GetField(PodUnknownMetricName))
 }
 
 func TestPodStore_addStatus_adds_all_pod_conditions_as_metrics_when_unexpected(t *testing.T) {

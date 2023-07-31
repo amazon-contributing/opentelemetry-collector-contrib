@@ -61,6 +61,8 @@ var (
 		corev1.PodScheduled:   ci.MetricName(ci.TypePod, ci.StatusScheduled),
 		corev1.PodInitialized: ci.MetricName(ci.TypePod, ci.StatusInitialized),
 	}
+
+	PodConditionUnknownMetric = ci.MetricName(ci.TypePod, ci.StatusUnknown)
 )
 
 type cachedEntry struct {
@@ -570,16 +572,23 @@ func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
 		metric.AddField(metricName, 0)
 	}
 
+	metric.AddField(PodConditionUnknownMetric, 0)
+
 	for _, condition := range pod.Status.Conditions {
-		if condition.Status != corev1.ConditionTrue {
-			continue
+
+		switch condition.Status {
+		case corev1.ConditionTrue:
+			conditionKey := condition.Type
+			statusMetricName, conditionKeyValid := PodConditionMetricNames[conditionKey]
+			if conditionKeyValid {
+				metric.AddField(statusMetricName, 1)
+			}
+		case corev1.ConditionUnknown:
+			if condition.Type == corev1.PodReady || condition.Type == corev1.PodScheduled {
+				metric.AddField(PodConditionUnknownMetric, 1)
+			}
 		}
 
-		conditionKey := condition.Type
-		statusMetricName, conditionKeyValid := PodConditionMetricNames[conditionKey]
-		if conditionKeyValid {
-			metric.AddField(statusMetricName, 1)
-		}
 	}
 }
 
