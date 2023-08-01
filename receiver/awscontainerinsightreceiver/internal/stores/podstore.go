@@ -576,13 +576,11 @@ func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
 
 		switch condition.Status {
 		case corev1.ConditionTrue:
-			conditionKey := condition.Type
-			statusMetricName, conditionKeyValid := PodConditionMetricNames[conditionKey]
-			if conditionKeyValid {
+			if statusMetricName, ok := PodConditionMetricNames[condition.Type]; ok {
 				metric.AddField(statusMetricName, 1)
 			}
 		case corev1.ConditionUnknown:
-			if condition.Type == corev1.PodReady || condition.Type == corev1.PodScheduled {
+			if _, ok := PodConditionMetricNames[condition.Type]; ok {
 				metric.AddField(PodConditionUnknownMetric, 1)
 			}
 		}
