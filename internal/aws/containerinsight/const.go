@@ -18,6 +18,7 @@ import (
 	"time"
 )
 
+// define metric names, attribute names, metric types, and units for both EKS and ECS Container Insights
 const (
 	GoPSUtilProcDirEnv = "HOST_PROC"
 
@@ -256,6 +257,9 @@ func init() {
 		StatusTerminated:           UnitCount,
 		StatusWaiting:              UnitCount,
 		StatusWaitingReasonCrashed: UnitCount,
+		StatusUnknown:              UnitCount,
+		StatusReady:                UnitCount,
+		StatusScheduled:            UnitCount,
 
 		// cluster metrics
 		NodeCount:       UnitCount,
