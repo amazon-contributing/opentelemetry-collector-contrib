@@ -18,7 +18,6 @@ import (
 	"time"
 )
 
-// define metric names, attribute names, metric types, and units for both EKS and ECS Container Insights
 const (
 	GoPSUtilProcDirEnv = "HOST_PROC"
 
@@ -114,7 +113,6 @@ const (
 	StatusUnknown                     = "status_unknown"
 	StatusReady                       = "status_ready"
 	StatusScheduled                   = "status_scheduled"
-	StatusInitialized                 = "status_initialized"
 
 	RunningPodCount       = "number_of_running_pods"
 	RunningContainerCount = "number_of_running_containers"
