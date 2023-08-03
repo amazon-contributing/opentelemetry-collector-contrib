@@ -120,7 +120,7 @@ func newCwLogsExporter(config component.Config, params exp.CreateSettings) (exp.
 }
 
 func (e *exporter) consumeLogs(_ context.Context, ld plog.Logs) error {
-	logEvents, _ := logsToCWLogs(e.logger, ld, e.Config)
+	logEvents := logsToCWLogs(e.logger, ld, e.Config)
 	if len(logEvents) == 0 {
 		return nil
 	}
@@ -180,14 +180,14 @@ func (e *exporter) shutdown(_ context.Context) error {
 	return nil
 }
 
-func logsToCWLogs(logger *zap.Logger, ld plog.Logs, config *Config) ([]*cwlogs.Event, int) {
+func logsToCWLogs(logger *zap.Logger, ld plog.Logs, config *Config) []*cwlogs.Event {
 	n := ld.ResourceLogs().Len()
 	if n == 0 {
-		return []*cwlogs.Event{}, 0
+		return []*cwlogs.Event{}
 	}
 
-	var dropped int
-	var out []*cwlogs.Event
+	dropped := 0
+	out := make([]*cwlogs.Event, 0)
 
 	rls := ld.ResourceLogs()
 	for i := 0; i < rls.Len(); i++ {
@@ -210,7 +210,8 @@ func logsToCWLogs(logger *zap.Logger, ld plog.Logs, config *Config) ([]*cwlogs.E
 			}
 		}
 	}
-	return out, dropped
+	logger.Debug("converting to cw log events", zap.Int("log_events_converted", len(out)), zap.Int("logs_events_dropped", dropped))
+	return out
 }
 
 type cwLogBody struct {
