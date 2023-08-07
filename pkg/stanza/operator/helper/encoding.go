@@ -37,35 +37,30 @@ type EncodingConfig struct {
 	Encoding string `mapstructure:"encoding,omitempty"`
 }
 
-// Build will build an Encoding operator.
-func (c EncodingConfig) Build() (Encoding, error) {
-	enc, err := lookupEncoding(c.Encoding)
-	if err != nil {
-		return Encoding{}, err
-	}
-
-	return Encoding{
-		Encoding: enc,
-		decoder:  enc.NewDecoder(),
-	}, nil
+type Encoding struct {
+	Encoding     encoding.Encoding
+	decoder      *encoding.Decoder
+	decodeBuffer []byte
 }
 
-type Encoding struct {
-	Encoding encoding.Encoding
-	decoder  *encoding.Decoder
+func NewEncoding(enc encoding.Encoding) Encoding {
+	return Encoding{
+		Encoding:     enc,
+		decoder:      enc.NewDecoder(),
+		decodeBuffer: make([]byte, 1<<12),
+	}
 }
 
 // Decode converts the bytes in msgBuf to utf-8 from the configured encoding
 func (e *Encoding) Decode(msgBuf []byte) ([]byte, error) {
-	decodeBuffer := make([]byte, 1<<12)
 	for {
 		e.decoder.Reset()
-		nDst, _, err := e.decoder.Transform(decodeBuffer, msgBuf, true)
+		nDst, _, err := e.decoder.Transform(e.decodeBuffer, msgBuf, true)
 		if err == nil {
-			return decodeBuffer[:nDst], nil
+			return e.decodeBuffer[:nDst], nil
 		}
 		if errors.Is(err, transform.ErrShortDst) {
-			decodeBuffer = make([]byte, len(decodeBuffer)*2)
+			e.decodeBuffer = make([]byte, len(e.decodeBuffer)*2)
 			continue
 		}
 		return nil, fmt.Errorf("transform encoding: %w", err)
@@ -83,7 +78,7 @@ var encodingOverrides = map[string]encoding.Encoding{
 	"":         unicode.UTF8,
 }
 
-func lookupEncoding(enc string) (encoding.Encoding, error) {
+func LookupEncoding(enc string) (encoding.Encoding, error) {
 	if e, ok := encodingOverrides[strings.ToLower(enc)]; ok {
 		return e, nil
 	}
@@ -98,7 +93,7 @@ func lookupEncoding(enc string) (encoding.Encoding, error) {
 }
 
 func IsNop(enc string) bool {
-	e, err := lookupEncoding(enc)
+	e, err := LookupEncoding(enc)
 	if err != nil {
 		return false
 	}
