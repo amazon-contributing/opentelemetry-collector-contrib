@@ -25,7 +25,7 @@ import (
 	"golang.org/x/text/transform"
 )
 
-// NewBasicConfig creates a new Encoding config
+// NewEncodingConfig creates a new Encoding config
 func NewEncodingConfig() EncodingConfig {
 	return EncodingConfig{
 		Encoding: "utf-8",
@@ -45,28 +45,27 @@ func (c EncodingConfig) Build() (Encoding, error) {
 	}
 
 	return Encoding{
-		Encoding:     enc,
-		decodeBuffer: make([]byte, 1<<12),
-		decoder:      enc.NewDecoder(),
+		Encoding: enc,
+		decoder:  enc.NewDecoder(),
 	}, nil
 }
 
 type Encoding struct {
-	Encoding     encoding.Encoding
-	decoder      *encoding.Decoder
-	decodeBuffer []byte
+	Encoding encoding.Encoding
+	decoder  *encoding.Decoder
 }
 
 // Decode converts the bytes in msgBuf to utf-8 from the configured encoding
 func (e *Encoding) Decode(msgBuf []byte) ([]byte, error) {
+	decodeBuffer := make([]byte, 1<<12)
 	for {
 		e.decoder.Reset()
-		nDst, _, err := e.decoder.Transform(e.decodeBuffer, msgBuf, true)
+		nDst, _, err := e.decoder.Transform(decodeBuffer, msgBuf, true)
 		if err == nil {
-			return e.decodeBuffer[:nDst], nil
+			return decodeBuffer[:nDst], nil
 		}
 		if errors.Is(err, transform.ErrShortDst) {
-			e.decodeBuffer = make([]byte, len(e.decodeBuffer)*2)
+			decodeBuffer = make([]byte, len(decodeBuffer)*2)
 			continue
 		}
 		return nil, fmt.Errorf("transform encoding: %w", err)
