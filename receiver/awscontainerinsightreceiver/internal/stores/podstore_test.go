@@ -343,9 +343,9 @@ const (
 	PodPendingMetricName   = "pod_status_pending"
 	PodRunningMetricName   = "pod_status_running"
 	PodSucceededMetricName = "pod_status_succeeded"
-	PodUnknownMetricName   = "pod_status_unknown"
-	PodReadyMetricName     = "pod_status_ready"
-	PodScheduledMetricName = "pod_status_scheduled"
+	PodUnknownMetricName   = "pod_status_condition_unknown"
+	PodReadyMetricName     = "pod_status_condition_ready"
+	PodScheduledMetricName = "pod_status_condition_scheduled"
 )
 
 func TestPodStore_enhanced_metrics_disabled(t *testing.T) {

@@ -48,19 +48,19 @@ const (
 var (
 	re = regexp.MustCompile(splitRegexStr)
 
-	PodPhaseMetricNames = map[corev1.PodPhase]string{
+	PodStatusPhaseMetricNames = map[corev1.PodPhase]string{
 		corev1.PodPending:   ci.MetricName(ci.TypePod, ci.StatusPending),
 		corev1.PodRunning:   ci.MetricName(ci.TypePod, ci.StatusRunning),
 		corev1.PodSucceeded: ci.MetricName(ci.TypePod, ci.StatusSucceeded),
 		corev1.PodFailed:    ci.MetricName(ci.TypePod, ci.StatusFailed),
 	}
 
-	PodConditionMetricNames = map[corev1.PodConditionType]string{
-		corev1.PodReady:     ci.MetricName(ci.TypePod, ci.StatusReady),
-		corev1.PodScheduled: ci.MetricName(ci.TypePod, ci.StatusScheduled),
+	PodStatusConditionMetricNames = map[corev1.PodConditionType]string{
+		corev1.PodReady:     ci.MetricName(ci.TypePod, ci.StatusConditionReady),
+		corev1.PodScheduled: ci.MetricName(ci.TypePod, ci.StatusConditionScheduled),
 	}
 
-	PodConditionUnknownMetric = ci.MetricName(ci.TypePod, ci.StatusUnknown)
+	PodStatusConditionUnknownMetric = ci.MetricName(ci.TypePod, ci.StatusConditionUnknown)
 )
 
 type cachedEntry struct {
@@ -476,8 +476,8 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 		metric.AddTag(ci.PodStatus, string(pod.Status.Phase))
 
 		if p.includeEnhancedMetrics {
-			p.addPodStatusMetrics(metric, pod)
-			p.addPodConditionMetrics(metric, pod)
+			p.addPodStatusPhaseMetrics(metric, pod)
+			p.addPodStatusConditionMetrics(metric, pod)
 		}
 
 		var curContainerRestarts int
@@ -557,34 +557,34 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 	}
 }
 
-func (p *PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
-	for _, metricName := range PodPhaseMetricNames {
+func (p *PodStore) addPodStatusPhaseMetrics(metric CIMetric, pod *corev1.Pod) {
+	for _, metricName := range PodStatusPhaseMetricNames {
 		metric.AddField(metricName, 0)
 	}
 
-	statusMetricName, validStatus := PodPhaseMetricNames[pod.Status.Phase]
+	statusMetricName, validStatus := PodStatusPhaseMetricNames[pod.Status.Phase]
 	if validStatus {
 		metric.AddField(statusMetricName, 1)
 	}
 }
 
-func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
-	for _, metricName := range PodConditionMetricNames {
+func (p *PodStore) addPodStatusConditionMetrics(metric CIMetric, pod *corev1.Pod) {
+	for _, metricName := range PodStatusConditionMetricNames {
 		metric.AddField(metricName, 0)
 	}
 
-	metric.AddField(PodConditionUnknownMetric, 0)
+	metric.AddField(PodStatusConditionUnknownMetric, 0)
 
 	for _, condition := range pod.Status.Conditions {
 
 		switch condition.Status {
 		case corev1.ConditionTrue:
-			if statusMetricName, ok := PodConditionMetricNames[condition.Type]; ok {
+			if statusMetricName, ok := PodStatusConditionMetricNames[condition.Type]; ok {
 				metric.AddField(statusMetricName, 1)
 			}
 		case corev1.ConditionUnknown:
-			if _, ok := PodConditionMetricNames[condition.Type]; ok {
-				metric.AddField(PodConditionUnknownMetric, 1)
+			if _, ok := PodStatusConditionMetricNames[condition.Type]; ok {
+				metric.AddField(PodStatusConditionUnknownMetric, 1)
 			}
 		}
 

@@ -673,9 +673,13 @@ kubectl apply -f config.yaml
 | pod_number_of_container_restarts      | Count        | 
 | pod_number_of_containers              | Count        |   
 | pod_number_of_running_containers      | Count        |  
-| pod_status_ready                      | Count        |
-| pod_status_scheduled                  | Count        |
-| pod_status_unknown                    | Count        |
+| pod_status_failed                     | Count        |
+| pod_status_pending                    | Count        |
+| pod_status_running                    | Count        |
+| pod_status_succeeded                  | Count        |
+| pod_status_condition_ready            | Count        |
+| pod_status_condition_scheduled        | Count        |
+| pod_status_condition_unknown          | Count        |
 
 | Resource Attribute   |
 |----------------------|

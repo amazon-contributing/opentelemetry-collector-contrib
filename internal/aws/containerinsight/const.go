@@ -94,6 +94,7 @@ const (
 	StatusConditionMemoryPressure     = "status_condition_memory_pressure"
 	StatusConditionPIDPressure        = "status_condition_pid_pressure"
 	StatusConditionNetworkUnavailable = "status_condition_network_unavailable"
+	StatusConditionScheduled          = "status_condition_scheduled"
 	StatusConditionUnknown            = "status_condition_unknown"
 	StatusCapacityPods                = "status_capacity_pods"
 	StatusAllocatablePods             = "status_allocatable_pods"
@@ -112,9 +113,6 @@ const (
 	StatusPending                     = "status_pending"
 	StatusSucceeded                   = "status_succeeded"
 	StatusFailed                      = "status_failed"
-	StatusUnknown                     = "status_unknown"
-	StatusReady                       = "status_ready"
-	StatusScheduled                   = "status_scheduled"
 
 	RunningPodCount       = "number_of_running_pods"
 	RunningContainerCount = "number_of_running_containers"
@@ -242,6 +240,7 @@ func init() {
 		StatusConditionMemoryPressure:     UnitCount,
 		StatusConditionPIDPressure:        UnitCount,
 		StatusConditionNetworkUnavailable: UnitCount,
+		StatusConditionScheduled:          UnitCount,
 		StatusConditionUnknown:            UnitCount,
 		StatusCapacityPods:                UnitCount,
 		StatusAllocatablePods:             UnitCount,
@@ -259,9 +258,6 @@ func init() {
 		StatusTerminated:           UnitCount,
 		StatusWaiting:              UnitCount,
 		StatusWaitingReasonCrashed: UnitCount,
-		StatusUnknown:              UnitCount,
-		StatusReady:                UnitCount,
-		StatusScheduled:            UnitCount,
 
 		// cluster metrics
 		NodeCount:       UnitCount,
