@@ -54,11 +54,12 @@ func newCloudWatchLogClient(svc cloudwatchlogsiface.CloudWatchLogsAPI, logRetent
 }
 
 // NewClient create Client
-func NewClient(logger *zap.Logger, awsConfig *aws.Config, buildInfo component.BuildInfo, logGroupName string, logRetention int64, sess *session.Session) *Client {
+func NewClient(logger *zap.Logger, awsConfig *aws.Config, buildInfo component.BuildInfo, logGroupName string, logRetention int64, sess *session.Session, enhancedContainerInsights bool) *Client {
 	client := cloudwatchlogs.New(sess, awsConfig)
 	client.Handlers.Build.PushBackNamed(handler.NewRequestCompressionHandler([]string{"PutLogEvents"}, logger))
 	client.Handlers.Build.PushBackNamed(handler.RequestStructuredLogHandler)
-	client.Handlers.Build.PushFrontNamed(newCollectorUserAgentHandler(buildInfo, logGroupName))
+	client.Handlers.Build.PushFrontNamed(newCollectorUserAgentHandler(buildInfo, logGroupName, enhancedContainerInsights))
+
 	return newCloudWatchLogClient(client, logRetention, logger)
 }
 
@@ -191,9 +192,11 @@ func (client *Client) CreateStream(logGroup, streamName *string) (token string, 
 	return "", nil
 }
 
-func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName string) request.NamedHandler {
+func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName string, enhancedContainerInsights bool) request.NamedHandler {
 	fn := request.MakeAddToUserAgentHandler(buildInfo.Command, buildInfo.Version)
-	if matchContainerInsightsPattern(logGroupName) {
+	if enhancedContainerInsights && matchEnhancedContainerInsightsPattern(logGroupName) {
+		fn = request.MakeAddToUserAgentHandler(buildInfo.Command, buildInfo.Version, "EnhancedContainerInsights")
+	} else if matchContainerInsightsPattern(logGroupName) {
 		fn = request.MakeAddToUserAgentHandler(buildInfo.Command, buildInfo.Version, "ContainerInsights")
 	}
 	return request.NamedHandler{
@@ -204,6 +207,12 @@ func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName st
 
 func matchContainerInsightsPattern(logGroupName string) bool {
 	regexP := "^/aws/.*containerinsights/.*/(performance|prometheus)$"
+	r, _ := regexp.Compile(regexP)
+	return r.MatchString(logGroupName)
+}
+
+func matchEnhancedContainerInsightsPattern(logGroupName string) bool {
+	regexP := "^/aws/containerinsights/\\S+/performance$"
 	r, _ := regexp.Compile(regexP)
 	return r.MatchString(logGroupName)
 }

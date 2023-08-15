@@ -517,45 +517,66 @@ func TestUserAgent(t *testing.T) {
 	logger := zap.NewNop()
 
 	tests := []struct {
-		name                 string
-		buildInfo            component.BuildInfo
-		logGroupName         string
-		expectedUserAgentStr string
+		name                      string
+		buildInfo                 component.BuildInfo
+		logGroupName              string
+		enhancedContainerInsights bool
+		expectedUserAgentStr      string
 	}{
 		{
 			"emptyLogGroup",
 			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
 			"",
+			false,
 			"opentelemetry-collector-contrib/1.0",
 		},
 		{
 			"buildInfoCommandUsed",
 			component.BuildInfo{Command: "test-collector-contrib", Version: "1.0"},
 			"",
+			false,
 			"test-collector-contrib/1.0",
 		},
 		{
 			"non container insights",
 			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.1"},
 			"test-group",
+			false,
 			"opentelemetry-collector-contrib/1.1",
 		},
 		{
 			"container insights EKS",
 			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
 			"/aws/containerinsights/eks-cluster-name/performance",
+			false,
 			"opentelemetry-collector-contrib/1.0 (ContainerInsights)",
 		},
 		{
 			"container insights ECS",
 			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
 			"/aws/ecs/containerinsights/ecs-cluster-name/performance",
+			false,
 			"opentelemetry-collector-contrib/1.0 (ContainerInsights)",
 		},
 		{
 			"container insights prometheus",
 			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
 			"/aws/containerinsights/cluster-name/prometheus",
+			false,
+			"opentelemetry-collector-contrib/1.0 (ContainerInsights)",
+		},
+		{
+			"enhanced container insights EKS",
+			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
+			"/aws/containerinsights/eks-cluster-name/performance",
+			true,
+			"opentelemetry-collector-contrib/1.0 (EnhancedContainerInsights)",
+		},
+		{
+			"negative - enhanced container insights ECS",
+			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
+			"/aws/containerinsights/eks-cluster-name/performance",
+			true,
 			"opentelemetry-collector-contrib/1.0 (ContainerInsights)",
 		},
 	}
@@ -563,7 +584,7 @@ func TestUserAgent(t *testing.T) {
 	session, _ := session.NewSession()
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cwlog := NewClient(logger, &aws.Config{}, tc.buildInfo, tc.logGroupName, 0, session)
+			cwlog := NewClient(logger, &aws.Config{}, tc.buildInfo, tc.logGroupName, 0, session, false)
 			logClient := cwlog.svc.(*cloudwatchlogs.CloudWatchLogs)
 
 			req := request.New(aws.Config{}, metadata.ClientInfo{}, logClient.Handlers, nil, &request.Operation{
