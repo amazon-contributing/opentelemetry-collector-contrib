@@ -635,6 +635,10 @@ func TestGetJobNamePrefix(t *testing.T) {
 
 type mockReplicaSetInfo1 struct{}
 
+func (m *mockReplicaSetInfo1) ReplicaSetInfos() []*k8sclient.ReplicaSetInfo {
+	return []*k8sclient.ReplicaSetInfo{}
+}
+
 func (m *mockReplicaSetInfo1) ReplicaSetToDeployment() map[string]string {
 	return map[string]string{}
 }
@@ -646,6 +650,10 @@ func (m *mockK8sClient1) GetReplicaSetClient() k8sclient.ReplicaSetClient {
 }
 
 type mockReplicaSetInfo2 struct{}
+
+func (m *mockReplicaSetInfo2) ReplicaSetInfos() []*k8sclient.ReplicaSetInfo {
+	return []*k8sclient.ReplicaSetInfo{}
+}
 
 func (m *mockReplicaSetInfo2) ReplicaSetToDeployment() map[string]string {
 	return map[string]string{"DeploymentTest-sftrz2785": "DeploymentTest"}
@@ -876,6 +884,7 @@ func TestPodStore_decorateNode(t *testing.T) {
 	assert.False(t, metric.HasField("node_status_condition_memory_pressure"))
 	assert.False(t, metric.HasField("node_status_condition_pid_pressure"))
 	assert.False(t, metric.HasField("node_status_condition_network_unavailable"))
+	assert.False(t, metric.HasField("node_status_condition_unknown"))
 
 	assert.False(t, metric.HasField("node_status_capacity_pods"))
 	assert.False(t, metric.HasField("node_status_allocatable_pods"))
@@ -888,6 +897,7 @@ func TestPodStore_decorateNode(t *testing.T) {
 	assert.Equal(t, uint64(0), metric.GetField("node_status_condition_memory_pressure").(uint64))
 	assert.Equal(t, uint64(0), metric.GetField("node_status_condition_pid_pressure").(uint64))
 	assert.Equal(t, uint64(0), metric.GetField("node_status_condition_network_unavailable").(uint64))
+	assert.Equal(t, uint64(1), metric.GetField("node_status_condition_unknown").(uint64))
 
 	assert.Equal(t, uint64(5), metric.GetField("node_status_capacity_pods").(uint64))
 	assert.Equal(t, uint64(15), metric.GetField("node_status_allocatable_pods").(uint64))
