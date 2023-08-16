@@ -570,12 +570,13 @@ func TestUserAgent(t *testing.T) {
 			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
 			"/aws/containerinsights/eks-cluster-name/performance",
 			true,
-			"opentelemetry-collector-contrib/1.0 (EnhancedContainerInsights)",
+			"opentelemetry-collector-contrib/1.0 (EnhancedEKSContainerInsights)",
 		},
 		{
 			"negative - enhanced container insights ECS",
 			component.BuildInfo{Command: "opentelemetry-collector-contrib", Version: "1.0"},
-			"/aws/containerinsights/eks-cluster-name/performance",
+			// this is an ECS path, enhanced CI is not supported
+			"/aws/ecs/containerinsights/ecs-cluster-name/performance",
 			true,
 			"opentelemetry-collector-contrib/1.0 (ContainerInsights)",
 		},
@@ -584,7 +585,7 @@ func TestUserAgent(t *testing.T) {
 	session, _ := session.NewSession()
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cwlog := NewClient(logger, &aws.Config{}, tc.buildInfo, tc.logGroupName, 0, session, false)
+			cwlog := NewClient(logger, &aws.Config{}, tc.buildInfo, tc.logGroupName, 0, session, tc.enhancedContainerInsights)
 			logClient := cwlog.svc.(*cloudwatchlogs.CloudWatchLogs)
 
 			req := request.New(aws.Config{}, metadata.ClientInfo{}, logClient.Handlers, nil, &request.Operation{

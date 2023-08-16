@@ -37,6 +37,11 @@ const (
 	errCodeThrottlingException = "ThrottlingException"
 )
 
+var (
+	containerInsightsRegexPattern       = regexp.MustCompile("^/aws/.*containerinsights/.*/(performance|prometheus)$")
+	enhancedContainerInsightsEKSPattern = regexp.MustCompile("^/aws/containerinsights/\\S+/performance$")
+)
+
 // Possible exceptions are combination of common errors (https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/CommonErrors.html)
 // and API specific erros (e.g. https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html#API_PutLogEvents_Errors)
 type Client struct {
@@ -194,25 +199,13 @@ func (client *Client) CreateStream(logGroup, streamName *string) (token string, 
 
 func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName string, enhancedContainerInsights bool) request.NamedHandler {
 	fn := request.MakeAddToUserAgentHandler(buildInfo.Command, buildInfo.Version)
-	if enhancedContainerInsights && matchEnhancedContainerInsightsPattern(logGroupName) {
-		fn = request.MakeAddToUserAgentHandler(buildInfo.Command, buildInfo.Version, "EnhancedContainerInsights")
-	} else if matchContainerInsightsPattern(logGroupName) {
+	if enhancedContainerInsights && enhancedContainerInsightsEKSPattern.MatchString(logGroupName) {
+		fn = request.MakeAddToUserAgentHandler(buildInfo.Command, buildInfo.Version, "EnhancedEKSContainerInsights")
+	} else if containerInsightsRegexPattern.MatchString(logGroupName) {
 		fn = request.MakeAddToUserAgentHandler(buildInfo.Command, buildInfo.Version, "ContainerInsights")
 	}
 	return request.NamedHandler{
 		Name: "otel.collector.UserAgentHandler",
 		Fn:   fn,
 	}
-}
-
-func matchContainerInsightsPattern(logGroupName string) bool {
-	regexP := "^/aws/.*containerinsights/.*/(performance|prometheus)$"
-	r, _ := regexp.Compile(regexP)
-	return r.MatchString(logGroupName)
-}
-
-func matchEnhancedContainerInsightsPattern(logGroupName string) bool {
-	regexP := "^/aws/containerinsights/\\S+/performance$"
-	r, _ := regexp.Compile(regexP)
-	return r.MatchString(logGroupName)
 }
