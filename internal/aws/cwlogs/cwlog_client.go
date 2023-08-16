@@ -38,8 +38,8 @@ const (
 )
 
 var (
-	containerInsightsRegexPattern       = regexp.MustCompile("^/aws/.*containerinsights/.*/(performance|prometheus)$")
-	enhancedContainerInsightsEKSPattern = regexp.MustCompile("^/aws/containerinsights/\\S+/performance$")
+	containerInsightsRegexPattern       = regexp.MustCompile(`^/aws/.*containerinsights/.*/(performance|prometheus)$`)
+	enhancedContainerInsightsEKSPattern = regexp.MustCompile(`^/aws/containerinsights/\S+/performance$`)
 )
 
 // Possible exceptions are combination of common errors (https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/CommonErrors.html)
