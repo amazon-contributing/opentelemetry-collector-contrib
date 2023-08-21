@@ -132,6 +132,16 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 				Regex:        relabel.MustNewRegexp(controlPlaneMetricsAllowRegex),
 				Action:       relabel.Keep,
 			},
+			// type conflicts with the log Type in the container insights output format, it needs to be replaced and dropped
+			{
+				Regex:       relabel.MustNewRegexp("^type$"),
+				Replacement: "kubernetes_type",
+				Action:      relabel.LabelMap,
+			},
+			{
+				Regex:  relabel.MustNewRegexp("^type$"),
+				Action: relabel.LabelDrop,
+			},
 		},
 	}
 
