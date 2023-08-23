@@ -223,7 +223,7 @@ func TestNewPrometheusScraperEndToEnd(t *testing.T) {
 							"Version":          model.LabelValue("0"),
 							"Sources":          model.LabelValue("[\"apiserver\"]"),
 							"NodeName":         model.LabelValue("test"),
-							"Type":             model.LabelValue("control_plane"),
+							"Type":             model.LabelValue("ControlPlane"),
 						},
 					},
 				},
