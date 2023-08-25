@@ -352,6 +352,7 @@ kubectl apply -f config.yaml
 | rest_client_request_duration_seconds                      | Seconds |
 | rest_client_requests_total                                | Count   |
 | etcd_request_duration_seconds                             | Seconds |
+| apiserver_flowcontrol_rejected_requests_total             | Count   |
 
 
 
@@ -442,6 +443,23 @@ kubectl apply -f config.yaml
 | Timestamp          |
 | Version            |
 | Sources            |
+
+
+### Cluster PriorityLevel
+| Metric                                           | Unit  |
+|--------------------------------------------------|-------|
+| apiserver_flowcontrol_request_concurrency_limit  | Count |
+
+<br/><br/>
+| Resource Attribute |
+|--------------------|
+| ClusterName        |
+| NodeName           |
+| Type               |
+| Timestamp          |
+| Version            |
+| Sources            |
+| PriorityLevel      |
 
 ### Cluster Deployment
 | Metric                      | Unit  |
