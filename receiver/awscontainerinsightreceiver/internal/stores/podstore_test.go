@@ -1,16 +1,5 @@
 // Copyright The OpenTelemetry Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 package stores
 
@@ -24,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 
@@ -219,6 +209,7 @@ func generateMetric(fields map[string]interface{}, tags map[string]string) CIMet
 
 func TestPodStore_decorateCpu(t *testing.T) {
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 
 	pod := getBaseTestPodInfo()
 
@@ -254,6 +245,7 @@ func TestPodStore_decorateCpu(t *testing.T) {
 
 func TestPodStore_decorateMem(t *testing.T) {
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	pod := getBaseTestPodInfo()
 
 	tags := map[string]string{ci.MetricType: ci.TypePod}
@@ -440,6 +432,7 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	fields := map[string]interface{}{ci.MetricName(ci.TypePod, ci.CPUTotal): float64(1)}
 	podStore := getPodStore()
 	podStore.includeEnhancedMetrics = true
+	defer require.NoError(t, podStore.Shutdown())
 	metric := generateMetric(fields, tags)
 
 	podStore.addStatus(metric, pod)
@@ -843,8 +836,8 @@ func (m *mockPodClient) ListPods() ([]corev1.Pod, error) {
 }
 
 func TestPodStore_RefreshTick(t *testing.T) {
-
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	podStore.podClient = &mockPodClient{}
 	podStore.lastRefreshed = time.Now().Add(-time.Minute)
 	podStore.RefreshTick(context.Background())
@@ -860,8 +853,8 @@ func TestPodStore_decorateNode(t *testing.T) {
 	t.Setenv("HOST_NAME", "testNode1")
 	pod := getBaseTestPodInfo()
 	podList := []corev1.Pod{*pod}
-
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	podStore.refreshInternal(time.Now(), podList)
 
 	tags := map[string]string{ci.MetricType: ci.TypeNode}
@@ -918,11 +911,12 @@ func TestPodStore_Decorate(t *testing.T) {
 	metric := &mockCIMetric{
 		tags: tags,
 	}
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	podStore.podClient = &mockPodClient{}
 	kubernetesBlob := map[string]interface{}{}
-	ctx := context.Background()
 	ok := podStore.Decorate(ctx, metric, kubernetesBlob)
 	assert.True(t, ok)
 

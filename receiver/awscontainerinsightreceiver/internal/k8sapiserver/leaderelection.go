@@ -171,8 +171,9 @@ func (le *LeaderElection) init() error {
 			LockConfig: resourceLockConfig,
 		}
 	} else {
+		configMapsLeasesResourceLock := "configmapsleases"
 		l, err := resourcelock.New(
-			resourcelock.ConfigMapsLeasesResourceLock,
+			configMapsLeasesResourceLock,
 			lockNamespace, le.leaderLockName,
 			clientSet.CoreV1(),
 			clientSet.CoordinationV1(),
