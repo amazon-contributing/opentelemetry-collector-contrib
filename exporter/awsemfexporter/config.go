@@ -50,7 +50,7 @@ type Config struct {
 	// Tags is the option to set tags for the CloudWatch Log Group.  If specified, please add at most 50 tags.  Input is a string to string map like so: { 'key': 'value' }
 	// Keys must be between 1-128 characters and follow the regex pattern: ^([\p{L}\p{Z}\p{N}_.:/=+\-@]+)$
 	// Values must be between 1-256 characters and follow the regex pattern: ^([\p{L}\p{Z}\p{N}_.:/=+\-@]*)$
-	Tags map[string]*string `mapstructure:"tags"`
+	Tags map[string]*string `mapstructure:"tags,omitempty"`
 
 	// ParseJSONEncodedAttributeValues is an array of attribute keys whose corresponding values are JSON-encoded as strings.
 	// Those strings will be decoded to its original json structure.

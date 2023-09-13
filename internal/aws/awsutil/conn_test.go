@@ -21,7 +21,7 @@ type mockConn struct {
 	sn *session.Session
 }
 
-func (c *mockConn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
+func (c *mockConn) getEC2Region(_ *session.Session, _ int) (string, error) {
 	args := c.Called(nil)
 	errorStr := args.String(0)
 	var err error
@@ -32,7 +32,7 @@ func (c *mockConn) getEC2Region(s *session.Session, imdsRetries int) (string, er
 	return ec2Region, nil
 }
 
-func (c *mockConn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region string) (*session.Session, error) {
+func (c *mockConn) newAWSSession(_ *zap.Logger, _ *AWSSessionSettings, _ string) (*session.Session, error) {
 	return c.sn, nil
 }
 

@@ -277,7 +277,7 @@ func TestPodStore_decorateMem(t *testing.T) {
 	assert.Equal(t, float64(20), metric.GetField("container_memory_utilization_over_container_limit").(float64))
 }
 
-func TestPodStore_previousCleanupLocking(t *testing.T) {
+func TestPodStore_previousCleanupLocking(_ *testing.T) {
 	podStore := getPodStore()
 	podStore.podClient = &mockPodClient{}
 	pod := getBaseTestPodInfo()

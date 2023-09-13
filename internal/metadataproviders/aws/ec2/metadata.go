@@ -35,7 +35,7 @@ func NewProvider(sess *session.Session) Provider {
 	}
 }
 
-func (c *metadataClient) InstanceID(ctx context.Context) (string, error) {
+func (c *metadataClient) InstanceID(_ context.Context) (string, error) {
 	instanceID, err := c.metadata.GetMetadata("instance-id")
 	if err == nil {
 		return instanceID, err
@@ -43,7 +43,7 @@ func (c *metadataClient) InstanceID(ctx context.Context) (string, error) {
 	return c.metadataFallbackEnable.GetMetadata("instance-id")
 }
 
-func (c *metadataClient) Hostname(ctx context.Context) (string, error) {
+func (c *metadataClient) Hostname(_ context.Context) (string, error) {
 	hostname, err := c.metadata.GetMetadata("hostname")
 	if err == nil {
 		return hostname, err
@@ -51,7 +51,7 @@ func (c *metadataClient) Hostname(ctx context.Context) (string, error) {
 	return c.metadataFallbackEnable.GetMetadata("hostname")
 }
 
-func (c *metadataClient) Get(ctx context.Context) (ec2metadata.EC2InstanceIdentityDocument, error) {
+func (c *metadataClient) Get(_ context.Context) (ec2metadata.EC2InstanceIdentityDocument, error) {
 	document, err := c.metadata.GetInstanceIdentityDocument()
 	if err == nil {
 		return document, err

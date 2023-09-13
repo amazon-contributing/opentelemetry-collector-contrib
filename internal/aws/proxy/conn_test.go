@@ -26,7 +26,7 @@ type mock struct {
 	sn              *session.Session
 }
 
-func (m *mock) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
+func (m *mock) getEC2Region(_ *session.Session, _ int) (string, error) {
 	if m.getEC2RegionErr != nil {
 		return "", m.getEC2RegionErr
 	}

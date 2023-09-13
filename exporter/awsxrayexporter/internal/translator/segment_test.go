@@ -545,7 +545,7 @@ func TestSpanWithAttributesSegmentMetadata(t *testing.T) {
 	resource := constructDefaultResource()
 	span := constructServerSpan(parentSpanID, spanName, ptrace.StatusCodeError, "OK", attributes)
 
-	segment, _ := MakeSegment(span, resource, nil, false, nil,false)
+	segment, _ := MakeSegment(span, resource, nil, false, nil, false)
 
 	assert.NotNil(t, segment)
 	assert.Equal(t, 0, len(segment.Annotations))

@@ -282,7 +282,9 @@ func (p *PodStore) refresh(ctx context.Context, now time.Time) {
 func (p *PodStore) cleanup(now time.Time) {
 	p.prevMeasurements.Range(
 		func(key, prevMeasurement interface{}) bool {
+			prevMeasurement.(*mapWithExpiry).Lock()
 			prevMeasurement.(*mapWithExpiry).CleanUp(now)
+			prevMeasurement.(*mapWithExpiry).Unlock()
 			return true
 		})
 	p.cache.CleanUp(now)

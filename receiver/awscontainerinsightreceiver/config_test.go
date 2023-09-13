@@ -42,7 +42,7 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
-			id: component.NewIDWithName(typeStr, "cluster_name"),
+			id: component.NewIDWithName(metadata.Type, "cluster_name"),
 			expected: &Config{
 				CollectionInterval:        60 * time.Second,
 				ContainerOrchestrator:     "eks",
@@ -54,7 +54,7 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
-			id: component.NewIDWithName(typeStr, "leader_lock_name"),
+			id: component.NewIDWithName(metadata.Type, "leader_lock_name"),
 			expected: &Config{
 				CollectionInterval:        60 * time.Second,
 				ContainerOrchestrator:     "eks",
@@ -65,7 +65,7 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
-			id: component.NewIDWithName(typeStr, "leader_lock_using_config_map_only"),
+			id: component.NewIDWithName(metadata.Type, "leader_lock_using_config_map_only"),
 			expected: &Config{
 				CollectionInterval:           60 * time.Second,
 				ContainerOrchestrator:        "eks",
@@ -77,7 +77,7 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
-			id: component.NewIDWithName(typeStr, "enable_control_plane_metrics"),
+			id: component.NewIDWithName(metadata.Type, "enable_control_plane_metrics"),
 			expected: &Config{
 				CollectionInterval:        60 * time.Second,
 				ContainerOrchestrator:     "eks",
