@@ -46,7 +46,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 			ResourceARN:           "",
 			RoleARN:               "",
 		},
-		skipTimestampValidation: false,
+		skipTimestampValidation: true,
 	}, "failed to create default config")
 	assert.NoError(t, componenttest.CheckConfigStruct(cfg))
 }
