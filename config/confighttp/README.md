@@ -12,10 +12,10 @@ leverage client configuration.
 Note that client configuration supports TLS configuration, the
 configuration parameters are also defined under `tls` like server
 configuration. For more information, see [configtls
-README](../configtls/README.md).
+README](https://github.com/open-telemetry/opentelemetry-collector/blob/main/config/configtls/README.md).
 
 - `endpoint`: address:port
-- [`tls`](../configtls/README.md)
+- [`tls`](https://github.com/open-telemetry/opentelemetry-collector/blob/main/config/configtls/README.md)
 - `headers`: name/value pairs added to the HTTP request headers
 - [`read_buffer_size`](https://golang.org/pkg/net/http/#Transport)
 - [`timeout`](https://golang.org/pkg/net/http/#Client)
@@ -65,7 +65,7 @@ will not be enabled.
   header, allowing clients to cache the response to CORS preflight requests. If
   not set, browsers use a default of 5 seconds.
 - `endpoint`: Valid value syntax available [here](https://github.com/grpc/grpc/blob/master/doc/naming.md)
-- [`tls`](../configtls/README.md)
+- [`tls`](https://github.com/open-telemetry/opentelemetry-collector/blob/main/config/configtls/README.md)
 
 You can enable [`attribute processor`][attribute-processor] to append any http header to span's attribute using custom key. You also need to enable the "include_metadata"
 
