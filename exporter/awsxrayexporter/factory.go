@@ -35,8 +35,7 @@ const (
 var skipTimestampValidationFeatureGate = featuregate.GlobalRegistry().MustRegister(
 	"exporter.awsxray.skiptimestampvalidation",
 	featuregate.StageBeta,
-	featuregate.WithRegisterDescription("Remove XRay's timestamp validation on first 32 bits of trace ID"),
-	featuregate.WithRegisterFromVersion("v0.84.0"))
+	featuregate.WithRegisterDescription("Remove XRay's timestamp validation on first 32 bits of trace ID"))
 
 // NewFactory creates a factory for AWS-Xray exporter.
 func NewFactory() exporter.Factory {
