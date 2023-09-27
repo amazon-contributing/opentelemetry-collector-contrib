@@ -77,7 +77,7 @@ type BaseConfig struct {
 	Encoding         string                      `mapstructure:"encoding,omitempty"`
 	Multiline        tokenize.MultilineConfig    `mapstructure:"multiline,omitempty"`
 	TrimConfig       trim.Config                 `mapstructure:",squash"`
-	MultiLineBuilder MultiLineBuilderFunc
+	MultiLineBuilder MultiLineBuilderFunc        `mapstructure:",omitempty"`
 }
 
 type MultiLineBuilderFunc func(enc encoding.Encoding) (bufio.SplitFunc, error)
