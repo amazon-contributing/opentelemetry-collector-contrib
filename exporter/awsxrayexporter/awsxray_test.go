@@ -1,24 +1,13 @@
 // Copyright The OpenTelemetry Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 package awsxrayexporter
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -67,14 +56,13 @@ func TestXrayAndW3CSpanTraceExport(t *testing.T) {
 func TestXrayAndW3CSpanTraceResourceExtraction(t *testing.T) {
 	td := constructXrayAndW3CSpanData()
 	logger, _ := zap.NewProduction()
-	assert.Len(t, extractResourceSpans(generateConfig(t), logger, td), 2, "2 spans have xay trace id")
+	assert.Len(t, extractResourceSpans(generateConfig(t), logger, td), 4, "4 spans have xray/w3c trace id")
 }
 
 func TestW3CSpanTraceResourceExtraction(t *testing.T) {
-	t.Skip("Flaky test, see https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/9255")
 	td := constructW3CSpanData()
 	logger, _ := zap.NewProduction()
-	assert.Len(t, extractResourceSpans(generateConfig(t), logger, td), 0, "0 spans have xray trace id")
+	assert.Len(t, extractResourceSpans(generateConfig(t), logger, td), 2, "2 spans have w3c trace id")
 }
 
 func TestTelemetryEnabled(t *testing.T) {
@@ -148,7 +136,6 @@ func constructSpanData() ptrace.Traces {
 	return traces
 }
 
-// nolint:unused
 func constructW3CSpanData() ptrace.Traces {
 	resource := constructResource()
 	traces := ptrace.NewTraces()
@@ -276,8 +263,9 @@ func newTraceID() pcommon.TraceID {
 
 func constructW3CTraceID() pcommon.TraceID {
 	var r [16]byte
-	for i := range r {
-		r[i] = byte(rand.Intn(128))
+	_, err := rand.Read(r[:])
+	if err != nil {
+		panic(err)
 	}
 	return r
 }

@@ -1,16 +1,5 @@
 // Copyright The OpenTelemetry Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 package k8sapiserver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8sapiserver"
 
@@ -44,12 +33,20 @@ const (
 var (
 	controlPlaneMetricAllowList = []string{
 		"apiserver_admission_controller_admission_duration_seconds.*",
+		"apiserver_admission_step_admission_duration_seconds.*",
+		"apiserver_admission_webhook_admission_duration_seconds.*",
+		"apiserver_current_inflight_requests",
+		"apiserver_current_inqueue_requests",
 		"apiserver_flowcontrol_rejected_requests_total",
 		"apiserver_flowcontrol_request_concurrency_limit",
+		"apiserver_longrunning_requests",
 		"apiserver_request_duration_seconds.*",
 		"apiserver_request_total",
+		"apiserver_requested_deprecated_apis",
 		"apiserver_storage_list_duration_seconds.*",
 		"apiserver_storage_objects",
+		"apiserver_storage_db_total_size_in_bytes.*",
+		"apiserver_storage_size_bytes.*",
 		"etcd_db_total_size_in_bytes.*",
 		"etcd_request_duration_seconds.*",
 		"rest_client_request_duration_seconds.*",

@@ -1,16 +1,5 @@
 // Copyright The OpenTelemetry Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 package containerinsight // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 
 import (
@@ -20,8 +9,6 @@ import (
 
 // define metric names, attribute names, metric types, and units for both EKS and ECS Container Insights
 const (
-	GoPSUtilProcDirEnv = "HOST_PROC"
-
 	// We assume 50 micro-seconds is the minimal gap between two collected data sample to be valid to calculate delta
 	MinTimeDiff = 50 * time.Microsecond
 
@@ -89,42 +76,47 @@ const (
 	FSInodesfree  = "filesystem_inodes_free"
 	FSUtilization = "filesystem_utilization"
 
-	StatusConditionReady              = "status_condition_ready"
-	StatusConditionDiskPressure       = "status_condition_disk_pressure"
-	StatusConditionMemoryPressure     = "status_condition_memory_pressure"
-	StatusConditionPIDPressure        = "status_condition_pid_pressure"
-	StatusConditionNetworkUnavailable = "status_condition_network_unavailable"
-	StatusConditionUnknown            = "status_condition_unknown"
-	StatusCapacityPods                = "status_capacity_pods"
-	StatusAllocatablePods             = "status_allocatable_pods"
-	StatusNumberAvailable             = "status_number_available"
-	StatusNumberUnavailable           = "status_number_unavailable"
-	StatusDesiredNumberScheduled      = "status_desired_number_scheduled"
-	StatusCurrentNumberScheduled      = "status_current_number_scheduled"
-	StatusReplicasAvailable           = "status_replicas_available"
-	StatusReplicasUnavailable         = "status_replicas_unavailable"
-	SpecReplicas                      = "spec_replicas"
-	StatusRunning                     = "status_running"
-	StatusTerminated                  = "status_terminated"
-	StatusWaiting                     = "status_waiting"
-	StatusWaitingReasonCrashed        = "status_waiting_reason_crashed"
-	StatusPending                     = "status_pending"
-	StatusSucceeded                   = "status_succeeded"
-	StatusFailed                      = "status_failed"
-	StatusUnknown                     = "status_unknown"
-	StatusReady                       = "status_ready"
-	StatusScheduled                   = "status_scheduled"
-	ReplicasDesired                   = "replicas_desired"
-	ReplicasReady                     = "replicas_ready"
+	StatusConditionReady                          = "status_condition_ready"
+	StatusConditionDiskPressure                   = "status_condition_disk_pressure"
+	StatusConditionMemoryPressure                 = "status_condition_memory_pressure"
+	StatusConditionPIDPressure                    = "status_condition_pid_pressure"
+	StatusConditionNetworkUnavailable             = "status_condition_network_unavailable"
+	StatusConditionUnknown                        = "status_condition_unknown"
+	StatusCapacityPods                            = "status_capacity_pods"
+	StatusAllocatablePods                         = "status_allocatable_pods"
+	StatusNumberAvailable                         = "status_number_available"
+	StatusNumberUnavailable                       = "status_number_unavailable"
+	StatusDesiredNumberScheduled                  = "status_desired_number_scheduled"
+	StatusCurrentNumberScheduled                  = "status_current_number_scheduled"
+	StatusReplicasAvailable                       = "status_replicas_available"
+	StatusReplicasUnavailable                     = "status_replicas_unavailable"
+	SpecReplicas                                  = "spec_replicas"
+	StatusRunning                                 = "status_running"
+	StatusTerminated                              = "status_terminated"
+	StatusWaiting                                 = "status_waiting"
+	StatusWaitingReasonCrashLoopBackOff           = "status_waiting_reason_crash_loop_back_off"
+	StatusWaitingReasonImagePullError             = "status_waiting_reason_image_pull_error"
+	StatusWaitingReasonStartError                 = "status_waiting_reason_start_error"
+	StatusWaitingReasonCreateContainerError       = "status_waiting_reason_create_container_error"
+	StatusWaitingReasonCreateContainerConfigError = "status_waiting_reason_create_container_config_error"
+	StatusTerminatedReasonOOMKilled               = "status_terminated_reason_oom_killed"
+	StatusPending                                 = "status_pending"
+	StatusSucceeded                               = "status_succeeded"
+	StatusFailed                                  = "status_failed"
+	StatusUnknown                                 = "status_unknown"
+	StatusReady                                   = "status_ready"
+	StatusScheduled                               = "status_scheduled"
+	ReplicasDesired                               = "replicas_desired"
+	ReplicasReady                                 = "replicas_ready"
 
-	RunningPodCount          = "number_of_running_pods"
-	RunningContainerCount    = "number_of_running_containers"
-	ContainerCount           = "number_of_containers"
-	NodeCount                = "node_count"
-	FailedNodeCount          = "failed_node_count"
-	ContainerRestartCount    = "number_of_container_restarts"
-	RunningTaskCount         = "number_of_running_tasks"
-	Age                      = "age"
+	RunningPodCount       = "number_of_running_pods"
+	RunningContainerCount = "number_of_running_containers"
+	ContainerCount        = "number_of_containers"
+	NodeCount             = "node_count"
+	FailedNodeCount       = "failed_node_count"
+	ContainerRestartCount = "number_of_container_restarts"
+	RunningTaskCount      = "number_of_running_tasks"
+
 	DiskIOServiceBytesPrefix = "diskio_io_service_bytes_"
 	DiskIOServicedPrefix     = "diskio_io_serviced_"
 	DiskIOAsync              = "Async"
@@ -162,7 +154,6 @@ const (
 	// unit
 	UnitBytes       = "Bytes"
 	UnitMegaBytes   = "Megabytes"
-	UnitSeconds     = "Seconds"
 	UnitNanoSecond  = "Nanoseconds"
 	UnitBytesPerSec = "Bytes/Second"
 	UnitCount       = "Count"
@@ -170,6 +161,16 @@ const (
 	UnitVCPU        = "vCPU"
 	UnitPercent     = "Percent"
 )
+
+var WaitingReasonLookup = map[string]string{
+	"CrashLoopBackOff":           StatusWaitingReasonCrashLoopBackOff,
+	"ErrImagePull":               StatusWaitingReasonImagePullError,
+	"ImagePullBackOff":           StatusWaitingReasonImagePullError,
+	"InvalidImageName":           StatusWaitingReasonImagePullError,
+	"CreateContainerError":       StatusWaitingReasonCreateContainerError,
+	"CreateContainerConfigError": StatusWaitingReasonCreateContainerConfigError,
+	"StartError":                 StatusWaitingReasonStartError,
+}
 
 var metricToUnitMap map[string]string
 
@@ -260,16 +261,20 @@ func init() {
 		ReplicasReady:                     UnitCount,
 
 		// kube-state-metrics equivalents
-		StatusRunning:              UnitCount,
-		StatusTerminated:           UnitCount,
-		StatusWaiting:              UnitCount,
-		StatusWaitingReasonCrashed: UnitCount,
-		StatusFailed:               UnitCount,
-		StatusPending:              UnitCount,
-		StatusSucceeded:            UnitCount,
-		StatusUnknown:              UnitCount,
-		StatusReady:                UnitCount,
-		StatusScheduled:            UnitCount,
+		StatusRunning:                                 UnitCount,
+		StatusTerminated:                              UnitCount,
+		StatusWaiting:                                 UnitCount,
+		StatusWaitingReasonCrashLoopBackOff:           UnitCount,
+		StatusWaitingReasonImagePullError:             UnitCount,
+		StatusWaitingReasonStartError:                 UnitCount,
+		StatusWaitingReasonCreateContainerConfigError: UnitCount,
+		StatusWaitingReasonCreateContainerError:       UnitCount,
+		StatusFailed:                                  UnitCount,
+		StatusPending:                                 UnitCount,
+		StatusSucceeded:                               UnitCount,
+		StatusUnknown:                                 UnitCount,
+		StatusReady:                                   UnitCount,
+		StatusScheduled:                               UnitCount,
 
 		// cluster metrics
 		NodeCount:       UnitCount,
@@ -281,6 +286,5 @@ func init() {
 		ContainerCount:        UnitCount,
 		ContainerRestartCount: UnitCount,
 		RunningTaskCount:      UnitCount,
-		Age:                   UnitSeconds,
 	}
 }

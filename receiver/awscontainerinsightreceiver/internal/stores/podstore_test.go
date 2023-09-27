@@ -1,16 +1,5 @@
 // Copyright The OpenTelemetry Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 package stores
 
@@ -24,7 +13,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
@@ -198,6 +189,162 @@ func getBaseTestPodInfo() *corev1.Pod {
 	return &pods.Items[0]
 }
 
+func getDefaultTestPodInfoWithoutLimitsSetInfo() *corev1.Pod {
+	podJSON := `
+{
+  "kind": "PodList",
+  "apiVersion": "v1",
+  "metadata": {
+
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "cpu-limit",
+        "namespace": "default",
+        "ownerReferences": [
+            {
+                "apiVersion": "apps/v1",
+                "blockOwnerDeletion": true,
+                "controller": true,
+                "kind": "DaemonSet",
+                "name": "DaemonSetTest",
+                "uid": "36779a62-4aca-11e9-977b-0672b6c6fc94"
+            }
+        ],
+        "selfLink": "/api/v1/namespaces/default/pods/cpu-limit",
+        "uid": "764d01e1-2a2f-11e9-95ea-0a695d7ce286",
+        "resourceVersion": "5671573",
+        "creationTimestamp": "2019-02-06T16:51:34Z",
+        "labels": {
+          "app": "hello_test"
+        },
+        "annotations": {
+          "kubernetes.io/config.seen": "2019-02-19T00:06:56.109155665Z",
+          "kubernetes.io/config.source": "api"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "default-token-tlgw7",
+            "secret": {
+              "secretName": "default-token-tlgw7",
+              "defaultMode": 420
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "ubuntu",
+            "image": "ubuntu",
+            "command": [
+              "/bin/bash"
+            ],
+            "args": [
+              "-c",
+              "sleep 300000000"
+            ],
+            "volumeMounts": [
+              {
+                "name": "default-token-tlgw7",
+                "readOnly": true,
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+              }
+            ],
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "imagePullPolicy": "Always"
+          }
+        ],
+        "restartPolicy": "Always",
+        "terminationGracePeriodSeconds": 30,
+        "dnsPolicy": "ClusterFirst",
+        "serviceAccountName": "default",
+        "serviceAccount": "default",
+        "nodeName": "ip-192-168-67-127.us-west-2.compute.internal",
+        "securityContext": {
+
+        },
+        "schedulerName": "default-scheduler",
+        "tolerations": [
+          {
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          },
+          {
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "effect": "NoExecute",
+            "tolerationSeconds": 300
+          }
+        ],
+        "priority": 0
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Initialized",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-02-06T16:51:34Z"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-02-06T16:51:43Z"
+          },
+          {
+            "type": "ContainersReady",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": null
+          },
+          {
+            "type": "PodScheduled",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2019-02-06T16:51:34Z"
+          }
+        ],
+        "hostIP": "192.168.67.127",
+        "podIP": "192.168.76.93",
+        "startTime": "2019-02-06T16:51:34Z",
+        "containerStatuses": [
+          {
+            "name": "ubuntu",
+            "state": {
+              "running": {
+                "startedAt": "2019-02-06T16:51:42Z"
+              }
+            },
+            "lastState": {
+
+            },
+            "ready": true,
+            "restartCount": 0,
+            "image": "ubuntu:latest",
+            "imageID": "docker-pullable://ubuntu@sha256:7a47ccc3bbe8a451b500d2b53104868b46d60ee8f5b35a24b41a86077c650210",
+            "containerID": "docker://637631e2634ea92c0c1aa5d24734cfe794f09c57933026592c12acafbaf6972c"
+          }
+        ],
+        "qosClass": "Guaranteed"
+      }
+    }
+  ]
+}`
+	pods := corev1.PodList{}
+	err := json.Unmarshal([]byte(podJSON), &pods)
+	if err != nil {
+		panic(fmt.Sprintf("unmarshal pod err %v", err))
+	}
+	return &pods.Items[0]
+}
+
 func getPodStore() *PodStore {
 	nodeInfo := newNodeInfo("testNode1", &mockNodeInfoProvider{}, zap.NewNop())
 	nodeInfo.setCPUCapacity(4000)
@@ -211,14 +358,18 @@ func getPodStore() *PodStore {
 }
 
 func generateMetric(fields map[string]interface{}, tags map[string]string) CIMetric {
+	tagsCopy := maps.Clone(tags)
+	fieldsCopy := maps.Clone(fields)
+
 	return &mockCIMetric{
-		tags:   tags,
-		fields: fields,
+		tags:   tagsCopy,
+		fields: fieldsCopy,
 	}
 }
 
 func TestPodStore_decorateCpu(t *testing.T) {
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 
 	pod := getBaseTestPodInfo()
 
@@ -252,8 +403,62 @@ func TestPodStore_decorateCpu(t *testing.T) {
 	assert.Equal(t, float64(10), metric.GetField("container_cpu_utilization_over_container_limit").(float64))
 }
 
+func TestPodStore_decorateCpu_WithNoLimitsAndResources(t *testing.T) {
+	podStore := getPodStore()
+
+	pod := getDefaultTestPodInfoWithoutLimitsSetInfo()
+
+	// test pod metrics
+	tags := map[string]string{ci.MetricType: ci.TypePod}
+	fields := map[string]interface{}{ci.MetricName(ci.TypePod, ci.CPUTotal): float64(1)}
+
+	metric := generateMetric(fields, tags)
+	podStore.decorateCPU(metric, pod)
+
+	assert.Equal(t, float64(0), metric.GetField("pod_cpu_utilization_over_pod_limit").(float64))
+
+	// test container metrics
+	tags = map[string]string{ci.MetricType: ci.TypeContainer, ci.ContainerNamekey: "ubuntu"}
+	fields = map[string]interface{}{ci.MetricName(ci.TypeContainer, ci.CPUTotal): float64(1)}
+	metric = generateMetric(fields, tags)
+	podStore.decorateCPU(metric, pod)
+
+	assert.False(t, metric.HasField("container_cpu_utilization_over_container_limit"))
+
+	podStore.includeEnhancedMetrics = true
+	podStore.decorateCPU(metric, pod)
+
+	assert.Equal(t, float64(0), metric.GetField("container_cpu_utilization_over_container_limit").(float64))
+}
+
+func TestPodStore_decorateMem_WithNoLimitsAndResources(t *testing.T) {
+	podStore := getPodStore()
+	pod := getDefaultTestPodInfoWithoutLimitsSetInfo()
+
+	tags := map[string]string{ci.MetricType: ci.TypePod}
+	fields := map[string]interface{}{ci.MetricName(ci.TypePod, ci.MemWorkingset): uint64(10 * 1024 * 1024)}
+
+	metric := generateMetric(fields, tags)
+	podStore.decorateMem(metric, pod)
+
+	assert.Equal(t, float64(0), metric.GetField("pod_memory_utilization_over_pod_limit").(float64))
+
+	tags = map[string]string{ci.MetricType: ci.TypeContainer, ci.ContainerNamekey: "ubuntu"}
+	fields = map[string]interface{}{ci.MetricName(ci.TypeContainer, ci.MemWorkingset): uint64(10 * 1024 * 1024)}
+
+	metric = generateMetric(fields, tags)
+	podStore.decorateMem(metric, pod)
+	assert.False(t, metric.HasField("container_memory_utilization_over_container_limit"))
+
+	podStore.includeEnhancedMetrics = true
+	podStore.decorateMem(metric, pod)
+
+	assert.Equal(t, float64(0), metric.GetField("container_memory_utilization_over_container_limit").(float64))
+}
+
 func TestPodStore_decorateMem(t *testing.T) {
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	pod := getBaseTestPodInfo()
 
 	tags := map[string]string{ci.MetricType: ci.TypePod}
@@ -285,7 +490,7 @@ func TestPodStore_decorateMem(t *testing.T) {
 	assert.Equal(t, float64(20), metric.GetField("container_memory_utilization_over_container_limit").(float64))
 }
 
-func TestPodStore_previousCleanupLocking(t *testing.T) {
+func TestPodStore_previousCleanupLocking(_ *testing.T) {
 	podStore := getPodStore()
 	podStore.podClient = &mockPodClient{}
 	pod := getBaseTestPodInfo()
@@ -346,7 +551,6 @@ const (
 	PodUnknownMetricName   = "pod_status_unknown"
 	PodReadyMetricName     = "pod_status_ready"
 	PodScheduledMetricName = "pod_status_scheduled"
-	PodAgeMetricName       = "pod_age"
 )
 
 func TestPodStore_enhanced_metrics_disabled(t *testing.T) {
@@ -394,14 +598,6 @@ func TestPodStore_addStatus_adds_pod_succeeded_metric(t *testing.T) {
 	assert.Equal(t, 1, decoratedResultMetric.GetField(PodSucceededMetricName))
 }
 
-func TestPodStore_addStatus_pod_age(t *testing.T) {
-	decoratedResultMetric := runAddStatusToGetDecoratedCIMetric("./test_resources/pod_in_phase_succeeded.json", true)
-	year := time.Hour * 24 * 365
-
-	assert.Greater(t, decoratedResultMetric.GetField(PodAgeMetricName), 3*year.Seconds())
-	assert.Less(t, decoratedResultMetric.GetField(PodAgeMetricName), 100*year.Seconds())
-}
-
 func TestPodStore_addStatus_enhanced_metrics_disabled(t *testing.T) {
 	decoratedResultMetric := runAddStatusToGetDecoratedCIMetric("./test_resources/all_pod_conditions_valid.json", false)
 
@@ -440,6 +636,7 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	fields := map[string]interface{}{ci.MetricName(ci.TypePod, ci.CPUTotal): float64(1)}
 	podStore := getPodStore()
 	podStore.includeEnhancedMetrics = true
+	defer require.NoError(t, podStore.Shutdown())
 	metric := generateMetric(fields, tags)
 
 	podStore.addStatus(metric, pod)
@@ -479,8 +676,9 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	assert.Equal(t, "OOMKilled", metric.GetTag(ci.ContainerLastTerminationReason))
 	assert.Equal(t, int(1), metric.GetField(ci.ContainerRestartCount).(int))
 	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusTerminated)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusTerminatedReasonOOMKilled)))
 
-	pod.Status.ContainerStatuses[0].State.Terminated = nil
+	pod.Status.ContainerStatuses[0].LastTerminationState.Terminated = nil
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}
 
 	tags = map[string]string{ci.MetricType: ci.TypeContainer, ci.K8sNamespace: "default", ci.K8sPodNameKey: "cpu-limit", ci.ContainerNamekey: "ubuntu"}
@@ -489,9 +687,15 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
 	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashed)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashLoopBackOff)))
+	// sparse metrics
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonImagePullError)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusTerminatedReasonOOMKilled)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonStartError)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCreateContainerError)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCreateContainerConfigError)))
 
-	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "SomeOtherReason"}
+	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"}
 
 	tags = map[string]string{ci.MetricType: ci.TypeContainer, ci.K8sNamespace: "default", ci.K8sPodNameKey: "cpu-limit", ci.ContainerNamekey: "ubuntu"}
 	metric = generateMetric(fields, tags)
@@ -499,7 +703,32 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
 	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
-	assert.Equal(t, 0, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashed)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonImagePullError)))
+
+	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "ErrImagePull"}
+	metric = generateMetric(fields, tags)
+	podStore.addStatus(metric, pod)
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonImagePullError)))
+
+	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "InvalidImageName"}
+	metric = generateMetric(fields, tags)
+	podStore.addStatus(metric, pod)
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonImagePullError)))
+
+	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CreateContainerError"}
+	metric = generateMetric(fields, tags)
+	podStore.addStatus(metric, pod)
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCreateContainerError)))
+
+	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CreateContainerConfigError"}
+	metric = generateMetric(fields, tags)
+	podStore.addStatus(metric, pod)
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCreateContainerConfigError)))
+
+	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "StartError"}
+	metric = generateMetric(fields, tags)
+	podStore.addStatus(metric, pod)
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonStartError)))
 
 	// test delta of restartCount
 	pod.Status.ContainerStatuses[0].RestartCount = 3
@@ -569,7 +798,7 @@ func TestPodStore_addStatus_without_enhanced_metrics(t *testing.T) {
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
 	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashed)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashLoopBackOff)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "SomeOtherReason"}
 
@@ -579,7 +808,7 @@ func TestPodStore_addStatus_without_enhanced_metrics(t *testing.T) {
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
 	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashed)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashLoopBackOff)))
 
 	// test delta of restartCount
 	pod.Status.ContainerStatuses[0].RestartCount = 3
@@ -843,8 +1072,8 @@ func (m *mockPodClient) ListPods() ([]corev1.Pod, error) {
 }
 
 func TestPodStore_RefreshTick(t *testing.T) {
-
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	podStore.podClient = &mockPodClient{}
 	podStore.lastRefreshed = time.Now().Add(-time.Minute)
 	podStore.RefreshTick(context.Background())
@@ -860,8 +1089,8 @@ func TestPodStore_decorateNode(t *testing.T) {
 	t.Setenv("HOST_NAME", "testNode1")
 	pod := getBaseTestPodInfo()
 	podList := []corev1.Pod{*pod}
-
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	podStore.refreshInternal(time.Now(), podList)
 
 	tags := map[string]string{ci.MetricType: ci.TypeNode}
@@ -918,11 +1147,12 @@ func TestPodStore_Decorate(t *testing.T) {
 	metric := &mockCIMetric{
 		tags: tags,
 	}
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	podStore := getPodStore()
+	defer require.NoError(t, podStore.Shutdown())
 	podStore.podClient = &mockPodClient{}
 	kubernetesBlob := map[string]interface{}{}
-	ctx := context.Background()
 	ok := podStore.Decorate(ctx, metric, kubernetesBlob)
 	assert.True(t, ok)
 
