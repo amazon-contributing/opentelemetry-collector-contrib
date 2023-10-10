@@ -107,6 +107,12 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	for _, groupedMetric := range groupedMetrics {
 		cWMetric := translateGroupedMetricToCWMetric(groupedMetric, emf.config)
 		putLogEvent, err := translateCWMetricToEMF(cWMetric, emf.config)
+		if emf.config.EnhancedContainerInsights && (putLogEvent != nil &&
+			putLogEvent.InputLogEvent != nil &&
+			putLogEvent.InputLogEvent.Message != nil) && *putLogEvent.InputLogEvent.Message == "" {
+			emf.config.logger.Info("Dropping Prometheus job instance metrics log for EnhancedContainerInsights")
+			continue
+		}
 		if err != nil {
 			return err
 		}

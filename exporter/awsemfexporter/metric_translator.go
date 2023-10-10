@@ -31,6 +31,15 @@ const (
 	fieldPrometheusMetricType = "prom_metric_type"
 )
 
+// Prometheus instance availability monitoring metrics - https://prometheus.io/docs/concepts/jobs_instances
+var prometheusInstanceScrapeMetrics = map[string]struct{}{
+	"up":                                    {},
+	"scrape_duration_seconds":               {},
+	"scrape_samples_post_metric_relabeling": {},
+	"scrape_samples_scraped":                {},
+	"scrape_series_added":                   {},
+}
+
 var fieldPrometheusTypes = map[pmetric.MetricType]string{
 	pmetric.MetricTypeEmpty:     "",
 	pmetric.MetricTypeGauge:     "gauge",
@@ -357,6 +366,24 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event, error) {
 	// convert CWMetric into map format for compatible with PLE input
 	fieldMap := cWMetric.fields
+
+	for key := range fieldMap {
+		if _, ok := prometheusInstanceScrapeMetrics[key]; ok {
+			config.logger.Debug(
+				"Detected prometheus job instance metrics",
+				zap.Any("key", key),
+				zap.Any("value", fieldMap[key]),
+			)
+			// Return empty logEvent for prometheusInstanceScrapeMetrics if EnhancedContainerInsights is enabled
+			if config.EnhancedContainerInsights {
+				logEvent := cwlogs.NewEvent(
+					int64(0),
+					"",
+				)
+				return logEvent, nil
+			}
+		}
+	}
 
 	// restore the json objects that are stored as string in attributes
 	for _, key := range config.ParseJSONEncodedAttributeValues {
