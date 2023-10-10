@@ -733,6 +733,9 @@ kubectl apply -f config.yaml
 | pod_status_pending                                                | Count        |
 | pod_status_running                                                | Count        |
 | pod_status_succeeded                                              | Count        |
+| pod_container_status_running                                      | Count        |
+| pod_container_status_terminated                                   | Count        |
+| pod_container_status_waiting                                      | Count        |
 | pod_container_status_waiting_reason_crash_loop_back_off           | Count        |
 | pod_container_status_waiting_reason_image_pull_error              | Count        |
 | pod_container_status_waiting_reason_start_error                   | Count        |
