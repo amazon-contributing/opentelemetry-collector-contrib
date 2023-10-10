@@ -822,9 +822,6 @@ kubectl apply -f config.yaml
 | container_memory_utilization_over_container_limit             | Percent      |
 | container_memory_working_set                                  | Bytes        |
 | number_of_container_restarts                                  | Count        |
-| container_status_running                                      | Count        |
-| container_status_terminated                                   | Count        |
-| container_status_waiting                                      | Count        |
 
 <br/><br/> 
 
