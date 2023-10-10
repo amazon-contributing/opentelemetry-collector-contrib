@@ -670,7 +670,7 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	assert.Equal(t, "Running", metric.GetTag(ci.PodStatus))
 	val = metric.GetField(ci.ContainerRestartCount)
 	assert.Nil(t, val)
-	val = metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusRunning))
+	val = metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerRunning))
 	assert.NotNil(t, val)
 	assert.Equal(t, 2, val)
 
@@ -708,8 +708,8 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	metric = generateMetric(fields, tags)
 
 	podStore.addStatus(metric, pod)
-	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusTerminated)))
-	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusTerminatedReasonOOMKilled)))
+	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerTerminated)))
+	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerTerminatedReasonOOMKilled)))
 
 	pod.Status.ContainerStatuses[0].LastTerminationState.Terminated = nil
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}
@@ -721,14 +721,14 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	//assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
-	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaiting)))
-	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonCrashLoopBackOff)))
+	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaiting)))
+	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonCrashLoopBackOff)))
 	// sparse metrics
-	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonImagePullError)))
-	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusTerminatedReasonOOMKilled)))
-	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonStartError)))
-	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonCreateContainerError)))
-	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonCreateContainerConfigError)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonImagePullError)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerTerminatedReasonOOMKilled)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonStartError)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonCreateContainerError)))
+	assert.Nil(t, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonCreateContainerConfigError)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"}
 	pod.Status.ContainerStatuses[1].State.Waiting = &corev1.ContainerStateWaiting{Reason: "StartError"}
@@ -738,35 +738,35 @@ func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Succeeded", metric.GetTag(ci.PodStatus))
-	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaiting)))
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonImagePullError)))
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonStartError)))
+	assert.Equal(t, 2, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaiting)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonImagePullError)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonStartError)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "ErrImagePull"}
 	metric = generateMetric(fields, tags)
 	podStore.addStatus(metric, pod)
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonImagePullError)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonImagePullError)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "InvalidImageName"}
 	metric = generateMetric(fields, tags)
 	podStore.addStatus(metric, pod)
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonImagePullError)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonImagePullError)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CreateContainerError"}
 	metric = generateMetric(fields, tags)
 	podStore.addStatus(metric, pod)
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonCreateContainerError)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonCreateContainerError)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CreateContainerConfigError"}
 	metric = generateMetric(fields, tags)
 	podStore.addStatus(metric, pod)
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonCreateContainerConfigError)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonCreateContainerConfigError)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "StartError"}
 	pod.Status.ContainerStatuses[1].State.Waiting = nil
 	metric = generateMetric(fields, tags)
 	podStore.addStatus(metric, pod)
-	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, "container_"+ci.StatusWaitingReasonStartError)))
+	assert.Equal(t, 1, metric.GetField(ci.MetricName(ci.TypePod, ci.StatusContainerWaitingReasonStartError)))
 
 	// test delta of restartCount
 	pod.Status.ContainerStatuses[0].RestartCount = 3
@@ -803,7 +803,7 @@ func TestPodStore_addStatus_without_enhanced_metrics(t *testing.T) {
 	assert.Equal(t, "Running", metric.GetTag(ci.ContainerStatus))
 	val = metric.GetField(ci.ContainerRestartCount)
 	assert.Nil(t, val)
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusRunning)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusContainerRunning)))
 
 	pod.Status.ContainerStatuses[0].State.Running = nil
 	pod.Status.ContainerStatuses[0].State.Terminated = &corev1.ContainerStateTerminated{}
@@ -825,7 +825,7 @@ func TestPodStore_addStatus_without_enhanced_metrics(t *testing.T) {
 	assert.Equal(t, "Terminated", metric.GetTag(ci.ContainerStatus))
 	assert.Equal(t, "OOMKilled", metric.GetTag(ci.ContainerLastTerminationReason))
 	assert.Equal(t, int(1), metric.GetField(ci.ContainerRestartCount).(int))
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusTerminated)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusContainerTerminated)))
 
 	pod.Status.ContainerStatuses[0].State.Terminated = nil
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}
@@ -835,8 +835,8 @@ func TestPodStore_addStatus_without_enhanced_metrics(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashLoopBackOff)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusContainerWaiting)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusContainerWaitingReasonCrashLoopBackOff)))
 
 	pod.Status.ContainerStatuses[0].State.Waiting = &corev1.ContainerStateWaiting{Reason: "SomeOtherReason"}
 
@@ -845,8 +845,8 @@ func TestPodStore_addStatus_without_enhanced_metrics(t *testing.T) {
 
 	podStore.addStatus(metric, pod)
 	assert.Equal(t, "Waiting", metric.GetTag(ci.ContainerStatus))
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaiting)))
-	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusWaitingReasonCrashLoopBackOff)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusContainerWaiting)))
+	assert.False(t, metric.HasField(ci.MetricName(ci.TypeContainer, ci.StatusContainerWaitingReasonCrashLoopBackOff)))
 
 	// test delta of restartCount
 	pod.Status.ContainerStatuses[0].RestartCount = 3
