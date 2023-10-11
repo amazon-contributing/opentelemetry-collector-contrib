@@ -110,7 +110,7 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 		if emf.config.EnhancedContainerInsights && (putLogEvent != nil &&
 			putLogEvent.InputLogEvent != nil &&
 			putLogEvent.InputLogEvent.Message != nil) && *putLogEvent.InputLogEvent.Message == "" {
-			emf.config.logger.Info("Dropping Prometheus job instance metrics log for EnhancedContainerInsights")
+			emf.config.logger.Debug("Dropping empty putLogEvents for EnhancedContainerInsights")
 			continue
 		}
 		if err != nil {
