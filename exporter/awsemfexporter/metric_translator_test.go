@@ -486,7 +486,7 @@ func TestTranslateCWMetricToEMFForEnhancedContainerInsights(t *testing.T) {
 		EnhancedContainerInsights bool
 		fields                    map[string]interface{}
 		measurements              []cWMeasurement
-		expectedEMFLogEvent       string
+		expectedEMFLogEvent       interface{}
 	}{
 		"EnhancedContainerInsightsEnabled": {
 			EnhancedContainerInsights: true,
@@ -499,7 +499,7 @@ func TestTranslateCWMetricToEMFForEnhancedContainerInsights(t *testing.T) {
 				"Sources":                               "[\"apiserver\"]",
 			},
 			measurements:        nil,
-			expectedEMFLogEvent: "",
+			expectedEMFLogEvent: nil,
 		},
 		"EnhancedContainerInsightsDisabled": {
 			EnhancedContainerInsights: false,
@@ -534,7 +534,9 @@ func TestTranslateCWMetricToEMFForEnhancedContainerInsights(t *testing.T) {
 			emfLogEvent, err := translateCWMetricToEMF(cloudwatchMetric, config)
 			require.NoError(t, err)
 
-			assert.Equal(t, tc.expectedEMFLogEvent, *emfLogEvent.InputLogEvent.Message)
+			if tc.expectedEMFLogEvent != nil {
+				assert.Equal(t, tc.expectedEMFLogEvent, *emfLogEvent.InputLogEvent.Message)
+			}
 		})
 	}
 
@@ -1454,21 +1456,21 @@ func TestGroupedMetricToCWMeasurementsWithFilters(t *testing.T) {
 					MetricNameSelectors: []string{"metric(1|3)"},
 				},
 			}, []cWMeasurement{
-				{
-					Namespace:  namespace,
-					Dimensions: [][]string{{}},
-					Metrics: []map[string]string{
-						{
-							"Name": "metric1",
-							"Unit": "Count",
-						},
-						{
-							"Name": "metric3",
-							"Unit": "Seconds",
-						},
+			{
+				Namespace:  namespace,
+				Dimensions: [][]string{{}},
+				Metrics: []map[string]string{
+					{
+						"Name": "metric1",
+						"Unit": "Count",
+					},
+					{
+						"Name": "metric3",
+						"Unit": "Seconds",
 					},
 				},
 			},
+		},
 		},
 		{
 			"label matchers",

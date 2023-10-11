@@ -107,14 +107,13 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	for _, groupedMetric := range groupedMetrics {
 		cWMetric := translateGroupedMetricToCWMetric(groupedMetric, emf.config)
 		putLogEvent, err := translateCWMetricToEMF(cWMetric, emf.config)
-		if emf.config.EnhancedContainerInsights && (putLogEvent != nil &&
-			putLogEvent.InputLogEvent != nil &&
-			putLogEvent.InputLogEvent.Message != nil) && *putLogEvent.InputLogEvent.Message == "" {
-			emf.config.logger.Debug("Dropping empty putLogEvents for EnhancedContainerInsights")
-			continue
-		}
 		if err != nil {
 			return err
+		}
+		// Drop a nil putLogEvent for EnhancedContainerInsights
+		if emf.config.EnhancedContainerInsights && putLogEvent == nil {
+			emf.config.logger.Debug("Dropping empty putLogEvents for EnhancedContainerInsights")
+			continue
 		}
 		// Currently we only support two options for "OutputDestination".
 		if strings.EqualFold(outputDestination, outputDestinationStdout) {
