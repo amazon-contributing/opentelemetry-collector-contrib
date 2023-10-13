@@ -36,7 +36,8 @@ const (
 	beforeStr = "before"
 )
 
-// String returns an empty string if unsupported position.
+// String returns the string representation of the position.
+// Returns an empty string if position is unsupported.
 func (h HandlerPosition) String() string {
 	switch h {
 	case Before:
@@ -72,10 +73,10 @@ func (h *HandlerPosition) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// HandlerMetadata is used to differentiate between handlers and determine
-// relative insert positioning within their groups.
-type HandlerMetadata interface {
-	// ID is used to identify the handler.
+// metadata is used to differentiate between handlers and determine
+// relative positioning within their groups.
+type metadata interface {
+	// ID must be unique. It cannot clash with existing middleware.
 	ID() string
 	// Position to insert the handler.
 	Position() HandlerPosition
@@ -83,25 +84,25 @@ type HandlerMetadata interface {
 
 // RequestHandler allows for custom processing of requests.
 type RequestHandler interface {
-	HandlerMetadata
+	metadata
 	HandleRequest(r *http.Request)
 }
 
 // ResponseHandler allows for custom processing of responses.
 type ResponseHandler interface {
-	HandlerMetadata
+	metadata
 	HandleResponse(r *http.Response)
 }
 
-// Middleware is the request and response handlers to be configured
+// Middleware defines the request and response handlers to be configured
 // on AWS Clients.
 type Middleware interface {
 	RequestHandlers() []RequestHandler
 	ResponseHandlers() []ResponseHandler
 }
 
-// MiddlewareExtension is an extension that implements Middleware.
-type MiddlewareExtension interface {
+// Extension is an extension that implements Middleware.
+type Extension interface {
 	extension.Extension
 	Middleware
 }

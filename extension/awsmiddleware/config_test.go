@@ -20,7 +20,7 @@ type testMiddlewareExtension struct {
 	responseHandlers []ResponseHandler
 }
 
-var _ MiddlewareExtension = (*testMiddlewareExtension)(nil)
+var _ Extension = (*testMiddlewareExtension)(nil)
 
 func (t *testMiddlewareExtension) RequestHandlers() []RequestHandler {
 	return t.requestHandlers

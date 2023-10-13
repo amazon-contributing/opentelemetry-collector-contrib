@@ -9,13 +9,13 @@ import (
 	"go.opentelemetry.io/collector/component"
 )
 
+// Config defines the configuration for an AWS Middleware extension.
 type Config struct {
-	// MiddlewareID is the extension to use to configure the Middleware.
+	// MiddlewareID is the ID of the Middleware extension.
 	MiddlewareID component.ID `mapstructure:"middleware"`
 }
 
-// GetMiddleware retrieves the extension implementing Middleware based on the
-// MiddlewareID.
+// GetMiddleware retrieves the extension implementing Middleware based on the MiddlewareID.
 func (c Config) GetMiddleware(extensions map[component.ID]component.Component) (Middleware, error) {
 	if ext, found := extensions[c.MiddlewareID]; found {
 		if mw, ok := ext.(Middleware); ok {

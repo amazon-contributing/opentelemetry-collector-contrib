@@ -8,7 +8,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	s3v2 "github.com/aws/aws-sdk-go-v2/service/s3"
 	awsv1 "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/awstesting"
-	"github.com/aws/aws-sdk-go/awstesting/mock"
 	s3v1 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +22,7 @@ import (
 
 const (
 	testUserAgent = "user/agent"
-	testLatency   = 10 * time.Millisecond
+	testLatency   = time.Millisecond
 )
 
 type testHandler struct {
@@ -101,7 +99,7 @@ func TestInvalidHandlers(t *testing.T) {
 		responseHandlers: []ResponseHandler{invalidHandler},
 	}
 	// v1
-	client := mock.NewMockClient()
+	client := awstesting.NewClient()
 	err := ConfigureSDKv1(testExtension, &client.Handlers)
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, errInvalidHandler))
@@ -163,7 +161,7 @@ func setup(t *testing.T) (Middleware, *testHandler, *httptest.Server) {
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotUserAgent := r.Header.Get("User-Agent")
-		assert.Truef(t, strings.Contains(gotUserAgent, testUserAgent), "Actual UserAgent was %q. Expected it to include %q.", gotUserAgent, testUserAgent)
+		assert.Contains(t, gotUserAgent, testUserAgent)
 		time.Sleep(testLatency)
 		w.WriteHeader(http.StatusOK)
 	}))
