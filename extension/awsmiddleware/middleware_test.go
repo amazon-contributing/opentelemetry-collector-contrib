@@ -63,6 +63,16 @@ func (t *testHandler) Latency() time.Duration {
 	return t.end.Sub(t.start)
 }
 
+type recordOrder struct {
+	order []string
+}
+
+func (ro *recordOrder) handle(id string) func(*http.Request) {
+	return func(*http.Request) {
+		ro.order = append(ro.order, id)
+	}
+}
+
 func TestHandlerPosition(t *testing.T) {
 	testCases := []struct {
 		position HandlerPosition
@@ -111,8 +121,80 @@ func TestInvalidHandlers(t *testing.T) {
 	assert.True(t, errors.Is(err, errUnsupportedPosition))
 }
 
+func TestAppendOrder(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	testCases := map[string]struct {
+		requestHandlers []*testHandler
+		wantOrder       []string
+	}{
+		"WithBothBefore": {
+			requestHandlers: []*testHandler{
+				{id: "1", position: Before},
+				{id: "2", position: Before},
+			},
+			wantOrder: []string{"2", "1"},
+		},
+		"WithBothAfter": {
+			requestHandlers: []*testHandler{
+				{id: "1", position: After},
+				{id: "2", position: After},
+			},
+			wantOrder: []string{"1", "2"},
+		},
+		"WithBeforeAfter": {
+			requestHandlers: []*testHandler{
+				{id: "1", position: Before},
+				{id: "2", position: After},
+			},
+			wantOrder: []string{"1", "2"},
+		},
+		"WithAfterBefore": {
+			requestHandlers: []*testHandler{
+				{id: "1", position: After},
+				{id: "2", position: Before},
+			},
+			wantOrder: []string{"2", "1"},
+		},
+	}
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			middleware := &testMiddlewareExtension{}
+			recorder := &recordOrder{}
+			for _, handler := range testCase.requestHandlers {
+				handler.handleRequest = recorder.handle(handler.id)
+				middleware.requestHandlers = append(middleware.requestHandlers, handler)
+			}
+			// v1
+			client := awstesting.NewClient(&awsv1.Config{
+				Region:     awsv1.String("mock-region"),
+				DisableSSL: awsv1.Bool(true),
+				Endpoint:   awsv1.String(server.URL),
+			})
+			assert.NoError(t, ConfigureSDKv1(middleware, &client.Handlers))
+			s3v1Client := &s3v1.S3{Client: client}
+			_, err := s3v1Client.ListBuckets(&s3v1.ListBucketsInput{})
+			require.NoError(t, err)
+			assert.Equal(t, testCase.wantOrder, recorder.order)
+			recorder.order = nil
+			// v2
+			cfg := awsv2.Config{Region: "us-east-1"}
+			assert.NoError(t, ConfigureSDKv2(middleware, &cfg))
+			s3v2Client := s3v2.NewFromConfig(cfg, func(options *s3v2.Options) {
+				options.BaseEndpoint = awsv2.String(server.URL)
+			})
+			_, err = s3v2Client.ListBuckets(context.Background(), &s3v2.ListBucketsInput{})
+			require.NoError(t, err)
+			assert.Equal(t, testCase.wantOrder, recorder.order)
+		})
+	}
+}
+
 func TestConfigureSDKv1(t *testing.T) {
 	middleware, recorder, server := setup(t)
+	defer server.Close()
 	client := awstesting.NewClient(&awsv1.Config{
 		Region:     awsv1.String("mock-region"),
 		DisableSSL: awsv1.Bool(true),
@@ -131,9 +213,10 @@ func TestConfigureSDKv1(t *testing.T) {
 }
 
 func TestConfigureSDKv2(t *testing.T) {
-	mw, recorder, server := setup(t)
+	middleware, recorder, server := setup(t)
+	defer server.Close()
 	cfg := awsv2.Config{Region: "us-east-1"}
-	assert.NoError(t, ConfigureSDKv2(mw, &cfg))
+	assert.NoError(t, ConfigureSDKv2(middleware, &cfg))
 	s3Client := s3v2.NewFromConfig(cfg, func(options *s3v2.Options) {
 		options.BaseEndpoint = awsv2.String(server.URL)
 	})

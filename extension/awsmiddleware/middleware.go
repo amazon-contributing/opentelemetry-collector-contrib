@@ -49,8 +49,8 @@ func (h HandlerPosition) String() string {
 	}
 }
 
-// MarshalText converts the position into a string. Returns an error
-// if unsupported.
+// MarshalText converts the position into a byte slice.
+// Returns an error if unsupported.
 func (h HandlerPosition) MarshalText() (text []byte, err error) {
 	s := h.String()
 	if s == "" {
@@ -73,9 +73,9 @@ func (h *HandlerPosition) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// metadata is used to differentiate between handlers and determine
+// handlerConfig is used to differentiate between handlers and determine
 // relative positioning within their groups.
-type metadata interface {
+type handlerConfig interface {
 	// ID must be unique. It cannot clash with existing middleware.
 	ID() string
 	// Position to insert the handler.
@@ -84,13 +84,13 @@ type metadata interface {
 
 // RequestHandler allows for custom processing of requests.
 type RequestHandler interface {
-	metadata
+	handlerConfig
 	HandleRequest(r *http.Request)
 }
 
 // ResponseHandler allows for custom processing of responses.
 type ResponseHandler interface {
-	metadata
+	handlerConfig
 	HandleResponse(r *http.Response)
 }
 
@@ -112,12 +112,12 @@ type Extension interface {
 func ConfigureSDKv1(mw Middleware, handlers *request.Handlers) error {
 	var errs error
 	for _, handler := range mw.RequestHandlers() {
-		if err := addHandlerToList(&handlers.Build, namedRequestHandler(handler), handler.Position()); err != nil {
+		if err := appendHandler(&handlers.Build, namedRequestHandler(handler), handler.Position()); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
 		}
 	}
 	for _, handler := range mw.ResponseHandlers() {
-		if err := addHandlerToList(&handlers.Unmarshal, namedResponseHandler(handler), handler.Position()); err != nil {
+		if err := appendHandler(&handlers.Unmarshal, namedResponseHandler(handler), handler.Position()); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
 		}
 	}
@@ -134,10 +134,7 @@ func ConfigureSDKv2(mw Middleware, config *aws.Config) error {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
 			continue
 		}
-		rmw := &requestMiddleware{RequestHandler: handler, position: relativePosition}
-		config.APIOptions = append(config.APIOptions, func(stack *middleware.Stack) error {
-			return stack.Build.Add(rmw, rmw.position)
-		})
+		config.APIOptions = append(config.APIOptions, withBuildOption(&requestMiddleware{RequestHandler: handler}, relativePosition))
 	}
 	for _, handler := range mw.ResponseHandlers() {
 		relativePosition, err := toRelativePosition(handler.Position())
@@ -145,16 +142,13 @@ func ConfigureSDKv2(mw Middleware, config *aws.Config) error {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
 			continue
 		}
-		rmw := &responseMiddleware{ResponseHandler: handler, position: relativePosition}
-		config.APIOptions = append(config.APIOptions, func(stack *middleware.Stack) error {
-			return stack.Deserialize.Add(rmw, rmw.position)
-		})
+		config.APIOptions = append(config.APIOptions, withDeserializeOption(&responseMiddleware{ResponseHandler: handler}, relativePosition))
 	}
 	return errs
 }
 
 // addHandlerToList adds the handler to the list based on the position.
-func addHandlerToList(handlerList *request.HandlerList, handler request.NamedHandler, position HandlerPosition) error {
+func appendHandler(handlerList *request.HandlerList, handler request.NamedHandler, position HandlerPosition) error {
 	relativePosition, err := toRelativePosition(position)
 	if err != nil {
 		return err

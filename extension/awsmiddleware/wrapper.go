@@ -25,7 +25,6 @@ func namedResponseHandler(handler ResponseHandler) request.NamedHandler {
 
 type requestMiddleware struct {
 	RequestHandler
-	position middleware.RelativePosition
 }
 
 var _ middleware.BuildMiddleware = (*requestMiddleware)(nil)
@@ -38,9 +37,14 @@ func (r requestMiddleware) HandleBuild(ctx context.Context, in middleware.BuildI
 	return next.HandleBuild(ctx, in)
 }
 
+func withBuildOption(rmw *requestMiddleware, position middleware.RelativePosition) func(stack *middleware.Stack) error {
+	return func(stack *middleware.Stack) error {
+		return stack.Build.Add(rmw, position)
+	}
+}
+
 type responseMiddleware struct {
 	ResponseHandler
-	position middleware.RelativePosition
 }
 
 var _ middleware.DeserializeMiddleware = (*responseMiddleware)(nil)
@@ -52,4 +56,10 @@ func (r responseMiddleware) HandleDeserialize(ctx context.Context, in middleware
 		r.HandleResponse(res.Response)
 	}
 	return
+}
+
+func withDeserializeOption(rmw *responseMiddleware, position middleware.RelativePosition) func(stack *middleware.Stack) error {
+	return func(stack *middleware.Stack) error {
+		return stack.Deserialize.Add(rmw, position)
+	}
 }
