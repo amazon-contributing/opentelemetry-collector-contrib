@@ -28,6 +28,8 @@ import (
 const (
 	caFile             = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	collectionInterval = 60 * time.Second
+	// needs to start with "containerInsightsKubeAPIServerScraper" for histogram deltas in the emf exporter
+	jobName = "containerInsightsKubeAPIServerScraper"
 )
 
 var (
@@ -104,7 +106,7 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 		},
 		ScrapeInterval:  model.Duration(collectionInterval),
 		ScrapeTimeout:   model.Duration(collectionInterval),
-		JobName:         fmt.Sprintf("%s/%s", "containerInsightsKubeAPIServerScraper", opts.Endpoint),
+		JobName:         fmt.Sprintf("%s/%s", jobName, opts.Endpoint),
 		HonorTimestamps: true,
 		Scheme:          "https",
 		MetricsPath:     "/metrics",
