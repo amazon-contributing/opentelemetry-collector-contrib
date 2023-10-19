@@ -10,7 +10,7 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     branches:
       - main
-      - branches/**
+      - *
 
 env:
   # Make sure to exit early if cache segment download times out after 2 minutes.
