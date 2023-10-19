@@ -156,10 +156,7 @@ func MakeDependencySubsegmentForLocalRootDependencySpan(span ptrace.Span, resour
 
 	if myAwsRemoteService, ok := span.Attributes().Get(awsRemoteService); ok {
 		subsegmentName := myAwsRemoteService.Str()
-		if isAwsSdkSpan(span) && strings.HasPrefix(subsegmentName, "AWS.SDK.") {
-			subsegmentName = strings.TrimPrefix(subsegmentName, "AWS.SDK.")
-		}
-		dependencySubsegment.Name = awsxray.String(subsegmentName)
+		dependencySubsegment.Name = awsxray.String(trimAwsSdkPrefix(subsegmentName, span))
 	}
 
 	return dependencySubsegment, err
@@ -374,9 +371,7 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 		if remoteServiceName, ok := attributes.Get(awsRemoteService); ok {
 			name = remoteServiceName.Str()
 			// only strip the prefix for AWS spans
-			if isAwsSdkSpan(span) && strings.HasPrefix(name, "AWS.SDK.") {
-				name = strings.TrimPrefix(name, "AWS.SDK.")
-			}
+			name = trimAwsSdkPrefix(name, span)
 		}
 	}
 
@@ -755,4 +750,11 @@ func fixAnnotationKey(key string) string {
 			return '_'
 		}
 	}, key)
+}
+
+func trimAwsSdkPrefix(name string, span ptrace.Span) string {
+	if isAwsSdkSpan(span) && strings.HasPrefix(name, "AWS.SDK.") {
+		return strings.TrimPrefix(name, "AWS.SDK.")
+	}
+	return name
 }
