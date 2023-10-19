@@ -61,7 +61,6 @@ jobs:
         run: |
           if [[ 1 -gt $(git diff --diff-filter=A --name-only $(git merge-base origin/main $PR_HEAD) $PR_HEAD ./.chloggen-aws | grep -c \\.yaml) ]]
           then
-            ls ./.chloggen-aws
             echo "No changelog entry was added to the ./.chloggen-aws/ directory."
             echo "Please add a .yaml file to the ./.chloggen-aws/ directory."
             echo "See CONTRIBUTING-AWS.md for more details."
@@ -76,7 +75,6 @@ jobs:
         run: |
           make chlog-validate-aws \
             || { echo "New ./.chloggen-aws/*.yaml file failed validation."; exit 1; }
-
 
 #       In order to validate any links in the yaml file, render the config to markdown
       - name: Render .chloggen changelog entries
