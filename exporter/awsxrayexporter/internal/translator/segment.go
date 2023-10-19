@@ -155,7 +155,11 @@ func MakeDependencySubsegmentForLocalRootDependencySpan(span ptrace.Span, resour
 	}
 
 	if myAwsRemoteService, ok := span.Attributes().Get(awsRemoteService); ok {
-		dependencySubsegment.Name = awsxray.String(myAwsRemoteService.Str())
+		subsegmentName := myAwsRemoteService.Str()
+		if isAwsSdkSpan(span) && strings.HasPrefix(subsegmentName, "AWS.SDK.") {
+			subsegmentName = strings.TrimPrefix(subsegmentName, "AWS.SDK.")
+		}
+		dependencySubsegment.Name = awsxray.String(subsegmentName)
 	}
 
 	return dependencySubsegment, err
