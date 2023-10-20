@@ -113,7 +113,7 @@ func TestInvalidHandlers(t *testing.T) {
 	handler.On("Position").Return(HandlerPosition(-1))
 	middleware := new(MockMiddlewareExtension)
 	middleware.On("Handlers").Return([]RequestHandler{handler}, []ResponseHandler{handler})
-	c := NewConfigurer(middleware.Handlers())
+	c := newConfigurer(middleware.Handlers())
 	// v1
 	client := awstesting.NewClient()
 	err := c.ConfigureSDKv1(&client.Handlers)
@@ -186,7 +186,7 @@ func TestAppendOrder(t *testing.T) {
 				requestHandlers,
 				[]ResponseHandler{handler},
 			)
-			c := NewConfigurer(middleware.Handlers())
+			c := newConfigurer(middleware.Handlers())
 			// v1
 			client := awstesting.NewClient(&awsv1.Config{
 				Region:     awsv1.String("mock-region"),
@@ -223,7 +223,7 @@ func TestConfigureSDKv1(t *testing.T) {
 	})
 	require.Equal(t, 3, client.Handlers.Build.Len())
 	require.Equal(t, 1, client.Handlers.ValidateResponse.Len())
-	assert.NoError(t, NewConfigurer(middleware.Handlers()).ConfigureSDKv1(&client.Handlers))
+	assert.NoError(t, newConfigurer(middleware.Handlers()).ConfigureSDKv1(&client.Handlers))
 	assert.Equal(t, 5, client.Handlers.Build.Len())
 	assert.Equal(t, 2, client.Handlers.ValidateResponse.Len())
 	s3Client := &s3v1.S3{Client: client}
@@ -238,7 +238,7 @@ func TestConfigureSDKv2(t *testing.T) {
 	middleware, recorder, server := setup(t)
 	defer server.Close()
 	cfg := awsv2.Config{Region: "us-east-1", RetryMaxAttempts: 0}
-	assert.NoError(t, NewConfigurer(middleware.Handlers()).ConfigureSDKv2(&cfg))
+	assert.NoError(t, newConfigurer(middleware.Handlers()).ConfigureSDKv2(&cfg))
 	s3Client := s3v2.NewFromConfig(cfg, func(options *s3v2.Options) {
 		options.BaseEndpoint = awsv2.String(server.URL)
 	})

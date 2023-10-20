@@ -113,8 +113,8 @@ type Configurer struct {
 	responseHandlers []ResponseHandler
 }
 
-// NewConfigurer sets the request/response handlers.
-func NewConfigurer(requestHandlers []RequestHandler, responseHandlers []ResponseHandler) *Configurer {
+// newConfigurer sets the request/response handlers.
+func newConfigurer(requestHandlers []RequestHandler, responseHandlers []ResponseHandler) *Configurer {
 	return &Configurer{requestHandlers: requestHandlers, responseHandlers: responseHandlers}
 }
 
@@ -122,7 +122,7 @@ func NewConfigurer(requestHandlers []RequestHandler, responseHandlers []Response
 // Build handler list and response handlers are added to the ValidateResponse handler list.
 // Build will only be run once per request, but if there are errors, ValidateResponse will
 // be run again for each configured retry.
-func (c *Configurer) ConfigureSDKv1(handlers *request.Handlers) error {
+func (c Configurer) ConfigureSDKv1(handlers *request.Handlers) error {
 	var errs error
 	for _, handler := range c.requestHandlers {
 		if err := appendHandler(&handlers.Build, namedRequestHandler(handler), handler.Position()); err != nil {
@@ -139,7 +139,7 @@ func (c *Configurer) ConfigureSDKv1(handlers *request.Handlers) error {
 
 // ConfigureSDKv2 adds middleware to the AWS SDK v2. Request handlers are added to the
 // Build step and response handlers are added to the Deserialize step.
-func (c *Configurer) ConfigureSDKv2(config *aws.Config) error {
+func (c Configurer) ConfigureSDKv2(config *aws.Config) error {
 	var errs error
 	for _, handler := range c.requestHandlers {
 		relativePosition, err := toRelativePosition(handler.Position())
