@@ -828,6 +828,8 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/exporter/zipki
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/asapauthextension => ./extension/asapauthextension
 
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware => ./extension/awsmiddleware
+
 replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/awsproxy => ./extension/awsproxy
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/basicauthextension => ./extension/basicauthextension
