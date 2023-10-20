@@ -106,28 +106,30 @@ type Extension interface {
 	Middleware
 }
 
-// Configurer wraps a Middleware and provides convenience functions
-// for applying it to the AWS SDKs.
+// Configurer provides functions for applying request/response handlers
+// to the AWS SDKs.
 type Configurer struct {
-	Middleware
+	requestHandlers  []RequestHandler
+	responseHandlers []ResponseHandler
 }
 
-// NewConfigurer wraps the Middleware.
-func NewConfigurer(mw Middleware) *Configurer {
-	return &Configurer{Middleware: mw}
+// NewConfigurer sets the request/response handlers.
+func NewConfigurer(requestHandlers []RequestHandler, responseHandlers []ResponseHandler) *Configurer {
+	return &Configurer{requestHandlers: requestHandlers, responseHandlers: responseHandlers}
 }
 
 // ConfigureSDKv1 adds middleware to the AWS SDK v1. Request handlers are added to the
-// Build handler list and response handlers are added to the Unmarshal handler list.
+// Build handler list and response handlers are added to the ValidateResponse handler list.
+// Build will only be run once per request, but if there are errors, ValidateResponse will
+// be run again for each configured retry.
 func (c *Configurer) ConfigureSDKv1(handlers *request.Handlers) error {
 	var errs error
-	requestHandlers, responseHandlers := c.Middleware.Handlers()
-	for _, handler := range requestHandlers {
+	for _, handler := range c.requestHandlers {
 		if err := appendHandler(&handlers.Build, namedRequestHandler(handler), handler.Position()); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
 		}
 	}
-	for _, handler := range responseHandlers {
+	for _, handler := range c.responseHandlers {
 		if err := appendHandler(&handlers.ValidateResponse, namedResponseHandler(handler), handler.Position()); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
 		}
@@ -139,8 +141,7 @@ func (c *Configurer) ConfigureSDKv1(handlers *request.Handlers) error {
 // Build step and response handlers are added to the Deserialize step.
 func (c *Configurer) ConfigureSDKv2(config *aws.Config) error {
 	var errs error
-	requestHandlers, responseHandlers := c.Middleware.Handlers()
-	for _, handler := range requestHandlers {
+	for _, handler := range c.requestHandlers {
 		relativePosition, err := toRelativePosition(handler.Position())
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
@@ -148,7 +149,7 @@ func (c *Configurer) ConfigureSDKv2(config *aws.Config) error {
 		}
 		config.APIOptions = append(config.APIOptions, withBuildOption(&requestMiddleware{RequestHandler: handler}, relativePosition))
 	}
-	for _, handler := range responseHandlers {
+	for _, handler := range c.responseHandlers {
 		relativePosition, err := toRelativePosition(handler.Position())
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))

@@ -17,6 +17,8 @@ func TestGetConfigurer(t *testing.T) {
 	id := component.NewID("test")
 	nopExtension, err := extensiontest.NewNopBuilder().Create(context.Background(), extensiontest.NewNopCreateSettings())
 	require.Error(t, err)
+	middlewareExtension := new(MockMiddlewareExtension)
+	middlewareExtension.On("Handlers").Return(nil, nil)
 	testCases := map[string]struct {
 		extensions map[component.ID]component.Component
 		wantErr    error
@@ -30,7 +32,7 @@ func TestGetConfigurer(t *testing.T) {
 			wantErr:    errNotMiddleware,
 		},
 		"WithMiddlewareExtension": {
-			extensions: map[component.ID]component.Component{id: new(MockMiddlewareExtension)},
+			extensions: map[component.ID]component.Component{id: middlewareExtension},
 		},
 	}
 	for name, testCase := range testCases {
