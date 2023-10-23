@@ -302,7 +302,7 @@ chlog-preview-aws: $(CHLOGGEN)
 
 .PHONY: chlog-update-aws
 chlog-update-aws: $(CHLOGGEN)
-	$(CHLOGGEN) update --config $(CHLOGGEN_CONFIG_AWS) --version $(VERSION)
+	$(CHLOGGEN) update --config $(CHLOGGEN_CONFIG_AWS) --version `date +'%y.%m.%d %H:%M:%S'`
 
 .PHONY: genotelcontribcol
 genotelcontribcol: $(BUILDER)
