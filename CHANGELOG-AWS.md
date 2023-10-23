@@ -3,7 +3,7 @@
 # GO AWS cloudwatch agent Changelog
 
 This changelog includes only clodwatch agent developer-facing changes.
-Please checkout contributing file [CONTRIBUTING.md](./CONTRIBUTING.md)
+Please checkout contributing file [CONTRIBUTING-AWS.md](./CONTRIBUTING-AWS.md)
 
 <!-- next version -->
 

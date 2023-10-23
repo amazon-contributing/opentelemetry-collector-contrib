@@ -1,8 +1,9 @@
 name: Update changelog
 
 on:
-  pull_request_review:
-    types: [ submitted ]
+  pull_request:
+    types:
+      - closed
 jobs:
   update:
     runs-on: ubuntu-latest
