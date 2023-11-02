@@ -10,8 +10,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -27,9 +29,9 @@ const (
 	outputDestinationCloudWatch = "cloudwatch"
 	outputDestinationStdout     = "stdout"
 
-	// Pulse EMF config
-	pulseMetricNamespace    = "AWS/APM"
-	pulseLogGroupNamePrefix = "/aws/apm/"
+	// AppSignals EMF config
+	appSignalsMetricNamespace    = "AppSignals"
+	appSignalsLogGroupNamePrefix = "/aws/appsignals/"
 )
 
 type emfExporter struct {
@@ -66,8 +68,8 @@ func newEmfExporter(config *Config, set exporter.CreateSettings) (*emfExporter, 
 		config.LogRetention,
 		config.Tags,
 		session,
-		cwlogs.WithEnabledContainerInsights(isEnhancedContainerInsights(config)),
-		cwlogs.WithEnabledPulseApm(isPulseApmEnabled(config)),
+		cwlogs.WithEnabledContainerInsights(config.IsEnhancedContainerInsights()),
+		cwlogs.WithEnabledAppSignals(config.IsAppSignalsEnabled()),
 	)
 	collectorIdentifier, err := uuid.NewRandom()
 
@@ -175,7 +177,6 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 }
 
 func (emf *emfExporter) getPusher(key cwlogs.PusherKey) cwlogs.Pusher {
-
 	var ok bool
 	if _, ok = emf.pusherMap[key]; !ok {
 		emf.pusherMap[key] = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
@@ -192,6 +193,13 @@ func (emf *emfExporter) listPushers() []cwlogs.Pusher {
 		pushers = append(pushers, pusher)
 	}
 	return pushers
+}
+
+func (emf *emfExporter) start(_ context.Context, host component.Host) error {
+	if emf.config.MiddlewareID != nil {
+		awsmiddleware.TryConfigure(emf.config.logger, host, *emf.config.MiddlewareID, awsmiddleware.SDKv1(emf.svcStructuredLog.Handlers()))
+	}
+	return nil
 }
 
 // shutdown stops the exporter and is invoked during shutdown.
@@ -215,21 +223,4 @@ func wrapErrorIfBadRequest(err error) error {
 		return consumererror.NewPermanent(err)
 	}
 	return err
-}
-
-func isEnhancedContainerInsights(_ *Config) bool {
-	return false // temporarily disable, also need to rename _config to config
-	// return config.EnhancedContainerInsights && !config.DisableMetricExtraction
-}
-
-func isPulseApmEnabled(config *Config) bool {
-	if config.LogGroupName == "" || config.Namespace == "" {
-		return false
-	}
-
-	if config.Namespace == pulseMetricNamespace && strings.HasPrefix(config.LogGroupName, pulseLogGroupNamePrefix) {
-		return true
-	}
-
-	return false
 }

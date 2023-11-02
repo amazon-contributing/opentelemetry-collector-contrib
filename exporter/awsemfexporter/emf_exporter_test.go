@@ -9,10 +9,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/exporter/exportertest"
 	"go.uber.org/zap"
@@ -349,70 +351,35 @@ func TestNewEmfExporterWithoutConfig(t *testing.T) {
 	assert.Equal(t, settings.Logger, expCfg.logger)
 }
 
-func TestIsEnhancedContainerInsights(t *testing.T) {
+func TestMiddleware(t *testing.T) {
+	id := component.NewID("test")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	factory := NewFactory()
-	cfg := factory.CreateDefaultConfig().(*Config)
-	cfg.EnhancedContainerInsights = true
-	cfg.DisableMetricExtraction = false
-	assert.False(t, isEnhancedContainerInsights(cfg))
-	cfg.EnhancedContainerInsights = false
-	assert.False(t, isEnhancedContainerInsights(cfg))
-	cfg.EnhancedContainerInsights = true
-	cfg.DisableMetricExtraction = true
-	assert.False(t, isEnhancedContainerInsights(cfg))
-}
-
-func TestIsPulseApmEnabled(t *testing.T) {
-
-	tests := []struct {
-		name            string
-		metricNameSpace string
-		logGroupName    string
-		expectedResult  bool
-	}{
-		{
-			"validPulseEMF",
-			"AWS/APM",
-			"/aws/apm/eks",
-			true,
-		},
-		{
-			"invalidPulseLogsGroup",
-			"AWS/APM",
-			"/nonaws/apm/eks",
-			false,
-		},
-		{
-			"invalidPulseMetricNamespace",
-			"NonAWS/APM",
-			"/aws/apm/eks",
-			false,
-		},
-		{
-			"invalidPulseEMF",
-			"NonAWS/APM",
-			"/nonaws/apm/eks",
-			false,
-		},
-		{
-			"defaultConfig",
-			"",
-			"",
-			false,
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			factory := NewFactory()
-			cfg := factory.CreateDefaultConfig().(*Config)
-			if len(tc.metricNameSpace) > 0 {
-				cfg.Namespace = tc.metricNameSpace
-			}
-			if len(tc.logGroupName) > 0 {
-				cfg.LogGroupName = tc.logGroupName
-			}
-
-			assert.Equal(t, isPulseApmEnabled(cfg), tc.expectedResult)
-		})
-	}
+	expCfg := factory.CreateDefaultConfig().(*Config)
+	expCfg.Region = "us-west-2"
+	expCfg.MaxRetries = 0
+	expCfg.MiddlewareID = &id
+	handler := new(awsmiddleware.MockHandler)
+	handler.On("ID").Return("test")
+	handler.On("Position").Return(awsmiddleware.After)
+	handler.On("HandleRequest", mock.Anything, mock.Anything)
+	handler.On("HandleResponse", mock.Anything, mock.Anything)
+	middleware := new(awsmiddleware.MockMiddlewareExtension)
+	middleware.On("Handlers").Return([]awsmiddleware.RequestHandler{handler}, []awsmiddleware.ResponseHandler{handler})
+	extensions := map[component.ID]component.Component{id: middleware}
+	exp, err := newEmfExporter(expCfg, exportertest.NewNopCreateSettings())
+	assert.Nil(t, err)
+	assert.NotNil(t, exp)
+	host := new(awsmiddleware.MockExtensionsHost)
+	host.On("GetExtensions").Return(extensions)
+	assert.NoError(t, exp.start(ctx, host))
+	md := generateTestMetrics(testMetric{
+		metricNames:  []string{"metric_1", "metric_2"},
+		metricValues: [][]float64{{100}, {4}},
+	})
+	require.Error(t, exp.pushMetricsData(ctx, md))
+	require.NoError(t, exp.shutdown(ctx))
+	handler.AssertCalled(t, "HandleRequest", mock.Anything, mock.Anything)
+	handler.AssertCalled(t, "HandleResponse", mock.Anything, mock.Anything)
 }

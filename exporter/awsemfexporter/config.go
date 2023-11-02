@@ -4,6 +4,8 @@
 package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter"
 
 import (
+	"strings"
+
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
 
@@ -95,6 +97,9 @@ type Config struct {
 	// Otherwise, sending metrics as Embedded Metric Format version 0 (without "_aws")
 	Version string `mapstructure:"version"`
 
+	// MiddlewareID is an ID for an extension that can be used to configure the AWS client.
+	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
+
 	// logger is the Logger used for writing error/warning logs
 	logger *zap.Logger
 }
@@ -142,7 +147,22 @@ func (config *Config) Validate() error {
 	}
 
 	return cwlogs.ValidateTagsInput(config.Tags)
+}
 
+func (config *Config) IsEnhancedContainerInsights() bool {
+	return config.EnhancedContainerInsights && !config.DisableMetricExtraction
+}
+
+func (config *Config) IsAppSignalsEnabled() bool {
+	if config.LogGroupName == "" || config.Namespace == "" {
+		return false
+	}
+
+	if config.Namespace == appSignalsMetricNamespace && strings.HasPrefix(config.LogGroupName, appSignalsLogGroupNamePrefix) {
+		return true
+	}
+
+	return false
 }
 
 func newEMFSupportedUnits() map[string]interface{} {
