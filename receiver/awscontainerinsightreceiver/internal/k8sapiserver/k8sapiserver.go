@@ -35,8 +35,6 @@ type K8sAPIServer struct {
 
 type clusterNameProvider interface {
 	GetClusterName() string
-	GetInstanceID() string
-	GetInstanceType() string
 }
 
 type Option func(*K8sAPIServer)
@@ -96,7 +94,7 @@ func (k *K8sAPIServer) GetMetrics() []pmetric.Metrics {
 	result = append(result, k.getServiceMetrics(clusterName, timestampNs)...)
 	result = append(result, k.getStatefulSetMetrics(clusterName, timestampNs)...)
 	result = append(result, k.getReplicaSetMetrics(clusterName, timestampNs)...)
-	result = append(result, k.getPodMetrics(clusterName, timestampNs)...)
+	result = append(result, k.getPendingPodStatusMetrics(clusterName, timestampNs)...)
 
 	return result
 }
@@ -291,7 +289,8 @@ func (k *K8sAPIServer) getReplicaSetMetrics(clusterName, timestampNs string) []p
 	return metrics
 }
 
-func (k *K8sAPIServer) getPodMetrics(clusterName, timestampNs string) []pmetric.Metrics {
+// Statues and conditions for all pods assigned to a node are determined in podstore.go. Given Pending pods do not have a node allocated to them, we need to fetch their details from the K8s API Server here.
+func (k *K8sAPIServer) getPendingPodStatusMetrics(clusterName, timestampNs string) []pmetric.Metrics {
 	var metrics []pmetric.Metrics
 	podsList := k.leaderElection.podClient.PodInfos()
 	podKeyToServiceNamesMap := k.leaderElection.epClient.PodKeyToServiceNames()
@@ -321,18 +320,8 @@ func (k *K8sAPIServer) getPodMetrics(clusterName, timestampNs string) []pmetric.
 				}
 			}
 
-			if k.nodeName != "" {
-				attributes["NodeName"] = k.nodeName
-			}
-			// add instance id and type of the leader node
-			if instanceID := k.clusterNameProvider.GetInstanceID(); instanceID != "" {
-				attributes[ci.InstanceID] = instanceID
-			}
-			if instanceType := k.clusterNameProvider.GetInstanceType(); instanceType != "" {
-				attributes[ci.InstanceType] = instanceType
-			}
-
-			attributes[ci.PodStatus] = "Pending"
+			attributes[ci.PodStatus] = string(corev1.PodPending)
+			attributes["k8s.node.name"] = "pending"
 
 			kubernetesBlob := map[string]interface{}{}
 			k.getKubernetesBlob(podInfo, kubernetesBlob, attributes)
@@ -355,6 +344,7 @@ func (k *K8sAPIServer) getPodMetrics(clusterName, timestampNs string) []pmetric.
 	return metrics
 }
 
+// TODO this is duplicated code from podstore.go, move this to a common package to re-use
 func (k *K8sAPIServer) getKubernetesBlob(pod *k8sclient.PodInfo, kubernetesBlob map[string]interface{}, attributes map[string]string) {
 	var owners []interface{}
 	podName := ""

@@ -223,14 +223,6 @@ func (m mockClusterNameProvider) GetClusterName() string {
 	return "cluster-name"
 }
 
-func (m mockClusterNameProvider) GetInstanceID() string {
-	return "instance-id"
-}
-
-func (m mockClusterNameProvider) GetInstanceType() string {
-	return "instance-type"
-}
-
 func TestK8sAPIServer_New(t *testing.T) {
 	k8sAPIServer, err := NewK8sAPIServer(mockClusterNameProvider{}, zap.NewNop(), nil, false, false)
 	assert.Nil(t, k8sAPIServer)
