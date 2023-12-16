@@ -33,7 +33,7 @@ func (c *CPUMetricExtractor) GetValue(info *cInfo.ContainerInfo, mInfo CPUMemInf
 
 	// When there is more than one stats point, always use the last one
 	curStats := GetStats(info)
-	metric := newCadvisorMetric(containerType, c.logger)
+	metric := NewCadvisorMetric(containerType, c.logger)
 	metric.cgroupPath = info.Name
 	multiplier := float64(decimalToMillicores)
 	assignRateValueToField(&c.rateCalculator, metric.fields, ci.MetricName(containerType, ci.CPUTotal), info.Name, float64(curStats.Cpu.Usage.Total), curStats.Timestamp, multiplier)
