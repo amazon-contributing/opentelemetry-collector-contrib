@@ -4,7 +4,7 @@
 //go:build windows
 // +build windows
 
-package k8swindows
+package k8swindows // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows"
 
 import (
 	"fmt"

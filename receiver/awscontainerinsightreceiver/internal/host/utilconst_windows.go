@@ -4,7 +4,7 @@
 //go:build !linux
 // +build !linux
 
-package host
+package host // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
 
 // These variables are invalid for Windows
 const (

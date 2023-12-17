@@ -4,7 +4,7 @@
 //go:build !windows
 // +build !windows
 
-package host
+package host // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
 
 const (
 	rootfs     = "/rootfs"            // the root directory "/" is mounted as "/rootfs" in container
