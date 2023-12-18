@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/net"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet"
@@ -26,7 +27,11 @@ func NewKubeletClient(kubeIP string, port string, logger *zap.Logger) (*KubeletC
 		KubeIP: kubeIP,
 	}
 
-	endpoint := kubeIP + ":" + port
+	endpoint := kubeIP
+	if net.IsIPv6String(kubeIP) {
+		endpoint = "[" + endpoint + "]"
+	}
+	endpoint = endpoint + ":" + port
 
 	// use service account for authentication
 	clientConfig := &kubelet.ClientConfig{
