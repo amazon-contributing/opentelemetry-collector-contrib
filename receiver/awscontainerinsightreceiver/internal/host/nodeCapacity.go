@@ -6,6 +6,7 @@ package host // import "github.com/open-telemetry/opentelemetry-collector-contri
 import (
 	"context"
 	"os"
+	"runtime"
 
 	"github.com/shirou/gopsutil/v3/common"
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -46,11 +47,14 @@ func newNodeCapacity(logger *zap.Logger, options ...nodeCapacityOption) (nodeCap
 		opt(nc)
 	}
 
-	if _, err := nc.osLstat(hostProc); os.IsNotExist(err) {
-		return nil, err
+	ctx := context.Background()
+	if runtime.GOOS != "windows" {
+		if _, err := nc.osLstat(hostProc); os.IsNotExist(err) {
+			return nil, err
+		}
+		envMap := common.EnvMap{common.HostProcEnvKey: hostProc}
+		ctx = context.WithValue(ctx, common.EnvKey, envMap)
 	}
-	envMap := common.EnvMap{common.HostProcEnvKey: hostProc}
-	ctx := context.WithValue(context.Background(), common.EnvKey, envMap)
 
 	nc.parseCPU(ctx)
 	nc.parseMemory(ctx)

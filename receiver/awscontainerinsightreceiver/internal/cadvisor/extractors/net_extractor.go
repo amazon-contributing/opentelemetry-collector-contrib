@@ -70,7 +70,7 @@ func (n *NetMetricExtractor) GetValue(info *cinfo.ContainerInfo, _ CPUMemInfoPro
 
 		netIfceMetrics[i] = netIfceMetric
 
-		metric := newCadvisorMetric(mType, n.logger)
+		metric := NewCadvisorMetric(mType, n.logger)
 		metric.tags[ci.NetIfce] = cur.Name
 		for k, v := range netIfceMetric {
 			metric.fields[ci.MetricName(mType, k)] = v
@@ -81,7 +81,7 @@ func (n *NetMetricExtractor) GetValue(info *cinfo.ContainerInfo, _ CPUMemInfoPro
 
 	aggregatedFields := ci.SumFields(netIfceMetrics)
 	if len(aggregatedFields) > 0 {
-		metric := newCadvisorMetric(containerType, n.logger)
+		metric := NewCadvisorMetric(containerType, n.logger)
 		for k, v := range aggregatedFields {
 			metric.fields[ci.MetricName(containerType, k)] = v
 		}

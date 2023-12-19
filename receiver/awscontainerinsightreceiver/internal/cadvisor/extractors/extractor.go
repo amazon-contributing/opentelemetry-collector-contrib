@@ -44,7 +44,7 @@ type CAdvisorMetric struct {
 	logger *zap.Logger
 }
 
-func newCadvisorMetric(mType string, logger *zap.Logger) *CAdvisorMetric {
+func NewCadvisorMetric(mType string, logger *zap.Logger) *CAdvisorMetric {
 	metric := &CAdvisorMetric{
 		fields: make(map[string]any),
 		tags:   make(map[string]string),

@@ -28,7 +28,7 @@ func (m *MemMetricExtractor) GetValue(info *cinfo.ContainerInfo, mInfo CPUMemInf
 		return metrics
 	}
 
-	metric := newCadvisorMetric(containerType, m.logger)
+	metric := NewCadvisorMetric(containerType, m.logger)
 	metric.cgroupPath = info.Name
 	curStats := GetStats(info)
 
