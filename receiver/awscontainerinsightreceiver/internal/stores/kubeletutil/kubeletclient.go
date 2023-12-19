@@ -15,6 +15,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet"
 )
 
+var kubeletNewClientProvider = kubelet.NewClientProvider
+
 type KubeletClient struct {
 	KubeIP     string
 	Port       string
@@ -40,7 +42,7 @@ func NewKubeletClient(kubeIP string, port string, logger *zap.Logger) (*KubeletC
 		},
 	}
 
-	clientProvider, err := kubelet.NewClientProvider(endpoint, clientConfig, logger)
+	clientProvider, err := kubeletNewClientProvider(endpoint, clientConfig, logger)
 	if err != nil {
 		return nil, err
 	}
