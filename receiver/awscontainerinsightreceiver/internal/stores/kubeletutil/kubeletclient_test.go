@@ -6,10 +6,11 @@ package kubeletutil
 import (
 	"testing"
 
-	kube "github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	kube "github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet"
 )
 
 type mockClientProvider struct {
