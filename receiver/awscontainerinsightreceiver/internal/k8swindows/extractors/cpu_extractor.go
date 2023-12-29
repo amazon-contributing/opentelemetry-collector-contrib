@@ -3,7 +3,7 @@ package extractors
 import (
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	awsmetrics "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
-	cextractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
+	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 
 	"go.uber.org/zap"
 )
@@ -17,14 +17,21 @@ type CPUMetricExtractor struct {
 	rateCalculator awsmetrics.MetricCalculator
 }
 
-func (c *CPUMetricExtractor) GetValue(rawMetric *RawMetric, mInfo cextractor.CPUMemInfoProvider, containerType string) []*cextractor.CAdvisorMetric {
-	var metrics []*cextractor.CAdvisorMetric
+func (c *CPUMetricExtractor) HasValue(rawMetric *RawMetric) bool {
+	if rawMetric.CPUStats != nil {
+		return true
+	}
+	return false
+}
 
-	metric := cextractor.NewCadvisorMetric(containerType, c.logger)
+func (c *CPUMetricExtractor) GetValue(rawMetric *RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
+	var metrics []*cExtractor.CAdvisorMetric
+
+	metric := cExtractor.NewCadvisorMetric(containerType, c.logger)
 
 	multiplier := float64(decimalToMillicores)
 	identifier := rawMetric.Id
-	cextractor.AssignRateValueToField(&c.rateCalculator, metric.GetFields(), ci.MetricName(containerType, ci.CPUTotal), identifier, float64(*rawMetric.CPUStats.UsageCoreNanoSeconds), rawMetric.Time, multiplier)
+	cExtractor.AssignRateValueToField(&c.rateCalculator, metric.GetFields(), ci.MetricName(containerType, ci.CPUTotal), identifier, float64(*rawMetric.CPUStats.UsageCoreNanoSeconds), rawMetric.Time, multiplier)
 
 	numCores := mInfo.GetNumCores()
 	if metric.GetField(ci.MetricName(containerType, ci.CPUTotal)) != nil && numCores != 0 {
@@ -46,6 +53,6 @@ func (c *CPUMetricExtractor) Shutdown() error {
 func NewCPUMetricExtractor(logger *zap.Logger) *CPUMetricExtractor {
 	return &CPUMetricExtractor{
 		logger:         logger,
-		rateCalculator: cextractor.NewFloat64RateCalculator(),
+		rateCalculator: cExtractor.NewFloat64RateCalculator(),
 	}
 }
