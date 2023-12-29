@@ -36,9 +36,9 @@ func (c *CPUMetricExtractor) GetValue(info *cInfo.ContainerInfo, mInfo CPUMemInf
 	metric := NewCadvisorMetric(containerType, c.logger)
 	metric.cgroupPath = info.Name
 	multiplier := float64(decimalToMillicores)
-	assignRateValueToField(&c.rateCalculator, metric.fields, ci.MetricName(containerType, ci.CPUTotal), info.Name, float64(curStats.Cpu.Usage.Total), curStats.Timestamp, multiplier)
-	assignRateValueToField(&c.rateCalculator, metric.fields, ci.MetricName(containerType, ci.CPUUser), info.Name, float64(curStats.Cpu.Usage.User), curStats.Timestamp, multiplier)
-	assignRateValueToField(&c.rateCalculator, metric.fields, ci.MetricName(containerType, ci.CPUSystem), info.Name, float64(curStats.Cpu.Usage.System), curStats.Timestamp, multiplier)
+	AssignRateValueToField(&c.rateCalculator, metric.fields, ci.MetricName(containerType, ci.CPUTotal), info.Name, float64(curStats.Cpu.Usage.Total), curStats.Timestamp, multiplier)
+	AssignRateValueToField(&c.rateCalculator, metric.fields, ci.MetricName(containerType, ci.CPUUser), info.Name, float64(curStats.Cpu.Usage.User), curStats.Timestamp, multiplier)
+	AssignRateValueToField(&c.rateCalculator, metric.fields, ci.MetricName(containerType, ci.CPUSystem), info.Name, float64(curStats.Cpu.Usage.System), curStats.Timestamp, multiplier)
 
 	numCores := mInfo.GetNumCores()
 	if metric.fields[ci.MetricName(containerType, ci.CPUTotal)] != nil && numCores != 0 {
@@ -60,6 +60,6 @@ func (c *CPUMetricExtractor) Shutdown() error {
 func NewCPUMetricExtractor(logger *zap.Logger) *CPUMetricExtractor {
 	return &CPUMetricExtractor{
 		logger:         logger,
-		rateCalculator: newFloat64RateCalculator(),
+		rateCalculator: NewFloat64RateCalculator(),
 	}
 }
