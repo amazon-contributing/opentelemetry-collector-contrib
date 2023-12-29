@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
-	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
+	cextractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	cTestUtils "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/testutils"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/testutils"
 
@@ -25,12 +25,12 @@ func TestCPUStats(t *testing.T) {
 	containerType := containerinsight.TypePod
 	extractor := NewCPUMetricExtractor(&zap.Logger{})
 
-	var cMetrics []*cExtractor.CAdvisorMetric
+	var cMetrics []*cextractor.CAdvisorMetric
 	cMetrics = extractor.GetValue(podRawMetric, MockCPUMemInfo, containerType)
 	cMetrics = extractor.GetValue(podRawMetric2, MockCPUMemInfo, containerType)
 
-	cExtractor.AssertContainsTaggedFloat(t, cMetrics[0], "pod_cpu_usage_total", 3.125000, 0)
-	cExtractor.AssertContainsTaggedFloat(t, cMetrics[0], "pod_cpu_utilization", 0.156250, 0)
+	cextractor.AssertContainsTaggedFloat(t, cMetrics[0], "pod_cpu_usage_total", 3.125000, 0)
+	cextractor.AssertContainsTaggedFloat(t, cMetrics[0], "pod_cpu_utilization", 0.156250, 0)
 	require.NoError(t, extractor.Shutdown())
 
 	// test node type
@@ -42,9 +42,9 @@ func TestCPUStats(t *testing.T) {
 	cMetrics = extractor.GetValue(nodeRawMetric, MockCPUMemInfo, containerType)
 	cMetrics = extractor.GetValue(nodeRawMetric2, MockCPUMemInfo, containerType)
 
-	cExtractor.AssertContainsTaggedFloat(t, cMetrics[0], "node_cpu_usage_total", 51.5, 0.5)
-	cExtractor.AssertContainsTaggedFloat(t, cMetrics[0], "node_cpu_utilization", 2.5, 0.5)
-	cExtractor.AssertContainsTaggedInt(t, cMetrics[0], "node_cpu_limit", 2000)
+	cextractor.AssertContainsTaggedFloat(t, cMetrics[0], "node_cpu_usage_total", 51.5, 0.5)
+	cextractor.AssertContainsTaggedFloat(t, cMetrics[0], "node_cpu_utilization", 2.5, 0.5)
+	cextractor.AssertContainsTaggedInt(t, cMetrics[0], "node_cpu_limit", 2000)
 
 	require.NoError(t, extractor.Shutdown())
 }

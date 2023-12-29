@@ -3,7 +3,7 @@ package extractors
 import (
 	"time"
 
-	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
+	cextractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
 
@@ -19,6 +19,6 @@ type RawMetric struct {
 }
 
 type MetricExtractor interface {
-	GetValue(summary *RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric
+	GetValue(summary *RawMetric, mInfo cextractor.CPUMemInfoProvider, containerType string) []*cextractor.CAdvisorMetric
 	Shutdown() error
 }

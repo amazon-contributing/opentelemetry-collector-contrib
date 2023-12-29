@@ -11,9 +11,15 @@ func ConvertPodToRaw(podStat *stats.PodStats) *RawMetric {
 	rawMetic.Id = podStat.PodRef.UID
 	rawMetic.Name = podStat.PodRef.Name
 	rawMetic.Namespace = podStat.PodRef.Namespace
-	rawMetic.Time = podStat.CPU.Time.Time
-	rawMetic.CPUStats = podStat.CPU
-	rawMetic.MemoryStats = podStat.Memory
+
+	if podStat.CPU != nil {
+		rawMetic.Time = podStat.CPU.Time.Time
+		rawMetic.CPUStats = podStat.CPU
+	}
+
+	if podStat.Memory != nil {
+		rawMetic.MemoryStats = podStat.Memory
+	}
 	return rawMetic
 }
 
@@ -23,8 +29,15 @@ func ConvertNodeToRaw(nodeStat *stats.NodeStats) *RawMetric {
 	rawMetic = &RawMetric{}
 	rawMetic.Id = nodeStat.NodeName
 	rawMetic.Name = nodeStat.NodeName
-	rawMetic.Time = nodeStat.CPU.Time.Time
-	rawMetic.CPUStats = nodeStat.CPU
-	rawMetic.MemoryStats = nodeStat.Memory
+
+	if nodeStat.CPU != nil {
+		rawMetic.Time = nodeStat.CPU.Time.Time
+		rawMetic.CPUStats = nodeStat.CPU
+	}
+
+	if nodeStat.Memory != nil {
+		rawMetic.MemoryStats = nodeStat.Memory
+	}
+
 	return rawMetic
 }
