@@ -12,8 +12,9 @@ import (
 	"os"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
+	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -29,6 +30,8 @@ type K8sWindows struct {
 	hostInfo        host.Info
 }
 
+var metricsExtractors = []extractors.MetricExtractor{}
+
 func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info) (*K8sWindows, error) {
 	nodeName := os.Getenv("HOST_NAME")
 	if nodeName == "" {
@@ -39,6 +42,10 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 		logger.Error("failed to initialize kubelet summary provider, ", zap.Error(err))
 		return nil, err
 	}
+
+	metricsExtractors = []extractors.MetricExtractor{}
+	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
+	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
 	return &K8sWindows{
 		logger:          logger,
 		nodeName:        nodeName,
@@ -66,9 +73,9 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 	return result
 }
 
-func (c *K8sWindows) decorateMetrics(cadvisormetrics []*extractors.CAdvisorMetric) []*extractors.CAdvisorMetric {
+func (c *K8sWindows) decorateMetrics(cadvisormetrics []*cExtractor.CAdvisorMetric) []*cExtractor.CAdvisorMetric {
 	//ebsVolumeIdsUsedAsPV := c.hostInfo.ExtractEbsIDsUsedByKubernetes()
-	var result []*extractors.CAdvisorMetric
+	var result []*cExtractor.CAdvisorMetric
 	for _, m := range cadvisormetrics {
 		tags := m.GetTags()
 		//c.addEbsVolumeInfo(tags, ebsVolumeIdsUsedAsPV)
@@ -108,4 +115,8 @@ func (c *K8sWindows) decorateMetrics(cadvisormetrics []*extractors.CAdvisorMetri
 func (k *K8sWindows) Shutdown() error {
 	k.logger.Debug("D! called K8sWindows Shutdown")
 	return nil
+}
+
+func GetMetricsExtractors() []extractors.MetricExtractor {
+	return metricsExtractors
 }

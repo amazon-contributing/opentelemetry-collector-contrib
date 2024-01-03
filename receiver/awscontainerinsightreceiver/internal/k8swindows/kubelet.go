@@ -13,7 +13,7 @@ import (
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
 
 	"go.uber.org/zap"
@@ -25,15 +25,16 @@ type kubeletSummaryProvider struct {
 	hostIP   string
 	hostPort string
 	client   *kubeletutil.KubeletClient
-	hostInfo host.Info
+	hostInfo cExtractor.CPUMemInfoProvider
 }
 
-func new(logger *zap.Logger, info host.Info) (*kubeletSummaryProvider, error) {
+func new(logger *zap.Logger, info cExtractor.CPUMemInfoProvider) (*kubeletSummaryProvider, error) {
 	hostIP := os.Getenv("HOST_IP")
 	kclient, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize kubelet client: %w", err)
 	}
+
 	return &kubeletSummaryProvider{
 		logger:   logger,
 		client:   kclient,
@@ -63,7 +64,6 @@ func (k *kubeletSummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtr
 
 	var metrics []*cExtractor.CAdvisorMetric
 
-	nodeCPUCores := k.hostInfo.GetNumCores()
 	for _, pod := range summary.Pods {
 		k.logger.Info(fmt.Sprintf("pod summary %v", pod.PodRef.Name))
 		metric := cExtractor.NewCadvisorMetric(ci.TypePod, k.logger)
@@ -74,17 +74,12 @@ func (k *kubeletSummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtr
 		tags[ci.K8sNamespace] = pod.PodRef.Namespace
 		tags[ci.Timestamp] = strconv.FormatInt(pod.CPU.Time.UnixNano(), 10)
 
-		// CPU metric
-		metric.AddField(ci.MetricName(ci.TypePod, ci.CPUTotal), float64(*pod.CPU.UsageCoreNanoSeconds))
-		metric.AddField(ci.MetricName(ci.TypePod, ci.CPUUtilization), float64(*pod.CPU.UsageCoreNanoSeconds)/float64(nodeCPUCores))
-
-		// Memory metrics
-		metric.AddField(ci.MetricName(ci.TypePod, ci.MemUsage), *pod.Memory.UsageBytes)
-		metric.AddField(ci.MetricName(ci.TypePod, ci.MemRss), *pod.Memory.RSSBytes)
-		metric.AddField(ci.MetricName(ci.TypePod, ci.MemWorkingset), *pod.Memory.WorkingSetBytes)
-		metric.AddField(ci.MetricName(ci.TypePod, ci.MemReservedCapacity), k.hostInfo.GetMemoryCapacity())
-		metric.AddField(ci.MetricName(ci.TypePod, ci.MemUtilization), float64(*pod.Memory.WorkingSetBytes)/float64(k.hostInfo.GetMemoryCapacity())*100)
-
+		rawMetric := extractors.ConvertPodToRaw(&pod)
+		for _, extractor := range GetMetricsExtractors() {
+			if extractor.HasValue(rawMetric) {
+				extractor.GetValue(rawMetric, k.hostInfo, ci.TypePod)
+			}
+		}
 		metric.AddTags(tags)
 		metrics = append(metrics, metric)
 	}
