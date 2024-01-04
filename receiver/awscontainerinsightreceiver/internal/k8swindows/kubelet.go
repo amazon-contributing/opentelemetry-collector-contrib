@@ -13,9 +13,9 @@ import (
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
-
 	"go.uber.org/zap"
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
@@ -25,10 +25,10 @@ type kubeletSummaryProvider struct {
 	hostIP   string
 	hostPort string
 	client   *kubeletutil.KubeletClient
-	hostInfo cExtractor.CPUMemInfoProvider
+	hostInfo host.Info
 }
 
-func new(logger *zap.Logger, info cExtractor.CPUMemInfoProvider) (*kubeletSummaryProvider, error) {
+func new(logger *zap.Logger, info host.Info) (*kubeletSummaryProvider, error) {
 	hostIP := os.Getenv("HOST_IP")
 	kclient, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, logger)
 	if err != nil {
@@ -66,7 +66,7 @@ func (k *kubeletSummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtr
 
 	for _, pod := range summary.Pods {
 		k.logger.Info(fmt.Sprintf("pod summary %v", pod.PodRef.Name))
-		metric := cExtractor.NewCadvisorMetric(ci.TypePod, k.logger)
+
 		tags := map[string]string{}
 
 		tags[ci.PodIDKey] = pod.PodRef.UID
@@ -77,11 +77,12 @@ func (k *kubeletSummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtr
 		rawMetric := extractors.ConvertPodToRaw(&pod)
 		for _, extractor := range GetMetricsExtractors() {
 			if extractor.HasValue(rawMetric) {
-				extractor.GetValue(rawMetric, k.hostInfo, ci.TypePod)
+				metrics = append(metrics, extractor.GetValue(rawMetric, &k.hostInfo, ci.TypePod)...)
 			}
 		}
-		metric.AddTags(tags)
-		metrics = append(metrics, metric)
+		for _, metric := range metrics {
+			metric.AddTags(tags)
+		}
 	}
 	return metrics, nil
 }
