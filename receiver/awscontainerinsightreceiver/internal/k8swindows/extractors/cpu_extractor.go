@@ -31,7 +31,7 @@ func (c *CPUMetricExtractor) GetValue(rawMetric *RawMetric, mInfo cExtractor.CPU
 
 	multiplier := float64(decimalToMillicores)
 	identifier := rawMetric.Id
-	cExtractor.AssignRateValueToField(&c.rateCalculator, metric.GetFields(), ci.MetricName(containerType, ci.CPUTotal), identifier, float64(*rawMetric.CPUStats.UsageCoreNanoSeconds), rawMetric.Time, multiplier)
+	cExtractor.AssignRateValueToField(&c.rateCalculator, metric.GetFields(), ci.MetricName(containerType, ci.CPUTotal), identifier, float64(rawMetric.CPUStats.UsageCoreNanoSeconds), rawMetric.Time, multiplier)
 
 	numCores := mInfo.GetNumCores()
 	if metric.GetField(ci.MetricName(containerType, ci.CPUTotal)) != nil && numCores != 0 {

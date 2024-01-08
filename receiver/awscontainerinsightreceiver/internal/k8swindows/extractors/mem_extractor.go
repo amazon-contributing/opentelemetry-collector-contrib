@@ -27,19 +27,18 @@ func (m *MemMetricExtractor) HasValue(rawMetric *RawMetric) bool {
 
 func (m *MemMetricExtractor) GetValue(rawMetric *RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
 	var metrics []*cExtractor.CAdvisorMetric
-
 	metric := cExtractor.NewCadvisorMetric(containerType, m.logger)
 	identifier := rawMetric.Id
 
-	metric.AddField(ci.MetricName(containerType, ci.MemUsage), *rawMetric.MemoryStats.UsageBytes)
-	metric.AddField(ci.MetricName(containerType, ci.MemRss), *rawMetric.MemoryStats.RSSBytes)
-	metric.AddField(ci.MetricName(containerType, ci.MemWorkingset), *rawMetric.MemoryStats.WorkingSetBytes)
+	metric.AddField(ci.MetricName(containerType, ci.MemUsage), rawMetric.MemoryStats.UsageBytes)
+	metric.AddField(ci.MetricName(containerType, ci.MemRss), rawMetric.MemoryStats.RSSBytes)
+	metric.AddField(ci.MetricName(containerType, ci.MemWorkingset), rawMetric.MemoryStats.WorkingSetBytes)
 
 	multiplier := float64(time.Second)
 	cExtractor.AssignRateValueToField(&m.rateCalculator, metric.GetFields(), ci.MetricName(containerType, ci.MemPgfault), identifier,
-		float64(*rawMetric.MemoryStats.PageFaults), rawMetric.Time, multiplier)
+		float64(rawMetric.MemoryStats.PageFaults), rawMetric.Time, multiplier)
 	cExtractor.AssignRateValueToField(&m.rateCalculator, metric.GetFields(), ci.MetricName(containerType, ci.MemPgmajfault), identifier,
-		float64(*rawMetric.MemoryStats.MajorPageFaults), rawMetric.Time, multiplier)
+		float64(rawMetric.MemoryStats.MajorPageFaults), rawMetric.Time, multiplier)
 
 	memoryCapacity := mInfo.GetMemoryCapacity()
 	if metric.GetField(ci.MetricName(containerType, ci.MemWorkingset)) != nil && memoryCapacity != 0 {
