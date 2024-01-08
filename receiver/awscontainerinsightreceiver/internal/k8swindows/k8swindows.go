@@ -22,12 +22,12 @@ import (
 )
 
 type K8sWindows struct {
-	cancel          context.CancelFunc
-	logger          *zap.Logger
-	nodeName        string `toml:"node_name"`
-	k8sDecorator    stores.K8sDecorator
-	summaryProvider *kubelet
-	hostInfo        host.Info
+	cancel                 context.CancelFunc
+	logger                 *zap.Logger
+	nodeName               string `toml:"node_name"`
+	k8sDecorator           stores.K8sDecorator
+	kubeletSummaryProvider *kubelet
+	hostInfo               host.Info
 }
 
 var metricsExtractors = []extractors.MetricExtractor{}
@@ -47,11 +47,11 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
 	return &K8sWindows{
-		logger:          logger,
-		nodeName:        nodeName,
-		k8sDecorator:    *decorator,
-		summaryProvider: k8sSummaryProvider,
-		hostInfo:        hostInfo,
+		logger:                 logger,
+		nodeName:               nodeName,
+		k8sDecorator:           *decorator,
+		kubeletSummaryProvider: k8sSummaryProvider,
+		hostInfo:               hostInfo,
 	}, nil
 }
 
@@ -59,7 +59,7 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 	k.logger.Debug("D! called K8sWindows GetMetrics")
 	var result []pmetric.Metrics
 
-	metrics, err := k.summaryProvider.getMetrics()
+	metrics, err := k.kubeletSummaryProvider.getMetrics()
 	if err != nil {
 		k.logger.Error("error getting metrics from kubelet summary provider, ", zap.Error(err))
 		return result

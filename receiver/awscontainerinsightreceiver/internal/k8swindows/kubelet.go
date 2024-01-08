@@ -26,10 +26,10 @@ type KubeletProvider interface {
 }
 
 type kubeletProvider struct {
-	logger *zap.Logger
-	hostIP string
-	port   string
-	client *kubeletutil.KubeletClient
+	logger   *zap.Logger
+	hostIP   string
+	hostPort string
+	client   *kubeletutil.KubeletClient
 }
 
 // GetClient Returns singleton kubelet client.
@@ -37,7 +37,7 @@ func (k *kubeletProvider) GetClient() (*kubeletutil.KubeletClient, error) {
 	if k.client != nil {
 		return k.client, nil
 	}
-	kclient, err := kubeletutil.NewKubeletClient(k.hostIP, k.port, k.logger)
+	kclient, err := kubeletutil.NewKubeletClient(k.hostIP, k.hostPort, k.logger)
 	if err != nil {
 		k.logger.Error("failed to initialize kubeletProvider client, ", zap.Error(err))
 		return nil, err
@@ -63,7 +63,7 @@ func (k *kubeletProvider) GetSummary() (*stats.Summary, error) {
 }
 
 func createDefaultKubeletProvider(logger *zap.Logger) KubeletProvider {
-	kSP := &kubeletProvider{logger: logger, hostIP: os.Getenv("HOST_IP"), port: ci.KubeSecurePort}
+	kSP := &kubeletProvider{logger: logger, hostIP: os.Getenv("HOST_IP"), hostPort: ci.KubeSecurePort}
 	return kSP
 }
 
