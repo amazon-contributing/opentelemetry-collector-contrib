@@ -51,7 +51,6 @@ func convertMemoryStats(kubeletMemoryStat stats.MemoryStats) MemoryStat {
 // ConvertPodToRaw Converts Kubelet Pod stats to RawMetric.
 func ConvertPodToRaw(podStat stats.PodStats) RawMetric {
 	var rawMetic RawMetric
-	//rawMetic = RawMetric{}
 
 	rawMetic.Id = podStat.PodRef.UID
 	rawMetic.Name = podStat.PodRef.Name
@@ -75,7 +74,6 @@ func ConvertPodToRaw(podStat stats.PodStats) RawMetric {
 // ConvertContainerToRaw Converts Kubelet Container stats per Pod to RawMetric.
 func ConvertContainerToRaw(containerStat stats.ContainerStats, podStat stats.PodStats) RawMetric {
 	var rawMetic RawMetric
-	//rawMetic = RawMetric{}
 
 	rawMetic.Id = fmt.Sprintf("%s-%s", podStat.PodRef.UID, containerStat.Name)
 	rawMetic.Name = containerStat.Name
@@ -99,7 +97,6 @@ func ConvertContainerToRaw(containerStat stats.ContainerStats, podStat stats.Pod
 // ConvertNodeToRaw Converts Kubelet Node stats to RawMetric.
 func ConvertNodeToRaw(nodeStat stats.NodeStats) RawMetric {
 	var rawMetic RawMetric
-	rawMetic = RawMetric{}
 
 	rawMetic.Id = nodeStat.NodeName
 	rawMetic.Name = nodeStat.NodeName
