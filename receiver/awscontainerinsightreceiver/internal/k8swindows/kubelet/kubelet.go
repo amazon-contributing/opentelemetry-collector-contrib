@@ -14,57 +14,9 @@ import (
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
 
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
-
-// KubeletProvider Represents interface to kubelet.
-type KubeletProvider interface {
-	GetClient() (*kubeletutil.KubeletClient, error)
-	GetSummary() (*stats.Summary, error)
-}
-
-type kubeletProvider struct {
-	logger   *zap.Logger
-	hostIP   string
-	hostPort string
-	client   *kubeletutil.KubeletClient
-}
-
-// GetClient Returns singleton kubelet client.
-func (k *kubeletProvider) GetClient() (*kubeletutil.KubeletClient, error) {
-	if k.client != nil {
-		return k.client, nil
-	}
-	kclient, err := kubeletutil.NewKubeletClient(k.hostIP, k.hostPort, k.logger)
-	if err != nil {
-		k.logger.Error("failed to initialize kubeletProvider client, ", zap.Error(err))
-		return nil, err
-	}
-	k.client = kclient
-	return kclient, nil
-}
-
-// GetSummary Get Summary from kubelet API.
-func (k *kubeletProvider) GetSummary() (*stats.Summary, error) {
-	kclient, err := k.GetClient()
-	if err != nil {
-		k.logger.Error("failed to get kubeletProvider client, ", zap.Error(err))
-		return nil, err
-	}
-
-	summary, err := kclient.Summary(k.logger)
-	if err != nil {
-		k.logger.Error("kubeletProvider summary API failed, ", zap.Error(err))
-		return nil, err
-	}
-	return summary, nil
-}
-
-func createDefaultKubeletProvider(logger *zap.Logger) KubeletProvider {
-	return &kubeletProvider{logger: logger, hostIP: os.Getenv("HOST_IP"), hostPort: ci.KubeSecurePort}
-}
 
 // SummaryProvider represents receiver to get container metric from Kubelet.
 type SummaryProvider struct {
@@ -72,6 +24,10 @@ type SummaryProvider struct {
 	kubeletProvider  KubeletProvider
 	hostInfo         cExtractor.CPUMemInfoProvider
 	metricExtractors []extractors.MetricExtractor
+}
+
+func createDefaultKubeletProvider(logger *zap.Logger) KubeletProvider {
+	return &kubeletProvider{logger: logger, hostIP: os.Getenv("HOST_IP"), hostPort: ci.KubeSecurePort}
 }
 
 // Options decorates SummaryProvider struct.
@@ -91,24 +47,24 @@ func New(logger *zap.Logger, info cExtractor.CPUMemInfoProvider, mextractor []ex
 	return sp, nil
 }
 
-func (k *SummaryProvider) GetMetrics() ([]*cExtractor.CAdvisorMetric, error) {
+func (sp *SummaryProvider) GetMetrics() ([]*cExtractor.CAdvisorMetric, error) {
 	var metrics []*cExtractor.CAdvisorMetric
 
-	summary, err := k.kubeletProvider.GetSummary()
+	summary, err := sp.kubeletProvider.GetSummary()
 	if err != nil {
-		k.logger.Error("kubeletProvider summary API failed, ", zap.Error(err))
+		sp.logger.Error("failed to get summary from kubeletProvider, ", zap.Error(err))
 		return nil, err
 	}
-	outMetrics, err := k.getPodMetrics(summary)
+	outMetrics, err := sp.getPodMetrics(summary)
 	if err != nil {
-		k.logger.Error("SummaryProvider pod metrics failed, ", zap.Error(err))
+		sp.logger.Error("failed to get pod metrics using kubelet summary, ", zap.Error(err))
 		return metrics, err
 	}
 	metrics = append(metrics, outMetrics...)
 
-	nodeMetics, err := k.getNodeMetrics(summary)
+	nodeMetics, err := sp.getNodeMetrics(summary)
 	if err != nil {
-		k.logger.Error("SummaryProvider node summary metrics failed, ", zap.Error(err))
+		sp.logger.Error("failed to get node metrics using kubelet summary, ", zap.Error(err))
 		return nodeMetics, err
 	}
 	metrics = append(metrics, nodeMetics...)
@@ -117,7 +73,7 @@ func (k *SummaryProvider) GetMetrics() ([]*cExtractor.CAdvisorMetric, error) {
 }
 
 // getContainerMetrics returns container level metrics from kubelet summary.
-func (k *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtractor.CAdvisorMetric, error) {
+func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtractor.CAdvisorMetric, error) {
 	var metrics []*cExtractor.CAdvisorMetric
 
 	for _, container := range pod.Containers {
@@ -133,9 +89,9 @@ func (k *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtractor
 		rawMetric := extractors.ConvertContainerToRaw(container, pod)
 		tags[ci.Timestamp] = strconv.FormatInt(rawMetric.Time.UnixNano(), 10)
 
-		for _, extractor := range k.metricExtractors {
+		for _, extractor := range sp.metricExtractors {
 			if extractor.HasValue(rawMetric) {
-				metrics = append(metrics, extractor.GetValue(rawMetric, k.hostInfo, ci.TypeContainer)...)
+				metrics = append(metrics, extractor.GetValue(rawMetric, sp.hostInfo, ci.TypeContainer)...)
 			}
 		}
 		for _, metric := range metrics {
@@ -146,7 +102,7 @@ func (k *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtractor
 }
 
 // getPodMetrics returns pod and container level metrics from kubelet summary.
-func (k *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.CAdvisorMetric, error) {
+func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.CAdvisorMetric, error) {
 	// todo: This is not complete implementation of pod level metric collection since network level metrics are pending
 	// May need to add some more pod level labels for store decorators to work properly
 	var metrics []*cExtractor.CAdvisorMetric
@@ -167,9 +123,9 @@ func (k *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.C
 		rawMetric := extractors.ConvertPodToRaw(pod)
 		tags[ci.Timestamp] = strconv.FormatInt(rawMetric.Time.UnixNano(), 10)
 
-		for _, extractor := range k.metricExtractors {
+		for _, extractor := range sp.metricExtractors {
 			if extractor.HasValue(rawMetric) {
-				metricsPerPod = append(metricsPerPod, extractor.GetValue(rawMetric, k.hostInfo, ci.TypePod)...)
+				metricsPerPod = append(metricsPerPod, extractor.GetValue(rawMetric, sp.hostInfo, ci.TypePod)...)
 			}
 		}
 		for _, metric := range metricsPerPod {
@@ -177,9 +133,9 @@ func (k *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.C
 		}
 		metrics = append(metrics, metricsPerPod...)
 
-		containerMetrics, err := k.getContainerMetrics(pod)
+		containerMetrics, err := sp.getContainerMetrics(pod)
 		if err != nil {
-			k.logger.Error("failed to get container metrics, ", zap.Error(err))
+			sp.logger.Error("failed to get container metrics, ", zap.Error(err))
 			return containerMetrics, err
 		}
 		metrics = append(metrics, containerMetrics...)
@@ -188,7 +144,7 @@ func (k *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.C
 }
 
 // getNodeMetrics returns Node level metrics from kubelet summary.
-func (k *SummaryProvider) getNodeMetrics(summary *stats.Summary) ([]*cExtractor.CAdvisorMetric, error) {
+func (sp *SummaryProvider) getNodeMetrics(summary *stats.Summary) ([]*cExtractor.CAdvisorMetric, error) {
 	var metrics []*cExtractor.CAdvisorMetric
 
 	if summary == nil {
@@ -196,9 +152,9 @@ func (k *SummaryProvider) getNodeMetrics(summary *stats.Summary) ([]*cExtractor.
 	}
 
 	rawMetric := extractors.ConvertNodeToRaw(summary.Node)
-	for _, extractor := range k.metricExtractors {
+	for _, extractor := range sp.metricExtractors {
 		if extractor.HasValue(rawMetric) {
-			metrics = append(metrics, extractor.GetValue(rawMetric, k.hostInfo, ci.TypeNode)...)
+			metrics = append(metrics, extractor.GetValue(rawMetric, sp.hostInfo, ci.TypeNode)...)
 		}
 	}
 	return metrics, nil

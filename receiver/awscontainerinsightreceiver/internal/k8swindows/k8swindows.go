@@ -15,7 +15,7 @@ import (
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
-	kubelet "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/kubelet"
+	kubeletsummaryprovider "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/kubelet"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -27,7 +27,7 @@ type K8sWindows struct {
 	logger                 *zap.Logger
 	nodeName               string `toml:"node_name"`
 	k8sDecorator           stores.K8sDecorator
-	kubeletSummaryProvider *kubelet.SummaryProvider
+	kubeletSummaryProvider *kubeletsummaryprovider.SummaryProvider
 	hostInfo               host.Info
 }
 
@@ -43,9 +43,9 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
 
-	ksp, err := kubelet.New(logger, &hostInfo, metricsExtractors)
+	ksp, err := kubeletsummaryprovider.New(logger, &hostInfo, metricsExtractors)
 	if err != nil {
-		logger.Error("failed to initialize metricProvider summary provider, ", zap.Error(err))
+		logger.Error("failed to initialize kubelet SummaryProvider, ", zap.Error(err))
 		return nil, err
 	}
 
@@ -64,7 +64,7 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 
 	metrics, err := k.kubeletSummaryProvider.GetMetrics()
 	if err != nil {
-		k.logger.Error("error getting metrics from kubelet summary provider, ", zap.Error(err))
+		k.logger.Error("failed to get metrics from kubelet SummaryProvider, ", zap.Error(err))
 		return result
 	}
 	metrics = cExtractor.MergeMetrics(metrics)
@@ -119,8 +119,4 @@ func (c *K8sWindows) decorateMetrics(cadvisormetrics []*cExtractor.CAdvisorMetri
 func (k *K8sWindows) Shutdown() error {
 	k.logger.Debug("D! called K8sWindows Shutdown")
 	return nil
-}
-
-func GetMetricsExtractors() []extractors.MetricExtractor {
-	return metricsExtractors
 }
