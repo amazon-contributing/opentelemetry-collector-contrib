@@ -18,14 +18,14 @@ type MemMetricExtractor struct {
 	rateCalculator awsmetrics.MetricCalculator
 }
 
-func (m *MemMetricExtractor) HasValue(rawMetric *RawMetric) bool {
-	if rawMetric.MemoryStats != nil {
+func (m *MemMetricExtractor) HasValue(rawMetric RawMetric) bool {
+	if !rawMetric.Time.IsZero() {
 		return true
 	}
 	return false
 }
 
-func (m *MemMetricExtractor) GetValue(rawMetric *RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
+func (m *MemMetricExtractor) GetValue(rawMetric RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
 	var metrics []*cExtractor.CAdvisorMetric
 	metric := cExtractor.NewCadvisorMetric(containerType, m.logger)
 	identifier := rawMetric.Id

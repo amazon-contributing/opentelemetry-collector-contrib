@@ -17,14 +17,14 @@ type CPUMetricExtractor struct {
 	rateCalculator awsmetrics.MetricCalculator
 }
 
-func (c *CPUMetricExtractor) HasValue(rawMetric *RawMetric) bool {
-	if rawMetric.CPUStats != nil {
+func (c *CPUMetricExtractor) HasValue(rawMetric RawMetric) bool {
+	if !rawMetric.Time.IsZero() {
 		return true
 	}
 	return false
 }
 
-func (c *CPUMetricExtractor) GetValue(rawMetric *RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
+func (c *CPUMetricExtractor) GetValue(rawMetric RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
 	var metrics []*cExtractor.CAdvisorMetric
 
 	metric := cExtractor.NewCadvisorMetric(containerType, c.logger)

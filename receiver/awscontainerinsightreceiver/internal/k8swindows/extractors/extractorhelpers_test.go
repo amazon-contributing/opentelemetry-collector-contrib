@@ -13,7 +13,7 @@ func TestConvertPodToRaw(t *testing.T) {
 
 	result := testutils.LoadKubeletSummary(t, "./testdata/PreSingleKubeletSummary.json")
 
-	podRawMetric := ConvertPodToRaw(&result.Pods[0])
+	podRawMetric := ConvertPodToRaw(result.Pods[0])
 
 	assert.Equal(t, podRawMetric.Id, "01bfbe59-2925-4ad5-a8d3-a1b23e3ddd74")
 	assert.Equal(t, podRawMetric.Name, "windows-server-iis-ltsc2019-58d94b5844-6v2pg")
@@ -34,7 +34,7 @@ func TestConvertPodToRaw(t *testing.T) {
 func TestConvertContainerToRaw(t *testing.T) {
 	result := testutils.LoadKubeletSummary(t, "./testdata/PreSingleKubeletSummary.json")
 
-	containerRawMetric := ConvertContainerToRaw(&result.Pods[0].Containers[0], &result.Pods[0])
+	containerRawMetric := ConvertContainerToRaw(result.Pods[0].Containers[0], result.Pods[0])
 
 	assert.Equal(t, containerRawMetric.Id, "01bfbe59-2925-4ad5-a8d3-a1b23e3ddd74-windows-server-iis-ltsc2019")
 	assert.Equal(t, containerRawMetric.Name, "windows-server-iis-ltsc2019")
@@ -56,7 +56,7 @@ func TestConvertNodeToRaw(t *testing.T) {
 
 	result := testutils.LoadKubeletSummary(t, "./testdata/PreSingleKubeletSummary.json")
 
-	nodeRawMetric := ConvertNodeToRaw(&result.Node)
+	nodeRawMetric := ConvertNodeToRaw(result.Node)
 
 	assert.Equal(t, nodeRawMetric.Id, "ip-192-168-44-84.us-west-2.compute.internal")
 	assert.Equal(t, nodeRawMetric.Name, "ip-192-168-44-84.us-west-2.compute.internal")

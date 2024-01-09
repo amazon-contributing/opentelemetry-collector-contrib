@@ -31,8 +31,8 @@ type RawMetric struct {
 	Name        string
 	Namespace   string
 	Time        time.Time
-	CPUStats    *CPUStat
-	MemoryStats *MemoryStat
+	CPUStats    CPUStat
+	MemoryStats MemoryStat
 }
 
 type MetricExtractor interface {
