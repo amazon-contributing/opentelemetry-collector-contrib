@@ -7,7 +7,6 @@
 package kubelet
 
 import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 	"testing"
 
@@ -24,10 +23,6 @@ import (
 type MockKubeletProvider struct {
 	logger *zap.Logger
 	t      *testing.T
-}
-
-func (m *MockKubeletProvider) GetClient() (*kubeletutil.KubeletClient, error) {
-	return nil, nil
 }
 
 func (m *MockKubeletProvider) GetSummary() (*stats.Summary, error) {
