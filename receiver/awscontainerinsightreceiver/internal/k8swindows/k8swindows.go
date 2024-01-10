@@ -15,6 +15,7 @@ import (
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
+	kubelet "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/kubelet"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -26,7 +27,7 @@ type K8sWindows struct {
 	logger                 *zap.Logger
 	nodeName               string `toml:"node_name"`
 	k8sDecorator           stores.K8sDecorator
-	kubeletSummaryProvider *kubelet
+	kubeletSummaryProvider *kubelet.SummaryProvider
 	hostInfo               host.Info
 }
 
@@ -37,20 +38,22 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 	if nodeName == "" {
 		return nil, errors.New("missing environment variable HOST_NAME. Please check your deployment YAML config")
 	}
-	k8sSummaryProvider, err := new(logger, &hostInfo)
-	if err != nil {
-		logger.Error("failed to initialize kubelet summary provider, ", zap.Error(err))
-		return nil, err
-	}
 
 	metricsExtractors = []extractors.MetricExtractor{}
 	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
+
+	ksp, err := kubelet.New(logger, &hostInfo, metricsExtractors)
+	if err != nil {
+		logger.Error("failed to initialize metricProvider summary provider, ", zap.Error(err))
+		return nil, err
+	}
+
 	return &K8sWindows{
 		logger:                 logger,
 		nodeName:               nodeName,
 		k8sDecorator:           *decorator,
-		kubeletSummaryProvider: k8sSummaryProvider,
+		kubeletSummaryProvider: ksp,
 		hostInfo:               hostInfo,
 	}, nil
 }
@@ -59,7 +62,7 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 	k.logger.Debug("D! called K8sWindows GetMetrics")
 	var result []pmetric.Metrics
 
-	metrics, err := k.kubeletSummaryProvider.getMetrics()
+	metrics, err := k.kubeletSummaryProvider.GetMetrics()
 	if err != nil {
 		k.logger.Error("error getting metrics from kubelet summary provider, ", zap.Error(err))
 		return result

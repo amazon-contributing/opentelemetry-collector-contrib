@@ -4,7 +4,7 @@
 //go:build windows
 // +build windows
 
-package k8swindows
+package kubelet
 
 import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
@@ -31,28 +31,31 @@ func (m *MockKubeletProvider) GetClient() (*kubeletutil.KubeletClient, error) {
 }
 
 func (m *MockKubeletProvider) GetSummary() (*stats.Summary, error) {
-	return testutils.LoadKubeletSummary(m.t, "./extractors/testdata/CurSingleKubeletSummary.json"), nil
+	return testutils.LoadKubeletSummary(m.t, "./../extractors/testdata/CurSingleKubeletSummary.json"), nil
 }
 
-func createKubeletDecoratorWithMockKubeletProvider(t *testing.T, logger *zap.Logger) options {
-	return func(provider *kubelet) {
+func createKubeletDecoratorWithMockKubeletProvider(t *testing.T, logger *zap.Logger) Options {
+	return func(provider *SummaryProvider) {
 		provider.kubeletProvider = &MockKubeletProvider{t: t, logger: logger}
 	}
 }
 
-func mockKubeletDependencies() cTestUtils.MockHostInfo {
+func mockInfoProvider() cTestUtils.MockHostInfo {
 	hostInfo := cTestUtils.MockHostInfo{ClusterName: "cluster"}
-	metricsExtractors = []extractors.MetricExtractor{}
+	return hostInfo
+}
+
+func mockMetricExtractors() []extractors.MetricExtractor {
+	metricsExtractors := []extractors.MetricExtractor{}
 	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(&zap.Logger{}))
 	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(&zap.Logger{}))
-	return hostInfo
+	return metricsExtractors
 }
 
 // TestGetPodMetrics Verify tags on pod and container levels metrics.
 func TestGetPodMetrics(t *testing.T) {
-	hostInfo := mockKubeletDependencies()
 
-	k8sSummaryProvider, err := new(&zap.Logger{}, hostInfo, createKubeletDecoratorWithMockKubeletProvider(t, &zap.Logger{}))
+	k8sSummaryProvider, err := New(&zap.Logger{}, mockInfoProvider(), mockMetricExtractors(), createKubeletDecoratorWithMockKubeletProvider(t, &zap.Logger{}))
 	summary, err := k8sSummaryProvider.kubeletProvider.GetSummary()
 	metrics, err := k8sSummaryProvider.getPodMetrics(summary)
 
@@ -78,12 +81,11 @@ func TestGetPodMetrics(t *testing.T) {
 
 // TestGetContainerMetrics verify tags on container level metrics returned.
 func TestGetContainerMetrics(t *testing.T) {
-	hostInfo := mockKubeletDependencies()
 
-	k8sSummaryProvider, err := new(&zap.Logger{}, hostInfo, createKubeletDecoratorWithMockKubeletProvider(t, &zap.Logger{}))
+	k8sSummaryProvider, err := New(&zap.Logger{}, mockInfoProvider(), mockMetricExtractors(), createKubeletDecoratorWithMockKubeletProvider(t, &zap.Logger{}))
 	summary, err := k8sSummaryProvider.kubeletProvider.GetSummary()
 
-	metrics, err := k8sSummaryProvider.getContainerMetrics(&summary.Pods[0])
+	metrics, err := k8sSummaryProvider.getContainerMetrics(summary.Pods[0])
 	assert.NoError(t, err)
 	assert.NotNil(t, metrics)
 
@@ -99,9 +101,8 @@ func TestGetContainerMetrics(t *testing.T) {
 
 // TestGetNodeMetrics verify tags on node level metrics.
 func TestGetNodeMetrics(t *testing.T) {
-	hostInfo := mockKubeletDependencies()
 
-	k8sSummaryProvider, err := new(&zap.Logger{}, hostInfo, createKubeletDecoratorWithMockKubeletProvider(t, &zap.Logger{}))
+	k8sSummaryProvider, err := New(&zap.Logger{}, mockInfoProvider(), mockMetricExtractors(), createKubeletDecoratorWithMockKubeletProvider(t, &zap.Logger{}))
 	summary, err := k8sSummaryProvider.kubeletProvider.GetSummary()
 
 	metrics, err := k8sSummaryProvider.getNodeMetrics(summary)
