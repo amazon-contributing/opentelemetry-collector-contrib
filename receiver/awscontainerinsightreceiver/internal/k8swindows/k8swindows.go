@@ -26,7 +26,7 @@ type K8sWindows struct {
 	logger          *zap.Logger
 	nodeName        string `toml:"node_name"`
 	k8sDecorator    stores.K8sDecorator
-	summaryProvider *kubeletSummaryProvider
+	summaryProvider *kubelet
 	hostInfo        host.Info
 }
 
@@ -37,7 +37,7 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 	if nodeName == "" {
 		return nil, errors.New("missing environment variable HOST_NAME. Please check your deployment YAML config")
 	}
-	k8sSummaryProvider, err := new(logger, hostInfo)
+	k8sSummaryProvider, err := new(logger, &hostInfo)
 	if err != nil {
 		logger.Error("failed to initialize kubelet summary provider, ", zap.Error(err))
 		return nil, err
@@ -64,9 +64,10 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 		k.logger.Error("error getting metrics from kubelet summary provider, ", zap.Error(err))
 		return result
 	}
+	metrics = cExtractor.MergeMetrics(metrics)
 	metrics = k.decorateMetrics(metrics)
-	for _, k8sSummaryMetric := range metrics {
-		md := ci.ConvertToOTLPMetrics(k8sSummaryMetric.GetFields(), k8sSummaryMetric.GetTags(), k.logger)
+	for _, ciMetric := range metrics {
+		md := ci.ConvertToOTLPMetrics(ciMetric.GetFields(), ciMetric.GetTags(), k.logger)
 		result = append(result, md)
 	}
 
