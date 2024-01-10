@@ -36,7 +36,7 @@ type RawMetric struct {
 }
 
 type MetricExtractor interface {
-	HasValue(summary *RawMetric) bool
-	GetValue(summary *RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric
+	HasValue(summary RawMetric) bool
+	GetValue(summary RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric
 	Shutdown() error
 }
