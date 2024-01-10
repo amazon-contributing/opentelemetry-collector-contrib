@@ -19,8 +19,8 @@ func TestMemStats(t *testing.T) {
 	result := testutils.LoadKubeletSummary(t, "./testdata/PreSingleKubeletSummary.json")
 	result2 := testutils.LoadKubeletSummary(t, "./testdata/CurSingleKubeletSummary.json")
 
-	podRawMetric := ConvertPodToRaw(&result.Pods[0])
-	podRawMetric2 := ConvertPodToRaw(&result2.Pods[0])
+	podRawMetric := ConvertPodToRaw(result.Pods[0])
+	podRawMetric2 := ConvertPodToRaw(result2.Pods[0])
 
 	containerType := containerinsight.TypePod
 	extractor := NewMemMetricExtractor(nil)
@@ -45,8 +45,8 @@ func TestMemStats(t *testing.T) {
 	containerType = containerinsight.TypeNode
 	extractor = NewMemMetricExtractor(nil)
 
-	nodeRawMetric := ConvertNodeToRaw(&result.Node)
-	nodeRawMetric2 := ConvertNodeToRaw(&result2.Node)
+	nodeRawMetric := ConvertNodeToRaw(result.Node)
+	nodeRawMetric2 := ConvertNodeToRaw(result2.Node)
 
 	if extractor.HasValue(nodeRawMetric) {
 		cMetrics = extractor.GetValue(nodeRawMetric, MockCPUMemInfo, containerType)

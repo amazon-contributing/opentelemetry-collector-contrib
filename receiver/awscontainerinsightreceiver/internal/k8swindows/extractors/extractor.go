@@ -4,8 +4,25 @@ import (
 	"time"
 
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
-	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
+
+// CPUStat for Pod, Container and Node.
+type CPUStat struct {
+	Time                 time.Time
+	UsageNanoCores       uint64
+	UsageCoreNanoSeconds uint64
+}
+
+// MemoryStat for Pod, Container and Node
+type MemoryStat struct {
+	Time            time.Time
+	AvailableBytes  uint64
+	UsageBytes      uint64
+	WorkingSetBytes uint64
+	RSSBytes        uint64
+	PageFaults      uint64
+	MajorPageFaults uint64
+}
 
 // RawMetric Represent Container, Pod, Node Metric  Extractors.
 // Kubelet summary and HNS stats will be converted to Raw Metric for parsing by Extractors.
@@ -14,8 +31,8 @@ type RawMetric struct {
 	Name        string
 	Namespace   string
 	Time        time.Time
-	CPUStats    *stats.CPUStats
-	MemoryStats *stats.MemoryStats
+	CPUStats    CPUStat
+	MemoryStats MemoryStat
 }
 
 type MetricExtractor interface {
