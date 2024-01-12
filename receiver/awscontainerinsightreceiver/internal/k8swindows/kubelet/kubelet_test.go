@@ -63,6 +63,7 @@ func TestGetPodMetrics(t *testing.T) {
 	assert.NotNil(t, podMetric.GetTag(ci.K8sPodNameKey))
 	assert.NotNil(t, podMetric.GetTag(ci.K8sNamespace))
 	assert.NotNil(t, podMetric.GetTag(ci.Timestamp))
+	assert.NotNil(t, podMetric.GetTag(ci.SourcesKey))
 
 	containerMetric := metrics[len(metrics)-1]
 	assert.Equal(t, containerMetric.GetMetricType(), ci.TypeContainer)
@@ -72,6 +73,7 @@ func TestGetPodMetrics(t *testing.T) {
 	assert.NotNil(t, containerMetric.GetTag(ci.Timestamp))
 	assert.NotNil(t, containerMetric.GetTag(ci.ContainerNamekey))
 	assert.NotNil(t, containerMetric.GetTag(ci.ContainerIDkey))
+	assert.NotNil(t, containerMetric.GetTag(ci.SourcesKey))
 }
 
 // TestGetContainerMetrics verify tags on container level metrics returned.
@@ -92,6 +94,7 @@ func TestGetContainerMetrics(t *testing.T) {
 	assert.NotNil(t, containerMetric.GetTag(ci.Timestamp))
 	assert.NotNil(t, containerMetric.GetTag(ci.ContainerNamekey))
 	assert.NotNil(t, containerMetric.GetTag(ci.ContainerIDkey))
+	assert.NotNil(t, containerMetric.GetTag(ci.SourcesKey))
 }
 
 // TestGetNodeMetrics verify tags on node level metrics.
@@ -104,6 +107,44 @@ func TestGetNodeMetrics(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, metrics)
 
-	containerMetric := metrics[1]
-	assert.Equal(t, containerMetric.GetMetricType(), ci.TypeNode)
+	nodeMetric := metrics[1]
+	assert.Equal(t, nodeMetric.GetMetricType(), ci.TypeNode)
+	assert.NotNil(t, nodeMetric.GetTag(ci.SourcesKey))
+}
+
+func TestAddMetricSourceTag(t *testing.T) {
+	types := []string{
+		"",
+		ci.TypeNode,
+		ci.TypeNodeFS,
+		ci.TypeNodeNet,
+		ci.TypeNodeDiskIO,
+		ci.TypePod,
+		ci.TypePodNet,
+		ci.TypeContainer,
+		ci.TypeContainerFS,
+		ci.TypeContainerDiskIO,
+	}
+
+	expectedSources := []string{
+		"",
+		"[\"kubelet\",\"pod\",\"calculated\"]",
+		"[\"kubelet\",\"calculated\"]",
+		"[\"kubelet\",\"calculated\"]",
+		"[\"kubelet\"]",
+		"[\"kubelet\",\"pod\",\"calculated\"]",
+		"[\"kubelet\",\"calculated\"]",
+		"[\"kubelet\",\"pod\",\"calculated\"]",
+		"[\"kubelet\",\"calculated\"]",
+		"[\"kubelet\"]",
+	}
+	for i, mtype := range types {
+		tags := map[string]string{
+			ci.MetricType: mtype,
+		}
+
+		addMetricSourceTag(tags)
+		assert.Equal(t, expectedSources[i], tags[ci.SourcesKey])
+	}
+
 }

@@ -63,12 +63,12 @@ func (sp *SummaryProvider) GetMetrics() ([]*cExtractor.CAdvisorMetric, error) {
 	}
 	metrics = append(metrics, outMetrics...)
 
-	nodeMetics, err := sp.getNodeMetrics(summary)
+	nodeMetrics, err := sp.getNodeMetrics(summary)
 	if err != nil {
 		sp.logger.Error("failed to get node metrics using kubelet summary, ", zap.Error(err))
-		return nodeMetics, err
+		return nodeMetrics, err
 	}
-	metrics = append(metrics, nodeMetics...)
+	metrics = append(metrics, nodeMetrics...)
 
 	return metrics, nil
 }
@@ -96,6 +96,7 @@ func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtracto
 			}
 		}
 		for _, metric := range metrics {
+			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 	}
@@ -130,6 +131,7 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.
 			}
 		}
 		for _, metric := range metricsPerPod {
+			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 		metrics = append(metrics, metricsPerPod...)
@@ -158,5 +160,46 @@ func (sp *SummaryProvider) getNodeMetrics(summary *stats.Summary) ([]*cExtractor
 			metrics = append(metrics, extractor.GetValue(rawMetric, sp.hostInfo, ci.TypeNode)...)
 		}
 	}
+
+	for _, metric := range metrics {
+		addMetricSourceTag(metric.GetTags())
+	}
 	return metrics, nil
+}
+
+func addMetricSourceTag(tags map[string]string) {
+	metricType := tags[ci.MetricType]
+	if metricType == "" {
+		return
+	}
+
+	var sources []string
+	switch metricType {
+	case ci.TypeNode:
+		sources = append(sources, []string{"kubelet", "pod", "calculated"}...)
+	case ci.TypeNodeFS:
+		sources = append(sources, []string{"kubelet", "calculated"}...)
+	case ci.TypeNodeNet:
+		sources = append(sources, []string{"kubelet", "calculated"}...)
+	case ci.TypeNodeDiskIO:
+		sources = append(sources, []string{"kubelet"}...)
+	case ci.TypePod:
+		sources = append(sources, []string{"kubelet", "pod", "calculated"}...)
+	case ci.TypePodNet:
+		sources = append(sources, []string{"kubelet", "calculated"}...)
+	case ci.TypeContainer:
+		sources = append(sources, []string{"kubelet", "pod", "calculated"}...)
+	case ci.TypeContainerFS:
+		sources = append(sources, []string{"kubelet", "calculated"}...)
+	case ci.TypeContainerDiskIO:
+		sources = append(sources, []string{"kubelet"}...)
+	}
+
+	if len(sources) > 0 {
+		sourcesInfo, err := json.Marshal(sources)
+		if err != nil {
+			return
+		}
+		tags[ci.SourcesKey] = string(sourcesInfo)
+	}
 }
