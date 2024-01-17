@@ -63,13 +63,6 @@
           "txErrors": 0
         },
         {
-          "name": "Intel[R] 82599 Virtual Function",
-          "rxBytes": 0,
-          "rxErrors": 0,
-          "txBytes": 0,
-          "txErrors": 0
-        },
-        {
           "name": "Microsoft IP-HTTPS Platform Interface",
           "rxBytes": 0,
           "rxErrors": 0,
