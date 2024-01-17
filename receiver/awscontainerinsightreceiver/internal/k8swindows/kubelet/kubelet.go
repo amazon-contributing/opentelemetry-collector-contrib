@@ -7,6 +7,7 @@
 package kubelet // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows"
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"

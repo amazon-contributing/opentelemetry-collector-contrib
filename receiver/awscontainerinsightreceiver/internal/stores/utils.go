@@ -95,6 +95,48 @@ func stringInRuneset(name, subset string) bool {
 	return true
 }
 
+func TagMetricSource(metric CIMetric) {
+	metricType := metric.GetTag(ci.MetricType)
+	if metricType == "" {
+		return
+	}
+
+	// Source for metric from Windows are defined in receiver
+	if metric.GetTag(ci.SourcesKey) != "" {
+		return
+	}
+
+	var sources []string
+	switch metricType {
+	case ci.TypeNode:
+		sources = append(sources, []string{"cadvisor", "/proc", "pod", "calculated"}...)
+	case ci.TypeNodeFS:
+		sources = append(sources, []string{"cadvisor", "calculated"}...)
+	case ci.TypeNodeNet:
+		sources = append(sources, []string{"cadvisor", "calculated"}...)
+	case ci.TypeNodeDiskIO:
+		sources = append(sources, []string{"cadvisor"}...)
+	case ci.TypePod:
+		sources = append(sources, []string{"cadvisor", "pod", "calculated"}...)
+	case ci.TypePodNet:
+		sources = append(sources, []string{"cadvisor", "calculated"}...)
+	case ci.TypeContainer:
+		sources = append(sources, []string{"cadvisor", "pod", "calculated"}...)
+	case ci.TypeContainerFS:
+		sources = append(sources, []string{"cadvisor", "calculated"}...)
+	case ci.TypeContainerDiskIO:
+		sources = append(sources, []string{"cadvisor"}...)
+	}
+
+	if len(sources) > 0 {
+		sourcesInfo, err := json.Marshal(sources)
+		if err != nil {
+			return
+		}
+		metric.AddTag(ci.SourcesKey, string(sourcesInfo))
+	}
+}
+
 func AddKubernetesInfo(metric CIMetric, kubernetesBlob map[string]any, retainContainerNameTag bool) {
 	needMoveToKubernetes := map[string]string{ci.K8sPodNameKey: "pod_name", ci.PodIDKey: "pod_id"}
 	needCopyToKubernetes := map[string]string{ci.K8sNamespace: "namespace_name", ci.TypeService: "service_name", ci.NodeNameKey: "host"}

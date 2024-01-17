@@ -256,43 +256,6 @@ func addECSResources(tags map[string]string) {
 	}
 }
 
-func addEKSResource(tags map[string]string) {
-	metricType := tags[ci.MetricType]
-	if metricType == "" {
-		return
-	}
-
-	var sources []string
-	switch metricType {
-	case ci.TypeNode:
-		sources = append(sources, []string{"cadvisor", "/proc", "pod", "calculated"}...)
-	case ci.TypeNodeFS:
-		sources = append(sources, []string{"cadvisor", "calculated"}...)
-	case ci.TypeNodeNet:
-		sources = append(sources, []string{"cadvisor", "calculated"}...)
-	case ci.TypeNodeDiskIO:
-		sources = append(sources, []string{"cadvisor"}...)
-	case ci.TypePod:
-		sources = append(sources, []string{"cadvisor", "pod", "calculated"}...)
-	case ci.TypePodNet:
-		sources = append(sources, []string{"cadvisor", "calculated"}...)
-	case ci.TypeContainer:
-		sources = append(sources, []string{"cadvisor", "pod", "calculated"}...)
-	case ci.TypeContainerFS:
-		sources = append(sources, []string{"cadvisor", "calculated"}...)
-	case ci.TypeContainerDiskIO:
-		sources = append(sources, []string{"cadvisor"}...)
-	}
-
-	if len(sources) > 0 {
-		sourcesInfo, err := json.Marshal(sources)
-		if err != nil {
-			return
-		}
-		tags[ci.SourcesKey] = string(sourcesInfo)
-	}
-}
-
 func (c *Cadvisor) decorateMetrics(cadvisormetrics []*extractors.CAdvisorMetric) []*extractors.CAdvisorMetric {
 	ebsVolumeIdsUsedAsPV := c.hostInfo.ExtractEbsIDsUsedByKubernetes()
 	var result []*extractors.CAdvisorMetric
@@ -341,7 +304,6 @@ func (c *Cadvisor) decorateMetrics(cadvisormetrics []*extractors.CAdvisorMetric)
 		if c.containerOrchestrator == ci.EKS {
 
 			tags[ci.ClusterNameKey] = c.hostInfo.GetClusterName()
-			addEKSResource(tags)
 
 			out := c.k8sDecorator.Decorate(m)
 			if out != nil {

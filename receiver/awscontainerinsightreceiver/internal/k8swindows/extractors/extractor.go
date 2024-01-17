@@ -25,8 +25,7 @@ type MemoryStat struct {
 }
 
 type FileSystemStat struct {
-	Time time.Time
-	//FsType         string
+	Time           time.Time
 	AvailableBytes uint64
 	CapacityBytes  uint64
 	UsedBytes      uint64

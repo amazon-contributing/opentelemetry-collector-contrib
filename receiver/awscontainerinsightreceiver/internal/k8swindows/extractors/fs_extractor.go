@@ -23,7 +23,7 @@ func (f *FileSystemMetricExtractor) HasValue(rawMetric RawMetric) bool {
 	return false
 }
 
-func (f *FileSystemMetricExtractor) GetValue(rawMetric RawMetric, mInfo cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
+func (f *FileSystemMetricExtractor) GetValue(rawMetric RawMetric, _ cExtractor.CPUMemInfoProvider, containerType string) []*cExtractor.CAdvisorMetric {
 	if containerType == ci.TypePod {
 		return nil
 	}
