@@ -7,7 +7,6 @@
 package kubelet // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows"
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -97,7 +96,6 @@ func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtracto
 			}
 		}
 		for _, metric := range metrics {
-			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 	}
@@ -132,7 +130,6 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.
 			}
 		}
 		for _, metric := range metricsPerPod {
-			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 		metrics = append(metrics, metricsPerPod...)
@@ -162,45 +159,5 @@ func (sp *SummaryProvider) getNodeMetrics(summary *stats.Summary) ([]*cExtractor
 		}
 	}
 
-	for _, metric := range metrics {
-		addMetricSourceTag(metric.GetTags())
-	}
 	return metrics, nil
-}
-
-func addMetricSourceTag(tags map[string]string) {
-	metricType := tags[ci.MetricType]
-	if metricType == "" {
-		return
-	}
-
-	var sources []string
-	switch metricType {
-	case ci.TypeNode:
-		sources = append(sources, []string{"kubelet", "pod", "calculated"}...)
-	case ci.TypeNodeFS:
-		sources = append(sources, []string{"kubelet", "calculated"}...)
-	case ci.TypeNodeNet:
-		sources = append(sources, []string{"kubelet", "calculated"}...)
-	case ci.TypeNodeDiskIO:
-		sources = append(sources, []string{"kubelet"}...)
-	case ci.TypePod:
-		sources = append(sources, []string{"kubelet", "pod", "calculated"}...)
-	case ci.TypePodNet:
-		sources = append(sources, []string{"kubelet", "calculated"}...)
-	case ci.TypeContainer:
-		sources = append(sources, []string{"kubelet", "pod", "calculated"}...)
-	case ci.TypeContainerFS:
-		sources = append(sources, []string{"kubelet", "calculated"}...)
-	case ci.TypeContainerDiskIO:
-		sources = append(sources, []string{"kubelet"}...)
-	}
-
-	if len(sources) > 0 {
-		sourcesInfo, err := json.Marshal(sources)
-		if err != nil {
-			return
-		}
-		tags[ci.SourcesKey] = string(sourcesInfo)
-	}
 }
