@@ -42,6 +42,7 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 	metricsExtractors = []extractors.MetricExtractor{}
 	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
+	metricsExtractors = append(metricsExtractors, extractors.NewFileSystemMetricExtractor(logger))
 
 	ksp, err := kubeletsummaryprovider.New(logger, &hostInfo, metricsExtractors)
 	if err != nil {
@@ -107,6 +108,9 @@ func (c *K8sWindows) decorateMetrics(cadvisormetrics []*cExtractor.CAdvisorMetri
 
 		// add tags for EKS
 		tags[ci.ClusterNameKey] = c.hostInfo.GetClusterName()
+
+		// add tags for OS
+		tags[ci.OperatingSystem] = "windows"
 
 		out := c.k8sDecorator.Decorate(m)
 		if out != nil {

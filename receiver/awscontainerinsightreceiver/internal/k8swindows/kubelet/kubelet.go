@@ -63,12 +63,12 @@ func (sp *SummaryProvider) GetMetrics() ([]*cExtractor.CAdvisorMetric, error) {
 	}
 	metrics = append(metrics, outMetrics...)
 
-	nodeMetics, err := sp.getNodeMetrics(summary)
+	nodeMetrics, err := sp.getNodeMetrics(summary)
 	if err != nil {
 		sp.logger.Error("failed to get node metrics using kubelet summary, ", zap.Error(err))
-		return nodeMetics, err
+		return nodeMetrics, err
 	}
-	metrics = append(metrics, nodeMetics...)
+	metrics = append(metrics, nodeMetrics...)
 
 	return metrics, nil
 }
@@ -158,5 +158,6 @@ func (sp *SummaryProvider) getNodeMetrics(summary *stats.Summary) ([]*cExtractor
 			metrics = append(metrics, extractor.GetValue(rawMetric, sp.hostInfo, ci.TypeNode)...)
 		}
 	}
+
 	return metrics, nil
 }
