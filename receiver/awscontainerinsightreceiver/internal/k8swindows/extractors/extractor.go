@@ -24,15 +24,23 @@ type MemoryStat struct {
 	MajorPageFaults uint64
 }
 
+type FileSystemStat struct {
+	Time           time.Time
+	AvailableBytes uint64
+	CapacityBytes  uint64
+	UsedBytes      uint64
+}
+
 // RawMetric Represent Container, Pod, Node Metric  Extractors.
 // Kubelet summary and HNS stats will be converted to Raw Metric for parsing by Extractors.
 type RawMetric struct {
-	Id          string
-	Name        string
-	Namespace   string
-	Time        time.Time
-	CPUStats    CPUStat
-	MemoryStats MemoryStat
+	Id              string
+	Name            string
+	Namespace       string
+	Time            time.Time
+	CPUStats        CPUStat
+	MemoryStats     MemoryStat
+	FileSystemStats []FileSystemStat
 }
 
 type MetricExtractor interface {

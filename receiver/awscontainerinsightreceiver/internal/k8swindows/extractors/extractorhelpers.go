@@ -21,6 +21,27 @@ func convertCPUStats(kubeletCPUStat stats.CPUStats) CPUStat {
 	return cpuStat
 }
 
+// convertFileSystemStats Convert kubelet file system stats to Raw memory stats
+func convertFileSystemStats(kubeletFSstat stats.FsStats) FileSystemStat {
+	var fsstat FileSystemStat
+
+	fsstat.Time = kubeletFSstat.Time.Time
+
+	if kubeletFSstat.UsedBytes != nil {
+		fsstat.UsedBytes = *kubeletFSstat.UsedBytes
+	}
+
+	if kubeletFSstat.AvailableBytes != nil {
+		fsstat.AvailableBytes = *kubeletFSstat.AvailableBytes
+	}
+
+	if kubeletFSstat.CapacityBytes != nil {
+		fsstat.CapacityBytes = *kubeletFSstat.CapacityBytes
+	}
+
+	return fsstat
+}
+
 // convertMemoryStats Convert kubelet memory stats to Raw memory stats
 func convertMemoryStats(kubeletMemoryStat stats.MemoryStats) MemoryStat {
 	var memoryStat MemoryStat
@@ -91,6 +112,14 @@ func ConvertContainerToRaw(containerStat stats.ContainerStats, podStat stats.Pod
 		rawMetic.MemoryStats = convertMemoryStats(*containerStat.Memory)
 	}
 
+	rawMetic.FileSystemStats = []FileSystemStat{}
+	if containerStat.Rootfs != nil {
+		rawMetic.FileSystemStats = append(rawMetic.FileSystemStats, convertFileSystemStats(*containerStat.Rootfs))
+	}
+	if containerStat.Logs != nil {
+		rawMetic.FileSystemStats = append(rawMetic.FileSystemStats, convertFileSystemStats(*containerStat.Logs))
+	}
+
 	return rawMetic
 }
 
@@ -111,6 +140,11 @@ func ConvertNodeToRaw(nodeStat stats.NodeStats) RawMetric {
 			rawMetic.Time = nodeStat.Memory.Time.Time
 		}
 		rawMetic.MemoryStats = convertMemoryStats(*nodeStat.Memory)
+	}
+
+	rawMetic.FileSystemStats = []FileSystemStat{}
+	if nodeStat.Fs != nil {
+		rawMetic.FileSystemStats = append(rawMetic.FileSystemStats, convertFileSystemStats(*nodeStat.Fs))
 	}
 
 	return rawMetic
