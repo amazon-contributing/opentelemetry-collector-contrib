@@ -26,7 +26,7 @@ const (
 	MetricType              = "Type"
 	SourcesKey              = "Sources"
 	Timestamp               = "Timestamp"
-	OperatingSystem         = "os"
+	OperatingSystem         = "OperatingSystem"
 
 	// The following constants are used for metric name construction
 	CPUTotal                         = "cpu_usage_total"
