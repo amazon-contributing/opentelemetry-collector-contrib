@@ -69,6 +69,33 @@ func convertMemoryStats(kubeletMemoryStat stats.MemoryStats) MemoryStat {
 	return memoryStat
 }
 
+// convertNetworkStats Convert kubelet network system stats to Raw memory stats
+func convertNetworkStats(kubeletNetworkStat stats.NetworkStats, kubeletIntfStat stats.InterfaceStats) NetworkStat {
+	var networkstat NetworkStat
+
+	networkstat.Time = kubeletNetworkStat.Time.Time
+
+	networkstat.Name = kubeletIntfStat.Name
+
+	if kubeletIntfStat.TxBytes != nil {
+		networkstat.TxBytes = *kubeletIntfStat.TxBytes
+	}
+
+	if kubeletIntfStat.TxErrors != nil {
+		networkstat.TxErrors = *kubeletIntfStat.TxErrors
+	}
+
+	if kubeletIntfStat.RxBytes != nil {
+		networkstat.RxBytes = *kubeletIntfStat.RxBytes
+	}
+
+	if kubeletIntfStat.RxErrors != nil {
+		networkstat.RxErrors = *kubeletIntfStat.RxErrors
+	}
+
+	return networkstat
+}
+
 // ConvertPodToRaw Converts Kubelet Pod stats to RawMetric.
 func ConvertPodToRaw(podStat stats.PodStats) RawMetric {
 	var rawMetic RawMetric
@@ -87,6 +114,12 @@ func ConvertPodToRaw(podStat stats.PodStats) RawMetric {
 			rawMetic.Time = podStat.Memory.Time.Time
 		}
 		rawMetic.MemoryStats = convertMemoryStats(*podStat.Memory)
+	}
+
+	if podStat.Network != nil {
+		for _, intfStats := range podStat.Network.Interfaces {
+			rawMetic.NetworkStats = append(rawMetic.NetworkStats, convertNetworkStats(*podStat.Network, intfStats))
+		}
 	}
 
 	return rawMetic
@@ -145,6 +178,12 @@ func ConvertNodeToRaw(nodeStat stats.NodeStats) RawMetric {
 	rawMetic.FileSystemStats = []FileSystemStat{}
 	if nodeStat.Fs != nil {
 		rawMetic.FileSystemStats = append(rawMetic.FileSystemStats, convertFileSystemStats(*nodeStat.Fs))
+	}
+
+	if nodeStat.Network != nil {
+		for _, intfStats := range nodeStat.Network.Interfaces {
+			rawMetic.NetworkStats = append(rawMetic.NetworkStats, convertNetworkStats(*nodeStat.Network, intfStats))
+		}
 	}
 
 	return rawMetic
