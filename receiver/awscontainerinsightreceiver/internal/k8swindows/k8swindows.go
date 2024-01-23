@@ -29,6 +29,7 @@ type K8sWindows struct {
 	k8sDecorator           stores.K8sDecorator
 	kubeletSummaryProvider *kubeletsummaryprovider.SummaryProvider
 	hostInfo               host.Info
+	version                string
 }
 
 var metricsExtractors = []extractors.MetricExtractor{}
@@ -43,6 +44,7 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewFileSystemMetricExtractor(logger))
+	metricsExtractors = append(metricsExtractors, extractors.NewNetMetricExtractor(logger))
 
 	ksp, err := kubeletsummaryprovider.New(logger, &hostInfo, metricsExtractors)
 	if err != nil {
@@ -56,6 +58,7 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 		k8sDecorator:           *decorator,
 		kubeletSummaryProvider: ksp,
 		hostInfo:               hostInfo,
+		version:                "0",
 	}, nil
 }
 
@@ -78,7 +81,7 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 	return result
 }
 
-func (c *K8sWindows) decorateMetrics(cadvisormetrics []*cExtractor.CAdvisorMetric) []*cExtractor.CAdvisorMetric {
+func (k *K8sWindows) decorateMetrics(cadvisormetrics []*cExtractor.CAdvisorMetric) []*cExtractor.CAdvisorMetric {
 	//ebsVolumeIdsUsedAsPV := c.hostInfo.ExtractEbsIDsUsedByKubernetes()
 	var result []*cExtractor.CAdvisorMetric
 	for _, m := range cadvisormetrics {
@@ -86,33 +89,33 @@ func (c *K8sWindows) decorateMetrics(cadvisormetrics []*cExtractor.CAdvisorMetri
 		//c.addEbsVolumeInfo(tags, ebsVolumeIdsUsedAsPV)
 
 		// add version
-		//tags[ci.Version] = c.version
+		tags[ci.Version] = k.version
 
 		// add nodeName for node, pod and container
 		metricType := tags[ci.MetricType]
-		if c.nodeName != "" && (ci.IsNode(metricType) || ci.IsInstance(metricType) ||
+		if k.nodeName != "" && (ci.IsNode(metricType) || ci.IsInstance(metricType) ||
 			ci.IsPod(metricType) || ci.IsContainer(metricType)) {
-			tags[ci.NodeNameKey] = c.nodeName
+			tags[ci.NodeNameKey] = k.nodeName
 		}
 
 		// add instance id and type
-		if instanceID := c.hostInfo.GetInstanceID(); instanceID != "" {
+		if instanceID := k.hostInfo.GetInstanceID(); instanceID != "" {
 			tags[ci.InstanceID] = instanceID
 		}
-		if instanceType := c.hostInfo.GetInstanceType(); instanceType != "" {
+		if instanceType := k.hostInfo.GetInstanceType(); instanceType != "" {
 			tags[ci.InstanceType] = instanceType
 		}
 
 		// add scaling group name
-		tags[ci.AutoScalingGroupNameKey] = c.hostInfo.GetAutoScalingGroupName()
+		tags[ci.AutoScalingGroupNameKey] = k.hostInfo.GetAutoScalingGroupName()
 
 		// add tags for EKS
-		tags[ci.ClusterNameKey] = c.hostInfo.GetClusterName()
+		tags[ci.ClusterNameKey] = k.hostInfo.GetClusterName()
 
 		// add tags for OS
 		tags[ci.OperatingSystem] = "windows"
 
-		out := c.k8sDecorator.Decorate(m)
+		out := k.k8sDecorator.Decorate(m)
 		if out != nil {
 			result = append(result, out)
 		}

@@ -31,6 +31,15 @@ type FileSystemStat struct {
 	UsedBytes      uint64
 }
 
+type NetworkStat struct {
+	Time     time.Time
+	Name     string
+	RxBytes  uint64
+	RxErrors uint64
+	TxBytes  uint64
+	TxErrors uint64
+}
+
 // RawMetric Represent Container, Pod, Node Metric  Extractors.
 // Kubelet summary and HNS stats will be converted to Raw Metric for parsing by Extractors.
 type RawMetric struct {
@@ -41,6 +50,7 @@ type RawMetric struct {
 	CPUStats        CPUStat
 	MemoryStats     MemoryStat
 	FileSystemStats []FileSystemStat
+	NetworkStats    []NetworkStat
 }
 
 type MetricExtractor interface {
