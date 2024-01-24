@@ -5,6 +5,7 @@ package containerinsight // import "github.com/open-telemetry/opentelemetry-coll
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -244,4 +245,11 @@ func initMetric(ilm pmetric.ScopeMetrics, name, unit string) pmetric.Metric {
 	metric.SetUnit(unit)
 
 	return metric
+}
+
+func IsHostProcessContainer() bool {
+	if os.Getenv(RunInContainer) == "true" && os.Getenv(RunAsHostProcessContainer) == "true" {
+		return true
+	}
+	return false
 }

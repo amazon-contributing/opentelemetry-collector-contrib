@@ -12,6 +12,10 @@ const (
 	// We assume 50 micro-seconds is the minimal gap between two collected data sample to be valid to calculate delta
 	MinTimeDiff = 50 * time.Microsecond
 
+	// Environment variables
+	RunInContainer            = "RUN_IN_CONTAINER"
+	RunAsHostProcessContainer = "RUN_AS_HOST_PROCESS_CONTAINER"
+
 	// Attribute names
 	InstanceID              = "InstanceId"
 	InstanceType            = "InstanceType"
