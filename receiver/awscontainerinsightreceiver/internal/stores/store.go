@@ -99,6 +99,7 @@ func (k *K8sDecorator) Decorate(metric *extractors.CAdvisorMetric) *extractors.C
 	}
 
 	AddKubernetesInfo(metric, kubernetesBlob, k.addContainerNameMetricLabel)
+	TagMetricSource(metric)
 	return metric
 }
 

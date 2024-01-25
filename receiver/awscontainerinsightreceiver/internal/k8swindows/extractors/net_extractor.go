@@ -35,6 +35,7 @@ func (n *NetMetricExtractor) GetValue(rawMetric RawMetric, mInfo cExtractor.CPUM
 	netIfceMetrics := make([]map[string]any, len(rawMetric.NetworkStats))
 
 	for i, intf := range rawMetric.NetworkStats {
+		mType := getNetMetricType(containerType, n.logger)
 		netIfceMetric := make(map[string]any)
 
 		identifier := rawMetric.Id + containerType + intf.Name
@@ -44,12 +45,22 @@ func (n *NetMetricExtractor) GetValue(rawMetric RawMetric, mInfo cExtractor.CPUM
 		cExtractor.AssignRateValueToField(&n.rateCalculator, netIfceMetric, ci.NetRxErrors, identifier, float64(intf.RxErrors), rawMetric.Time, multiplier)
 		cExtractor.AssignRateValueToField(&n.rateCalculator, netIfceMetric, ci.NetTxBytes, identifier, float64(intf.TxBytes), rawMetric.Time, multiplier)
 		cExtractor.AssignRateValueToField(&n.rateCalculator, netIfceMetric, ci.NetTxErrors, identifier, float64(intf.TxErrors), rawMetric.Time, multiplier)
+		cExtractor.AssignRateValueToField(&n.rateCalculator, netIfceMetric, ci.NetRxDropped, identifier, float64(intf.DroppedIncoming), rawMetric.Time, multiplier)
+		cExtractor.AssignRateValueToField(&n.rateCalculator, netIfceMetric, ci.NetTxDropped, identifier, float64(intf.DroppedOutgoing), rawMetric.Time, multiplier)
 
 		if netIfceMetric[ci.NetRxBytes] != nil && netIfceMetric[ci.NetTxBytes] != nil {
 			netIfceMetric[ci.NetTotalBytes] = netIfceMetric[ci.NetRxBytes].(float64) + netIfceMetric[ci.NetTxBytes].(float64)
 		}
 
 		netIfceMetrics[i] = netIfceMetric
+
+		metric := cExtractor.NewCadvisorMetric(mType, n.logger)
+		metric.AddTag(ci.NetIfce, intf.Name)
+		for k, v := range netIfceMetric {
+			metric.AddField(ci.MetricName(mType, k), v)
+		}
+
+		metrics = append(metrics, metric)
 	}
 
 	aggregatedFields := ci.SumFields(netIfceMetrics)

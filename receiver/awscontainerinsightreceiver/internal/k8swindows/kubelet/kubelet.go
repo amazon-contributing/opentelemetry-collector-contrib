@@ -14,7 +14,6 @@ import (
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
-
 	"go.uber.org/zap"
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
@@ -27,7 +26,7 @@ type SummaryProvider struct {
 	metricExtractors []extractors.MetricExtractor
 }
 
-func createDefaultKubeletProvider(logger *zap.Logger) KubeletProvider {
+func CreateDefaultKubeletProvider(logger *zap.Logger) KubeletProvider {
 	return &kubeletProvider{logger: logger, hostIP: os.Getenv("HOST_IP"), hostPort: ci.KubeSecurePort}
 }
 
@@ -38,13 +37,14 @@ func New(logger *zap.Logger, info cExtractor.CPUMemInfoProvider, mextractor []ex
 	sp := &SummaryProvider{
 		logger:           logger,
 		hostInfo:         info,
-		kubeletProvider:  createDefaultKubeletProvider(logger),
+		kubeletProvider:  CreateDefaultKubeletProvider(logger),
 		metricExtractors: mextractor,
 	}
 
 	for _, opt := range opts {
 		opt(sp)
 	}
+
 	return sp, nil
 }
 
@@ -96,10 +96,10 @@ func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtracto
 			}
 		}
 		for _, metric := range metrics {
-			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 	}
+
 	return metrics, nil
 }
 
@@ -131,7 +131,6 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.
 			}
 		}
 		for _, metric := range metricsPerPod {
-			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 		metrics = append(metrics, metricsPerPod...)

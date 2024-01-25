@@ -7,7 +7,6 @@
 package kubelet
 
 import (
-	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 	"testing"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
@@ -17,6 +16,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
 
 // MockKubeletProvider Mock provider implements KubeletProvider interface.
@@ -27,6 +28,10 @@ type MockKubeletProvider struct {
 
 func (m *MockKubeletProvider) GetSummary() (*stats.Summary, error) {
 	return testutils.LoadKubeletSummary(m.t, "./../extractors/testdata/CurSingleKubeletSummary.json"), nil
+}
+
+func (m *MockKubeletProvider) GetPods() ([]corev1.Pod, error) {
+	return []corev1.Pod{}, nil
 }
 
 func createKubeletDecoratorWithMockKubeletProvider(t *testing.T, logger *zap.Logger) Options {
