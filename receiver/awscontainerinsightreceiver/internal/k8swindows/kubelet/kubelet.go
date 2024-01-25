@@ -96,6 +96,7 @@ func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*cExtracto
 			}
 		}
 		for _, metric := range metrics {
+			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 	}
@@ -130,6 +131,7 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*cExtractor.
 			}
 		}
 		for _, metric := range metricsPerPod {
+			addMetricSourceTag(tags)
 			metric.AddTags(tags)
 		}
 		metrics = append(metrics, metricsPerPod...)
@@ -158,6 +160,5 @@ func (sp *SummaryProvider) getNodeMetrics(summary *stats.Summary) ([]*cExtractor
 			metrics = append(metrics, extractor.GetValue(rawMetric, sp.hostInfo, ci.TypeNode)...)
 		}
 	}
-
 	return metrics, nil
 }

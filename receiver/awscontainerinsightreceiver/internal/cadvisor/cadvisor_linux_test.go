@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
+	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/testutils"
 )
@@ -130,4 +131,40 @@ func TestGetMetricsErrorWhenCallingManagerStart(t *testing.T) {
 	c, err := New("eks", hostInfo, zap.NewNop(), cadvisorManagerCreator(mockCreateManager2), k8sdecoratorOption)
 	assert.Nil(t, c)
 	assert.Error(t, err)
+}
+
+func TestTagEKSMetricSource(t *testing.T) {
+	types := []string{
+		"",
+		ci.TypeNode,
+		ci.TypeNodeFS,
+		ci.TypeNodeNet,
+		ci.TypeNodeDiskIO,
+		ci.TypePod,
+		ci.TypePodNet,
+		ci.TypeContainer,
+		ci.TypeContainerFS,
+		ci.TypeContainerDiskIO,
+	}
+
+	expectedSources := []string{
+		"",
+		"[\"cadvisor\",\"/proc\",\"pod\",\"calculated\"]",
+		"[\"cadvisor\",\"calculated\"]",
+		"[\"cadvisor\",\"calculated\"]",
+		"[\"cadvisor\"]",
+		"[\"cadvisor\",\"pod\",\"calculated\"]",
+		"[\"cadvisor\",\"calculated\"]",
+		"[\"cadvisor\",\"pod\",\"calculated\"]",
+		"[\"cadvisor\",\"calculated\"]",
+		"[\"cadvisor\"]",
+	}
+	for i, mtype := range types {
+		tags := map[string]string{
+			ci.MetricType: mtype,
+		}
+
+		addEKSResource(tags)
+		assert.Equal(t, expectedSources[i], tags[ci.SourcesKey])
+	}
 }
