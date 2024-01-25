@@ -869,11 +869,11 @@ func TestConvertToOTLPMetricsForPodContainerStatusMetrics(t *testing.T) {
 }
 
 func TestHostProcessContainer(t *testing.T) {
-	os.Setenv(RunInContainer, "true")
-	assert.Equal(t, IsHostProcessContainer(), false)
+	os.Setenv(RunInContainer, "True")
+	assert.Equal(t, IsWindowsHostProcessContainer(), false)
 
-	os.Setenv(RunAsHostProcessContainer, "true")
-	assert.Equal(t, IsHostProcessContainer(), true)
+	os.Setenv(RunAsHostProcessContainer, "True")
+	assert.Equal(t, IsWindowsHostProcessContainer(), true)
 
 	os.Unsetenv(RunInContainer)
 	os.Unsetenv(RunAsHostProcessContainer)

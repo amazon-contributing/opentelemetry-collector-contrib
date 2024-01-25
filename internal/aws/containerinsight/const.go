@@ -15,6 +15,7 @@ const (
 	// Environment variables
 	RunInContainer            = "RUN_IN_CONTAINER"
 	RunAsHostProcessContainer = "RUN_AS_HOST_PROCESS_CONTAINER"
+	TrueValue                 = "True"
 
 	// Attribute names
 	InstanceID              = "InstanceId"

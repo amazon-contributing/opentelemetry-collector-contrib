@@ -469,8 +469,9 @@ func (c *K8sClient) Shutdown() {
 // There is known bug in InClusterConfig on Windows when running it as host process container.
 // https://github.com/kubernetes/kubernetes/issues/104562
 // This copy fixes that bug by appending `CONTAINER_SANDBOX_MOUNT_POINT` in k8s token and cert file paths.
+// todo: Remove this workaround func when Windows AMIs has containerd 1.7 which solves upstream bug.
 func (c *K8sClient) inClusterConfig() (*rest.Config, error) {
-	if !containerinsight.IsHostProcessContainer() {
+	if !containerinsight.IsWindowsHostProcessContainer() {
 		return rest.InClusterConfig()
 	}
 	var (
@@ -496,7 +497,6 @@ func (c *K8sClient) inClusterConfig() (*rest.Config, error) {
 	}
 
 	return &rest.Config{
-		// TODO: switch to using cluster DNS.
 		Host:            "https://" + net.JoinHostPort(host, port),
 		TLSClientConfig: tlsClientConfig,
 		BearerToken:     string(token),

@@ -37,7 +37,8 @@ func init() {
 func updateSVCPath() {
 	// This is known that k8s token and cert file as available with CONTAINER_SANDBOX_MOUNT_POINT in path.
 	// https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/#containerd-v1-6
-	if containerinsight.IsHostProcessContainer() {
+	// todo: Remove this workaround func when Windows AMIs has containerd 1.7 which solves upstream bug
+	if containerinsight.IsWindowsHostProcessContainer() {
 		svcAcctCACertPath = filepath.Join(os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"), svcAcctCACertPath)
 		svcAcctTokenPath = filepath.Join(os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"), svcAcctTokenPath)
 	}
