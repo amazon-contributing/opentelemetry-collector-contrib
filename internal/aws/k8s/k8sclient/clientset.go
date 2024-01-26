@@ -465,8 +465,8 @@ func (c *K8sClient) Shutdown() {
 	}
 }
 
-// InClusterConfig is copy of rest.InClusterConfig.
-// There is known bug in InClusterConfig on Windows when running it as host process container.
+// inClusterConfig is copy of rest.InClusterConfig.
+// There is known bug in rest.InClusterConfig on Windows when running it as host process container.
 // https://github.com/kubernetes/kubernetes/issues/104562
 // This copy fixes that bug by appending `CONTAINER_SANDBOX_MOUNT_POINT` in k8s token and cert file paths.
 // todo: Remove this workaround func when Windows AMIs has containerd 1.7 which solves upstream bug.
