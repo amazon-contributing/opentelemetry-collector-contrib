@@ -15,6 +15,7 @@ import (
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/host"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/hcsshim"
 	kubeletsummaryprovider "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/kubelet"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 
@@ -28,6 +29,7 @@ type K8sWindows struct {
 	nodeName               string `toml:"node_name"`
 	k8sDecorator           stores.K8sDecorator
 	kubeletSummaryProvider *kubeletsummaryprovider.SummaryProvider
+	hcsshimStatsProvider   *hcsshim.HCSStatsProvider
 	hostInfo               host.Info
 	version                string
 }
@@ -52,11 +54,19 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 		return nil, err
 	}
 
+	hnsMetricsExtractors := append([]extractors.MetricExtractor{}, extractors.NewNetMetricExtractor(logger))
+	hsp, err := hcsshim.NewHnSProvider(logger, &hostInfo, hnsMetricsExtractors)
+	if err != nil {
+		logger.Error("failed to initialize HCSShim SummaryProvider, ", zap.Error(err))
+		return nil, err
+	}
+
 	return &K8sWindows{
 		logger:                 logger,
 		nodeName:               nodeName,
 		k8sDecorator:           *decorator,
 		kubeletSummaryProvider: ksp,
+		hcsshimStatsProvider:   hsp,
 		hostInfo:               hostInfo,
 		version:                "0",
 	}, nil
@@ -71,6 +81,14 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 		k.logger.Error("failed to get metrics from kubelet SummaryProvider, ", zap.Error(err))
 		return result
 	}
+
+	hcsmetrics, err := k.hcsshimStatsProvider.GetMetrics()
+	if err != nil {
+		k.logger.Error("failed to get metrics from HCSShim StatsProvider, ", zap.Error(err))
+		return result
+	}
+
+	metrics = append(metrics, hcsmetrics...)
 	metrics = cExtractor.MergeMetrics(metrics)
 	metrics = k.decorateMetrics(metrics)
 	for _, ciMetric := range metrics {
