@@ -63,13 +63,17 @@ func NewHnSProvider(logger *zap.Logger, info cExtractor.CPUMemInfoProvider, mext
 }
 
 func (hp *HCSStatsProvider) GetMetrics() ([]*cExtractor.CAdvisorMetric, error) {
-	containerToEndpointMap, err := hp.getContainerToEndpointMap()
-	if err != nil {
-		hp.logger.Error("failed to create container to endpoint map using HCS shim APIs, ", zap.Error(err))
-		return nil, err
+	var metrics []*cExtractor.CAdvisorMetric
+	if ci.IsWindowsHostProcessContainer() {
+		containerToEndpointMap, err := hp.getContainerToEndpointMap()
+		if err != nil {
+			hp.logger.Error("failed to create container to endpoint map using HCS shim APIs, ", zap.Error(err))
+			return nil, err
+		}
+		hp.containerToEndpoint = containerToEndpointMap
+		return hp.getPodMetrics()
 	}
-	hp.containerToEndpoint = containerToEndpointMap
-	return hp.getPodMetrics()
+	return metrics, nil
 }
 
 func (hp *HCSStatsProvider) getContainerMetrics(containerId string) (extractors.HCSStat, error) {
