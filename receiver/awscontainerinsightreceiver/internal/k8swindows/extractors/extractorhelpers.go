@@ -169,7 +169,7 @@ func ConvertContainerToRaw(containerStat stats.ContainerStats, podStat stats.Pod
 	}
 	if containerStat.Logs != nil {
 		fStat := convertFileSystemStats(*containerStat.Logs)
-		fStat.Name = "logs"
+		fStat.Name = "logfs"
 		rawMetic.FileSystemStats = append(rawMetic.FileSystemStats, fStat)
 	}
 
