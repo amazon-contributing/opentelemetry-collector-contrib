@@ -31,21 +31,23 @@ func (f *FileSystemMetricExtractor) GetValue(rawMetric RawMetric, _ cExtractor.C
 	containerType = getFSMetricType(containerType, f.logger)
 	metrics := make([]*cExtractor.CAdvisorMetric, 0, len(rawMetric.FileSystemStats))
 
-	metric := cExtractor.NewCadvisorMetric(containerType, f.logger)
-
-	var usedBytes uint64
 	for _, v := range rawMetric.FileSystemStats {
+		metric := cExtractor.NewCadvisorMetric(containerType, f.logger)
 
-		usedBytes += v.UsedBytes
-		metric.AddField(ci.MetricName(containerType, ci.FSUsage), usedBytes)
+		if v.Name != "" {
+			metric.AddTag(ci.DiskDev, v.Name)
+		}
+
+		metric.AddField(ci.MetricName(containerType, ci.FSUsage), v.UsedBytes)
 		metric.AddField(ci.MetricName(containerType, ci.FSCapacity), v.CapacityBytes)
 		metric.AddField(ci.MetricName(containerType, ci.FSAvailable), v.AvailableBytes)
 
 		if v.CapacityBytes != 0 {
 			metric.AddField(ci.MetricName(containerType, ci.FSUtilization), float64(v.UsedBytes)/float64(v.CapacityBytes)*100)
 		}
+
+		metrics = append(metrics, metric)
 	}
-	metrics = append(metrics, metric)
 	return metrics
 }
 
