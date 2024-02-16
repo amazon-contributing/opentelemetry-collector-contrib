@@ -165,9 +165,9 @@ func (jmx *jmxMetricReceiver) buildOTLPReceiver() (receiver.Metrics, error) {
 func (jmx *jmxMetricReceiver) buildJMXMetricGathererConfig() (string, error) {
 	config := map[string]string{}
 	failedToParse := `failed to parse Endpoint "%s": %w`
-	parsed, err := url.Parse(jmx.config.Endpoint)
-	if err != nil {
-		return "", fmt.Errorf(failedToParse, jmx.config.Endpoint, err)
+	parsed, parseErr := url.Parse(jmx.config.Endpoint)
+	if parseErr != nil {
+		return "", fmt.Errorf(failedToParse, jmx.config.Endpoint, parseErr)
 	}
 
 	if !(parsed.Scheme == "service" && strings.HasPrefix(parsed.Opaque, "jmx:")) {
@@ -201,9 +201,10 @@ func (jmx *jmxMetricReceiver) buildJMXMetricGathererConfig() (string, error) {
 
 	var passwordMap map[string]string
 	if jmx.config.PasswordFile != "" {
+		var err error
 		passwordMap, err = parsePasswordFile(jmx.config.PasswordFile)
 		if err != nil {
-			jmx.logger.Error("issue with password retrieval", zap.Error(err))
+			jmx.logger.Error("Unable to retrieve password from file", zap.Error(err))
 		}
 	}
 
