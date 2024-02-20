@@ -71,9 +71,26 @@ func (nc *nodeCapacity) parseMemory(ctx context.Context) {
 }
 
 func (nc *nodeCapacity) parseCPU(ctx context.Context) {
+	if runtime.GOOS == "windows" {
+		nc.parseCPUWindows(ctx)
+		return
+	}
 	if cpuInfos, err := nc.cpuInfo(ctx); err == nil {
 		numCores := len(cpuInfos)
 		nc.cpuCapacity = int64(numCores)
+	} else {
+		// If any error happen, then there will be no cpu utilization metrics
+		nc.logger.Error("NodeCapacity cannot get cpuInfo from psUtil", zap.Error(err))
+	}
+}
+
+func (nc *nodeCapacity) parseCPUWindows(ctx context.Context) {
+	if cpuInfos, err := nc.cpuInfo(ctx); err == nil {
+		var coreCount int32
+		for _, cpuInfo := range cpuInfos {
+			coreCount += cpuInfo.Cores
+		}
+		nc.cpuCapacity = int64(coreCount)
 	} else {
 		// If any error happen, then there will be no cpu utilization metrics
 		nc.logger.Error("NodeCapacity cannot get cpuInfo from psUtil", zap.Error(err))
