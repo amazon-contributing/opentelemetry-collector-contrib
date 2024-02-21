@@ -6,35 +6,24 @@
 | node_cpu_limit                            | Millicore    |
 | node_cpu_request                          | Millicore    |
 | node_cpu_reserved_capacity                | Percent      |
-| node_cpu_usage_system*                    | Millicore    |
 | node_cpu_usage_total                      | Millicore    |
-| node_cpu_usage_user*                      | Millicore    |
 | node_cpu_utilization                      | Percent      |
-| node_memory_cache*                        | Bytes        |
-| node_memory_failcnt*                      | Count        |
-| node_memory_hierarchical_pgfault*         | Count/Second |
-| node_memory_hierarchical_pgmajfault*      | Count/Second |
 | node_memory_limit                         | Bytes        |
-| node_memory_mapped_file*                  | Bytes        |
-| node_memory_max_usage*                    | Bytes        |
 | node_memory_pgfault                       | Count/Second |
 | node_memory_pgmajfault                    | Count/Second |
 | node_memory_request                       | Bytes        |
 | node_memory_reserved_capacity             | Percent      |
 | node_memory_rss                           | Bytes        |
-| node_memory_swap*                         | Bytes        |
 | node_memory_usage                         | Bytes        |
 | node_memory_utilization                   | Percent      |
 | node_memory_working_set                   | Bytes        |
 | node_network_rx_bytes                     | Bytes/Second |
 | node_network_rx_dropped                   | Count/Second |
 | node_network_rx_errors                    | Count/Second |
-| node_network_rx_packets*                  | Count/Second |
 | node_network_total_bytes                  | Bytes/Second |
 | node_network_tx_bytes                     | Bytes/Second |
 | node_network_tx_dropped                   | Count/Second |
 | node_network_tx_errors                    | Count/Second |
-| node_network_tx_packets*                  | Count/Second |
 | node_number_of_running_containers         | Count        |
 | node_number_of_running_pods               | Count        |
 | node_status_condition_ready               | Count        |
@@ -67,8 +56,6 @@
 |------------------------------|---------|
 | node_filesystem_available    | Bytes   |
 | node_filesystem_capacity     | Bytes   |
-| node_filesystem_inodes*      | Count   |
-| node_filesystem_inodes_free* | Count   |
 | node_filesystem_usage        | Bytes   |
 | node_filesystem_utilization  | Percent |
 
@@ -81,9 +68,6 @@
 | InstanceType          |
 | NodeName              |
 | Timestamp             |
-| EBSVolumeId*          |
-| device*               |
-| fstype*               |
 | Type                  |
 | Version               |
 | Sources               |
@@ -98,12 +82,10 @@
 | node_interface_network_rx_bytes    | Bytes/Second |
 | node_interface_network_rx_dropped  | Count/Second |
 | node_interface_network_rx_errors   | Count/Second |
-| node_interface_network_rx_packets* | Count/Second |
 | node_interface_network_total_bytes | Bytes/Second |
 | node_interface_network_tx_bytes    | Bytes/Second |
 | node_interface_network_tx_dropped  | Count/Second |
 | node_interface_network_tx_errors   | Count/Second |
-| node_interface_network_tx_packets* | Count/Second |
 
 <br/><br/>
 | Resource Attribute    |
@@ -129,24 +111,16 @@
 | pod_cpu_limit                                                     | Millicore    |
 | pod_cpu_request                                                   | Millicore    |
 | pod_cpu_reserved_capacity                                         | Percent      |
-| pod_cpu_usage_system*                                             | Millicore    |
 | pod_cpu_usage_total                                               | Millicore    |
-| pod_cpu_usage_user*                                               | Millicore    |
 | pod_cpu_utilization                                               | Percent      |
 | pod_cpu_utilization_over_pod_limit                                | Percent      |
-| pod_memory_cache*                                                 | Bytes        |
-| pod_memory_failcnt*                                               | Count        |
-| pod_memory_hierarchical_pgfault*                                  | Count/Second |
-| pod_memory_hierarchical_pgmajfault*                               | Count/Second |
 | pod_memory_limit                                                  | Bytes        |
-| pod_memory_mapped_file*                                           | Bytes        |
 | pod_memory_max_usage                                              | Bytes        |
 | pod_memory_pgfault                                                | Count/Second |
 | pod_memory_pgmajfault                                             | Count/Second |
 | pod_memory_request                                                | Bytes        |
 | pod_memory_reserved_capacity                                      | Percent      |
 | pod_memory_rss                                                    | Bytes        |
-| pod_memory_swap*                                                  | Bytes        |
 | pod_memory_usage                                                  | Bytes        |
 | pod_memory_utilization                                            | Percent      |
 | pod_memory_utilization_over_pod_limit                             | Percent      |
@@ -154,12 +128,10 @@
 | pod_network_rx_bytes                                              | Bytes/Second |
 | pod_network_rx_dropped                                            | Count/Second |
 | pod_network_rx_errors                                             | Count/Second |
-| pod_network_rx_packets*                                           | Count/Second |
 | pod_network_total_bytes                                           | Bytes/Second |
 | pod_network_tx_bytes                                              | Bytes/Second |
 | pod_network_tx_dropped                                            | Count/Second |
 | pod_network_tx_errors                                             | Count/Second |
-| pod_network_tx_packets*                                           | Count/Second |
 | pod_number_of_container_restarts                                  | Count        | 
 | pod_number_of_containers                                          | Count        |   
 | pod_number_of_running_containers                                  | Count        |  
@@ -206,12 +178,11 @@
 | pod_interface_network_rx_bytes    | Bytes/Second |
 | pod_interface_network_rx_dropped  | Count/Second |
 | pod_interface_network_rx_errors   | Count/Second |
-| pod_interface_network_rx_packets* | Count/Second |
 | pod_interface_network_total_bytes | Bytes/Second |
 | pod_interface_network_tx_bytes    | Bytes/Second |
 | pod_interface_network_tx_dropped  | Count/Second |
 | pod_interface_network_tx_errors   | Count/Second |
-| pod_interface_network_tx_packets* | Count/Second |
+
 
 <br/><br/>
 | Resource Attribute   |
@@ -242,24 +213,15 @@
 |---------------------------------------------------|--------------|
 | container_cpu_limit                               | Millicore    |
 | container_cpu_request                             | Millicore    |
-| container_cpu_usage_system*                       | Millicore    |
 | container_cpu_usage_total                         | Millicore    |
-| container_cpu_usage_user*                         | Millicore    |
 | container_cpu_utilization                         | Percent      |
 | container_cpu_utilization_over_container_limit    | Percent      |
-| container_memory_cache*                           | Bytes        |
-| container_memory_failcnt*                         | Count        |
-| container_memory_hierarchical_pgfault*            | Count/Second |
-| container_memory_hierarchical_pgmajfault*         | Count/Second |
 | container_memory_limit                            | Bytes        |
 | container_memory_mapped_file                      | Bytes        |
-| container_memory_max_usage*                       | Bytes        |
 | container_memory_pgfault                          | Count/Second |
 | container_memory_pgmajfault                       | Count/Second |
-| container_memory_failures_total*                  | Count/Second |
 | container_memory_request                          | Bytes        |
 | container_memory_rss                              | Bytes        |
-| container_memory_swap*                            | Bytes        |
 | container_memory_usage                            | Bytes        |
 | container_memory_utilization                      | Percent      |
 | container_memory_utilization_over_container_limit | Percent      |
