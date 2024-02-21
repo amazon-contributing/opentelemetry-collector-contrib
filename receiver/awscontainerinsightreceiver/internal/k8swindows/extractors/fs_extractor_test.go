@@ -35,7 +35,9 @@ func TestFSStats(t *testing.T) {
 		"node_filesystem_utilization": float64(40.358791544917224),
 	}
 	expectedTags := map[string]string{
-		"Type": "NodeFS",
+		"fstype": "",
+		"device": "",
+		"Type":   "NodeFS",
 	}
 	cExtractor.AssertContainsTaggedField(t, cMetrics[0], expectedFields, expectedTags)
 
@@ -66,7 +68,8 @@ func TestFSStats(t *testing.T) {
 		"container_filesystem_utilization": float64(0.3955174875484043),
 	}
 	expectedTags = map[string]string{
-		"device": "rootfs",
+		"fstype": "",
+		"device": "",
 		"Type":   "ContainerFS",
 	}
 	cExtractor.AssertContainsTaggedField(t, cMetrics[0], expectedFields, expectedTags)
@@ -78,7 +81,8 @@ func TestFSStats(t *testing.T) {
 		"container_filesystem_utilization": float64(0.0010704219949207732),
 	}
 	expectedTags = map[string]string{
-		"device": "logfs",
+		"fstype": "",
+		"device": "",
 		"Type":   "ContainerFS",
 	}
 	cExtractor.AssertContainsTaggedField(t, cMetrics[1], expectedFields, expectedTags)
