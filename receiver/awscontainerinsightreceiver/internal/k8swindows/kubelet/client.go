@@ -5,13 +5,16 @@ package kubelet
 
 import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
+
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
 
 // KubeletProvider Represents interface to kubelet.
 type KubeletProvider interface {
 	GetSummary() (*stats.Summary, error)
+	GetPods() ([]corev1.Pod, error)
 }
 
 type kubeletProvider struct {
@@ -49,4 +52,13 @@ func (kp *kubeletProvider) GetSummary() (*stats.Summary, error) {
 		return nil, err
 	}
 	return summary, nil
+}
+
+func (kp *kubeletProvider) GetPods() ([]corev1.Pod, error) {
+	kclient, err := kp.getClient()
+	if err != nil {
+		kp.logger.Error("failed to get kubelet client, ", zap.Error(err))
+		return nil, err
+	}
+	return kclient.ListPods()
 }

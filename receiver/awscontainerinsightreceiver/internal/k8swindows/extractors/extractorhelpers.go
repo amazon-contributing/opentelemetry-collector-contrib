@@ -18,6 +18,7 @@ func convertCPUStats(kubeletCPUStat stats.CPUStats) CPUStat {
 	if kubeletCPUStat.UsageNanoCores != nil {
 		cpuStat.UsageNanoCores = *kubeletCPUStat.UsageNanoCores
 	}
+
 	return cpuStat
 }
 
@@ -92,6 +93,21 @@ func convertNetworkStats(kubeletNetworkStat stats.NetworkStats, kubeletIntfStat 
 	if kubeletIntfStat.RxErrors != nil {
 		networkstat.RxErrors = *kubeletIntfStat.RxErrors
 	}
+
+	return networkstat
+}
+
+// convertHCSNetworkStats Convert HCS network system stats to Raw network stats
+func convertHCSNetworkStats(stat HCSStat, networkStat HCSNetworkStat) NetworkStat {
+	var networkstat NetworkStat
+
+	networkstat.Time = stat.Time
+
+	networkstat.Name = networkStat.Name
+	networkstat.TxBytes = networkStat.BytesSent
+	networkstat.RxBytes = networkStat.BytesReceived
+	networkstat.DroppedIncoming = networkStat.DroppedPacketsIncoming
+	networkstat.DroppedOutgoing = networkStat.DroppedPacketsOutgoing
 
 	return networkstat
 }
@@ -183,6 +199,23 @@ func ConvertNodeToRaw(nodeStat stats.NodeStats) RawMetric {
 	if nodeStat.Network != nil {
 		for _, intfStats := range nodeStat.Network.Interfaces {
 			rawMetic.NetworkStats = append(rawMetic.NetworkStats, convertNetworkStats(*nodeStat.Network, intfStats))
+		}
+	}
+
+	return rawMetic
+}
+
+// ConvertHCSContainerToRaw Converts HCS Container stats to RawMetric.
+func ConvertHCSContainerToRaw(containerStat HCSStat) RawMetric {
+	var rawMetic RawMetric
+
+	rawMetic.Id = containerStat.Id
+	rawMetic.Name = containerStat.Name
+	rawMetic.Time = containerStat.Time
+
+	if containerStat.Network != nil {
+		for _, val := range *containerStat.Network {
+			rawMetic.NetworkStats = append(rawMetic.NetworkStats, convertHCSNetworkStats(containerStat, val))
 		}
 	}
 
