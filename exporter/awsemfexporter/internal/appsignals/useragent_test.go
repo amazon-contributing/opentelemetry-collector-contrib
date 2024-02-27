@@ -10,7 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/stretchr/testify/assert"
-	semconv "go.opentelemetry.io/collector/semconv/v1.6.1"
+	semconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 )
 
 func TestUserAgent(t *testing.T) {
@@ -19,18 +19,33 @@ func TestUserAgent(t *testing.T) {
 		want      string
 	}{
 		"WithEmpty": {},
+		"WithPartialAttributes": {
+			labelSets: []map[string]string{
+				{
+					semconv.AttributeTelemetrySDKLanguage: "foo",
+				},
+				{
+					semconv.AttributeTelemetryAutoVersion: "1.0",
+				},
+			},
+		},
 		"WithMultipleLanguages": {
 			labelSets: []map[string]string{
 				{
 					semconv.AttributeTelemetrySDKLanguage: "foo",
-					semconv.AttributeTelemetryAutoVersion: "1.1",
+					attributeTelemetryDistroVersion:       "1.1",
 				},
 				{
 					semconv.AttributeTelemetrySDKLanguage: "bar",
-					semconv.AttributeTelemetryAutoVersion: "1.0",
+					semconv.AttributeTelemetryAutoVersion: "2.0",
+					attributeTelemetryDistroVersion:       "1.0",
+				},
+				{
+					semconv.AttributeTelemetrySDKLanguage: "baz",
+					semconv.AttributeTelemetryAutoVersion: "2.0",
 				},
 			},
-			want: "telemetry-sdk (bar/1.0;foo/1.1)",
+			want: "telemetry-sdk (bar/1.0;baz/2.0;foo/1.1)",
 		},
 		"WithMultipleVersions": {
 			labelSets: []map[string]string{
@@ -40,7 +55,7 @@ func TestUserAgent(t *testing.T) {
 				},
 				{
 					semconv.AttributeTelemetrySDKLanguage: "test",
-					semconv.AttributeTelemetryAutoVersion: "1.0",
+					attributeTelemetryDistroVersion:       "1.0",
 				},
 			},
 			want: "telemetry-sdk (test/1.0)",
@@ -55,7 +70,6 @@ func TestUserAgent(t *testing.T) {
 			want: "telemetry-sdk (incrediblyverboselan/notsemanticversionin)",
 		},
 	}
-
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			userAgent := NewUserAgent()
@@ -68,12 +82,7 @@ func TestUserAgent(t *testing.T) {
 				},
 			}
 			userAgent.Handler().Fn(req)
-			got := req.HTTPRequest.Header.Get("User-Agent")
-			if got == "" {
-				assert.Empty(t, testCase.want)
-			} else {
-				assert.Equal(t, testCase.want, got)
-			}
+			assert.Equal(t, testCase.want, req.HTTPRequest.Header.Get("User-Agent"))
 		})
 	}
 }
@@ -91,14 +100,12 @@ func TestUserAgentExpiration(t *testing.T) {
 	}
 	userAgent.Process(labels)
 	userAgent.handle(req)
-	got := req.HTTPRequest.Header.Get("User-Agent")
-	assert.Equal(t, "telemetry-sdk (test/1.0)", got)
+	assert.Equal(t, "telemetry-sdk (test/1.0)", req.HTTPRequest.Header.Get("User-Agent"))
 
 	// wait for expiration
 	time.Sleep(100 * time.Millisecond)
 	// reset user-agent header
 	req.HTTPRequest.Header.Del("User-Agent")
 	userAgent.handle(req)
-	got = req.HTTPRequest.Header.Get("User-Agent")
-	assert.Empty(t, got)
+	assert.Empty(t, req.HTTPRequest.Header.Get("User-Agent"))
 }

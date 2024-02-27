@@ -13,7 +13,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/jellydator/ttlcache/v3"
-	semconv "go.opentelemetry.io/collector/semconv/v1.6.1"
+	semconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 )
 
 const (
@@ -24,6 +24,9 @@ const (
 	cacheSize = 5
 	// attrLengthLimit is the maximum length of the language and version that will be used for the user agent.
 	attrLengthLimit = 20
+
+	// TODO: Available in semconv/v1.21.0+. Replace after collector dependency is v0.91.0+.
+	attributeTelemetryDistroVersion = "telemetry.distro.version"
 )
 
 type UserAgent struct {
@@ -69,7 +72,10 @@ func (ua *UserAgent) handle(r *request.Request) {
 // cache and has the same value, extends the TTL. If not, then it sets it and rebuilds the user agent string.
 func (ua *UserAgent) Process(labels map[string]string) {
 	language := labels[semconv.AttributeTelemetrySDKLanguage]
-	version := labels[semconv.AttributeTelemetryAutoVersion]
+	version := labels[attributeTelemetryDistroVersion]
+	if version == "" {
+		version = labels[semconv.AttributeTelemetryAutoVersion]
+	}
 	if language != "" && version != "" {
 		language = truncate(language, attrLengthLimit)
 		version = truncate(version, attrLengthLimit)
