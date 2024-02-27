@@ -69,7 +69,7 @@ func (ua *UserAgent) handle(r *request.Request) {
 // cache and has the same value, extends the TTL. If not, then it sets it and rebuilds the user agent string.
 func (ua *UserAgent) Process(labels map[string]string) {
 	language := labels[semconv.AttributeTelemetrySDKLanguage]
-	version := labels[semconv.AttributeTelemetrySDKVersion]
+	version := labels[semconv.AttributeTelemetryAutoVersion]
 	if language != "" && version != "" {
 		language = truncate(language, attrLengthLimit)
 		version = truncate(version, attrLengthLimit)

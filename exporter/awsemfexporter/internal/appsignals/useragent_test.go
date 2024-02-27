@@ -23,11 +23,11 @@ func TestUserAgent(t *testing.T) {
 			labelSets: []map[string]string{
 				{
 					semconv.AttributeTelemetrySDKLanguage: "foo",
-					semconv.AttributeTelemetrySDKVersion:  "1.1",
+					semconv.AttributeTelemetryAutoVersion: "1.1",
 				},
 				{
 					semconv.AttributeTelemetrySDKLanguage: "bar",
-					semconv.AttributeTelemetrySDKVersion:  "1.0",
+					semconv.AttributeTelemetryAutoVersion: "1.0",
 				},
 			},
 			want: "telemetry-sdk (bar/1.0;foo/1.1)",
@@ -36,11 +36,11 @@ func TestUserAgent(t *testing.T) {
 			labelSets: []map[string]string{
 				{
 					semconv.AttributeTelemetrySDKLanguage: "test",
-					semconv.AttributeTelemetrySDKVersion:  "1.1",
+					semconv.AttributeTelemetryAutoVersion: "1.1",
 				},
 				{
 					semconv.AttributeTelemetrySDKLanguage: "test",
-					semconv.AttributeTelemetrySDKVersion:  "1.0",
+					semconv.AttributeTelemetryAutoVersion: "1.0",
 				},
 			},
 			want: "telemetry-sdk (test/1.0)",
@@ -49,7 +49,7 @@ func TestUserAgent(t *testing.T) {
 			labelSets: []map[string]string{
 				{
 					semconv.AttributeTelemetrySDKLanguage: " incrediblyverboselanguagename",
-					semconv.AttributeTelemetrySDKVersion:  "notsemanticversioningversion",
+					semconv.AttributeTelemetryAutoVersion: "notsemanticversioningversion",
 				},
 			},
 			want: "telemetry-sdk (incrediblyverboselan/notsemanticversionin)",
@@ -87,7 +87,7 @@ func TestUserAgentExpiration(t *testing.T) {
 	}
 	labels := map[string]string{
 		semconv.AttributeTelemetrySDKLanguage: "test",
-		semconv.AttributeTelemetrySDKVersion:  "1.0",
+		semconv.AttributeTelemetryAutoVersion: "1.0",
 	}
 	userAgent.Process(labels)
 	userAgent.handle(req)
