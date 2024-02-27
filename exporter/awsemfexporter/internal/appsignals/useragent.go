@@ -6,6 +6,7 @@ package appsignals
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -26,9 +27,9 @@ const (
 )
 
 type UserAgent struct {
-	mu       sync.RWMutex
-	prebuilt []string
-	cache    *ttlcache.Cache[string, string]
+	mu          sync.RWMutex
+	prebuiltStr string
+	cache       *ttlcache.Cache[string, string]
 }
 
 func NewUserAgent() *UserAgent {
@@ -43,48 +44,61 @@ func newUserAgent(ttl time.Duration) *UserAgent {
 		),
 	}
 	ua.cache.OnEviction(func(context.Context, ttlcache.EvictionReason, *ttlcache.Item[string, string]) {
-		ua.rebuild()
+		ua.build()
 	})
 	go ua.cache.Start()
 	return ua
 }
 
 // Handler creates a named handler with the UserAgent's handle function.
-func (h *UserAgent) Handler() request.NamedHandler {
+func (ua *UserAgent) Handler() request.NamedHandler {
 	return request.NamedHandler{
 		Name: handlerName,
-		Fn:   h.handle,
+		Fn:   ua.handle,
 	}
 }
 
-// handle adds the pre-built user agent strings to the user agent header.
-func (h *UserAgent) handle(r *request.Request) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for _, str := range h.prebuilt {
-		request.AddToUserAgent(r, str)
-	}
+// handle adds the pre-built user agent string to the user agent header.
+func (ua *UserAgent) handle(r *request.Request) {
+	ua.mu.RLock()
+	defer ua.mu.RUnlock()
+	request.AddToUserAgent(r, ua.prebuiltStr)
 }
 
-// formatStr formats the telemetry SDK language and version into the user agent format.
-func formatStr(language, version string) string {
-	return fmt.Sprintf("telemetry-sdk-%s/%s", language, version)
-}
-
-// Process takes the telemetry SDK language and version and adds them to the cache. If it already exists in the cache
-// and has the same value, extends the TTL. If not, then it sets it and rebuilds the user agent strings.
-func (h *UserAgent) Process(labels map[string]string) {
+// Process takes the telemetry SDK language and version and adds them to the cache. If it already exists in the
+// cache and has the same value, extends the TTL. If not, then it sets it and rebuilds the user agent string.
+func (ua *UserAgent) Process(labels map[string]string) {
 	language := labels[semconv.AttributeTelemetrySDKLanguage]
 	version := labels[semconv.AttributeTelemetrySDKVersion]
 	if language != "" && version != "" {
 		language = truncate(language, attrLengthLimit)
 		version = truncate(version, attrLengthLimit)
-		value := h.cache.Get(language)
+		value := ua.cache.Get(language)
 		if value == nil || value.Value() != version {
-			h.cache.Set(language, version, ttlcache.DefaultTTL)
-			h.rebuild()
+			ua.cache.Set(language, version, ttlcache.DefaultTTL)
+			ua.build()
 		}
 	}
+}
+
+// build the user agent string from the items in the cache. Format is telemetry-sdk (<lang1>/<ver1>;<lang2>/<ver2>).
+func (ua *UserAgent) build() {
+	ua.mu.Lock()
+	defer ua.mu.Unlock()
+	var items []string
+	for _, item := range ua.cache.Items() {
+		items = append(items, formatStr(item.Key(), item.Value()))
+	}
+	ua.prebuiltStr = ""
+	if len(items) > 0 {
+		sort.Strings(items)
+		ua.prebuiltStr = fmt.Sprintf("telemetry-sdk (%s)", strings.Join(items, ";"))
+	}
+}
+
+// formatStr formats the telemetry SDK language and version into the user agent format.
+func formatStr(language, version string) string {
+	return language + "/" + version
 }
 
 func truncate(s string, n int) string {
@@ -93,14 +107,4 @@ func truncate(s string, n int) string {
 		return strings.TrimSpace(s[:n])
 	}
 	return s
-}
-
-func (h *UserAgent) rebuild() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	items := h.cache.Items()
-	h.prebuilt = make([]string, 0, len(items))
-	for _, item := range h.cache.Items() {
-		h.prebuilt = append(h.prebuilt, formatStr(item.Key(), item.Value()))
-	}
 }

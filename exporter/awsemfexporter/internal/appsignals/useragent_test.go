@@ -5,8 +5,6 @@ package appsignals
 
 import (
 	"net/http"
-	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -18,7 +16,7 @@ import (
 func TestUserAgent(t *testing.T) {
 	testCases := map[string]struct {
 		labelSets []map[string]string
-		want      []string
+		want      string
 	}{
 		"WithEmpty": {},
 		"WithMultipleLanguages": {
@@ -32,10 +30,7 @@ func TestUserAgent(t *testing.T) {
 					semconv.AttributeTelemetrySDKVersion:  "1.0",
 				},
 			},
-			want: []string{
-				"telemetry-sdk-bar/1.0",
-				"telemetry-sdk-foo/1.1",
-			},
+			want: "telemetry-sdk (bar/1.0;foo/1.1)",
 		},
 		"WithMultipleVersions": {
 			labelSets: []map[string]string{
@@ -48,9 +43,7 @@ func TestUserAgent(t *testing.T) {
 					semconv.AttributeTelemetrySDKVersion:  "1.0",
 				},
 			},
-			want: []string{
-				"telemetry-sdk-test/1.0",
-			},
+			want: "telemetry-sdk (test/1.0)",
 		},
 		"WithTruncatedAttributes": {
 			labelSets: []map[string]string{
@@ -59,9 +52,7 @@ func TestUserAgent(t *testing.T) {
 					semconv.AttributeTelemetrySDKVersion:  "notsemanticversioningversion",
 				},
 			},
-			want: []string{
-				"telemetry-sdk-incrediblyverboselan/notsemanticversionin",
-			},
+			want: "telemetry-sdk (incrediblyverboselan/notsemanticversionin)",
 		},
 	}
 
@@ -81,9 +72,7 @@ func TestUserAgent(t *testing.T) {
 			if got == "" {
 				assert.Empty(t, testCase.want)
 			} else {
-				gotUserAgents := strings.Split(got, " ")
-				sort.Strings(gotUserAgents)
-				assert.Equal(t, testCase.want, gotUserAgents)
+				assert.Equal(t, testCase.want, got)
 			}
 		})
 	}
@@ -103,7 +92,7 @@ func TestUserAgentExpiration(t *testing.T) {
 	userAgent.Process(labels)
 	userAgent.handle(req)
 	got := req.HTTPRequest.Header.Get("User-Agent")
-	assert.Equal(t, "telemetry-sdk-test/1.0", got)
+	assert.Equal(t, "telemetry-sdk (test/1.0)", got)
 
 	// wait for expiration
 	time.Sleep(100 * time.Millisecond)
