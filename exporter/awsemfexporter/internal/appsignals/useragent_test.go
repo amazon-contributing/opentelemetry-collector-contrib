@@ -52,6 +52,17 @@ func TestUserAgent(t *testing.T) {
 				"telemetry-sdk-test/1.0",
 			},
 		},
+		"WithTruncatedAttributes": {
+			labelSets: []map[string]string{
+				{
+					semconv.AttributeTelemetrySDKLanguage: " incrediblyverboselanguagename",
+					semconv.AttributeTelemetrySDKVersion:  "notsemanticversioningversion",
+				},
+			},
+			want: []string{
+				"telemetry-sdk-incrediblyverboselan/notsemanticversionin",
+			},
+		},
 	}
 
 	for name, testCase := range testCases {

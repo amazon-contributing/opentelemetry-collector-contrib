@@ -6,6 +6,7 @@ package appsignals
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,12 @@ import (
 
 const (
 	handlerName = "aws.appsignals.UserAgentHandler"
+	// defaultTTL is how long an item in the cache will remain if it has not been re-seen.
+	defaultTTL = time.Minute
+	// cacheSize is the maximum number of unique telemetry SDK languages that can be stored before one will be evicted.
+	cacheSize = 5
+	// attrLengthLimit is the maximum length of the language and version that will be used for the user agent.
+	attrLengthLimit = 20
 )
 
 type UserAgent struct {
@@ -25,11 +32,16 @@ type UserAgent struct {
 }
 
 func NewUserAgent() *UserAgent {
-	return newUserAgent(time.Minute)
+	return newUserAgent(defaultTTL)
 }
 
 func newUserAgent(ttl time.Duration) *UserAgent {
-	ua := &UserAgent{cache: ttlcache.New[string, string](ttlcache.WithTTL[string, string](ttl))}
+	ua := &UserAgent{
+		cache: ttlcache.New[string, string](
+			ttlcache.WithTTL[string, string](ttl),
+			ttlcache.WithCapacity[string, string](cacheSize),
+		),
+	}
 	ua.cache.OnEviction(func(context.Context, ttlcache.EvictionReason, *ttlcache.Item[string, string]) {
 		ua.rebuild()
 	})
@@ -65,12 +77,22 @@ func (h *UserAgent) Process(labels map[string]string) {
 	language := labels[semconv.AttributeTelemetrySDKLanguage]
 	version := labels[semconv.AttributeTelemetrySDKVersion]
 	if language != "" && version != "" {
+		language = truncate(language, attrLengthLimit)
+		version = truncate(version, attrLengthLimit)
 		value := h.cache.Get(language)
 		if value == nil || value.Value() != version {
 			h.cache.Set(language, version, ttlcache.DefaultTTL)
 			h.rebuild()
 		}
 	}
+}
+
+func truncate(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) > n {
+		return strings.TrimSpace(s[:n])
+	}
+	return s
 }
 
 func (h *UserAgent) rebuild() {
