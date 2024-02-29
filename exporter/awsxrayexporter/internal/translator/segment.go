@@ -745,7 +745,7 @@ func fixAnnotationKey(key string) string {
 		case 'A' <= r && r <= 'Z':
 			fallthrough
 		case 'a' <= r && r <= 'z':
-		    fallthrough
+			fallthrough
 		case r == '.':
 			return r
 		default:
