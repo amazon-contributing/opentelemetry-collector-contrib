@@ -131,7 +131,7 @@ func (k *K8sWindows) decorateMetrics(cadvisormetrics []*cExtractor.CAdvisorMetri
 		tags[ci.ClusterNameKey] = k.hostInfo.GetClusterName()
 
 		// add tags for OS
-		tags[ci.OperatingSystem] = "windows"
+		tags[ci.OperatingSystem] = ci.OperatingSystemWindows
 
 		out := k.k8sDecorator.Decorate(m)
 		if out != nil {

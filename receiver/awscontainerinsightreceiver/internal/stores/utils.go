@@ -96,7 +96,7 @@ func stringInRuneset(name, subset string) bool {
 }
 
 func TagMetricSource(metric CIMetric) {
-	if metric.GetTag(ci.OperatingSystem) == "windows" {
+	if metric.GetTag(ci.OperatingSystem) == ci.OperatingSystemWindows {
 		tagMetricSourceWindows(metric)
 		return
 	}
