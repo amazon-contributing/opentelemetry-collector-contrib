@@ -12,6 +12,8 @@ import (
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 	"go.uber.org/zap"
+
+	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 )
 
 type nodeCapacityProvider interface {
@@ -48,7 +50,7 @@ func newNodeCapacity(logger *zap.Logger, options ...nodeCapacityOption) (nodeCap
 	}
 
 	ctx := context.Background()
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != ci.OperatingSystemWindows {
 		if _, err := nc.osLstat(hostProc); os.IsNotExist(err) {
 			return nil, err
 		}
@@ -71,7 +73,7 @@ func (nc *nodeCapacity) parseMemory(ctx context.Context) {
 }
 
 func (nc *nodeCapacity) parseCPU(ctx context.Context) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == ci.OperatingSystemWindows {
 		nc.parseCPUWindows(ctx)
 		return
 	}

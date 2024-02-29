@@ -76,8 +76,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 			return err
 		}
 
-		// todo: will need to use k8sAPIServer to add stats about enhanced CI.
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == ci.OperatingSystemWindows {
 			acir.containerMetricsProvider, err = k8swindows.New(acir.settings.Logger, k8sDecorator, *hostinfo)
 			if err != nil {
 				return err
