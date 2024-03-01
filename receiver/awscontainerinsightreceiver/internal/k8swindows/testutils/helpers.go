@@ -1,4 +1,4 @@
-package testutils
+package testutils // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/testutils"
 
 import (
 	"encoding/json"
