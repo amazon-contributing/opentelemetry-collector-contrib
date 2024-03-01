@@ -3,7 +3,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubele
 go 1.20
 
 require (
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.92.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.89.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.89.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig v0.89.0
 	github.com/stretchr/testify v1.8.4

@@ -9,7 +9,7 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/google/cadvisor v0.48.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil v0.89.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.92.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.89.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s v0.89.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics v0.89.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig v0.89.0
