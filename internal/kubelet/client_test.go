@@ -73,32 +73,6 @@ func TestNewTLSClientProvider(t *testing.T) {
 	require.NotNil(t, tcc.RootCAs)
 }
 
-func TestSAPathInHostProcessContainer(t *testing.T) {
-	// todo: Remove this workaround func when Windows AMIs has containerd 1.7 which solves upstream bug.
-
-	// Test default SA cert and token.
-	assert.Equal(t, svcAcctCACertPath, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-	assert.Equal(t, svcAcctTokenPath, "/var/run/secrets/kubernetes.io/serviceaccount/token")
-
-	// Test SA cert and token when run inside container.
-	os.Setenv(containerinsight.RunInContainer, "True")
-	updateSVCPath()
-	assert.Equal(t, svcAcctCACertPath, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-	assert.Equal(t, svcAcctTokenPath, "/var/run/secrets/kubernetes.io/serviceaccount/token")
-
-	// Test SA cert and token when run inside host process container.
-	os.Setenv(containerinsight.RunAsHostProcessContainer, "True")
-	os.Setenv("CONTAINER_SANDBOX_MOUNT_POINT", "test123456")
-	updateSVCPath()
-	assert.Equal(t, svcAcctCACertPath, "test123456/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-	assert.Equal(t, svcAcctTokenPath, "test123456/var/run/secrets/kubernetes.io/serviceaccount/token")
-
-	os.Unsetenv("CONTAINER_SANDBOX_MOUNT_POINT")
-	os.Unsetenv(containerinsight.RunInContainer)
-	os.Unsetenv(containerinsight.RunAsHostProcessContainer)
-	updateSVCPath()
-}
-
 func TestNewSAClientProvider(t *testing.T) {
 	p, err := NewClientProvider("localhost:9876", &ClientConfig{
 		APIConfig: k8sconfig.APIConfig{
