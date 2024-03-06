@@ -105,11 +105,10 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 			if err != nil {
 				acir.settings.Logger.Debug("Unable to start kube apiserver prometheus scraper", zap.Error(err))
 			}
-		}
-
-		err = acir.initDcgmScraper(ctx, host, hostinfo, k8sDecorator)
-		if err != nil {
-			acir.settings.Logger.Debug("Unable to start dcgm scraper", zap.Error(err))
+			err = acir.initDcgmScraper(ctx, host, hostinfo, k8sDecorator)
+			if err != nil {
+				acir.settings.Logger.Debug("Unable to start dcgm scraper", zap.Error(err))
+			}
 		}
 	}
 	if acir.config.ContainerOrchestrator == ci.ECS {

@@ -34,15 +34,13 @@ type K8sWindows struct {
 	version                string
 }
 
-var metricsExtractors = []extractors.MetricExtractor{}
-
 func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info) (*K8sWindows, error) {
 	nodeName := os.Getenv("HOST_NAME")
 	if nodeName == "" {
 		return nil, errors.New("missing environment variable HOST_NAME. Please check your deployment YAML config")
 	}
 
-	metricsExtractors = []extractors.MetricExtractor{}
+	metricsExtractors := []extractors.MetricExtractor{}
 	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
 	metricsExtractors = append(metricsExtractors, extractors.NewFileSystemMetricExtractor(logger))
