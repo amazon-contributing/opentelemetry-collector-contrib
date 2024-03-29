@@ -4,8 +4,10 @@
 package efa
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"strconv"
 	"testing"
 	"time"
@@ -279,6 +281,19 @@ func TestGetMetricsMissingDeviceFromPodResources(t *testing.T) {
 
 func checkExpectations(t *testing.T, expected []expectation, actual []pmetric.Metrics) {
 	assert.Equal(t, len(expected), len(actual))
+	if len(expected) == 0 {
+		return
+	}
+
+	slices.SortFunc(expected, func(a, b expectation) int {
+		return cmp.Compare(a.tags[ci.AttributeEfaDevice], b.tags[ci.AttributeEfaDevice])
+	})
+	slices.SortFunc(actual, func(a, b pmetric.Metrics) int {
+		aVal, _ := a.ResourceMetrics().At(0).Resource().Attributes().Get(ci.AttributeEfaDevice)
+		bVal, _ := b.ResourceMetrics().At(0).Resource().Attributes().Get(ci.AttributeEfaDevice)
+		return cmp.Compare(aVal.Str(), bVal.Str())
+	})
+	
 	for i := 0; i < len(expected); i++ {
 		expectedMetric := expected[i]
 		actualMetric := actual[i]
