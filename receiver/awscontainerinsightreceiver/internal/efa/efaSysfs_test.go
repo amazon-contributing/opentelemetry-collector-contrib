@@ -6,10 +6,11 @@ package efa
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"strconv"
 	"testing"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
