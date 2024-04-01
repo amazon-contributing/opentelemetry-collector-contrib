@@ -4,7 +4,7 @@
 //go:build !windows
 // +build !windows
 
-package efa
+package efa // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/efa"
 
 import (
 	"errors"
