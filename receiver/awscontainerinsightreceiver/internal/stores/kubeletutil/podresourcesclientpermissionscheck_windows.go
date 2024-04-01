@@ -7,6 +7,7 @@
 package kubeletutil // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
 
 import (
+	"errors"
 	"os"
 )
 
