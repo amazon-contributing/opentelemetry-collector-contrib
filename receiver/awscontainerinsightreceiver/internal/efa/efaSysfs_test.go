@@ -4,7 +4,6 @@
 package efa
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"golang.org/x/exp/slices"
@@ -286,19 +285,29 @@ func checkExpectations(t *testing.T, expected []expectation, actual []pmetric.Me
 	}
 
 	slices.SortFunc(expected, func(a, b expectation) int {
-		return cmp.Compare(a.tags[ci.AttributeEfaDevice], b.tags[ci.AttributeEfaDevice])
+		return compareStrings(a.tags[ci.AttributeEfaDevice], b.tags[ci.AttributeEfaDevice])
 	})
 	slices.SortFunc(actual, func(a, b pmetric.Metrics) int {
 		aVal, _ := a.ResourceMetrics().At(0).Resource().Attributes().Get(ci.AttributeEfaDevice)
 		bVal, _ := b.ResourceMetrics().At(0).Resource().Attributes().Get(ci.AttributeEfaDevice)
-		return cmp.Compare(aVal.Str(), bVal.Str())
+		return compareStrings(aVal.Str(), bVal.Str())
 	})
-	
+
 	for i := 0; i < len(expected); i++ {
 		expectedMetric := expected[i]
 		actualMetric := actual[i]
 		checkExpectation(t, expectedMetric.fields, expectedMetric.tags, actualMetric)
 	}
+}
+
+func compareStrings(x, y string) int {
+	if x < y {
+		return -1
+	}
+	if x > y {
+		return +1
+	}
+	return 0
 }
 
 func checkExpectation(t *testing.T, expectedFields map[string]uint64, expectedTags map[string]string, md pmetric.Metrics) {
