@@ -13,19 +13,19 @@ import (
 	"syscall"
 )
 
-func checkPermissions(info os.FileInfo) (bool, error) {
+func checkPermissions(info os.FileInfo) error {
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
-		return false, errors.New("couldn't read permissions")
+		return errors.New("couldn't read permissions")
 	}
 
 	if stat.Uid != 0 {
-		return false, fmt.Errorf("not owned by root, owned by uid %d", stat.Uid)
+		return fmt.Errorf("not owned by root, owned by uid %d", stat.Uid)
 	}
 	perms := info.Mode().Perm()
 	if perms&0002 != 0 {
-		return false, fmt.Errorf("writeable by anyone, permissions: %s", perms.String())
+		return fmt.Errorf("writeable by anyone, permissions: %s", perms.String())
 	}
 
-	return true, nil
+	return nil
 }

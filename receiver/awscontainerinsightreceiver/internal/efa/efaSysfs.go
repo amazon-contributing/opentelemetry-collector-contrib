@@ -342,8 +342,8 @@ func (r *sysfsReaderImpl) EfaDataExists() (bool, error) {
 		return false, err
 	}
 
-	valid, err := checkPermissions(info)
-	if !valid {
+	err = checkPermissions(info)
+	if err != nil {
 		r.logger.Warn("not reading from EFA directory", zap.String("path", efaPath), zap.Error(err))
 		return false, nil
 	}
