@@ -133,10 +133,6 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 			if err != nil {
 				acir.settings.Logger.Debug("Unable to start neuron scraper", zap.Error(err))
 			}
-			err = acir.initEfaSysfsScraper(localnodeDecorator)
-			if err != nil {
-				acir.settings.Logger.Debug("Unable to start EFA scraper", zap.Error(err))
-			}
 		}
 	}
 	if acir.config.ContainerOrchestrator == ci.ECS {
