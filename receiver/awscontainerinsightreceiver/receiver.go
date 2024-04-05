@@ -295,18 +295,6 @@ func (acir *awsContainerInsightReceiver) initNeuronScraper(ctx context.Context, 
 	return err
 }
 
-func (acir *awsContainerInsightReceiver) initEfaSysfsScraper(localnodeDecorator stores.Decorator) error {
-	if !acir.config.EnableAcceleratedComputeMetrics {
-		return nil
-	}
-
-	if acir.podResourcesStore == nil {
-		return errors.New("pod resources store was not initialized")
-	}
-	acir.efaSysfsScraper = efa.NewEfaSyfsScraper(acir.settings.Logger, localnodeDecorator, acir.podResourcesStore)
-	return nil
-}
-
 // Shutdown stops the awsContainerInsightReceiver receiver.
 func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.prometheusScraper != nil {
