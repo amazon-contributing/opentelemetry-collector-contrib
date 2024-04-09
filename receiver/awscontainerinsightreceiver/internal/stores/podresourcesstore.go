@@ -51,9 +51,14 @@ type PodResourcesStore struct {
 	podResourcesClient          PodResourcesClientInterface
 }
 
-func NewPodResourcesStore(logger *zap.Logger) *PodResourcesStore {
+func NewPodResourcesStore(logger *zap.Logger) (*PodResourcesStore, error) {
+	var clientInitErr error
 	once.Do(func() {
-		podResourcesClient, _ := kubeletutil.NewPodResourcesClient()
+		podResourcesClient, err := kubeletutil.NewPodResourcesClient()
+		clientInitErr = err
+		if clientInitErr != nil {
+			return
+		}
 		ctx, cancel := context.WithCancel(context.Background())
 		instance = &PodResourcesStore{
 			containerInfoToResourcesMap: make(map[ContainerInfo][]ResourceInfo),
@@ -79,7 +84,7 @@ func NewPodResourcesStore(logger *zap.Logger) *PodResourcesStore {
 			}
 		}()
 	})
-	return instance
+	return instance, clientInitErr
 }
 
 func (p *PodResourcesStore) refreshTick() {

@@ -144,10 +144,8 @@ func (m *MockPodResourcesClient) Shutdown() {
 
 func TestNewPodResourcesStore(t *testing.T) {
 	logger := zap.NewNop()
-	store := NewPodResourcesStore(logger)
-	assert.NotNil(t, store, "PodResourcesStore should not be nil")
-	assert.NotNil(t, store.ctx, "Context should not be nil")
-	assert.NotNil(t, store.cancel, "Cancel function should not be nil")
+	_, err := NewPodResourcesStore(logger)
+	assert.Error(t, err, "Expected error creating pod resources store because the kubelet socket should not exist")
 }
 
 func TestRefreshTick(t *testing.T) {

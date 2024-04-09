@@ -40,11 +40,9 @@ func NewPodResourcesClient() (*PodResourcesClient, error) {
 }
 
 func (p *PodResourcesClient) connectToServer(socket string) (*grpc.ClientConn, error) {
-	_, err := os.Stat(socket)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("socket path does not exist: %s", socket)
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to check socket path: %w", err)
+	err := validateSocket(socket)
+	if err != nil {
+		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
@@ -65,6 +63,23 @@ func (p *PodResourcesClient) connectToServer(socket string) (*grpc.ClientConn, e
 	}
 
 	return conn, nil
+}
+
+func validateSocket(socket string) error {
+	info, err := os.Stat(socket)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("socket path does not exist: %s", socket)
+		}
+		return fmt.Errorf("failed to check socket path: %w", err)
+	}
+
+	err = checkPodResourcesSocketPermissions(info)
+	if err != nil {
+		return fmt.Errorf("socket path %s is not valid: %w", socket, err)
+	}
+
+	return nil
 }
 
 func (p *PodResourcesClient) ListPods() (*podresourcesapi.ListPodResourcesResponse, error) {

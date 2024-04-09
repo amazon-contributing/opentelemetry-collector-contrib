@@ -7,22 +7,24 @@ import (
 	"context"
 	"strconv"
 
-	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+
+	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 )
 
 const (
-	neuronHardwareInfoKey       = "neuron_hardware"
-	neuronCorePerDeviceKey      = "neuroncore_per_device_count"
-	neuronCoreAttributeKey      = "neuroncore"
-	neuronDeviceAttributeKey    = "NeuronDevice"
-	neuronCoreResourceName      = "aws.amazon.com/neuroncore"
-	neuronDeviceResourceName    = "aws.amazon.com/neurondevice"
-	neuronDeviceResourceNameAlt = "aws.amazon.com/neuron"
+	neuronHardwareInfoKey         = "neuron_hardware"
+	neuronCorePerDeviceKey        = "neuroncore_per_device_count"
+	neuronCoreAttributeKey        = "NeuronCore"
+	neuronDeviceCountAttributeKey = "neuron_device_count"
+	neuronDeviceAttributeKey      = "NeuronDevice"
+	neuronCoreResourceName        = "aws.amazon.com/neuroncore"
+	neuronDeviceResourceName      = "aws.amazon.com/neurondevice"
+	neuronDeviceResourceNameAlt   = "aws.amazon.com/neuron"
 )
 
 type PodResourcesStoreInterface interface {
