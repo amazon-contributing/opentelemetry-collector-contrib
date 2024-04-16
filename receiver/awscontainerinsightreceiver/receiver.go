@@ -81,7 +81,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 	}
 
 	if acir.config.ContainerOrchestrator == ci.EKS {
-		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.settings.Logger)
+		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.settings.Logger)
 		acir.decorators = append(acir.decorators, k8sDecorator)
 		if err != nil {
 			return err
@@ -110,12 +110,12 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 			leaderElection, err = k8sapiserver.NewLeaderElection(acir.settings.Logger, k8sapiserver.WithLeaderLockName(acir.config.LeaderLockName),
 				k8sapiserver.WithLeaderLockUsingConfigMapOnly(acir.config.LeaderLockUsingConfigMapOnly))
 			if err != nil {
-				return err
+				acir.settings.Logger.Warn("Unable to elect leader node", zap.Error(err))
 			}
 
 			acir.k8sapiserver, err = k8sapiserver.NewK8sAPIServer(hostinfo, acir.settings.Logger, leaderElection, acir.config.AddFullPodNameMetricLabel, acir.config.EnableControlPlaneMetrics)
 			if err != nil {
-				return err
+				acir.settings.Logger.Warn("Unable to connect to api-server", zap.Error(err))
 			}
 			err = acir.initPrometheusScraper(ctx, host, hostinfo, leaderElection)
 			if err != nil {

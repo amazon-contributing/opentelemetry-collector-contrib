@@ -87,6 +87,17 @@ func TestLoadConfig(t *testing.T) {
 				EnableControlPlaneMetrics: true,
 			},
 		},
+		{
+			id: component.NewIDWithName(metadata.Type, "custom_kube_config_path"),
+			expected: &Config{
+				CollectionInterval:    60 * time.Second,
+				ContainerOrchestrator: "eks",
+				TagService:            true,
+				PrefFullPodName:       false,
+				LeaderLockName:        "otel-container-insight-clusterleader",
+				KubeConfigPath:        "custom_kube_config_path",
+			},
+		},
 	}
 
 	for _, tt := range tests {

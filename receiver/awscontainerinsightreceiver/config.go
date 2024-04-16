@@ -60,4 +60,7 @@ type Config struct {
 
 	// EnableAcceleratedComputeMetrics enabled features with accelerated compute resources where metrics are scraped from vendor specific sources
 	EnableAcceleratedComputeMetrics bool `mapstructure:"accelerated_compute_metrics"`
+
+	// KubeConfigPath is an optional attribute to override the default kube config path in an EKS environment
+	KubeConfigPath string `mapstructure:"kube_config_path"`
 }
