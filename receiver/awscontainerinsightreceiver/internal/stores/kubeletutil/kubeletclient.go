@@ -6,6 +6,7 @@ package kubeletutil // import "github.com/open-telemetry/opentelemetry-collector
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -36,11 +37,21 @@ func NewKubeletClient(kubeIP string, port string, logger *zap.Logger) (*KubeletC
 	}
 	endpoint = endpoint + ":" + port
 
-	// use service account for authentication
-	clientConfig := &kubelet.ClientConfig{
-		APIConfig: k8sconfig.APIConfig{
-			AuthType: k8sconfig.AuthTypeServiceAccount,
-		},
+	clientConfig := &kubelet.ClientConfig{}
+	if os.Getenv("RUN_ON_SYSTEMD") == "true" {
+		// use kube-config for authentication
+		clientConfig = &kubelet.ClientConfig{
+			APIConfig: k8sconfig.APIConfig{
+				AuthType: k8sconfig.AuthTypeKubeConfig,
+			},
+		}
+	} else {
+		// use service account for authentication
+		clientConfig = &kubelet.ClientConfig{
+			APIConfig: k8sconfig.APIConfig{
+				AuthType: k8sconfig.AuthTypeServiceAccount,
+			},
+		}
 	}
 
 	clientProvider, err := kubeletNewClientProvider(endpoint, clientConfig, logger)

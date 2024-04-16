@@ -122,7 +122,7 @@ type PodStore struct {
 	includeEnhancedMetrics    bool
 }
 
-func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, logger *zap.Logger) (*PodStore, error) {
+func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, logger *zap.Logger) (*PodStore, error) {
 	podClient, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, logger)
 	if err != nil {
 		return nil, err
@@ -142,6 +142,15 @@ func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel 
 		k8sclient.NodeSelector(fields.OneTermEqualSelector("metadata.name", nodeName)),
 		k8sclient.CaptureNodeLevelInfo(true),
 	)
+
+	if kubeConfigPath != "" {
+		k8sClient = k8sclient.Get(logger,
+			k8sclient.NodeSelector(fields.OneTermEqualSelector("metadata.name", nodeName)),
+			k8sclient.CaptureNodeLevelInfo(true),
+			k8sclient.KubeConfigPath(kubeConfigPath),
+		)
+	}
+
 	if k8sClient == nil {
 		return nil, errors.New("failed to start pod store because k8sclient is nil")
 	}
