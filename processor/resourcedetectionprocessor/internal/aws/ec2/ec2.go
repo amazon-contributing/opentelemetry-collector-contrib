@@ -58,14 +58,10 @@ func NewDetector(set processor.CreateSettings, dcfg internal.DetectorConfig) (in
 }
 
 func (d *Detector) Detect(ctx context.Context) (resource pcommon.Resource, schemaURL string, err error) {
-	if _, err = d.metadataProvider.InstanceID(ctx); err != nil {
-		d.logger.Debug("EC2 metadata unavailable", zap.Error(err))
-		return pcommon.NewResource(), "", nil
-	}
-
 	meta, err := d.metadataProvider.Get(ctx)
 	if err != nil {
-		return pcommon.NewResource(), "", fmt.Errorf("failed getting identity document: %w", err)
+		d.logger.Debug("EC2 metadata unavailable", zap.Error(err))
+		return pcommon.NewResource(), "", fmt.Errorf("failed getting metadata: %w", err)
 	}
 
 	hostname, err := d.metadataProvider.Hostname(ctx)

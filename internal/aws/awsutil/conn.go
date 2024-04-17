@@ -5,6 +5,7 @@
 package awsutil // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -20,12 +21,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
+
+	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
 )
 
 type ConnAttr interface {
@@ -66,14 +68,12 @@ func (s *stsCredentialProvider) Retrieve() (credentials.Value, error) {
 }
 
 func (c *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
-	region, err := ec2metadata.New(s, &aws.Config{
-		Retryer:                   override.NewIMDSRetryer(imdsRetries),
-		EC2MetadataEnableFallback: aws.Bool(false),
-	}).Region()
-	if err == nil {
-		return region, err
+	provider := ec2provider.NewProvider(s, ec2provider.WithIMDSv2Retries(imdsRetries))
+	metadata, err := provider.Get(context.Background())
+	if err != nil {
+		return "", err
 	}
-	return ec2metadata.New(s, &aws.Config{}).Region()
+	return metadata.Region, nil
 }
 
 // AWS STS endpoint constants

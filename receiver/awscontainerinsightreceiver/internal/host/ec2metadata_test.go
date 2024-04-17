@@ -9,23 +9,25 @@ import (
 	"testing"
 	"time"
 
-	awsec2metadata "github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/awstesting/mock"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
+	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
 )
 
-type mockMetadataClient struct {
+type mockMetadataProvider struct {
+	ec2provider.Provider
 	count int
 }
 
-func (m *mockMetadataClient) GetInstanceIdentityDocument() (awsec2metadata.EC2InstanceIdentityDocument, error) {
+func (m *mockMetadataProvider) Get(_ context.Context) (*ec2provider.Metadata, error) {
 	m.count++
 	if m.count == 1 {
-		return awsec2metadata.EC2InstanceIdentityDocument{}, errors.New("error")
+		return nil, errors.New("error")
 	}
 
-	return awsec2metadata.EC2InstanceIdentityDocument{
+	return &ec2provider.Metadata{
 		Region:       "us-west-2",
 		InstanceID:   "i-abcd1234",
 		InstanceType: "c4.xlarge",
@@ -39,8 +41,7 @@ func TestEC2Metadata(t *testing.T) {
 	instanceIDReadyC := make(chan bool)
 	instanceIPReadyP := make(chan bool)
 	clientOption := func(e *ec2Metadata) {
-		e.client = &mockMetadataClient{}
-		e.clientFallbackEnable = &mockMetadataClient{}
+		e.provider = &mockMetadataProvider{}
 	}
 	e := newEC2Metadata(ctx, sess, 3*time.Millisecond, instanceIDReadyC, instanceIPReadyP, false, 0, zap.NewNop(), clientOption)
 	assert.NotNil(t, e)

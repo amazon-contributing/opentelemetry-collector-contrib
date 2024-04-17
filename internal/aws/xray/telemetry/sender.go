@@ -4,26 +4,23 @@
 package telemetry // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray/telemetry"
 
 import (
+	"context"
 	"os"
 	"sync"
 	"time"
 
-	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/xray"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
+	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
 )
 
 const (
-	envAWSHostname     = "AWS_HOSTNAME"
-	envAWSInstanceID   = "AWS_INSTANCE_ID"
-	metadataHostname   = "hostname"
-	metadataInstanceID = "instance-id"
+	envAWSHostname   = "AWS_HOSTNAME"
+	envAWSInstanceID = "AWS_INSTANCE_ID"
 
 	defaultQueueSize = 30
 	defaultBatchSize = 10
@@ -125,6 +122,12 @@ type metadataProvider interface {
 	get() string
 }
 
+type metadataProviderFn func() string
+
+func (m metadataProviderFn) get() string {
+	return m()
+}
+
 func getMetadata(providers ...metadataProvider) string {
 	var metadata string
 	for _, provider := range providers {
@@ -135,36 +138,16 @@ func getMetadata(providers ...metadataProvider) string {
 	return metadata
 }
 
-type simpleMetadataProvider struct {
-	metadata string
+func staticMetadata(metadata string) metadataProvider {
+	return metadataProviderFn(func() string {
+		return metadata
+	})
 }
 
-func (p simpleMetadataProvider) get() string {
-	return p.metadata
-}
-
-type envMetadataProvider struct {
-	envKey string
-}
-
-func (p envMetadataProvider) get() string {
-	return os.Getenv(p.envKey)
-}
-
-type ec2MetadataProvider struct {
-	client               *ec2metadata.EC2Metadata
-	clientFallbackEnable *ec2metadata.EC2Metadata
-	metadataKey          string
-}
-
-func (p ec2MetadataProvider) get() string {
-	if result, err := p.client.GetMetadata(p.metadataKey); err == nil {
-		return result
-	}
-	if result, err := p.clientFallbackEnable.GetMetadata(p.metadataKey); err == nil {
-		return result
-	}
-	return ""
+func envMetadata(envKey string) metadataProvider {
+	return metadataProviderFn(func() string {
+		return os.Getenv(envKey)
+	})
 }
 
 // ToOptions returns the metadata options if enabled by the config.
@@ -173,36 +156,35 @@ func ToOptions(cfg Config, sess *session.Session, settings *awsutil.AWSSessionSe
 		return nil
 	}
 	hostnameProviders := []metadataProvider{
-		simpleMetadataProvider{metadata: cfg.Hostname},
-		envMetadataProvider{envKey: envAWSHostname},
+		staticMetadata(cfg.Hostname),
+		envMetadata(envAWSHostname),
 	}
 	instanceIDProviders := []metadataProvider{
-		simpleMetadataProvider{metadata: cfg.InstanceID},
-		envMetadataProvider{envKey: envAWSInstanceID},
+		staticMetadata(cfg.InstanceID),
+		envMetadata(envAWSInstanceID),
 	}
 	if !settings.LocalMode {
-		metadataClient := ec2metadata.New(sess, &aws.Config{
-			Retryer:                   override.NewIMDSRetryer(settings.IMDSRetries),
-			EC2MetadataEnableFallback: aws.Bool(false),
-		})
-		metadataClientFallbackEnable := ec2metadata.New(sess, &aws.Config{})
-		hostnameProviders = append(hostnameProviders, ec2MetadataProvider{
-			client:               metadataClient,
-			clientFallbackEnable: metadataClientFallbackEnable,
-			metadataKey:          metadataHostname,
-		})
-		instanceIDProviders = append(instanceIDProviders, ec2MetadataProvider{
-			client:               metadataClient,
-			clientFallbackEnable: metadataClientFallbackEnable,
-			metadataKey:          metadataHostname,
-		})
+		ctx := context.Background()
+		provider := ec2provider.NewProvider(sess, ec2provider.WithIMDSv2Retries(settings.IMDSRetries))
+		hostnameProviders = append(hostnameProviders, metadataProviderFn(func() string {
+			if hostname, err := provider.Hostname(ctx); err == nil {
+				return hostname
+			}
+			return ""
+		}))
+		instanceIDProviders = append(instanceIDProviders, metadataProviderFn(func() string {
+			if metadata, err := provider.Get(ctx); err == nil {
+				return metadata.InstanceID
+			}
+			return ""
+		}))
 	}
 	return []Option{
 		WithHostname(getMetadata(hostnameProviders...)),
 		WithInstanceID(getMetadata(instanceIDProviders...)),
 		WithResourceARN(getMetadata(
-			simpleMetadataProvider{metadata: cfg.ResourceARN},
-			simpleMetadataProvider{metadata: settings.ResourceARN},
+			staticMetadata(cfg.ResourceARN),
+			staticMetadata(settings.ResourceARN),
 		)),
 	}
 }
