@@ -45,6 +45,8 @@ require (
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil => ../../../internal/aws/awsutil
 
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig => ../../k8sconfig
+
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders => ../../../internal/metadataproviders
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../../override/aws

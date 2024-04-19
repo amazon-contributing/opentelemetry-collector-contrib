@@ -22,6 +22,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig => ../../k8sconfig
+
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders => ../../../internal/metadataproviders
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../../override/aws
