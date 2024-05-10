@@ -25,7 +25,7 @@ type KubeletClient struct {
 	restClient kubelet.Client
 }
 
-func NewKubeletClient(kubeIP string, port string, logger *zap.Logger) (*KubeletClient, error) {
+func NewKubeletClient(kubeIP string, port string, kubeConfigPath string, logger *zap.Logger) (*KubeletClient, error) {
 	kubeClient := &KubeletClient{
 		Port:   port,
 		KubeIP: kubeIP,
@@ -42,7 +42,8 @@ func NewKubeletClient(kubeIP string, port string, logger *zap.Logger) (*KubeletC
 		// use kube-config for authentication
 		clientConfig = &kubelet.ClientConfig{
 			APIConfig: k8sconfig.APIConfig{
-				AuthType: k8sconfig.AuthTypeKubeConfig,
+				AuthType:       k8sconfig.AuthTypeKubeConfig,
+				KubeConfigPath: kubeConfigPath,
 			},
 		}
 	} else {

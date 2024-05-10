@@ -78,7 +78,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 	}
 
 	if acir.config.ContainerOrchestrator == ci.EKS {
-		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.settings.Logger)
+		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.config.HostIP, acir.settings.Logger)
 		acir.decorators = append(acir.decorators, k8sDecorator)
 		if err != nil {
 			return err
@@ -116,7 +116,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 			}
 			err = acir.initPrometheusScraper(ctx, host, hostinfo, leaderElection)
 			if err != nil {
-				acir.settings.Logger.Debug("Unable to start kube apiserver prometheus scraper", zap.Error(err))
+				acir.settings.Logger.Warn("Unable to start kube apiserver prometheus scraper", zap.Error(err))
 			}
 			err = acir.initDcgmScraper(ctx, host, hostinfo, k8sDecorator)
 			if err != nil {
@@ -336,11 +336,11 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.efaSysfsScraper != nil {
 		acir.efaSysfsScraper.Shutdown()
 	}
-	if acir.decorators != nil {
-		for i := len(acir.decorators) - 1; i >= 0; i-- {
-			errs = errors.Join(errs, acir.decorators[i].Shutdown())
-		}
-	}
+	//if acir.decorators != nil {
+	//	for i := len(acir.decorators) - 1; i >= 0; i-- {
+	//		errs = errors.Join(errs, acir.decorators[i].Shutdown())
+	//	}
+	//}
 
 	if acir.podResourcesStore != nil {
 		acir.podResourcesStore.Shutdown()

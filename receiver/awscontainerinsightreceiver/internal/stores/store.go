@@ -43,10 +43,13 @@ type K8sDecorator struct {
 	podStore *PodStore
 }
 
-func NewK8sDecorator(ctx context.Context, tagService bool, prefFullPodName bool, addFullPodNameMetricLabel bool, addContainerNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, logger *zap.Logger) (*K8sDecorator, error) {
+func NewK8sDecorator(ctx context.Context, tagService bool, prefFullPodName bool, addFullPodNameMetricLabel bool, addContainerNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, customHostIP string, logger *zap.Logger) (*K8sDecorator, error) {
 	hostIP := os.Getenv("HOST_IP")
 	if hostIP == "" {
-		return nil, errors.New("environment variable HOST_IP is not set in k8s deployment config")
+		hostIP = customHostIP
+		if hostIP == "" {
+			return nil, errors.New("environment variable HOST_IP is not set in k8s deployment config or passed as part of the agent config")
+		}
 	}
 
 	k := &K8sDecorator{

@@ -96,6 +96,7 @@ func TestLoadConfig(t *testing.T) {
 				PrefFullPodName:       false,
 				LeaderLockName:        "otel-container-insight-clusterleader",
 				KubeConfigPath:        "custom_kube_config_path",
+				HostIP:                "1.2.3.4",
 			},
 		},
 	}

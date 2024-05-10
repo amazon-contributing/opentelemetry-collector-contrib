@@ -123,7 +123,7 @@ type PodStore struct {
 }
 
 func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, logger *zap.Logger) (*PodStore, error) {
-	podClient, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, logger)
+	podClient, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, kubeConfigPath, logger)
 	if err != nil {
 		return nil, err
 	}
