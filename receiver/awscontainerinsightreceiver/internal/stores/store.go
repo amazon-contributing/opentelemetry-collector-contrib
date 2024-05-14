@@ -43,7 +43,7 @@ type K8sDecorator struct {
 	podStore *PodStore
 }
 
-func NewK8sDecorator(ctx context.Context, tagService bool, prefFullPodName bool, addFullPodNameMetricLabel bool, addContainerNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, customHostIP string, logger *zap.Logger) (*K8sDecorator, error) {
+func NewK8sDecorator(ctx context.Context, tagService bool, prefFullPodName bool, addFullPodNameMetricLabel bool, addContainerNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, customHostIP string, customHostName string, logger *zap.Logger) (*K8sDecorator, error) {
 	hostIP := os.Getenv("HOST_IP")
 	if hostIP == "" {
 		hostIP = customHostIP
@@ -57,7 +57,7 @@ func NewK8sDecorator(ctx context.Context, tagService bool, prefFullPodName bool,
 		addContainerNameMetricLabel: addContainerNameMetricLabel,
 	}
 
-	podstore, err := NewPodStore(hostIP, prefFullPodName, addFullPodNameMetricLabel, includeEnhancedMetrics, kubeConfigPath, logger)
+	podstore, err := NewPodStore(hostIP, prefFullPodName, addFullPodNameMetricLabel, includeEnhancedMetrics, kubeConfigPath, customHostName, logger)
 	if err != nil {
 		return nil, err
 	}

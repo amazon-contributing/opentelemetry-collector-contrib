@@ -122,7 +122,7 @@ type PodStore struct {
 	includeEnhancedMetrics    bool
 }
 
-func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, logger *zap.Logger) (*PodStore, error) {
+func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, hostName string, logger *zap.Logger) (*PodStore, error) {
 	podClient, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, kubeConfigPath, logger)
 	if err != nil {
 		return nil, err
@@ -135,24 +135,28 @@ func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel 
 
 	nodeName := os.Getenv(ci.HostName)
 	if nodeName == "" {
-		return nil, fmt.Errorf("missing environment variable %s. Please check your deployment YAML config", ci.HostName)
+		nodeName = hostName
+		if nodeName == "" {
+			return nil, fmt.Errorf("missing environment variable %s. Please check your deployment YAML config or passed as part of the agent config", ci.HostName)
+		}
 	}
 
-	k8sClient := k8sclient.Get(logger,
-		k8sclient.NodeSelector(fields.OneTermEqualSelector("metadata.name", nodeName)),
-		k8sclient.CaptureNodeLevelInfo(true),
-	)
-
-	if kubeConfigPath != "" {
-		k8sClient = k8sclient.Get(logger,
+	k8sClient := &k8sclient.K8sClient{}
+	nodeInfo := &nodeInfo{
+		nodeName: nodeName,
+		provider: nil,
+		logger:   logger,
+	}
+	if os.Getenv("RUN_ON_SYSTEMD") != "true" {
+		k8sClient := k8sclient.Get(logger,
 			k8sclient.NodeSelector(fields.OneTermEqualSelector("metadata.name", nodeName)),
 			k8sclient.CaptureNodeLevelInfo(true),
-			k8sclient.KubeConfigPath(kubeConfigPath),
 		)
-	}
 
-	if k8sClient == nil {
-		return nil, errors.New("failed to start pod store because k8sclient is nil")
+		if k8sClient == nil {
+			return nil, errors.New("failed to start pod store because k8sclient is nil")
+		}
+		nodeInfo = newNodeInfo(nodeName, k8sClient.GetNodeClient(), logger)
 	}
 
 	podStore := &PodStore{
@@ -160,7 +164,7 @@ func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel 
 		prevMeasurements: sync.Map{},
 		//prevMeasurements:          make(map[string]*mapWithExpiry),
 		podClient:                 podClient,
-		nodeInfo:                  newNodeInfo(nodeName, k8sClient.GetNodeClient(), logger),
+		nodeInfo:                  nodeInfo,
 		prefFullPodName:           prefFullPodName,
 		includeEnhancedMetrics:    includeEnhancedMetrics,
 		k8sClient:                 k8sClient,
@@ -732,14 +736,16 @@ func (p *PodStore) addPodOwnersAndPodName(metric CIMetric, pod *corev1.Pod, kube
 			kind := owner.Kind
 			name := owner.Name
 			if owner.Kind == ci.ReplicaSet {
-				replicaSetClient := p.k8sClient.GetReplicaSetClient()
-				rsToDeployment := replicaSetClient.ReplicaSetToDeployment()
-				if parent := rsToDeployment[owner.Name]; parent != "" {
-					kind = ci.Deployment
-					name = parent
-				} else if parent := parseDeploymentFromReplicaSet(owner.Name); parent != "" {
-					kind = ci.Deployment
-					name = parent
+				if p.k8sClient != nil {
+					replicaSetClient := p.k8sClient.GetReplicaSetClient()
+					rsToDeployment := replicaSetClient.ReplicaSetToDeployment()
+					if parent := rsToDeployment[owner.Name]; parent != "" {
+						kind = ci.Deployment
+						name = parent
+					} else if parent := parseDeploymentFromReplicaSet(owner.Name); parent != "" {
+						kind = ci.Deployment
+						name = parent
+					}
 				}
 			} else if owner.Kind == ci.Job {
 				if parent := parseCronJobFromJob(owner.Name); parent != "" {

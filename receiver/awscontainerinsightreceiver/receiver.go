@@ -6,6 +6,7 @@ package awscontainerinsightreceiver // import "github.com/open-telemetry/opentel
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"time"
 
@@ -78,7 +79,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 	}
 
 	if acir.config.ContainerOrchestrator == ci.EKS {
-		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.config.HostIP, acir.settings.Logger)
+		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.config.HostIP, acir.config.HostName, acir.settings.Logger)
 		acir.decorators = append(acir.decorators, k8sDecorator)
 		if err != nil {
 			return err
@@ -91,7 +92,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 			}
 		} else {
 			localnodeDecorator, err := stores.NewLocalNodeDecorator(acir.settings.Logger, acir.config.ContainerOrchestrator,
-				hostinfo, stores.WithK8sDecorator(k8sDecorator))
+				hostinfo, acir.config.HostName, stores.WithK8sDecorator(k8sDecorator))
 			if err != nil {
 				return err
 			}
@@ -112,12 +113,17 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 
 			acir.k8sapiserver, err = k8sapiserver.NewK8sAPIServer(hostinfo, acir.settings.Logger, leaderElection, acir.config.AddFullPodNameMetricLabel, acir.config.EnableControlPlaneMetrics)
 			if err != nil {
+				acir.k8sapiserver = nil
 				acir.settings.Logger.Warn("Unable to connect to api-server", zap.Error(err))
 			}
-			err = acir.initPrometheusScraper(ctx, host, hostinfo, leaderElection)
-			if err != nil {
-				acir.settings.Logger.Warn("Unable to start kube apiserver prometheus scraper", zap.Error(err))
+
+			if acir.k8sapiserver != nil {
+				err = acir.initPrometheusScraper(ctx, host, hostinfo, leaderElection)
+				if err != nil {
+					acir.settings.Logger.Warn("Unable to start kube apiserver prometheus scraper", zap.Error(err))
+				}
 			}
+
 			err = acir.initDcgmScraper(ctx, host, hostinfo, k8sDecorator)
 			if err != nil {
 				acir.settings.Logger.Debug("Unable to start dcgm scraper", zap.Error(err))
@@ -143,7 +149,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 		}
 
 		localnodeDecorator, err := stores.NewLocalNodeDecorator(acir.settings.Logger, acir.config.ContainerOrchestrator,
-			hostinfo, stores.WithECSInfo(ecsInfo))
+			hostinfo, acir.config.HostName, stores.WithECSInfo(ecsInfo))
 		if err != nil {
 			return err
 		}
@@ -364,6 +370,8 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 		mds = append(mds, acir.containerMetricsProvider.GetMetrics()...)
 	}
 
+	acir.settings.Logger.Warn(fmt.Sprintf("is APIserver on...", acir.k8sapiserver == nil))
+	acir.settings.Logger.Warn(fmt.Sprintf("is APIserver on...", acir.prometheusScraper == nil))
 	if acir.k8sapiserver != nil {
 		mds = append(mds, acir.k8sapiserver.GetMetrics()...)
 	}
