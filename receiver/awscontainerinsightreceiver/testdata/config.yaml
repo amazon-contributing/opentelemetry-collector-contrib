@@ -13,3 +13,4 @@ awscontainerinsightreceiver/enable_control_plane_metrics:
 awscontainerinsightreceiver/custom_kube_config_path:
   kube_config_path: "custom_kube_config_path"
   host_ip: "1.2.3.4"
+  host_name: "test-hostname"
