@@ -6,7 +6,6 @@ package awscontainerinsightreceiver // import "github.com/open-telemetry/opentel
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime"
 	"time"
 
@@ -370,8 +369,6 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 		mds = append(mds, acir.containerMetricsProvider.GetMetrics()...)
 	}
 
-	acir.settings.Logger.Warn(fmt.Sprintf("is APIserver on...", acir.k8sapiserver == nil))
-	acir.settings.Logger.Warn(fmt.Sprintf("is APIserver on...", acir.prometheusScraper == nil))
 	if acir.k8sapiserver != nil {
 		mds = append(mds, acir.k8sapiserver.GetMetrics()...)
 	}

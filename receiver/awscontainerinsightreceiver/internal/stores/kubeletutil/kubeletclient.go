@@ -42,7 +42,7 @@ func NewKubeletClient(kubeIP string, port string, kubeConfigPath string, logger 
 		// use kube-config for authentication
 		clientConfig = &kubelet.ClientConfig{
 			APIConfig: k8sconfig.APIConfig{
-				AuthType:       k8sconfig.AuthTypeNone,
+				AuthType:       k8sconfig.AuthTypeKubeConfig,
 				KubeConfigPath: kubeConfigPath,
 			},
 		}

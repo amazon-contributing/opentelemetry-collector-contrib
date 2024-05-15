@@ -143,8 +143,7 @@ type readOnlyClientProvider struct {
 
 func (p *readOnlyClientProvider) BuildClient() (Client, error) {
 	tr := defaultTransport()
-	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	endpoint, err := buildEndpoint(p.endpoint, true, p.logger)
+	endpoint, err := buildEndpoint(p.endpoint, false, p.logger)
 	if err != nil {
 		return nil, err
 	}

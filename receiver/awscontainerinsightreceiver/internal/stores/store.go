@@ -66,10 +66,9 @@ func NewK8sDecorator(ctx context.Context, tagService bool, prefFullPodName bool,
 
 	if tagService {
 		servicestore, err := NewServiceStore(kubeConfigPath, logger)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			k.stores = append(k.stores, servicestore)
 		}
-		k.stores = append(k.stores, servicestore)
 	}
 
 	go func() {
