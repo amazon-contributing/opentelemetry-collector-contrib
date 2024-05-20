@@ -90,7 +90,7 @@ func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
 	metrics = cExtractor.MergeMetrics(metrics)
 	metrics = k.decorateMetrics(metrics)
 	for _, ciMetric := range metrics {
-		md := ci.ConvertToOTLPMetrics(ciMetric.GetFields(), ciMetric.GetTags(), k.logger)
+		md := ci.ConvertToOTLPMetrics(ciMetric.GetFields(), ciMetric.GetTags(), false, k.logger)
 		result = append(result, md)
 	}
 

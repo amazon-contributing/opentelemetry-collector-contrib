@@ -211,10 +211,11 @@ func TestConvertToOTLPMetricsForInvalidMetrics(t *testing.T) {
 		"Version":              "0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	rm := md.ResourceMetrics().At(0)
 	ilms := rm.ScopeMetrics()
-	assert.Equal(t, 0, ilms.Len())
+	assert.Equal(t, 1, ilms.Len())
+	assert.Equal(t, 0, ilms.At(0).Metrics().Len())
 }
 
 func TestConvertToOTLPMetricsForClusterMetrics(t *testing.T) {
@@ -240,7 +241,7 @@ func TestConvertToOTLPMetricsForClusterMetrics(t *testing.T) {
 		"Timestamp":   timestamp,
 		"Version":     "0",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 	// test cluster namespace metrics
@@ -256,7 +257,7 @@ func TestConvertToOTLPMetricsForClusterMetrics(t *testing.T) {
 		"Timestamp":   timestamp,
 		"Version":     "0",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 	// test cluster service metrics
@@ -272,7 +273,7 @@ func TestConvertToOTLPMetricsForClusterMetrics(t *testing.T) {
 		"Timestamp":   timestamp,
 		"Version":     "0",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 }
@@ -351,7 +352,7 @@ func TestConvertToOTLPMetricsForContainerMetrics(t *testing.T) {
 		"container_status":     "Running",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 	// test container filesystem metrics
@@ -382,7 +383,7 @@ func TestConvertToOTLPMetricsForContainerMetrics(t *testing.T) {
 		"device":               "/dev/xvda1",
 		"fstype":               "vfs",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -477,7 +478,7 @@ func TestConvertToOTLPMetricsForNodeMetrics(t *testing.T) {
 		"Version":              "0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -526,7 +527,7 @@ func TestConvertToOTLPMetricsForNodeDiskIOMetrics(t *testing.T) {
 		"device":               "/dev/xvda",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -568,7 +569,7 @@ func TestConvertToOTLPMetricsForNodeFSMetrics(t *testing.T) {
 		"fstype":               "vfs",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -614,7 +615,7 @@ func TestConvertToOTLPMetricsForNodeNetMetrics(t *testing.T) {
 		"interface":            "eni7cce1b61ea4",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -658,7 +659,7 @@ func TestConvertToOTLPMetricsForNodeStatusMetrics(t *testing.T) {
 		"interface":            "eni7cce1b61ea4",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -773,7 +774,7 @@ func TestConvertToOTLPMetricsForPodMetrics(t *testing.T) {
 		"Version":      "0",
 		"Timestamp":    timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -821,7 +822,7 @@ func TestConvertToOTLPMetricsForPodNetMetrics(t *testing.T) {
 		"interface":            "eth0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -869,7 +870,7 @@ func TestConvertToOTLPMetricsForPodContainerStatusMetrics(t *testing.T) {
 		"interface":            "eth0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -909,6 +910,40 @@ func TestConvertToOTLPMetricsForPodEfaMetrics(t *testing.T) {
 		"Version":       "0",
 		"Timestamp":     timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
+}
+
+func TestConvertToOTLPMetricsForAcceleratorCountMetrics(t *testing.T) {
+	var fields map[string]any
+	var expectedUnits map[string]string
+	var tags map[string]string
+	var md pmetric.Metrics
+	now := time.Now()
+	timestamp := strconv.FormatInt(now.UnixNano(), 10)
+
+	fields = map[string]any{
+		"pod_gpu_limit":   int64(3),
+		"pod_gpu_total":   int64(3),
+		"pod_gpu_request": int64(3),
+	}
+	expectedUnits = map[string]string{
+		"pod_gpu_limit":   UnitCount,
+		"pod_gpu_total":   UnitCount,
+		"pod_gpu_request": UnitCount,
+	}
+	tags = map[string]string{
+		"ClusterName":   "eks-aoc",
+		"InstanceId":    "i-01bf9fb097cbf3205",
+		"InstanceType":  "t2.xlarge",
+		"Namespace":     "amazon-cloudwatch",
+		"NodeName":      "ip-192-168-12-170.ec2.internal",
+		"PodName":       "cloudwatch-agent",
+		"ContainerName": "cloudwatch-agent",
+		"Type":          "PodGPU",
+		"Version":       "0",
+		"Timestamp":     timestamp,
+	}
+	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }

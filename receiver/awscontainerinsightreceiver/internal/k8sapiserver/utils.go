@@ -19,6 +19,7 @@ const (
 	splitRegexStr              = "\\.|-"
 	KubeProxy                  = "kube-proxy"
 	cronJobAllowedString       = "0123456789"
+	resourceSpecNvidiaGpuKey   = "nvidia.com/gpu"
 )
 
 var (

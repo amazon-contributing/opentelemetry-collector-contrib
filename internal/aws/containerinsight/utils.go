@@ -4,7 +4,6 @@ package containerinsight // import "github.com/open-telemetry/opentelemetry-coll
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -139,7 +138,7 @@ func getPrefixByMetricType(mType string) string {
 		prefix = nodeNetPrefix
 	case TypeNodeEFA:
 		prefix = nodeEfaPrefix
-	case TypePod:
+	case TypePod, TypePodGPU:
 		prefix = podPrefix
 	case TypePodNet:
 		prefix = podNetPrefix
@@ -170,7 +169,7 @@ func getPrefixByMetricType(mType string) string {
 	case TypeClusterReplicaSet:
 		prefix = replicaSet
 	default:
-		log.Printf("E! Unexpected MetricType: %s", mType)
+		prefix = ""
 	}
 	return prefix
 }
@@ -236,7 +235,7 @@ func ConvertToFieldsAndTags(m pmetric.Metric, logger *zap.Logger) []FieldsAndTag
 }
 
 // ConvertToOTLPMetrics converts a field containing metric values and a tag containing the relevant labels to OTLP metrics
-func ConvertToOTLPMetrics(fields map[string]any, tags map[string]string, logger *zap.Logger) pmetric.Metrics {
+func ConvertToOTLPMetrics(fields map[string]any, tags map[string]string, addAttributesAtDatapoints bool, logger *zap.Logger) pmetric.Metrics {
 	md := pmetric.NewMetrics()
 	rms := md.ResourceMetrics()
 	rm := rms.AppendEmpty()
@@ -259,26 +258,34 @@ func ConvertToOTLPMetrics(fields map[string]any, tags map[string]string, logger 
 	for key, value := range fields {
 		metric := RemovePrefix(metricType, key)
 		unit := GetUnitForMetric(metric)
+		scopeMetric := ilms.AppendEmpty()
 		switch t := value.(type) {
 		case int:
-			intGauge(ilms.AppendEmpty(), key, unit, int64(t), timestamp)
+			intGauge(scopeMetric, key, unit, int64(t), timestamp)
 		case int32:
-			intGauge(ilms.AppendEmpty(), key, unit, int64(t), timestamp)
+			intGauge(scopeMetric, key, unit, int64(t), timestamp)
 		case int64:
-			intGauge(ilms.AppendEmpty(), key, unit, t, timestamp)
+			intGauge(scopeMetric, key, unit, t, timestamp)
 		case uint:
-			intGauge(ilms.AppendEmpty(), key, unit, int64(t), timestamp)
+			intGauge(scopeMetric, key, unit, int64(t), timestamp)
 		case uint32:
-			intGauge(ilms.AppendEmpty(), key, unit, int64(t), timestamp)
+			intGauge(scopeMetric, key, unit, int64(t), timestamp)
 		case uint64:
-			intGauge(ilms.AppendEmpty(), key, unit, int64(t), timestamp)
+			intGauge(scopeMetric, key, unit, int64(t), timestamp)
 		case float32:
-			doubleGauge(ilms.AppendEmpty(), key, unit, float64(t), timestamp)
+			doubleGauge(scopeMetric, key, unit, float64(t), timestamp)
 		case float64:
-			doubleGauge(ilms.AppendEmpty(), key, unit, t, timestamp)
+			doubleGauge(scopeMetric, key, unit, t, timestamp)
 		default:
 			valueType := fmt.Sprintf("%T", value)
 			logger.Warn("Detected unexpected field", zap.String("key", key), zap.Any("value", value), zap.String("value type", valueType))
+		}
+		if addAttributesAtDatapoints {
+			if scopeMetric.Metrics().Len() == 0 || scopeMetric.Metrics().At(0).Gauge().DataPoints().Len() == 0 {
+				continue
+			}
+			dpAttrs := scopeMetric.Metrics().At(0).Gauge().DataPoints().At(0).Attributes()
+			resource.Attributes().CopyTo(dpAttrs)
 		}
 	}
 
