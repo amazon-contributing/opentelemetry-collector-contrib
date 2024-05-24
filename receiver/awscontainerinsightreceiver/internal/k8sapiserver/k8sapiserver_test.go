@@ -140,9 +140,9 @@ func (client *MockClient) PodInfos() []*k8sclient.PodInfo {
 }
 
 // k8sclient.NodeClient
-func (client *MockClient) NodeInfos() []*k8sclient.NodeInfo {
+func (client *MockClient) NodeInfos() map[string]*k8sclient.NodeInfo {
 	args := client.Called()
-	return args.Get(0).([]*k8sclient.NodeInfo)
+	return args.Get(0).(map[string]*k8sclient.NodeInfo)
 }
 
 // k8sclient.NodeClient
@@ -333,8 +333,8 @@ func TestK8sAPIServer_GetMetrics(t *testing.T) {
 		"namespace:kube-system,podName:coredns-7554568866-26jdf": {"kube-dns"},
 		"namespace:kube-system,podName:coredns-7554568866-shwn6": {"kube-dns"},
 	})
-	mockClient.On("NodeInfos").Return([]*k8sclient.NodeInfo{
-		{
+	mockClient.On("NodeInfos").Return(map[string]*k8sclient.NodeInfo{
+		"ip-192-168-57-23.us-west-2.compute.internal": {
 			Name: "ip-192-168-57-23.us-west-2.compute.internal",
 			Conditions: []*k8sclient.NodeCondition{
 				{

@@ -32,7 +32,7 @@ var failedNodeConditions = map[v1.NodeConditionType]bool{
 }
 
 type NodeClient interface {
-	NodeInfos() []*NodeInfo
+	NodeInfos() map[string]*NodeInfo
 	// Get the number of failed nodes for current cluster
 	ClusterFailedNodeCount() int
 	// Get the number of nodes for current cluster
@@ -78,7 +78,7 @@ type nodeClient struct {
 	captureNodeLevelInfo bool
 
 	mu                     sync.RWMutex
-	nodeInfos              []*NodeInfo
+	nodeInfos              map[string]*NodeInfo
 	clusterFailedNodeCount int
 	clusterNodeCount       int
 	nodeToCapacityMap      map[string]v1.ResourceList
@@ -86,7 +86,7 @@ type nodeClient struct {
 	nodeToConditionsMap    map[string]map[v1.NodeConditionType]v1.ConditionStatus
 }
 
-func (c *nodeClient) NodeInfos() []*NodeInfo {
+func (c *nodeClient) NodeInfos() map[string]*NodeInfo {
 	if c.store.GetResetRefreshStatus() {
 		c.refresh()
 	}
@@ -161,10 +161,10 @@ func (c *nodeClient) refresh() {
 	nodeToAllocatableMap := make(map[string]v1.ResourceList)
 	nodeToConditionsMap := make(map[string]map[v1.NodeConditionType]v1.ConditionStatus)
 
-	nodeInfos := make([]*NodeInfo, 0)
+	nodeInfos := map[string]*NodeInfo{}
 	for _, obj := range objsList {
 		node := obj.(*NodeInfo)
-		nodeInfos = append(nodeInfos, node)
+		nodeInfos[node.Name] = node
 
 		if c.captureNodeLevelInfo {
 			nodeToCapacityMap[node.Name] = node.Capacity

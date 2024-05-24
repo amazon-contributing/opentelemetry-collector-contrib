@@ -4,6 +4,7 @@ package containerinsight // import "github.com/open-telemetry/opentelemetry-coll
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -169,7 +170,7 @@ func getPrefixByMetricType(mType string) string {
 	case TypeClusterReplicaSet:
 		prefix = replicaSet
 	default:
-		prefix = ""
+		log.Printf("E! Unexpected MetricType: %s", mType)
 	}
 	return prefix
 }
@@ -235,7 +236,7 @@ func ConvertToFieldsAndTags(m pmetric.Metric, logger *zap.Logger) []FieldsAndTag
 }
 
 // ConvertToOTLPMetrics converts a field containing metric values and a tag containing the relevant labels to OTLP metrics
-func ConvertToOTLPMetrics(fields map[string]any, tags map[string]string, addAttributesAtDatapoints bool, logger *zap.Logger) pmetric.Metrics {
+func ConvertToOTLPMetrics(fields map[string]any, tags map[string]string, logger *zap.Logger) pmetric.Metrics {
 	md := pmetric.NewMetrics()
 	rms := md.ResourceMetrics()
 	rm := rms.AppendEmpty()
@@ -279,13 +280,6 @@ func ConvertToOTLPMetrics(fields map[string]any, tags map[string]string, addAttr
 		default:
 			valueType := fmt.Sprintf("%T", value)
 			logger.Warn("Detected unexpected field", zap.String("key", key), zap.Any("value", value), zap.String("value type", valueType))
-		}
-		if addAttributesAtDatapoints {
-			if scopeMetric.Metrics().Len() == 0 || scopeMetric.Metrics().At(0).Gauge().DataPoints().Len() == 0 {
-				continue
-			}
-			dpAttrs := scopeMetric.Metrics().At(0).Gauge().DataPoints().At(0).Attributes()
-			resource.Attributes().CopyTo(dpAttrs)
 		}
 	}
 

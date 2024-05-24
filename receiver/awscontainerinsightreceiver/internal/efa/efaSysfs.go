@@ -202,7 +202,7 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 				continue
 			}
 			metric := s.decorator.Decorate(m)
-			result = append(result, ci.ConvertToOTLPMetrics(metric.GetFields(), metric.GetTags(), false, s.logger))
+			result = append(result, ci.ConvertToOTLPMetrics(metric.GetFields(), metric.GetTags(), s.logger))
 		}
 	}
 

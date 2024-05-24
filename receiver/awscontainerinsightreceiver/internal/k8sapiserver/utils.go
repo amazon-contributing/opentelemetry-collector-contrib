@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"go.opentelemetry.io/collector/pdata/pmetric"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
@@ -20,6 +21,7 @@ const (
 	KubeProxy                  = "kube-proxy"
 	cronJobAllowedString       = "0123456789"
 	resourceSpecNvidiaGpuKey   = "nvidia.com/gpu"
+	pendingNodeName            = "pending"
 )
 
 var (
@@ -127,4 +129,30 @@ func parseDeploymentFromReplicaSet(name string) string {
 		return ""
 	}
 	return name[:lastDash]
+}
+
+// ConvertToOTLPMetrics creates otel metrics by appending scope metrics with 1 datapoint each for corresponding field items
+// this function loops through metric object to copy down resource attributes to datapoints
+func copyResourceAttributes(metrics pmetric.Metrics) {
+	rms := metrics.ResourceMetrics()
+	if rms.Len() == 0 {
+		return
+	}
+	rm := rms.At(0)
+	resource := rm.Resource()
+	for si := range rm.ScopeMetrics().Len() {
+		scopeMetric := rm.ScopeMetrics().At(si)
+		if scopeMetric.Metrics().Len() == 0 {
+			return
+		}
+		for mi := range scopeMetric.Metrics().Len() {
+			dps := scopeMetric.Metrics().At(mi).Gauge().DataPoints()
+			if dps.Len() == 0 {
+				return
+			}
+			for di := range dps.Len() {
+				resource.Attributes().CopyTo(dps.At(di).Attributes())
+			}
+		}
+	}
 }

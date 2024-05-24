@@ -230,7 +230,7 @@ func (c *Cadvisor) GetMetrics() []pmetric.Metrics {
 		if cadvisorMetric == nil {
 			continue
 		}
-		md := ci.ConvertToOTLPMetrics(cadvisorMetric.GetFields(), cadvisorMetric.GetTags(), false, c.logger)
+		md := ci.ConvertToOTLPMetrics(cadvisorMetric.GetFields(), cadvisorMetric.GetTags(), c.logger)
 		result = append(result, md)
 	}
 

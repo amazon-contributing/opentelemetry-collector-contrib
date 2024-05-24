@@ -211,7 +211,7 @@ func TestConvertToOTLPMetricsForInvalidMetrics(t *testing.T) {
 		"Version":              "0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	rm := md.ResourceMetrics().At(0)
 	ilms := rm.ScopeMetrics()
 	assert.Equal(t, 1, ilms.Len())
@@ -241,7 +241,7 @@ func TestConvertToOTLPMetricsForClusterMetrics(t *testing.T) {
 		"Timestamp":   timestamp,
 		"Version":     "0",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 	// test cluster namespace metrics
@@ -257,7 +257,7 @@ func TestConvertToOTLPMetricsForClusterMetrics(t *testing.T) {
 		"Timestamp":   timestamp,
 		"Version":     "0",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 	// test cluster service metrics
@@ -273,7 +273,7 @@ func TestConvertToOTLPMetricsForClusterMetrics(t *testing.T) {
 		"Timestamp":   timestamp,
 		"Version":     "0",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 }
@@ -352,7 +352,7 @@ func TestConvertToOTLPMetricsForContainerMetrics(t *testing.T) {
 		"container_status":     "Running",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 
 	// test container filesystem metrics
@@ -383,7 +383,7 @@ func TestConvertToOTLPMetricsForContainerMetrics(t *testing.T) {
 		"device":               "/dev/xvda1",
 		"fstype":               "vfs",
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -478,7 +478,7 @@ func TestConvertToOTLPMetricsForNodeMetrics(t *testing.T) {
 		"Version":              "0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -527,7 +527,7 @@ func TestConvertToOTLPMetricsForNodeDiskIOMetrics(t *testing.T) {
 		"device":               "/dev/xvda",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -569,7 +569,7 @@ func TestConvertToOTLPMetricsForNodeFSMetrics(t *testing.T) {
 		"fstype":               "vfs",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -615,7 +615,7 @@ func TestConvertToOTLPMetricsForNodeNetMetrics(t *testing.T) {
 		"interface":            "eni7cce1b61ea4",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -659,7 +659,7 @@ func TestConvertToOTLPMetricsForNodeStatusMetrics(t *testing.T) {
 		"interface":            "eni7cce1b61ea4",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -774,7 +774,7 @@ func TestConvertToOTLPMetricsForPodMetrics(t *testing.T) {
 		"Version":      "0",
 		"Timestamp":    timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -822,7 +822,7 @@ func TestConvertToOTLPMetricsForPodNetMetrics(t *testing.T) {
 		"interface":            "eth0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -870,7 +870,7 @@ func TestConvertToOTLPMetricsForPodContainerStatusMetrics(t *testing.T) {
 		"interface":            "eth0",
 		"Timestamp":            timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -910,7 +910,7 @@ func TestConvertToOTLPMetricsForPodEfaMetrics(t *testing.T) {
 		"Version":       "0",
 		"Timestamp":     timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
 
@@ -944,6 +944,6 @@ func TestConvertToOTLPMetricsForAcceleratorCountMetrics(t *testing.T) {
 		"Version":       "0",
 		"Timestamp":     timestamp,
 	}
-	md = ConvertToOTLPMetrics(fields, tags, false, zap.NewNop())
+	md = ConvertToOTLPMetrics(fields, tags, zap.NewNop())
 	checkMetricsAreExpected(t, md, fields, tags, expectedUnits)
 }
