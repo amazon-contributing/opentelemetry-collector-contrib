@@ -532,7 +532,6 @@ func (k *K8sAPIServer) getAcceleratorCountMetrics(clusterName, timestampNs strin
 		}
 		attributes[ci.SourcesKey] = "[\"apiserver\"]"
 		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
-		copyResourceAttributes(md)
 		metrics = append(metrics, md)
 	}
 	return metrics
