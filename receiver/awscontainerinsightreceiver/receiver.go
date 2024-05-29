@@ -79,9 +79,10 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 
 	if acir.config.ContainerOrchestrator == ci.EKS {
 		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.config.HostIP, acir.config.HostName, acir.settings.Logger)
-		acir.decorators = append(acir.decorators, k8sDecorator)
 		if err != nil {
-			return err
+			acir.settings.Logger.Warn("Unable to start K8s decorator", zap.Error(err))
+		} else {
+			acir.decorators = append(acir.decorators, k8sDecorator)
 		}
 
 		if runtime.GOOS == ci.OperatingSystemWindows {
@@ -93,9 +94,10 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 			localnodeDecorator, err := stores.NewLocalNodeDecorator(acir.settings.Logger, acir.config.ContainerOrchestrator,
 				hostinfo, acir.config.HostName, stores.WithK8sDecorator(k8sDecorator))
 			if err != nil {
-				return err
+				acir.settings.Logger.Warn("Unable to start local node decorator", zap.Error(err))
+			} else {
+				acir.decorators = append(acir.decorators, localnodeDecorator)
 			}
-			acir.decorators = append(acir.decorators, localnodeDecorator)
 
 			acir.containerMetricsProvider, err = cadvisor.New(acir.config.ContainerOrchestrator, hostinfo,
 				acir.settings.Logger, cadvisor.WithDecorator(localnodeDecorator))
