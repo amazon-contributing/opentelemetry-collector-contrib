@@ -343,11 +343,11 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.efaSysfsScraper != nil {
 		acir.efaSysfsScraper.Shutdown()
 	}
-	//if acir.decorators != nil {
-	//	for i := len(acir.decorators) - 1; i >= 0; i-- {
-	//		errs = errors.Join(errs, acir.decorators[i].Shutdown())
-	//	}
-	//}
+	if acir.decorators != nil {
+		for i := len(acir.decorators) - 1; i >= 0; i-- {
+			errs = errors.Join(errs, acir.decorators[i].Shutdown())
+		}
+	}
 
 	if acir.podResourcesStore != nil {
 		acir.podResourcesStore.Shutdown()
