@@ -371,7 +371,7 @@ func (p *PodStore) decorateNode(metric CIMetric) {
 	metric.AddField(ci.MetricName(ci.TypeNode, ci.RunningPodCount), nodeStats.podCnt)
 	metric.AddField(ci.MetricName(ci.TypeNode, ci.RunningContainerCount), nodeStats.containerCnt)
 
-	if p.includeEnhancedMetrics {
+	if p.includeEnhancedMetrics && p.nodeInfo.provider != nil {
 		if nodeStatusCapacityPods, ok := p.nodeInfo.getNodeStatusCapacityPods(); ok {
 			metric.AddField(ci.MetricName(ci.TypeNode, ci.StatusCapacityPods), nodeStatusCapacityPods)
 		}
