@@ -122,7 +122,7 @@ type PodStore struct {
 	includeEnhancedMetrics    bool
 }
 
-func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, hostName string, logger *zap.Logger) (*PodStore, error) {
+func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, kubeConfigPath string, hostName string, isSystemdEnabled bool, logger *zap.Logger) (*PodStore, error) {
 	podClient, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, kubeConfigPath, logger)
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel 
 		provider: nil,
 		logger:   logger,
 	}
-	if os.Getenv("RUN_ON_SYSTEMD") != "true" {
+	if !isSystemdEnabled {
 		k8sClient = k8sclient.Get(logger,
 			k8sclient.NodeSelector(fields.OneTermEqualSelector("metadata.name", nodeName)),
 			k8sclient.CaptureNodeLevelInfo(true),

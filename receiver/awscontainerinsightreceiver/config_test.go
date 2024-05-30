@@ -98,6 +98,7 @@ func TestLoadConfig(t *testing.T) {
 				KubeConfigPath:        "custom_kube_config_path",
 				HostIP:                "1.2.3.4",
 				HostName:              "test-hostname",
+				RunOnSystemd:          true,
 			},
 		},
 	}

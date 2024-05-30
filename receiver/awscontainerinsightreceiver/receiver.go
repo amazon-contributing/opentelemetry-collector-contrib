@@ -72,13 +72,13 @@ func newAWSContainerInsightReceiver(
 func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host component.Host) error {
 	ctx, acir.cancel = context.WithCancel(ctx)
 
-	hostinfo, err := hostInfo.NewInfo(acir.config.AWSSessionSettings, acir.config.ContainerOrchestrator, acir.config.CollectionInterval, acir.settings.Logger, hostInfo.WithClusterName(acir.config.ClusterName))
+	hostinfo, err := hostInfo.NewInfo(acir.config.AWSSessionSettings, acir.config.ContainerOrchestrator, acir.config.CollectionInterval, acir.settings.Logger, hostInfo.WithClusterName(acir.config.ClusterName), hostInfo.WithSystemdEnabled(acir.config.RunOnSystemd))
 	if err != nil {
 		return err
 	}
 
 	if acir.config.ContainerOrchestrator == ci.EKS {
-		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.config.HostIP, acir.config.HostName, acir.settings.Logger)
+		k8sDecorator, err := stores.NewK8sDecorator(ctx, acir.config.TagService, acir.config.PrefFullPodName, acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel, acir.config.EnableControlPlaneMetrics, acir.config.KubeConfigPath, acir.config.HostIP, acir.config.HostName, acir.config.RunOnSystemd, acir.settings.Logger)
 		if err != nil {
 			acir.settings.Logger.Warn("Unable to start K8s decorator", zap.Error(err))
 		} else {
