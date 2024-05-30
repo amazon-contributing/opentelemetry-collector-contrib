@@ -148,7 +148,7 @@ func NewPodStore(hostIP string, prefFullPodName bool, addFullPodNameMetricLabel 
 		logger:   logger,
 	}
 	if os.Getenv("RUN_ON_SYSTEMD") != "true" {
-		k8sClient := k8sclient.Get(logger,
+		k8sClient = k8sclient.Get(logger,
 			k8sclient.NodeSelector(fields.OneTermEqualSelector("metadata.name", nodeName)),
 			k8sclient.CaptureNodeLevelInfo(true),
 		)
