@@ -160,8 +160,6 @@ func Get(logger *zap.Logger, options ...Option) *K8sClient {
 		err := k8sClient.init(logger, options...)
 		if err == nil {
 			optionsToK8sClient[strOptions] = k8sClient
-		} else {
-			optionsToK8sClient[strOptions] = nil
 		}
 	}
 	mu.Unlock()

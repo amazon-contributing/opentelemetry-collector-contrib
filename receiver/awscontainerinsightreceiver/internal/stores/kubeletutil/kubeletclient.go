@@ -38,7 +38,7 @@ func NewKubeletClient(kubeIP string, port string, kubeConfigPath string, logger 
 	endpoint = endpoint + ":" + port
 
 	clientConfig := &kubelet.ClientConfig{}
-	if os.Getenv("RUN_ON_SYSTEMD") == "true" {
+	if kubeConfigPath != "" {
 		// use kube-config for authentication
 		clientConfig = &kubelet.ClientConfig{
 			APIConfig: k8sconfig.APIConfig{

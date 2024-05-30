@@ -48,16 +48,14 @@ func newNodeCapacity(logger *zap.Logger, options ...nodeCapacityOption) (nodeCap
 
 	ctx := context.Background()
 	if runtime.GOOS != ci.OperatingSystemWindows {
+		procPath := hostProc
 		if os.Getenv("RUN_ON_SYSTEMD") == "true" {
-			if _, err := nc.osLstat("/proc"); os.IsNotExist(err) {
-				return nil, err
-			}
-		} else {
-			if _, err := nc.osLstat(hostProc); os.IsNotExist(err) {
-				return nil, err
-			}
+			procPath = "/proc"
 		}
-		envMap := common.EnvMap{common.HostProcEnvKey: hostProc}
+		if _, err := nc.osLstat(procPath); os.IsNotExist(err) {
+			return nil, err
+		}
+		envMap := common.EnvMap{common.HostProcEnvKey: procPath}
 		ctx = context.WithValue(ctx, common.EnvKey, envMap)
 	}
 
