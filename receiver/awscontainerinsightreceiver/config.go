@@ -71,5 +71,5 @@ type Config struct {
 	HostName string `mapstructure:"host_name"`
 
 	// RunOnSystemd is an optional attribute to run the receiver in an EC2 environment
-	RunOnSystemd bool `mapstructure:"run_on_systemd"`
+	RunOnSystemd bool `mapstructure:"run_on_systemd,omitempty"`
 }
