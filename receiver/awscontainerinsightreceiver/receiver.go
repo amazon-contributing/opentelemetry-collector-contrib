@@ -99,7 +99,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 				return errors.New("environment variable HOST_IP is not set in k8s deployment config or passed as part of the agent config")
 			}
 		}
-		client, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, acir.config.KubeConfigPath, acir.settings.Logger)
+		client, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, kubeletutil.ClientConfig(acir.config.KubeConfigPath, acir.config.RunOnSystemd), acir.settings.Logger)
 		if err != nil {
 			return fmt.Errorf("cannot initialize kubelet client: %w", err)
 		}
@@ -482,7 +482,7 @@ func waitForKubelet(ctx context.Context, client *kubeletutil.KubeletClient, logg
 		if err == nil {
 			return nil
 		}
-		logger.Debug("Kubelet unavailable. Waiting for next interval", zap.Error(err), zap.Duration("interval", waitForKubeletInterval))
+		logger.Debug("Kubelet unavailable. Waiting for next interval", zap.Error(err), zap.Stringer("interval", waitForKubeletInterval))
 		select {
 		case <-time.After(waitForKubeletInterval):
 			continue
