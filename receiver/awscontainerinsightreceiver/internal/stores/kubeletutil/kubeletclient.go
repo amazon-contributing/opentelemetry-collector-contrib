@@ -94,7 +94,11 @@ func (k *KubeletClient) Summary(logger *zap.Logger) (*stats.Summary, error) {
 
 func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
 	if !isSystemd {
-		return nil
+		return &kubelet.ClientConfig{
+			APIConfig: k8sconfig.APIConfig{
+				AuthType: k8sconfig.AuthTypeServiceAccount,
+			},
+		}
 	}
 	if kubeConfigPath != "" {
 		// use kube-config for authentication
@@ -105,10 +109,11 @@ func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
 			},
 		}
 	}
-	// no auth if not provided
+	// insecure TLS if not provided
 	return &kubelet.ClientConfig{
 		APIConfig: k8sconfig.APIConfig{
-			AuthType: k8sconfig.AuthTypeNone,
+			AuthType: k8sconfig.AuthTypeTLS,
 		},
+		InsecureSkipVerify: true,
 	}
 }
