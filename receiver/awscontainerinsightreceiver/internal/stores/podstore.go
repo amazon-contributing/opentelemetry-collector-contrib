@@ -125,7 +125,7 @@ func NewPodStore(client podClient, prefFullPodName bool, addFullPodNameMetricLab
 	if hostName == "" {
 		return nil, fmt.Errorf("missing environment variable %s. Please check your deployment YAML config or passed as part of the agent config", ci.HostName)
 	}
-	k8sClient := &k8sclient.K8sClient{}
+	var k8sClient *k8sclient.K8sClient
 	nodeInfo := &nodeInfo{
 		nodeName: hostName,
 		provider: nil,

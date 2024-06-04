@@ -107,11 +107,12 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 		if acir.config.RunOnSystemd {
 			go func() {
 				if err = waitForKubelet(ctx, client, acir.settings.Logger); err != nil {
-					acir.settings.Logger.Error("Never got kubelet client on EKS", zap.Error(err))
+					acir.settings.Logger.Error("Unable to connect to kubelet", zap.Error(err))
 					return
 				}
+				acir.settings.Logger.Debug("Kubelet is available. Initializing the receiver")
 				if err = acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
-					acir.settings.Logger.Error("Unable to initialize receiver on EKS", zap.Error(err))
+					acir.settings.Logger.Error("Unable to initialize receiver", zap.Error(err))
 					return
 				}
 				acir.start(ctx)
