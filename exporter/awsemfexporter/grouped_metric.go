@@ -5,7 +5,9 @@ package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collec
 
 import (
 	"encoding/json"
+	"math/rand"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
@@ -77,6 +79,16 @@ func addToGroupedMetric(
 				}
 			}
 
+			// add metric name as label attribute so it will not be grouped with other metrics in 50% chance
+			if addMetricNameInGroupKey(dp.name) {
+				labels["metric.name"] = dp.name
+				config.logger.Warn(
+					"Add MetricName attribute as group key",
+					zap.String("Name", dp.name),
+					zap.Any("Labels", labels),
+				)
+			}
+
 			metric := &metricInfo{
 				value: dp.value,
 				unit:  translateUnit(pmd, descriptor),
@@ -110,6 +122,22 @@ func addToGroupedMetric(
 
 	}
 	return nil
+}
+
+// addMetricNameInGroupKey returns true or false with equal probability.
+func addMetricNameInGroupKey(metricName string) bool {
+	validMetrics := map[string]bool{
+		"Latency": true,
+		"Fault":   true,
+		"Error":   true,
+	}
+
+	if validMetrics[metricName] {
+		rand.Seed(time.Now().UnixNano())
+		return rand.Intn(2) == 0
+	}
+
+	return false
 }
 
 type kubernetesObj struct {
