@@ -226,7 +226,7 @@ func TestClientSpanWithDbComponent(t *testing.T) {
 	attributes[conventions.AttributeDBName] = "customers"
 	attributes[conventions.AttributeDBStatement] = spanName
 	attributes[conventions.AttributeDBUser] = "userprefsvc"
-	attributes[conventions.AttributeDBConnectionString] = "mysql://db.dev.example.com:3306"
+	attributes[conventions.AttributeDBConnectionString] = "jdbc:mysql://db.dev.example.com:3306"
 	attributes[conventions.AttributeNetPeerName] = "db.dev.example.com"
 	attributes[conventions.AttributeNetPeerPort] = "3306"
 	attributes["enterprise.app.id"] = enterpriseAppID
@@ -399,9 +399,9 @@ func TestFixSegmentName(t *testing.T) {
 	validName := "EP @ test_15.testing-d\u00F6main.org#GO"
 	fixedName := fixSegmentName(validName)
 	assert.Equal(t, validName, fixedName)
-	invalidName := "<subDomain>.example.com"
+	invalidName := "<subDomain>.example.com,1413"
 	fixedName = fixSegmentName(invalidName)
-	assert.Equal(t, "subDomain.example.com", fixedName)
+	assert.Equal(t, "subDomain.example.com1413", fixedName)
 	fullyInvalidName := "<>"
 	fixedName = fixSegmentName(fullyInvalidName)
 	assert.Equal(t, defaultSegmentName, fixedName)
@@ -1204,6 +1204,7 @@ func validateLocalRootDependencySubsegment(t *testing.T, segment *awsxray.Segmen
 	assert.NotNil(t, segment.HTTP)
 	assert.Equal(t, "POST", *segment.HTTP.Request.Method)
 	assert.Equal(t, 2, len(segment.Annotations))
+	assert.Nil(t, segment.Annotations[awsRemoteService])
 	assert.Equal(t, "myRemoteService", segment.Annotations[awsRemoteService])
 	assert.Nil(t, segment.Annotations[remoteTarget])
 	assert.Equal(t, "myAnnotationValue", segment.Annotations["myAnnotationKey"])
@@ -1303,6 +1304,9 @@ func addSpanLink(span ptrace.Span) {
 }
 
 func TestLocalRootConsumer(t *testing.T) {
+	err := featuregate.GlobalRegistry().Set("exporter.xray.allowDot", false)
+	assert.Nil(t, err)
+
 	spanName := "destination operation"
 	resource := getBasicResource()
 	parentSpanID := newSegmentID()
@@ -1401,6 +1405,9 @@ func TestLocalRootConsumerAWSNamespace(t *testing.T) {
 }
 
 func TestLocalRootClient(t *testing.T) {
+	err := featuregate.GlobalRegistry().Set("exporter.xray.allowDot", false)
+	assert.Nil(t, err)
+
 	spanName := "SQS Get"
 	resource := getBasicResource()
 	parentSpanID := newSegmentID()
@@ -1503,7 +1510,7 @@ func validateLocalRootWithoutDependency(t *testing.T, segment *awsxray.Segment, 
 	assert.Equal(t, expectedTraceID, *segment.TraceID)
 	assert.Equal(t, "POST", *segment.HTTP.Request.Method)
 	assert.Equal(t, 2, len(segment.Annotations))
-	assert.Equal(t, "myRemoteService", segment.Annotations["aws.remote.service"])
+	assert.Equal(t, "myRemoteService", segment.Annotations["aws_remote_service"])
 	assert.Equal(t, "myAnnotationValue", segment.Annotations["myAnnotationKey"])
 
 	var numberOfMetadataKeys = 8
@@ -1538,6 +1545,9 @@ func validateLocalRootWithoutDependency(t *testing.T, segment *awsxray.Segment, 
 }
 
 func TestLocalRootServer(t *testing.T) {
+	err := featuregate.GlobalRegistry().Set("exporter.xray.allowDot", false)
+	assert.Nil(t, err)
+
 	spanName := "MyService"
 	resource := getBasicResource()
 	parentSpanID := newSegmentID()
@@ -1558,6 +1568,9 @@ func TestLocalRootServer(t *testing.T) {
 }
 
 func TestLocalRootInternal(t *testing.T) {
+	err := featuregate.GlobalRegistry().Set("exporter.xray.allowDot", false)
+	assert.Nil(t, err)
+
 	spanName := "MyInternalService"
 	resource := getBasicResource()
 	parentSpanID := newSegmentID()
