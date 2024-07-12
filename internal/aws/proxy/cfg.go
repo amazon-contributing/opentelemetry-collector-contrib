@@ -11,10 +11,10 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/localhostgate"
 )
 
-const (
-	idleConnTimeout                = 30
-	remoteProxyMaxIdleConnsPerHost = 2
-)
+//const (
+//	idleConnTimeout                = 30
+//	remoteProxyMaxIdleConnsPerHost = 2
+//)
 
 // Config is the configuration for the local TCP proxy server.
 type Config struct {
@@ -91,7 +91,7 @@ func (cfg *Config) toSessionConfig() *awsutil.AWSSessionSettings {
 	sessionSettings.Profile = cfg.Profile
 	sessionSettings.ProxyAddress = cfg.ProxyAddress
 	sessionSettings.Region = cfg.Region
-	sessionSettings.RequestTimeoutSeconds = idleConnTimeout
+	sessionSettings.RequestTimeoutSeconds = int(idleConnTimeout.Seconds())
 	sessionSettings.RoleARN = cfg.RoleARN
 	sessionSettings.SharedCredentialsFile = cfg.SharedCredentialsFile
 	return &sessionSettings

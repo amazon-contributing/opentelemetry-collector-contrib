@@ -36,6 +36,10 @@ var jmxMetricsGathererVersions = map[string]supportedJar{
 		version: "1.37.0-fix",
 		jar:     "JMX metrics gatherer w/ Tomcat metrics fix",
 	},
+	"ab53c54b7cd8a6e31bb40e8ab3a9a9dedc9386cb4905c2a7f2188d3baae99f39": {
+		version: "1.36.0-alpha",
+		jar:     "JMX metrics gatherer",
+	},
 	"60b2ee1a798c35d10f6e3602ea46f1b1c0298080262636d73b4fc652b7dcd0da": {
 		version: "1.35.0-alpha",
 		jar:     "JMX metrics gatherer",
