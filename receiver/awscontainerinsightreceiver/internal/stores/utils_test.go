@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 )
 
 type mockCIMetric struct {
@@ -101,6 +102,15 @@ func (m *mockNodeInfoProvider) NodeToConditionsMap() map[string]map[v1.NodeCondi
 			v1.NodePIDPressure:    v1.ConditionFalse,
 			// v1.NodeNetworkUnavailable: v1.ConditionFalse, Commented out intentionally to test missing scenario
 		},
+	}
+}
+
+func (m *mockNodeInfoProvider) NodeToLabelsMap() map[string]map[k8sclient.Label]string {
+	return map[string]map[k8sclient.Label]string{
+		"hyperpod-testNode1": {
+			k8sclient.SageMakerNodeHealthStatus: "Schedulable",
+		},
+		"hyperpod-testNode2": {},
 	}
 }
 

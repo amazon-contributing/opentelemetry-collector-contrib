@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
+
+	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 )
 
 func TestSetGetCPUCapacity(t *testing.T) {
@@ -78,11 +81,13 @@ func TestGetNodeStatusCapacityPods(t *testing.T) {
 	nodeStatusCapacityPods, valid := nodeInfo.getNodeStatusCapacityPods()
 	assert.True(t, valid)
 	assert.Equal(t, uint64(5), nodeStatusCapacityPods)
+	assert.False(t, nodeInfo.isHyperPodNode())
 
 	nodeInfo = newNodeInfo("testNodeNonExistent", &mockNodeInfoProvider{}, zap.NewNop())
 	nodeStatusCapacityPods, valid = nodeInfo.getNodeStatusCapacityPods()
 	assert.False(t, valid)
 	assert.Equal(t, uint64(0), nodeStatusCapacityPods)
+	assert.False(t, nodeInfo.isHyperPodNode())
 }
 
 func TestGetNodeStatusAllocatablePods(t *testing.T) {
@@ -90,11 +95,13 @@ func TestGetNodeStatusAllocatablePods(t *testing.T) {
 	nodeStatusAllocatablePods, valid := nodeInfo.getNodeStatusAllocatablePods()
 	assert.True(t, valid)
 	assert.Equal(t, uint64(15), nodeStatusAllocatablePods)
+	assert.False(t, nodeInfo.isHyperPodNode())
 
 	nodeInfo = newNodeInfo("testNodeNonExistent", &mockNodeInfoProvider{}, zap.NewNop())
 	nodeStatusAllocatablePods, valid = nodeInfo.getNodeStatusAllocatablePods()
 	assert.False(t, valid)
 	assert.Equal(t, uint64(0), nodeStatusAllocatablePods)
+	assert.False(t, nodeInfo.isHyperPodNode())
 }
 
 func TestGetNodeStatusCondition(t *testing.T) {
@@ -114,16 +121,19 @@ func TestGetNodeStatusCondition(t *testing.T) {
 	nodeStatusCondition, valid = nodeInfo.getNodeStatusCondition(v1.NodeNetworkUnavailable)
 	assert.True(t, valid)
 	assert.Equal(t, uint64(0), nodeStatusCondition)
+	assert.False(t, nodeInfo.isHyperPodNode())
 
 	nodeInfo = newNodeInfo("testNode2", &mockNodeInfoProvider{}, zap.NewNop())
 	nodeStatusCondition, valid = nodeInfo.getNodeStatusCondition(v1.NodeNetworkUnavailable)
 	assert.False(t, valid)
 	assert.Equal(t, uint64(0), nodeStatusCondition)
+	assert.False(t, nodeInfo.isHyperPodNode())
 
 	nodeInfo = newNodeInfo("testNodeNonExistent", &mockNodeInfoProvider{}, zap.NewNop())
 	nodeStatusCondition, valid = nodeInfo.getNodeStatusCondition(v1.NodeReady)
 	assert.False(t, valid)
 	assert.Equal(t, uint64(0), nodeStatusCondition)
+	assert.False(t, nodeInfo.isHyperPodNode())
 }
 
 func TestGetNodeConditionUnknown(t *testing.T) {
@@ -131,14 +141,44 @@ func TestGetNodeConditionUnknown(t *testing.T) {
 	nodeStatusCondition, valid := nodeInfo.getNodeConditionUnknown()
 	assert.True(t, valid)
 	assert.Equal(t, uint64(1), nodeStatusCondition)
+	assert.False(t, nodeInfo.isHyperPodNode())
 
 	nodeInfo = newNodeInfo("testNode2", &mockNodeInfoProvider{}, zap.NewNop())
 	nodeStatusCondition, valid = nodeInfo.getNodeConditionUnknown()
 	assert.True(t, valid)
 	assert.Equal(t, uint64(0), nodeStatusCondition)
+	assert.False(t, nodeInfo.isHyperPodNode())
 
 	nodeInfo = newNodeInfo("testNodeNonExistent", &mockNodeInfoProvider{}, zap.NewNop())
 	nodeStatusCondition, valid = nodeInfo.getNodeStatusCondition(v1.NodeReady)
 	assert.False(t, valid)
+	assert.Equal(t, uint64(0), nodeStatusCondition)
+	assert.False(t, nodeInfo.isHyperPodNode())
+}
+
+func TestGetLabelValueUnknown(t *testing.T) {
+	nodeInfo := newNodeInfo("hyperpod-testNode1", &mockNodeInfoProvider{}, zap.NewNop())
+	nodeStatusCondition, valid := nodeInfo.getLabelValueUnknown(k8sclient.SageMakerNodeHealthStatus)
+	assert.True(t, valid)
+	assert.Equal(t, uint64(0), nodeStatusCondition)
+	assert.True(t, nodeInfo.isHyperPodNode())
+
+	nodeInfo = newNodeInfo("hyperpod-testNode2", &mockNodeInfoProvider{}, zap.NewNop())
+	nodeStatusCondition, valid = nodeInfo.getLabelValueUnknown(k8sclient.SageMakerNodeHealthStatus)
+	assert.True(t, valid)
+	assert.Equal(t, uint64(1), nodeStatusCondition)
+	assert.True(t, nodeInfo.isHyperPodNode())
+}
+
+func TestGetLabelValue(t *testing.T) {
+	nodeInfo := newNodeInfo("hyperpod-testNode1", &mockNodeInfoProvider{}, zap.NewNop())
+	assert.True(t, nodeInfo.isHyperPodNode())
+
+	nodeStatusCondition, valid := nodeInfo.getLabelValue(ci.Schedulable, k8sclient.SageMakerNodeHealthStatus)
+	assert.True(t, valid)
+	assert.Equal(t, uint64(1), nodeStatusCondition)
+
+	nodeStatusCondition, valid = nodeInfo.getLabelValue(ci.SchedulablePreferred, k8sclient.SageMakerNodeHealthStatus)
+	assert.True(t, valid)
 	assert.Equal(t, uint64(0), nodeStatusCondition)
 }

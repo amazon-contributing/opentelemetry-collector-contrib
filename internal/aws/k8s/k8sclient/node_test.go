@@ -30,13 +30,14 @@ var nodeArray = []any{
 				Time: time.Now(),
 			},
 			Labels: map[string]string{
-				"kubernetes.io/arch":                       "amd64",
-				"beta.kubernetes.io/instance-type":         "t3.medium",
-				"kubernetes.io/os":                         "linux",
-				"failure-domain.beta.kubernetes.io/region": "eu-west-1",
-				"failure-domain.beta.kubernetes.io/zone":   "eu-west-1c",
-				"kubernetes.io/hostname":                   "ip-192-168-200-63.eu-west-1.compute.internal",
-				"node.kubernetes.io/instance-type":         "t3.medium",
+				"kubernetes.io/arch":                         "amd64",
+				"beta.kubernetes.io/instance-type":           "t3.medium",
+				"kubernetes.io/os":                           "linux",
+				"failure-domain.beta.kubernetes.io/region":   "eu-west-1",
+				"failure-domain.beta.kubernetes.io/zone":     "eu-west-1c",
+				"kubernetes.io/hostname":                     "ip-192-168-200-63.eu-west-1.compute.internal",
+				"node.kubernetes.io/instance-type":           "t3.medium",
+				"sagemaker.amazonaws.com/node-health-status": "Schedulable",
 			},
 			Annotations: map[string]string{
 				"node.alpha.kubernetes.io/ttl":                           "0",
@@ -130,13 +131,14 @@ var nodeArray = []any{
 				Time: time.Now(),
 			},
 			Labels: map[string]string{
-				"kubernetes.io/os":                         "linux",
-				"failure-domain.beta.kubernetes.io/region": "eu-west-1",
-				"failure-domain.beta.kubernetes.io/zone":   "eu-west-1a",
-				"kubernetes.io/hostname":                   "ip-192-168-76-61.eu-west-1.compute.internal",
-				"kubernetes.io/arch":                       "amd64",
-				"beta.kubernetes.io/instance-type":         "t3.medium",
-				"node.kubernetes.io/instance-type":         "t3.medium",
+				"kubernetes.io/os":                           "linux",
+				"failure-domain.beta.kubernetes.io/region":   "eu-west-1",
+				"failure-domain.beta.kubernetes.io/zone":     "eu-west-1a",
+				"kubernetes.io/hostname":                     "ip-192-168-76-61.eu-west-1.compute.internal",
+				"kubernetes.io/arch":                         "amd64",
+				"beta.kubernetes.io/instance-type":           "t3.medium",
+				"node.kubernetes.io/instance-type":           "t3.medium",
+				"sagemaker.amazonaws.com/node-health-status": "SchedulablePreferred",
 			},
 			Annotations: map[string]string{
 				"node.alpha.kubernetes.io/ttl":                           "0",
@@ -360,8 +362,9 @@ func TestNodeClient(t *testing.T) {
 						Capacity: v1.ResourceList{
 							v1.ResourcePods: *resource.NewQuantity(5, resource.DecimalSI),
 						},
-						ProviderId:   "aws:///eu-west-1c/i-09087f37a14b9ded1",
-						InstanceType: "t3.medium",
+						ProviderId:     "aws:///eu-west-1c/i-09087f37a14b9ded1",
+						InstanceType:   "t3.medium",
+						HyperPodLabels: map[Label]string{},
 					},
 					{
 						Name: "ip-192-168-76-61.eu-west-1.compute.internal",
@@ -389,8 +392,9 @@ func TestNodeClient(t *testing.T) {
 						Capacity: v1.ResourceList{
 							v1.ResourcePods: *resource.NewQuantity(10, resource.DecimalSI),
 						},
-						ProviderId:   "aws:///eu-west-1a/i-09087f37a14b9ded2",
-						InstanceType: "t3.medium",
+						ProviderId:     "aws:///eu-west-1a/i-09087f37a14b9ded2",
+						InstanceType:   "t3.medium",
+						HyperPodLabels: map[Label]string{},
 					},
 					{
 						Name: "ip-192-168-153-1.eu-west-1.compute.internal",
@@ -418,10 +422,12 @@ func TestNodeClient(t *testing.T) {
 						Capacity: v1.ResourceList{
 							v1.ResourcePods: *resource.NewQuantity(5, resource.DecimalSI),
 						},
-						ProviderId:   "aws:///eu-west-1b/i-09087f37a14b9ded3",
-						InstanceType: "t3.medium",
+						ProviderId:     "aws:///eu-west-1b/i-09087f37a14b9ded3",
+						InstanceType:   "t3.medium",
+						HyperPodLabels: map[Label]string{},
 					},
 				},
+				"NodeToLabelsMap": map[string]map[Label]string{},
 			},
 		},
 		"CaptureNodeLevelInfo": {
@@ -474,6 +480,15 @@ func TestNodeClient(t *testing.T) {
 						"Ready":          "False",
 					},
 				},
+				"NodeToLabelsMap": map[string]map[Label]string{
+					"ip-192-168-200-63.eu-west-1.compute.internal": {
+						SageMakerNodeHealthStatus: "Schedulable",
+					},
+					"ip-192-168-76-61.eu-west-1.compute.internal": {
+						SageMakerNodeHealthStatus: "SchedulablePreferred",
+					},
+					"ip-192-168-153-1.eu-west-1.compute.internal": make(map[Label]string),
+				},
 				"nodeInfos": []*NodeInfo{
 					{
 						Name: "ip-192-168-200-63.eu-west-1.compute.internal",
@@ -503,6 +518,9 @@ func TestNodeClient(t *testing.T) {
 						},
 						ProviderId:   "aws:///eu-west-1c/i-09087f37a14b9ded1",
 						InstanceType: "t3.medium",
+						HyperPodLabels: map[Label]string{
+							SageMakerNodeHealthStatus: "Schedulable",
+						},
 					},
 					{
 						Name: "ip-192-168-76-61.eu-west-1.compute.internal",
@@ -532,6 +550,9 @@ func TestNodeClient(t *testing.T) {
 						},
 						ProviderId:   "aws:///eu-west-1a/i-09087f37a14b9ded2",
 						InstanceType: "t3.medium",
+						HyperPodLabels: map[Label]string{
+							SageMakerNodeHealthStatus: "SchedulablePreferred",
+						},
 					},
 					{
 						Name: "ip-192-168-153-1.eu-west-1.compute.internal",
@@ -559,8 +580,9 @@ func TestNodeClient(t *testing.T) {
 						Capacity: v1.ResourceList{
 							v1.ResourcePods: *resource.NewQuantity(5, resource.DecimalSI),
 						},
-						ProviderId:   "aws:///eu-west-1b/i-09087f37a14b9ded3",
-						InstanceType: "t3.medium",
+						ProviderId:     "aws:///eu-west-1b/i-09087f37a14b9ded3",
+						InstanceType:   "t3.medium",
+						HyperPodLabels: map[Label]string{},
 					},
 				},
 			},
@@ -577,8 +599,8 @@ func TestNodeClient(t *testing.T) {
 			require.Equal(t, testCase.want["nodeToCapacityMap"], client.NodeToCapacityMap())
 			require.Equal(t, testCase.want["nodeToAllocatableMap"], client.NodeToAllocatableMap())
 			require.Equal(t, testCase.want["nodeToConditionsMap"], client.NodeToConditionsMap())
+			require.Equal(t, testCase.want["NodeToLabelsMap"], client.NodeToLabelsMap())
 			require.EqualValues(t, testCase.want["nodeInfos"], client.NodeInfos())
-
 			client.shutdown()
 			assert.True(t, client.stopped)
 		})

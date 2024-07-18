@@ -145,6 +145,9 @@ const (
 	GpuTotal   = "gpu_total"
 	GpuRequest = "gpu_request"
 
+	SchedulableMetric          = "schedulable"
+	SchedulablePreferredMetric = "schedulable_preferred"
+
 	// Define the metric types
 	TypeCluster            = "Cluster"
 	TypeClusterService     = "ClusterService"
@@ -178,6 +181,7 @@ const (
 	TypeContainerEFA    = "ContainerEFA"
 	TypePodEFA          = "PodEFA"
 	TypeNodeEFA         = "NodeEFA"
+	TypeHyperPodNode    = "HyperPodNode"
 
 	// unit
 	UnitBytes       = "Bytes"
@@ -199,6 +203,18 @@ var WaitingReasonLookup = map[string]string{
 	"CreateContainerError":       StatusContainerWaitingReasonCreateContainerError,
 	"CreateContainerConfigError": StatusContainerWaitingReasonCreateContainerConfigError,
 	"StartError":                 StatusContainerWaitingReasonStartError,
+}
+
+type HyperPodConditionType string
+
+const (
+	Schedulable          HyperPodConditionType = "Schedulable"
+	SchedulablePreferred HyperPodConditionType = "SchedulablePreferred"
+)
+
+var ConditionToMetricName = map[HyperPodConditionType]string{
+	Schedulable:          SchedulableMetric,
+	SchedulablePreferred: SchedulablePreferredMetric,
 }
 
 var metricToUnitMap map[string]string
@@ -328,5 +344,8 @@ func init() {
 		GpuLimit:   UnitCount,
 		GpuTotal:   UnitCount,
 		GpuRequest: UnitCount,
+
+		SchedulableMetric:          UnitCount,
+		SchedulablePreferredMetric: UnitCount,
 	}
 }

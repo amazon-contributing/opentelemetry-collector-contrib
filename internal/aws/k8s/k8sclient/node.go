@@ -40,6 +40,7 @@ type NodeClient interface {
 	NodeToCapacityMap() map[string]v1.ResourceList
 	NodeToAllocatableMap() map[string]v1.ResourceList
 	NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus
+	NodeToLabelsMap() map[string]map[Label]string
 }
 
 type nodeClientOption func(*nodeClient)
@@ -84,6 +85,7 @@ type nodeClient struct {
 	nodeToCapacityMap      map[string]v1.ResourceList
 	nodeToAllocatableMap   map[string]v1.ResourceList
 	nodeToConditionsMap    map[string]map[v1.NodeConditionType]v1.ConditionStatus
+	nodeToLabelsMap        map[string]map[Label]string
 }
 
 func (c *nodeClient) NodeInfos() map[string]*NodeInfo {
@@ -149,7 +151,20 @@ func (c *nodeClient) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v
 	return c.nodeToConditionsMap
 }
 
+func (c *nodeClient) NodeToLabelsMap() map[string]map[Label]string {
+	if !c.captureNodeLevelInfo {
+		c.logger.Warn("trying to access node level info when captureNodeLevelInfo is not set, will return empty data")
+	}
+	if c.store.GetResetRefreshStatus() {
+		c.refresh()
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.nodeToLabelsMap
+}
+
 func (c *nodeClient) refresh() {
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -160,6 +175,7 @@ func (c *nodeClient) refresh() {
 	nodeToCapacityMap := make(map[string]v1.ResourceList)
 	nodeToAllocatableMap := make(map[string]v1.ResourceList)
 	nodeToConditionsMap := make(map[string]map[v1.NodeConditionType]v1.ConditionStatus)
+	nodeToLabelsMap := make(map[string]map[Label]string)
 
 	nodeInfos := map[string]*NodeInfo{}
 	for _, obj := range objsList {
@@ -174,6 +190,13 @@ func (c *nodeClient) refresh() {
 				conditionsMap[condition.Type] = condition.Status
 			}
 			nodeToConditionsMap[node.Name] = conditionsMap
+
+			labelsMap := make(map[Label]string)
+			if HyperPodLabel, ok := node.HyperPodLabels[SageMakerNodeHealthStatus]; ok {
+				labelsMap[SageMakerNodeHealthStatus] = HyperPodLabel
+			}
+
+			nodeToLabelsMap[node.Name] = labelsMap
 		}
 		clusterNodeCountNew++
 
@@ -202,6 +225,7 @@ func (c *nodeClient) refresh() {
 	c.nodeToCapacityMap = nodeToCapacityMap
 	c.nodeToAllocatableMap = nodeToAllocatableMap
 	c.nodeToConditionsMap = nodeToConditionsMap
+	c.nodeToLabelsMap = nodeToLabelsMap
 }
 
 func newNodeClient(clientSet kubernetes.Interface, logger *zap.Logger, options ...nodeClientOption) *nodeClient {
@@ -256,6 +280,12 @@ func transformFuncNode(obj any) (any, error) {
 			info.InstanceType = instanceType
 		}
 	}
+
+	if sageMakerHealthStatus, ok := node.Labels[string(SageMakerNodeHealthStatus)]; ok {
+		info.HyperPodLabels = make(map[Label]string)
+		info.HyperPodLabels[SageMakerNodeHealthStatus] = sageMakerHealthStatus
+	}
+
 	for _, condition := range node.Status.Conditions {
 		info.Conditions = append(info.Conditions, &NodeCondition{
 			Type:   condition.Type,

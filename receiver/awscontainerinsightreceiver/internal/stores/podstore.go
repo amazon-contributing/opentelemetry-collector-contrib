@@ -380,6 +380,21 @@ func (p *PodStore) decorateNode(metric CIMetric) {
 		if nodeStatusConditionUnknown, ok := p.nodeInfo.getNodeConditionUnknown(); ok {
 			metric.AddField(ci.MetricName(ci.TypeNode, ci.StatusConditionUnknown), nodeStatusConditionUnknown)
 		}
+
+		if p.nodeInfo.isHyperPodNode() {
+			if hyperPodLabelUnknown, ok := p.nodeInfo.getLabelValueUnknown(k8sclient.SageMakerNodeHealthStatus); ok {
+				metric.AddField(ci.MetricName(ci.TypeHyperPodNode, ci.StatusConditionUnknown), hyperPodLabelUnknown)
+			}
+
+			for _, condition := range []ci.HyperPodConditionType{
+				ci.Schedulable,
+				ci.SchedulablePreferred,
+			} {
+				if status, ok := p.nodeInfo.getLabelValue(condition, k8sclient.SageMakerNodeHealthStatus); ok {
+					metric.AddField(ci.MetricName(ci.TypeHyperPodNode, ci.ConditionToMetricName[condition]), status)
+				}
+			}
+		}
 	}
 }
 

@@ -420,6 +420,7 @@ func TestPodStore_addStatus_adds_all_pod_conditions_as_metrics_when_unexpected(t
 	assert.Equal(t, 1, decoratedResultMetric.GetField(PodScheduledMetricName))
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodUnknownMetricName))
 }
+
 func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	pod := getBaseTestPodInfo()
 	// add another container
@@ -967,6 +968,27 @@ func TestPodStore_decorateNode(t *testing.T) {
 
 	assert.Equal(t, uint64(5), metric.GetField("node_status_capacity_pods").(uint64))
 	assert.Equal(t, uint64(15), metric.GetField("node_status_allocatable_pods").(uint64))
+}
+
+func TestPodStore_decorateNode_hyperPodNode_Schedulable(t *testing.T) {
+	podStore := getPodStore()
+	podStore.nodeInfo.nodeName = "hyperpod-testNode1"
+	defer require.NoError(t, podStore.Shutdown())
+
+	tags := map[string]string{}
+	fields := map[string]any{}
+	metric := generateMetric(fields, tags)
+	podStore.includeEnhancedMetrics = true
+	podStore.decorateNode(metric)
+	assert.True(t, podStore.nodeInfo.isHyperPodNode())
+
+	assert.True(t, metric.HasField("hyper_pod_node_health_status_schedulable"))
+	assert.True(t, metric.HasField("hyper_pod_node_health_status_schedulable_preferred"))
+	assert.True(t, metric.HasField("hyper_pod_node_health_status_status_condition_unknown"))
+
+	assert.Equal(t, uint64(1), metric.GetField("hyper_pod_node_health_status_schedulable").(uint64))
+	assert.Equal(t, uint64(0), metric.GetField("hyper_pod_node_health_status_schedulable_preferred").(uint64))
+	assert.Equal(t, uint64(0), metric.GetField("hyper_pod_node_health_status_status_condition_unknown").(uint64))
 }
 
 func TestPodStore_decorateNode_multiplePodStates(t *testing.T) {
