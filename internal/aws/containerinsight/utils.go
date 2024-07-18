@@ -107,6 +107,7 @@ func getPrefixByMetricType(mType string) string {
 	instanceNetPrefix := "instance_interface_"
 	nodeNetPrefix := "node_interface_"
 	nodeEfaPrefix := "node_efa_"
+	hyperPodNodeHealthStatus := "hyper_pod_node_health_status_"
 	podPrefix := "pod_"
 	podNetPrefix := "pod_interface_"
 	podEfaPrefix := "pod_efa_"
@@ -169,6 +170,8 @@ func getPrefixByMetricType(mType string) string {
 		prefix = statefulSet
 	case TypeClusterReplicaSet:
 		prefix = replicaSet
+	case TypeHyperPodNode:
+		prefix = hyperPodNodeHealthStatus
 	default:
 		log.Printf("E! Unexpected MetricType: %s", mType)
 	}

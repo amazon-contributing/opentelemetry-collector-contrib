@@ -141,10 +141,16 @@ const (
 	EfaRxDropped          = "rx_dropped"
 	EfaTxBytes            = "tx_bytes"
 
-	GpuLimit            = "gpu_limit"
-	GpuUsageTotal       = "gpu_usage_total"
-	GpuRequest          = "gpu_request"
-	GpuReservedCapacity = "gpu_reserved_capacity"
+	GpuLimit   = "gpu_limit"
+	GpuTotal   = "gpu_total"
+	GpuRequest = "gpu_request"
+
+	UnschedulablePendingReplacementMetric = "unschedulable_pending_replacement"
+	UnschedulablePendingRebootMetric      = "unschedulable_pending_reboot"
+	SchedulableMetric                     = "schedulable"
+	SchedulablePreferredMetric            = "schedulable_preferred"
+	UnschedulableMetric                   = "unschedulable"
+	Unknown                               = "unknown"
 
 	// Define the metric types
 	TypeCluster            = "Cluster"
@@ -179,6 +185,7 @@ const (
 	TypeContainerEFA    = "ContainerEFA"
 	TypePodEFA          = "PodEFA"
 	TypeNodeEFA         = "NodeEFA"
+	TypeHyperPodNode    = "HyperPodNode"
 
 	// unit
 	UnitBytes       = "Bytes"
@@ -200,6 +207,15 @@ var WaitingReasonLookup = map[string]string{
 	"CreateContainerError":       StatusContainerWaitingReasonCreateContainerError,
 	"CreateContainerConfigError": StatusContainerWaitingReasonCreateContainerConfigError,
 	"StartError":                 StatusContainerWaitingReasonStartError,
+}
+
+var ConditionToMetricName = map[string]string{
+	"UnschedulablePendingReplacement": UnschedulablePendingReplacementMetric,
+	"UnschedulablePendingReboot":      UnschedulablePendingRebootMetric,
+	"Schedulable":                     SchedulableMetric,
+	"SchedulablePreferred":            SchedulablePreferredMetric,
+	"Unschedulable":                   UnschedulableMetric,
+	"Unknown":                         Unknown,
 }
 
 var metricToUnitMap map[string]string
@@ -326,9 +342,15 @@ func init() {
 		EfaRxDropped:          UnitCountPerSec,
 		EfaTxBytes:            UnitBytesPerSec,
 
-		GpuLimit:            UnitCount,
-		GpuUsageTotal:       UnitCount,
-		GpuRequest:          UnitCount,
-		GpuReservedCapacity: UnitPercent,
+		GpuLimit:   UnitCount,
+		GpuTotal:   UnitCount,
+		GpuRequest: UnitCount,
+
+		UnschedulablePendingReplacementMetric: UnitCount,
+		UnschedulablePendingRebootMetric:      UnitCount,
+		SchedulableMetric:                     UnitCount,
+		SchedulablePreferredMetric:            UnitCount,
+		UnschedulableMetric:                   UnitCount,
+		Unknown:                               UnitCount,
 	}
 }
