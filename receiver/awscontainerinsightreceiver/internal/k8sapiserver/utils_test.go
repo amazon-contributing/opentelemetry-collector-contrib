@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sutil"
 )
 
 func TestUtils_parseDeploymentFromReplicaSet(t *testing.T) {
@@ -21,6 +22,28 @@ func TestUtils_parseCronJobFromJob(t *testing.T) {
 	assert.Equal(t, "", parseCronJobFromJob("hello-123"))
 	assert.Equal(t, "hello", parseCronJobFromJob("hello-1234567890"))
 	assert.Equal(t, "", parseCronJobFromJob("hello-123456789a"))
+}
+
+func TestUtils_isHyperPodNode(t *testing.T) {
+	assert.True(t, isHyperPodNode("hyperpod-i-052070658b7e3b8c7"))
+	assert.False(t, isHyperPodNode("i-052070658b7e3b8c7"))
+}
+
+func TestUtils_LabelsUtils(t *testing.T) {
+	nodelabels := map[k8sclient.Label]int8{
+		k8sclient.SageMakerNodeHealthStatus: int8(k8sutil.Schedulable),
+	}
+	status, ok := isLabelSet(int8(k8sutil.Schedulable), nodelabels, k8sclient.SageMakerNodeHealthStatus)
+	assert.Equal(t, uint64(1), status)
+	assert.True(t, ok)
+
+	status, ok = isLabelSet(int8(k8sutil.SchedulablePreferred), nodelabels, k8sclient.SageMakerNodeHealthStatus)
+	assert.Equal(t, uint64(0), status)
+	assert.True(t, ok)
+
+	assert.Equal(t, uint64(0), isLabelUnknown(nodelabels, k8sclient.SageMakerNodeHealthStatus))
+	const TestingLabel k8sclient.Label = 100
+	assert.Equal(t, uint64(1), isLabelUnknown(nodelabels, TestingLabel))
 }
 
 func TestPodStore_addPodStatusMetrics(t *testing.T) {

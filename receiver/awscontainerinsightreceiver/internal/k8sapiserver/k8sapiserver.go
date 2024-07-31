@@ -131,6 +131,7 @@ func (k *K8sAPIServer) GetMetrics() []pmetric.Metrics {
 	if k.enableAcceleratedMetrics {
 		result = append(result, k.getAcceleratorCountMetrics(clusterName, timestampNs)...)
 	}
+	result = append(result, k.getHyperPodResiliencyMetrics(clusterName, timestampNs)...)
 
 	return result
 }
@@ -533,6 +534,44 @@ func (k *K8sAPIServer) getAcceleratorCountMetrics(clusterName, timestampNs strin
 		attributes[ci.SourcesKey] = "[\"apiserver\"]"
 		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
 		metrics = append(metrics, md)
+	}
+	return metrics
+}
+
+func (k *K8sAPIServer) getHyperPodResiliencyMetrics(clusterName, timestampNs string) []pmetric.Metrics {
+	var metrics []pmetric.Metrics
+	for nodeName, labels := range k.leaderElection.nodeClient.NodeToLabelsMap() {
+		if isHyperPodNode(nodeName) {
+			fields := map[string]any{}
+			attributes := map[string]string{
+				ci.ClusterNameKey: clusterName,
+				ci.MetricType:     ci.TypeHyperPodNode,
+				ci.Timestamp:      timestampNs,
+				ci.Version:        "0",
+			}
+
+			isUnschedulable := 0
+			for _, condition := range []k8sutil.HyperPodConditionType{
+				k8sutil.UnschedulablePendingReplacement,
+				k8sutil.UnschedulablePendingReboot,
+				k8sutil.Schedulable,
+				k8sutil.SchedulablePreferred,
+			} {
+				if status, ok := isLabelSet(int8(condition), labels, k8sclient.SageMakerNodeHealthStatus); ok {
+					fields[ci.MetricName(ci.TypeHyperPodNode, ci.ConditionToMetricName[condition.String()])] = status
+
+					if status == 1 && (condition == k8sutil.UnschedulablePendingReplacement || condition == k8sutil.UnschedulablePendingReboot) {
+						isUnschedulable = 1
+					}
+				}
+			}
+			fields[ci.MetricName(ci.TypeHyperPodNode, ci.ConditionToMetricName[k8sutil.Unknown.String()])] = isLabelUnknown(labels, k8sclient.SageMakerNodeHealthStatus)
+			fields[ci.MetricName(ci.TypeHyperPodNode, ci.ConditionToMetricName[k8sutil.Unschedulable.String()])] = isUnschedulable
+			attributes[ci.InstanceID] = strings.TrimPrefix(nodeName, "hyperpod-")
+			attributes[ci.NodeNameKey] = nodeName
+			md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
+			metrics = append(metrics, md)
+		}
 	}
 	return metrics
 }

@@ -48,7 +48,7 @@ func (p *PodResourcesClient) connectToServer(socket string) (*grpc.ClientConn, e
 	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx,
+	conn, err := grpc.DialContext(ctx, // nolint:staticcheck
 		socket,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),

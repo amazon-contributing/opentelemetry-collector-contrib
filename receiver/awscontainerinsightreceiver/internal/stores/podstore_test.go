@@ -420,6 +420,7 @@ func TestPodStore_addStatus_adds_all_pod_conditions_as_metrics_when_unexpected(t
 	assert.Equal(t, 1, decoratedResultMetric.GetField(PodScheduledMetricName))
 	assert.Equal(t, 0, decoratedResultMetric.GetField(PodUnknownMetricName))
 }
+
 func TestPodStore_addStatus_enhanced_metrics(t *testing.T) {
 	pod := getBaseTestPodInfo()
 	// add another container

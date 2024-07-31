@@ -23,6 +23,7 @@ import (
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sutil"
 )
 
 func NewService(name, namespace string) k8sclient.Service {
@@ -154,6 +155,11 @@ func (client *MockClient) ClusterFailedNodeCount() int {
 func (client *MockClient) ClusterNodeCount() int {
 	args := client.Called()
 	return args.Get(0).(int)
+}
+
+func (client *MockClient) NodeToLabelsMap() map[string]map[k8sclient.Label]int8 {
+	args := client.Called()
+	return args.Get(0).(map[string]map[k8sclient.Label]int8)
 }
 
 // k8sclient.EpClient
@@ -348,6 +354,11 @@ func TestK8sAPIServer_GetMetrics(t *testing.T) {
 			InstanceType: "g4dn-12xl",
 		},
 	})
+	mockClient.On("NodeToLabelsMap").Return(map[string]map[k8sclient.Label]int8{
+		"hyperpod-i-abcdef123456789": {
+			k8sclient.SageMakerNodeHealthStatus: int8(k8sutil.Schedulable),
+		},
+	})
 
 	leaderElection := &LeaderElection{
 		k8sClient:         &mockK8sClient{},
@@ -447,6 +458,16 @@ func TestK8sAPIServer_GetMetrics(t *testing.T) {
 			assert.Equal(t, ci.TypePodGPU, getStringAttrVal(metric, ci.MetricType))
 			assert.Equal(t, "i-abcdef123456789", getStringAttrVal(metric, ci.InstanceID))
 			assert.Equal(t, "g4dn-12xl", getStringAttrVal(metric, ci.InstanceType))
+		case ci.TypeHyperPodNode:
+			assert.Equal(t, "HyperPodNode", getStringAttrVal(metric, ci.MetricType))
+			assert.Equal(t, "hyperpod-i-abcdef123456789", getStringAttrVal(metric, ci.NodeNameKey))
+			assert.Equal(t, "i-abcdef123456789", getStringAttrVal(metric, ci.InstanceID))
+			assertMetricValueEqual(t, metric, "hyper_pod_node_health_status_unschedulable_pending_reboot", int64(0))
+			assertMetricValueEqual(t, metric, "hyper_pod_node_health_status_schedulable", int64(1))
+			assertMetricValueEqual(t, metric, "hyper_pod_node_health_status_schedulable_preferred", int64(0))
+			assertMetricValueEqual(t, metric, "hyper_pod_node_health_status_unschedulable", int64(0))
+			assertMetricValueEqual(t, metric, "hyper_pod_node_health_status_unschedulable_pending_replacement", int64(0))
+			assertMetricValueEqual(t, metric, "hyper_pod_node_health_status_unknown", int64(0))
 		default:
 			assert.Fail(t, "Unexpected metric type: "+metricType)
 		}

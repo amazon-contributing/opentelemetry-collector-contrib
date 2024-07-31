@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sutil"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +41,7 @@ type NodeClient interface {
 	NodeToCapacityMap() map[string]v1.ResourceList
 	NodeToAllocatableMap() map[string]v1.ResourceList
 	NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus
+	NodeToLabelsMap() map[string]map[Label]int8
 }
 
 type nodeClientOption func(*nodeClient)
@@ -62,6 +64,12 @@ func captureNodeLevelInfoOption(captureNodeLevelInfo bool) nodeClientOption {
 	}
 }
 
+func captureOnlyNodeLabelInfoOption(captureOnlyNodeLabelInfo bool) nodeClientOption {
+	return func(n *nodeClient) {
+		n.captureOnlyNodeLabelInfo = captureOnlyNodeLabelInfo
+	}
+}
+
 type nodeClient struct {
 	stopChan chan struct{}
 	store    *ObjStore
@@ -75,7 +83,8 @@ type nodeClient struct {
 	// The node client can be used in several places, including code paths that execute on both leader and non-leader nodes.
 	// But for logic on the leader node (for ex in k8sapiserver.go), there is no need to obtain node level info since only cluster
 	// level info is needed there. Hence, this optimization allows us to save on memory by not capturing node level info when not needed.
-	captureNodeLevelInfo bool
+	captureNodeLevelInfo     bool
+	captureOnlyNodeLabelInfo bool
 
 	mu                     sync.RWMutex
 	nodeInfos              map[string]*NodeInfo
@@ -84,6 +93,7 @@ type nodeClient struct {
 	nodeToCapacityMap      map[string]v1.ResourceList
 	nodeToAllocatableMap   map[string]v1.ResourceList
 	nodeToConditionsMap    map[string]map[v1.NodeConditionType]v1.ConditionStatus
+	nodeToLabelsMap        map[string]map[Label]int8
 }
 
 func (c *nodeClient) NodeInfos() map[string]*NodeInfo {
@@ -149,7 +159,20 @@ func (c *nodeClient) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v
 	return c.nodeToConditionsMap
 }
 
+func (c *nodeClient) NodeToLabelsMap() map[string]map[Label]int8 {
+	if !c.captureOnlyNodeLabelInfo {
+		c.logger.Warn("trying to access node label info when captureOnlyNodeLabelInfo is not set, will return empty data")
+	}
+	if c.store.GetResetRefreshStatus() {
+		c.refresh()
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.nodeToLabelsMap
+}
+
 func (c *nodeClient) refresh() {
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -160,6 +183,7 @@ func (c *nodeClient) refresh() {
 	nodeToCapacityMap := make(map[string]v1.ResourceList)
 	nodeToAllocatableMap := make(map[string]v1.ResourceList)
 	nodeToConditionsMap := make(map[string]map[v1.NodeConditionType]v1.ConditionStatus)
+	nodeToLabelsMap := make(map[string]map[Label]int8)
 
 	nodeInfos := map[string]*NodeInfo{}
 	for _, obj := range objsList {
@@ -174,6 +198,13 @@ func (c *nodeClient) refresh() {
 				conditionsMap[condition.Type] = condition.Status
 			}
 			nodeToConditionsMap[node.Name] = conditionsMap
+		}
+		if c.captureOnlyNodeLabelInfo {
+			labelsMap := make(map[Label]int8)
+			if HyperPodLabel, ok := node.Labels[SageMakerNodeHealthStatus]; ok {
+				labelsMap[SageMakerNodeHealthStatus] = HyperPodLabel
+				nodeToLabelsMap[node.Name] = labelsMap
+			}
 		}
 		clusterNodeCountNew++
 
@@ -202,6 +233,7 @@ func (c *nodeClient) refresh() {
 	c.nodeToCapacityMap = nodeToCapacityMap
 	c.nodeToAllocatableMap = nodeToAllocatableMap
 	c.nodeToConditionsMap = nodeToConditionsMap
+	c.nodeToLabelsMap = nodeToLabelsMap
 }
 
 func newNodeClient(clientSet kubernetes.Interface, logger *zap.Logger, options ...nodeClientOption) *nodeClient {
@@ -256,6 +288,16 @@ func transformFuncNode(obj any) (any, error) {
 			info.InstanceType = instanceType
 		}
 	}
+
+	if sageMakerHealthStatus, ok := node.Labels[SageMakerNodeHealthStatus.String()]; ok {
+		info.Labels = make(map[Label]int8)
+		if condition, ok := k8sutil.ParseString(sageMakerHealthStatus); ok {
+			info.Labels[SageMakerNodeHealthStatus] = condition
+		} else {
+			info.Labels[SageMakerNodeHealthStatus] = int8(k8sutil.Unknown)
+		}
+	}
+
 	for _, condition := range node.Status.Conditions {
 		info.Conditions = append(info.Conditions, &NodeCondition{
 			Type:   condition.Type,

@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sutil"
 )
 
 const (
@@ -128,4 +129,28 @@ func parseDeploymentFromReplicaSet(name string) string {
 		return ""
 	}
 	return name[:lastDash]
+}
+
+func isHyperPodNode(nodeName string) bool {
+	return strings.HasPrefix(nodeName, "hyperpod-")
+}
+
+func isLabelSet(conditionType int8, nodeLabels map[k8sclient.Label]int8, labelKey k8sclient.Label) (uint64, bool) {
+	if nodeConditions, labelExists := nodeLabels[labelKey]; labelExists {
+		if nodeConditions == conditionType {
+			return 1, true
+		}
+		return 0, true
+	}
+	return 0, false
+}
+
+func isLabelUnknown(nodeLabels map[k8sclient.Label]int8, labelKey k8sclient.Label) uint64 {
+	if nodeCondition, labelExists := nodeLabels[labelKey]; labelExists {
+		if nodeCondition == int8(k8sutil.Unknown) {
+			return 1
+		}
+		return 0
+	}
+	return 1
 }

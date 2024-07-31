@@ -31,3 +31,37 @@ func ParseInstanceIdFromProviderId(providerId string) string {
 	}
 	return providerId[strings.LastIndex(providerId, "/")+1:]
 }
+
+type HyperPodConditionType int8
+
+const (
+	Schedulable HyperPodConditionType = iota
+	SchedulablePreferred
+	UnschedulablePendingReplacement
+	UnschedulablePendingReboot
+	Unschedulable
+	Unknown
+)
+
+func (ct HyperPodConditionType) String() string {
+	return [...]string{"Schedulable", "SchedulablePreferred", "UnschedulablePendingReplacement", "UnschedulablePendingReboot", "Unschedulable", "Unknown"}[ct]
+}
+
+func (ct HyperPodConditionType) EnumIndex() int {
+	return int(ct)
+}
+
+var (
+	HyperPodConditionTypeMap = map[string]HyperPodConditionType{
+		"Schedulable":                     Schedulable,
+		"SchedulablePreferred":            SchedulablePreferred,
+		"UnschedulablePendingReplacement": UnschedulablePendingReplacement,
+		"UnschedulablePendingReboot":      UnschedulablePendingReboot,
+		"Unschedulable":                   Unschedulable,
+	}
+)
+
+func ParseString(str string) (int8, bool) {
+	c, ok := HyperPodConditionTypeMap[str]
+	return int8(c), ok
+}
