@@ -550,23 +550,16 @@ func (k *K8sAPIServer) getHyperPodResiliencyMetrics(clusterName, timestampNs str
 				ci.Version:        "0",
 			}
 
-			isUnschedulable := 0
 			for _, condition := range []k8sutil.HyperPodConditionType{
 				k8sutil.UnschedulablePendingReplacement,
 				k8sutil.UnschedulablePendingReboot,
+				k8sutil.Unschedulable,
 				k8sutil.Schedulable,
-				k8sutil.SchedulablePreferred,
 			} {
 				if status, ok := isLabelSet(int8(condition), labels, k8sclient.SageMakerNodeHealthStatus); ok {
 					fields[ci.MetricName(ci.TypeHyperPodNode, ci.ConditionToMetricName[condition.String()])] = status
-
-					if status == 1 && (condition == k8sutil.UnschedulablePendingReplacement || condition == k8sutil.UnschedulablePendingReboot) {
-						isUnschedulable = 1
-					}
 				}
 			}
-			fields[ci.MetricName(ci.TypeHyperPodNode, ci.ConditionToMetricName[k8sutil.Unknown.String()])] = isLabelUnknown(labels, k8sclient.SageMakerNodeHealthStatus)
-			fields[ci.MetricName(ci.TypeHyperPodNode, ci.ConditionToMetricName[k8sutil.Unschedulable.String()])] = isUnschedulable
 			attributes[ci.InstanceID] = strings.TrimPrefix(nodeName, "hyperpod-")
 			attributes[ci.NodeNameKey] = nodeName
 			md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
