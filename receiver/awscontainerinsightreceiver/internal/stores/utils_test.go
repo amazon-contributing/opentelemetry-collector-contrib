@@ -66,10 +66,12 @@ type mockNodeInfoProvider struct {
 func (m *mockNodeInfoProvider) NodeToCapacityMap() map[string]v1.ResourceList {
 	return map[string]v1.ResourceList{
 		"testNode1": {
-			"pods": *resource.NewQuantity(5, resource.DecimalSI),
+			"pods":           *resource.NewQuantity(5, resource.DecimalSI),
+			"nvidia.com/gpu": *resource.NewQuantity(20, resource.DecimalExponent),
 		},
 		"testNode2": {
-			"pods": *resource.NewQuantity(10, resource.DecimalSI),
+			"pods":           *resource.NewQuantity(10, resource.DecimalSI),
+			"nvidia.com/gpu": *resource.NewQuantity(30, resource.DecimalExponent),
 		},
 	}
 }
@@ -77,10 +79,12 @@ func (m *mockNodeInfoProvider) NodeToCapacityMap() map[string]v1.ResourceList {
 func (m *mockNodeInfoProvider) NodeToAllocatableMap() map[string]v1.ResourceList {
 	return map[string]v1.ResourceList{
 		"testNode1": {
-			"pods": *resource.NewQuantity(15, resource.DecimalSI),
+			"pods":           *resource.NewQuantity(15, resource.DecimalSI),
+			"nvidia.com/gpu": *resource.NewQuantity(20, resource.DecimalExponent),
 		},
 		"testNode2": {
-			"pods": *resource.NewQuantity(20, resource.DecimalSI),
+			"pods":           *resource.NewQuantity(20, resource.DecimalSI),
+			"nvidia.com/gpu": *resource.NewQuantity(30, resource.DecimalExponent),
 		},
 	}
 }
