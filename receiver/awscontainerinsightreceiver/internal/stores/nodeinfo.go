@@ -106,6 +106,15 @@ func (n *nodeInfo) getNodeStatusAllocatablePods() (uint64, bool) {
 	return forceConvertToInt64(pods, n.logger), true
 }
 
+func (n *nodeInfo) getNodeStatusCapacityGPUs() (uint64, bool) {
+	capacityResources, ok := n.provider.NodeToCapacityMap()[n.nodeName]
+	if !ok {
+		return 0, false
+	}
+	gpus := capacityResources.Name(resourceSpecNvidiaGpuKey, resource.DecimalExponent).Value()
+	return forceConvertToInt64(gpus, n.logger), true
+}
+
 func (n *nodeInfo) getNodeStatusCondition(conditionType v1.NodeConditionType) (uint64, bool) {
 	if nodeConditions, ok := n.provider.NodeToConditionsMap()[n.nodeName]; ok {
 		if conditionStatus, ok := nodeConditions[conditionType]; ok {

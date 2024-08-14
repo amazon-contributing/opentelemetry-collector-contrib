@@ -19,11 +19,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const (
-	instanceTypeLabelKey     = "node.kubernetes.io/instance-type"
-	instanceTypeLabelKeyBeta = "beta.kubernetes.io/instance-type"
-)
-
 // This needs to be reviewed for newer versions of k8s.
 var failedNodeConditions = map[v1.NodeConditionType]bool{
 	v1.NodeMemoryPressure:     true,
@@ -33,7 +28,6 @@ var failedNodeConditions = map[v1.NodeConditionType]bool{
 }
 
 type NodeClient interface {
-	NodeInfos() map[string]*NodeInfo
 	// Get the number of failed nodes for current cluster
 	ClusterFailedNodeCount() int
 	// Get the number of nodes for current cluster
@@ -87,22 +81,12 @@ type nodeClient struct {
 	captureOnlyNodeLabelInfo bool
 
 	mu                     sync.RWMutex
-	nodeInfos              map[string]*NodeInfo
 	clusterFailedNodeCount int
 	clusterNodeCount       int
 	nodeToCapacityMap      map[string]v1.ResourceList
 	nodeToAllocatableMap   map[string]v1.ResourceList
 	nodeToConditionsMap    map[string]map[v1.NodeConditionType]v1.ConditionStatus
 	nodeToLabelsMap        map[string]map[Label]int8
-}
-
-func (c *nodeClient) NodeInfos() map[string]*NodeInfo {
-	if c.store.GetResetRefreshStatus() {
-		c.refresh()
-	}
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.nodeInfos
 }
 
 func (c *nodeClient) ClusterFailedNodeCount() int {
@@ -185,25 +169,23 @@ func (c *nodeClient) refresh() {
 	nodeToConditionsMap := make(map[string]map[v1.NodeConditionType]v1.ConditionStatus)
 	nodeToLabelsMap := make(map[string]map[Label]int8)
 
-	nodeInfos := map[string]*NodeInfo{}
 	for _, obj := range objsList {
 		node := obj.(*NodeInfo)
-		nodeInfos[node.Name] = node
 
 		if c.captureNodeLevelInfo {
-			nodeToCapacityMap[node.Name] = node.Capacity
-			nodeToAllocatableMap[node.Name] = node.Allocatable
+			nodeToCapacityMap[node.name] = node.capacity
+			nodeToAllocatableMap[node.name] = node.allocatable
 			conditionsMap := make(map[v1.NodeConditionType]v1.ConditionStatus)
-			for _, condition := range node.Conditions {
+			for _, condition := range node.conditions {
 				conditionsMap[condition.Type] = condition.Status
 			}
-			nodeToConditionsMap[node.Name] = conditionsMap
+			nodeToConditionsMap[node.name] = conditionsMap
 		}
 		if c.captureOnlyNodeLabelInfo {
 			labelsMap := make(map[Label]int8)
-			if HyperPodLabel, ok := node.Labels[SageMakerNodeHealthStatus]; ok {
+			if HyperPodLabel, ok := node.labels[SageMakerNodeHealthStatus]; ok {
 				labelsMap[SageMakerNodeHealthStatus] = HyperPodLabel
-				nodeToLabelsMap[node.Name] = labelsMap
+				nodeToLabelsMap[node.name] = labelsMap
 			}
 		}
 		clusterNodeCountNew++
@@ -211,7 +193,7 @@ func (c *nodeClient) refresh() {
 		failed := false
 
 	Loop:
-		for _, condition := range node.Conditions {
+		for _, condition := range node.conditions {
 			if _, ok := failedNodeConditions[condition.Type]; ok {
 				// match the failedNodeConditions type we care about
 				if condition.Status != v1.ConditionFalse {
@@ -227,7 +209,6 @@ func (c *nodeClient) refresh() {
 		}
 	}
 
-	c.nodeInfos = nodeInfos
 	c.clusterFailedNodeCount = clusterFailedNodeCountNew
 	c.clusterNodeCount = clusterNodeCountNew
 	c.nodeToCapacityMap = nodeToCapacityMap
@@ -273,33 +254,23 @@ func transformFuncNode(obj any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("input obj %v is not Node type", obj)
 	}
-	info := new(NodeInfo)
-	info.Name = node.Name
-	info.Capacity = node.Status.Capacity
-	info.Allocatable = node.Status.Allocatable
-	info.Conditions = []*NodeCondition{}
-	info.ProviderID = node.Spec.ProviderID
-	if instanceType, ok := node.Labels[instanceTypeLabelKey]; ok {
-		info.InstanceType = instanceType
-	} else {
-		// fallback for compatibility with k8s versions older than v1.17
-		// https://kubernetes.io/docs/reference/labels-annotations-taints/#beta-kubernetes-io-instance-type-deprecated
-		if instanceType, ok := node.Labels[instanceTypeLabelKeyBeta]; ok {
-			info.InstanceType = instanceType
-		}
-	}
+	info := new(nodeInfo)
+	info.name = node.Name
+	info.capacity = node.Status.Capacity
+	info.allocatable = node.Status.Allocatable
+	info.conditions = []*NodeCondition{}
 
 	if sageMakerHealthStatus, ok := node.Labels[SageMakerNodeHealthStatus.String()]; ok {
-		info.Labels = make(map[Label]int8)
+		info.labels = make(map[Label]int8)
 		if condition, ok := k8sutil.ParseString(sageMakerHealthStatus); ok {
-			info.Labels[SageMakerNodeHealthStatus] = condition
+			info.labels[SageMakerNodeHealthStatus] = condition
 		} else {
-			info.Labels[SageMakerNodeHealthStatus] = int8(k8sutil.Unknown)
+			info.labels[SageMakerNodeHealthStatus] = int8(k8sutil.Unknown)
 		}
 	}
 
 	for _, condition := range node.Status.Conditions {
-		info.Conditions = append(info.Conditions, &NodeCondition{
+		info.conditions = append(info.conditions, &NodeCondition{
 			Type:   condition.Type,
 			Status: condition.Status,
 		})

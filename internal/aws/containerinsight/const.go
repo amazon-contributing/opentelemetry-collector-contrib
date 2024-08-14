@@ -141,9 +141,10 @@ const (
 	EfaRxDropped          = "rx_dropped"
 	EfaTxBytes            = "tx_bytes"
 
-	GpuLimit   = "gpu_limit"
-	GpuTotal   = "gpu_total"
-	GpuRequest = "gpu_request"
+	GpuLimit            = "gpu_limit"
+	GpuUsageTotal       = "gpu_usage_total"
+	GpuRequest          = "gpu_request"
+	GpuReservedCapacity = "gpu_reserved_capacity"
 
 	UnschedulablePendingReplacementMetric = "unschedulable_pending_replacement"
 	UnschedulablePendingRebootMetric      = "unschedulable_pending_reboot"
@@ -342,9 +343,10 @@ func init() {
 		EfaRxDropped:          UnitCountPerSec,
 		EfaTxBytes:            UnitBytesPerSec,
 
-		GpuLimit:   UnitCount,
-		GpuTotal:   UnitCount,
-		GpuRequest: UnitCount,
+		GpuLimit:            UnitCount,
+		GpuTotal:            UnitCount,
+		GpuRequest:          UnitCount,
+		GpuReservedCapacity: UnitPercent,
 
 		UnschedulablePendingReplacementMetric: UnitCount,
 		UnschedulablePendingRebootMetric:      UnitCount,
