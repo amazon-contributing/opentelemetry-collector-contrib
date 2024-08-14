@@ -414,11 +414,9 @@ func (p *PodStore) decorateGPU(metric CIMetric, pod *corev1.Pod) {
 	if p.includeEnhancedMetrics && p.enableAcceleratedComputeMetrics && metric.GetTag(ci.MetricType) == ci.TypePod &&
 		pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
 
-		if podGpuRequest, ok := getResourceSettingForPod(pod, 0, gpuKey, getRequestForContainer); ok {
-			metric.AddField(ci.MetricName(ci.TypePod, ci.GpuRequest), podGpuRequest)
-		}
-
 		if podGpuLimit, ok := getResourceSettingForPod(pod, 0, gpuKey, getLimitForContainer); ok {
+			podGpuRequest, _ := getResourceSettingForPod(pod, 0, gpuKey, getRequestForContainer)
+			metric.AddField(ci.MetricName(ci.TypePod, ci.GpuRequest), podGpuRequest)
 			metric.AddField(ci.MetricName(ci.TypePod, ci.GpuLimit), podGpuLimit)
 			var podGpuUsageTotal uint64
 			if pod.Status.Phase == corev1.PodRunning { // Set the GPU limit as the usage_total for running pods only
