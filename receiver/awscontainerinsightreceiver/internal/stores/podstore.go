@@ -311,11 +311,12 @@ func (p *PodStore) refreshInternal(now time.Time, podList []corev1.Pod) {
 			cpuRequest += tmpCPUReq
 			tmpMemReq, _ := getResourceSettingForPod(&pod, p.nodeInfo.getMemCapacity(), memoryKey, getRequestForContainer)
 			memRequest += tmpMemReq
-			if tmpGpuReq, ok := getResourceSettingForPod(&pod, 0, gpuKey, getRequestForContainer); ok {
+			if tmpGpuLimit, ok := getResourceSettingForPod(&pod, 0, gpuKey, getLimitForContainer); ok {
+				tmpGpuReq, _ := getResourceSettingForPod(&pod, 0, gpuKey, getRequestForContainer)
 				gpuRequest += tmpGpuReq
-			}
-			if tmpGpuLimit, ok := getResourceSettingForPod(&pod, 0, gpuKey, getLimitForContainer); ok && pod.Status.Phase == corev1.PodRunning {
-				gpuUsageTotal += tmpGpuLimit
+				if pod.Status.Phase == corev1.PodRunning {
+					gpuUsageTotal += tmpGpuLimit
+				}
 			}
 		}
 		if pod.Status.Phase == corev1.PodRunning {
