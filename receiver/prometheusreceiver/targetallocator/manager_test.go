@@ -3,7 +3,7 @@
 
 //go:build !race
 
-package prometheusreceiver
+package targetallocator
 
 import (
 	"context"
@@ -16,13 +16,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-kit/log"
+	"github.com/prometheus/client_golang/prometheus"
 	commonconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	promconfig "github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/discovery"
 	promHTTP "github.com/prometheus/prometheus/discovery/http"
+	"github.com/prometheus/prometheus/model/relabel"
+	"github.com/prometheus/prometheus/scrape"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
+	"go.opentelemetry.io/collector/config/configopaque"
+	"go.opentelemetry.io/collector/config/configtls"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 )
 
@@ -218,19 +226,16 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 				},
 			},
 			cfg: &Config{
-				PrometheusConfig: &PromConfig{GlobalConfig: promconfig.DefaultGlobalConfig},
-				TargetAllocator: &TargetAllocator{
-					Interval:    10 * time.Second,
-					CollectorID: "collector-1",
-					HTTPSDConfig: &PromHTTPSDConfig{
-						HTTPClientConfig: commonconfig.HTTPClientConfig{
-							BasicAuth: &commonconfig.BasicAuth{
-								Username: "user",
-								Password: "aPassword",
-							},
+				Interval:    10 * time.Second,
+				CollectorID: "collector-1",
+				HTTPSDConfig: &PromHTTPSDConfig{
+					HTTPClientConfig: commonconfig.HTTPClientConfig{
+						BasicAuth: &commonconfig.BasicAuth{
+							Username: "user",
+							Password: "aPassword",
 						},
-						RefreshInterval: model.Duration(60 * time.Second),
 					},
+					RefreshInterval: model.Duration(60 * time.Second),
 				},
 			},
 			want: expectedTestResult{
@@ -312,14 +317,11 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 				},
 			},
 			cfg: &Config{
-				PrometheusConfig: &PromConfig{GlobalConfig: promconfig.DefaultGlobalConfig},
-				TargetAllocator: &TargetAllocator{
-					Interval:    10 * time.Second,
-					CollectorID: "collector-1",
-					HTTPSDConfig: &PromHTTPSDConfig{
-						HTTPClientConfig: commonconfig.HTTPClientConfig{},
-						RefreshInterval:  model.Duration(60 * time.Second),
-					},
+				Interval:    10 * time.Second,
+				CollectorID: "collector-1",
+				HTTPSDConfig: &PromHTTPSDConfig{
+					HTTPClientConfig: commonconfig.HTTPClientConfig{},
+					RefreshInterval:  model.Duration(60 * time.Second),
 				},
 			},
 			want: expectedTestResult{
@@ -424,14 +426,11 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 				},
 			},
 			cfg: &Config{
-				PrometheusConfig: &PromConfig{GlobalConfig: promconfig.DefaultGlobalConfig},
-				TargetAllocator: &TargetAllocator{
-					Interval:    10 * time.Second,
-					CollectorID: "collector-1",
-					HTTPSDConfig: &PromHTTPSDConfig{
-						HTTPClientConfig: commonconfig.HTTPClientConfig{},
-						RefreshInterval:  model.Duration(60 * time.Second),
-					},
+				Interval:    10 * time.Second,
+				CollectorID: "collector-1",
+				HTTPSDConfig: &PromHTTPSDConfig{
+					HTTPClientConfig: commonconfig.HTTPClientConfig{},
+					RefreshInterval:  model.Duration(60 * time.Second),
 				},
 			},
 			want: expectedTestResult{
@@ -466,14 +465,11 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 				},
 			},
 			cfg: &Config{
-				PrometheusConfig: &PromConfig{GlobalConfig: promconfig.DefaultGlobalConfig},
-				TargetAllocator: &TargetAllocator{
-					Interval:    50 * time.Millisecond,
-					CollectorID: "collector-1",
-					HTTPSDConfig: &PromHTTPSDConfig{
-						HTTPClientConfig: commonconfig.HTTPClientConfig{},
-						RefreshInterval:  model.Duration(60 * time.Second),
-					},
+				Interval:    50 * time.Millisecond,
+				CollectorID: "collector-1",
+				HTTPSDConfig: &PromHTTPSDConfig{
+					HTTPClientConfig: commonconfig.HTTPClientConfig{},
+					RefreshInterval:  model.Duration(60 * time.Second),
 				},
 			},
 			want: expectedTestResult{
@@ -481,10 +477,95 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 				jobMap: map[string]expectedTestResultJobMap{},
 			},
 		},
+		{
+			desc: "update metric relabel config regex",
+			responses: Responses{
+				releaserMap: map[string]int{
+					"/scrape_configs": 1,
+				},
+				responses: map[string][]mockTargetAllocatorResponseRaw{
+					"/scrape_configs": {
+						mockTargetAllocatorResponseRaw{code: 200, data: map[string]map[string]any{
+							"job1": {
+								"job_name":         "job1",
+								"scrape_interval":  "30s",
+								"scrape_timeout":   "30s",
+								"scrape_protocols": []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
+								"metrics_path":     "/metrics",
+								"scheme":           "http",
+								"metric_relabel_configs": []map[string]string{
+									{
+										"separator": ";",
+										"regex":     "regex1",
+										"action":    "keep",
+									},
+								},
+							},
+						}},
+						mockTargetAllocatorResponseRaw{code: 200, data: map[string]map[string]any{
+							"job1": {
+								"job_name":         "job1",
+								"scrape_interval":  "30s",
+								"scrape_timeout":   "30s",
+								"scrape_protocols": []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
+								"metrics_path":     "/metrics",
+								"scheme":           "http",
+								"metric_relabel_configs": []map[string]string{
+									{
+										"separator": ";",
+										"regex":     "regex2",
+										"action":    "keep",
+									},
+								},
+							},
+						}},
+					},
+					"/jobs/job1/targets": {
+						mockTargetAllocatorResponseRaw{code: 200, data: []hTTPSDResponse{
+							{Targets: []string{"localhost:9090"},
+								Labels: map[model.LabelName]model.LabelValue{
+									"__meta_datacenter":     "london",
+									"__meta_prometheus_job": "node",
+								}},
+						}},
+						mockTargetAllocatorResponseRaw{code: 200, data: []hTTPSDResponse{
+							{Targets: []string{"localhost:9090"},
+								Labels: map[model.LabelName]model.LabelValue{
+									"__meta_datacenter":     "london",
+									"__meta_prometheus_job": "node",
+								}},
+						}},
+					},
+				},
+			},
+			cfg: &Config{
+				Interval:    10 * time.Second,
+				CollectorID: "collector-1",
+				HTTPSDConfig: &PromHTTPSDConfig{
+					HTTPClientConfig: commonconfig.HTTPClientConfig{},
+					RefreshInterval:  model.Duration(60 * time.Second),
+				},
+			},
+			want: expectedTestResult{
+				empty: false,
+				jobMap: map[string]expectedTestResultJobMap{
+					"job1": {
+						Targets: []string{"localhost:9090"},
+						Labels: map[model.LabelName]model.LabelValue{
+							"__meta_datacenter":     "london",
+							"__meta_prometheus_job": "node",
+						},
+						MetricRelabelConfig: &expectedMetricRelabelConfigTestResult{
+							JobName:            "job1",
+							MetricRelabelRegex: relabel.MustNewRegexp("regex2"),
+						},
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := context.Background()
-			cms := new(consumertest.MetricsSink)
 
 			allocator, err := setupMockTargetAllocator(tc.responses)
 			require.NoError(t, err, "Failed to create allocator", tc.responses)
@@ -492,14 +573,16 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 			allocator.Start()
 			defer allocator.Stop()
 
-			tc.cfg.TargetAllocator.Endpoint = allocator.srv.URL // set service URL with the automatic generated one
-			receiver := newPrometheusReceiver(receivertest.NewNopSettings(), tc.cfg, cms)
+			tc.cfg.Endpoint = allocator.srv.URL // set service URL with the automatic generated one
+			scrapeManager, discoveryManager := initPrometheusManagers(ctx, t)
 
-			require.NoError(t, receiver.Start(ctx, componenttest.NewNopHost()))
+			baseCfg := promconfig.Config{GlobalConfig: promconfig.DefaultGlobalConfig}
+			manager := NewManager(receivertest.NewNopSettings(), tc.cfg, &baseCfg, false)
+			require.NoError(t, manager.Start(ctx, componenttest.NewNopHost(), scrapeManager, discoveryManager))
 
 			allocator.wg.Wait()
 
-			providers := receiver.discoveryManager.Providers()
+			providers := discoveryManager.Providers()
 			if tc.want.empty {
 				// if no base config is supplied and the job retrieval fails then no configuration should be found
 				require.Len(t, providers, 0)
@@ -516,7 +599,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 
 				// are http configs applied?
 				sdConfig := provider.Config().(*promHTTP.SDConfig)
-				require.Equal(t, tc.cfg.TargetAllocator.HTTPSDConfig.HTTPClientConfig, sdConfig.HTTPClientConfig)
+				require.Equal(t, tc.cfg.HTTPSDConfig.HTTPClientConfig, sdConfig.HTTPClientConfig)
 
 				for _, group := range refresh {
 					found := false
@@ -532,6 +615,15 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 						// which is identical to the source url
 						s.Labels["__meta_url"] = model.LabelValue(sdConfig.URL)
 						require.Equal(t, s.Labels, group.Labels)
+						if s.MetricRelabelConfig != nil {
+							for _, sc := range manager.promCfg.ScrapeConfigs {
+								if sc.JobName == s.MetricRelabelConfig.JobName {
+									for _, mc := range sc.MetricRelabelConfigs {
+										require.Equal(t, s.MetricRelabelConfig.MetricRelabelRegex, mc.Regex)
+									}
+								}
+							}
+						}
 						found = true
 					}
 					require.True(t, found, "Returned job is not defined in expected values", group)
@@ -539,4 +631,65 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConfigureSDHTTPClientConfigFromTA(t *testing.T) {
+	ta := &Config{}
+	ta.TLSSetting = configtls.ClientConfig{
+		InsecureSkipVerify: true,
+		ServerName:         "test.server",
+		Config: configtls.Config{
+			CAFile:     "/path/to/ca",
+			CertFile:   "/path/to/cert",
+			KeyFile:    "/path/to/key",
+			CAPem:      configopaque.String(base64.StdEncoding.EncodeToString([]byte("test-ca"))),
+			CertPem:    configopaque.String(base64.StdEncoding.EncodeToString([]byte("test-cert"))),
+			KeyPem:     configopaque.String(base64.StdEncoding.EncodeToString([]byte("test-key"))),
+			MinVersion: "1.2",
+			MaxVersion: "1.3",
+		},
+	}
+	ta.ProxyURL = "http://proxy.test"
+
+	httpSD := &promHTTP.SDConfig{RefreshInterval: model.Duration(30 * time.Second)}
+
+	err := configureSDHTTPClientConfigFromTA(httpSD, ta)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, false, httpSD.HTTPClientConfig.FollowRedirects)
+	assert.Equal(t, true, httpSD.HTTPClientConfig.TLSConfig.InsecureSkipVerify)
+	assert.Equal(t, "test.server", httpSD.HTTPClientConfig.TLSConfig.ServerName)
+	assert.Equal(t, "/path/to/ca", httpSD.HTTPClientConfig.TLSConfig.CAFile)
+	assert.Equal(t, "/path/to/cert", httpSD.HTTPClientConfig.TLSConfig.CertFile)
+	assert.Equal(t, "/path/to/key", httpSD.HTTPClientConfig.TLSConfig.KeyFile)
+	assert.Equal(t, "test-ca", httpSD.HTTPClientConfig.TLSConfig.CA)
+	assert.Equal(t, "test-cert", httpSD.HTTPClientConfig.TLSConfig.Cert)
+	assert.Equal(t, commonconfig.Secret("test-key"), httpSD.HTTPClientConfig.TLSConfig.Key)
+	assert.Equal(t, commonconfig.TLSVersions["TLS12"], httpSD.HTTPClientConfig.TLSConfig.MinVersion)
+	assert.Equal(t, commonconfig.TLSVersions["TLS13"], httpSD.HTTPClientConfig.TLSConfig.MaxVersion)
+
+	parsedProxyURL, _ := url.Parse("http://proxy.test")
+	assert.Equal(t, commonconfig.URL{URL: parsedProxyURL}, httpSD.HTTPClientConfig.ProxyURL)
+
+	// Test case with empty TargetAllocator
+	emptyTA := &Config{}
+	emptyHTTPSD := &promHTTP.SDConfig{RefreshInterval: model.Duration(30 * time.Second)}
+
+	err = configureSDHTTPClientConfigFromTA(emptyHTTPSD, emptyTA)
+
+	assert.NoError(t, err)
+}
+
+func initPrometheusManagers(ctx context.Context, t *testing.T) (*scrape.Manager, *discovery.Manager) {
+	logger := log.NewNopLogger()
+	reg := prometheus.NewRegistry()
+	sdMetrics, err := discovery.RegisterSDMetrics(reg, discovery.NewRefreshMetrics(reg))
+	require.NoError(t, err)
+	discoveryManager := discovery.NewManager(ctx, logger, reg, sdMetrics)
+	require.NotNil(t, discoveryManager)
+
+	scrapeManager, err := scrape.NewManager(&scrape.Options{}, logger, nil, reg)
+	require.NoError(t, err)
+	return scrapeManager, discoveryManager
 }
