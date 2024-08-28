@@ -6,6 +6,8 @@ package awsemfexporter
 import (
 	"context"
 	"errors"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 	"os"
 	"testing"
 
@@ -30,6 +32,18 @@ const defaultRetryCount = 1
 func init() {
 	os.Setenv("AWS_ACCESS_KEY_ID", "test")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+}
+
+var entity = cloudwatchlogs.Entity{
+	Attributes: map[string]*string{
+		"PlatformType":     aws.String("AWS::EC2"),
+		"InstanceId":       aws.String("i-123456789"),
+		"AutoScalingGroup": aws.String("test-group"),
+	},
+	KeyAttributes: map[string]*string{
+		"Name":        aws.String("myService"),
+		"Environment": aws.String("myEnvironment"),
+	},
 }
 
 type mockPusher struct {
@@ -192,10 +206,12 @@ func TestConsumeMetricsWithLogGroupStreamConfig(t *testing.T) {
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
 	require.NoError(t, exp.shutdown(ctx))
-	pusherMap, ok := exp.pusherMap[cwlogs.StreamKey{
+	streamKey := &cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: expCfg.LogStreamName,
-	}]
+		Entity:        &entity,
+	}
+	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -223,10 +239,11 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
 	require.NoError(t, exp.shutdown(ctx))
-	pusherMap, ok := exp.pusherMap[cwlogs.StreamKey{
+	streamKey := &cwlogs.StreamKey{
 		LogGroupName:  "/aws/ecs/containerinsights/test-cluster-name/performance",
 		LogStreamName: "test-task-id",
-	}]
+	}
+	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -243,21 +260,39 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
+	var entity = &cloudwatchlogs.Entity{
+		Attributes: map[string]*string{
+			"PlatformType":     aws.String("AWS::EC2"),
+			"AutoScalingGroup": aws.String("test-group"),
+			"InstanceId":       aws.String("i-123456789"),
+		},
+		KeyAttributes: map[string]*string{
+			"Name":        aws.String("myService"),
+			"Environment": aws.String("myEnvironment"),
+		},
+	}
 
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
 		metricValues: [][]float64{{100}, {4}},
 		resourceAttributeMap: map[string]any{
-			"aws.ecs.cluster.name": "test-cluster-name",
-			"aws.ecs.task.id":      "test-task-id",
+			"aws.ecs.cluster.name":                  "test-cluster-name",
+			"aws.ecs.task.id":                       "test-task-id",
+			keyAttributeEntityServiceName:           "myService",
+			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
+			attributeEntityPlatformType:             "AWS::EC2",
+			attributeEntityASG:                      "test-group",
+			attributeEntityInstanceID:               "i-123456789",
 		},
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
 	require.NoError(t, exp.shutdown(ctx))
-	pusherMap, ok := exp.pusherMap[cwlogs.StreamKey{
+	streamKey := cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: "test-task-id",
-	}]
+		Entity:        entity,
+	}
+	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -285,10 +320,11 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
 	require.NoError(t, exp.shutdown(ctx))
-	pusherMap, ok := exp.pusherMap[cwlogs.StreamKey{
+	streamKey := cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: expCfg.LogStreamName,
-	}]
+	}
+	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -312,11 +348,12 @@ func TestPushMetricsDataWithErr(t *testing.T) {
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
 	logPusher.On("ForceFlush", nil).Return("").Once()
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
-	exp.pusherMap = map[cwlogs.StreamKey]cwlogs.Pusher{}
-	exp.pusherMap[cwlogs.StreamKey{
+	exp.pusherMap = map[string]cwlogs.Pusher{}
+	streamKey := cwlogs.StreamKey{
 		LogGroupName:  "test-logGroupName",
 		LogStreamName: "test-logStreamName",
-	}] = logPusher
+	}
+	exp.pusherMap[streamKey.Hash()] = logPusher
 
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},

@@ -36,7 +36,7 @@ const (
 )
 
 type emfExporter struct {
-	pusherMap        map[cwlogs.StreamKey]cwlogs.Pusher
+	pusherMap        map[string]cwlogs.Pusher
 	svcStructuredLog *cwlogs.Client
 	config           *Config
 
@@ -86,7 +86,7 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 		metricTranslator:      newMetricTranslator(*config),
 		retryCnt:              *awsConfig.MaxRetries,
 		collectorID:           collectorIdentifier.String(),
-		pusherMap:             map[cwlogs.StreamKey]cwlogs.Pusher{},
+		pusherMap:             map[string]cwlogs.Pusher{},
 		processResourceLabels: func(map[string]string) {},
 	}
 
@@ -179,10 +179,10 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 
 func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
 	var ok bool
-	if _, ok = emf.pusherMap[key]; !ok {
-		emf.pusherMap[key] = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
+	if _, ok = emf.pusherMap[key.Hash()]; !ok {
+		emf.pusherMap[key.Hash()] = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
 	}
-	return emf.pusherMap[key]
+	return emf.pusherMap[key.Hash()]
 }
 
 func (emf *emfExporter) listPushers() []cwlogs.Pusher {

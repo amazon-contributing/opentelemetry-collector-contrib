@@ -114,6 +114,7 @@ func newMockPusher() *logPusher {
 	return newLogPusher(StreamKey{
 		LogGroupName:  logGroup,
 		LogStreamName: logStreamName,
+		Entity:        &entity,
 	}, *svc, zap.NewNop())
 }
 

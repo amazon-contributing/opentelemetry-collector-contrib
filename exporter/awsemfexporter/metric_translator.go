@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"reflect"
 	"strings"
 	"time"
@@ -32,6 +34,18 @@ const (
 	containerInsightsReceiver = "awscontainerinsight"
 	attributeReceiver         = "receiver"
 	fieldPrometheusMetricType = "prom_metric_type"
+
+	//Entity fields
+	keyAttributeEntityServiceName           = "aws.entity.service.name"
+	serviceName                             = "Name"
+	keyAttributeEntityDeploymentEnvironment = "aws.entity.deployment.environment"
+	deploymentEnvironment                   = "Environment"
+	attributeEntityPlatformType             = "aws.entity.platform.type"
+	platformType                            = "PlatformType"
+	attributeEntityASG                      = "aws.entity.autoscalegroup"
+	autoScalingGroup                        = "AutoScalingGroup"
+	attributeEntityInstanceID               = "aws.entity.instance.id"
+	instanceIDTag                           = "InstanceId"
 )
 
 var errMissingMetricsForEnhancedContainerInsights = errors.New("nil event detected with EnhancedContainerInsights enabled")
@@ -79,6 +93,7 @@ type groupedMetricMetadata struct {
 	timestampMs                int64
 	logGroup                   string
 	logStream                  string
+	entity                     *cloudwatchlogs.Entity
 	metricDataType             pmetric.MetricType
 	retainInitialValueForDelta bool
 }
@@ -123,14 +138,15 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	cWNamespace := getNamespace(rm, config.Namespace)
 	logGroup, logStream, patternReplaceSucceeded := getLogInfo(rm, cWNamespace, config)
 	deltaInitialValue := config.RetainInitialValueOfDeltaMetric
+	resourceAttributes := rm.Resource().Attributes()
 
 	ilms := rm.ScopeMetrics()
 	var metricReceiver string
-	if receiver, ok := rm.Resource().Attributes().Get(attributeReceiver); ok {
+	if receiver, ok := resourceAttributes.Get(attributeReceiver); ok {
 		metricReceiver = receiver.Str()
 	}
 
-	if serviceName, ok := rm.Resource().Attributes().Get("service.name"); ok {
+	if serviceName, ok := resourceAttributes.Get("service.name"); ok {
 		if strings.HasPrefix(serviceName.Str(), "containerInsightsKubeAPIServerScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsDCGMExporterScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsNeuronMonitorScraper") {
@@ -138,6 +154,8 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 			metricReceiver = containerInsightsReceiver
 		}
 	}
+
+	entity := fetchEntityFields(resourceAttributes)
 
 	for j := 0; j < ilms.Len(); j++ {
 		ilm := ilms.At(j)
@@ -154,6 +172,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 					timestampMs:                timestamp,
 					logGroup:                   logGroup,
 					logStream:                  logStream,
+					entity:                     &entity,
 					metricDataType:             metric.Type(),
 					retainInitialValueForDelta: deltaInitialValue,
 				},
@@ -167,6 +186,36 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 		}
 	}
 	return nil
+}
+
+func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
+	entityFields := map[string]*string{
+		keyAttributeEntityServiceName:           nil,
+		keyAttributeEntityDeploymentEnvironment: nil,
+		attributeEntityASG:                      nil,
+		attributeEntityInstanceID:               nil,
+		attributeEntityPlatformType:             nil,
+	}
+
+	for key := range entityFields {
+		if val, ok := resourceAttributes.Get(key); ok {
+			strVal := val.Str()
+			entityFields[key] = &strVal
+			resourceAttributes.Remove(key)
+		}
+	}
+
+	return cloudwatchlogs.Entity{
+		Attributes: map[string]*string{
+			platformType:     entityFields[attributeEntityPlatformType],
+			autoScalingGroup: entityFields[attributeEntityASG],
+			instanceIDTag:    entityFields[attributeEntityInstanceID],
+		},
+		KeyAttributes: map[string]*string{
+			serviceName:           entityFields[keyAttributeEntityServiceName],
+			deploymentEnvironment: entityFields[keyAttributeEntityDeploymentEnvironment],
+		},
+	}
 }
 
 // translateGroupedMetricToCWMetric converts Grouped Metric format to CloudWatch Metric format.
@@ -505,6 +554,7 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 
 	logGroup := groupedMetric.metadata.logGroup
 	logStream := groupedMetric.metadata.logStream
+	entity := groupedMetric.metadata.entity
 
 	if logStream == "" {
 		logStream = defaultLogStream
@@ -512,6 +562,7 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 
 	event.LogGroupName = logGroup
 	event.LogStreamName = logStream
+	event.Entity = entity
 
 	return event, nil
 }

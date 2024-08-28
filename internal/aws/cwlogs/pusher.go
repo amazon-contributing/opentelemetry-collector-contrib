@@ -4,7 +4,10 @@
 package cwlogs // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -58,6 +61,20 @@ func NewEvent(timestampMs int64, message string) *Event {
 type StreamKey struct {
 	LogGroupName  string
 	LogStreamName string
+	Entity        *cloudwatchlogs.Entity
+}
+
+// Custom hash function for StreamKey. Necessary to uniquely identify with Entity.
+func (sk *StreamKey) Hash() string {
+	data := fmt.Sprintf(
+		"%s|%s|%s|%s",
+		sk.LogGroupName,
+		sk.LogStreamName,
+		mapToString(sk.Entity.Attributes),
+		mapToString(sk.Entity.KeyAttributes),
+	)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
 }
 
 func (logEvent *Event) Validate(logger *zap.Logger) error {
@@ -186,6 +203,8 @@ type logPusher struct {
 	logGroupName *string
 	// log stream name of the current logPusher
 	logStreamName *string
+	// entity name of the current logPusher
+	entity *cloudwatchlogs.Entity
 
 	logEventBatch *eventBatch
 
@@ -271,7 +290,8 @@ func (p *logPusher) pushEventBatch(req any) error {
 	p.logger.Debug("logpusher: publish log events successfully.",
 		zap.Int("NumOfLogEvents", len(putLogEventsInput.LogEvents)),
 		zap.Float64("LogEventsSize", float64(logEventBatch.byteTotal)/float64(1024)),
-		zap.Int64("Time", time.Since(startTime).Nanoseconds()/int64(time.Millisecond)))
+		zap.Int64("Time", time.Since(startTime).Nanoseconds()/int64(time.Millisecond)),
+		zap.String("Entity", logEventBatch.putLogEventsInput.Entity.GoString()))
 
 	return nil
 }
@@ -288,6 +308,7 @@ func (p *logPusher) addLogEvent(logEvent *Event) *eventBatch {
 		currentBatch = newEventBatch(StreamKey{
 			LogGroupName:  *p.logGroupName,
 			LogStreamName: *p.logStreamName,
+			Entity:        p.entity,
 		})
 	}
 	currentBatch.append(logEvent)
@@ -304,6 +325,7 @@ func (p *logPusher) renewEventBatch() *eventBatch {
 		p.logEventBatch = newEventBatch(StreamKey{
 			LogGroupName:  *p.logGroupName,
 			LogStreamName: *p.logStreamName,
+			Entity:        p.entity,
 		})
 	}
 
@@ -314,7 +336,7 @@ func (p *logPusher) renewEventBatch() *eventBatch {
 type multiStreamPusher struct {
 	logStreamManager LogStreamManager
 	client           Client
-	pusherMap        map[StreamKey]Pusher
+	pusherMap        map[string]Pusher
 	logger           *zap.Logger
 }
 
@@ -323,7 +345,7 @@ func newMultiStreamPusher(logStreamManager LogStreamManager, client Client, logg
 		logStreamManager: logStreamManager,
 		client:           client,
 		logger:           logger,
-		pusherMap:        make(map[StreamKey]Pusher),
+		pusherMap:        make(map[string]Pusher),
 	}
 }
 
@@ -335,9 +357,9 @@ func (m *multiStreamPusher) AddLogEntry(event *Event) error {
 	var pusher Pusher
 	var ok bool
 
-	if pusher, ok = m.pusherMap[event.StreamKey]; !ok {
+	if pusher, ok = m.pusherMap[event.StreamKey.Hash()]; !ok {
 		pusher = NewPusher(event.StreamKey, 1, m.client, m.logger)
-		m.pusherMap[event.StreamKey] = pusher
+		m.pusherMap[event.StreamKey.Hash()] = pusher
 	}
 
 	return pusher.AddLogEntry(event)
