@@ -209,9 +209,17 @@ func TestConsumeMetricsWithLogGroupStreamConfig(t *testing.T) {
 	streamKey := &cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: expCfg.LogStreamName,
-		Entity:        &entity,
+		Entity: &cloudwatchlogs.Entity{Attributes: map[string]*string{
+			"PlatformType":     nil,
+			"InstanceId":       nil,
+			"AutoScalingGroup": nil,
+		}, KeyAttributes: map[string]*string{
+			"Name":        nil,
+			"Environment": nil,
+		}},
 	}
-	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
+	streamKeyHash := streamKey.Hash()
+	pusherMap, ok := exp.pusherMap[streamKeyHash]
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -242,6 +250,14 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 	streamKey := &cwlogs.StreamKey{
 		LogGroupName:  "/aws/ecs/containerinsights/test-cluster-name/performance",
 		LogStreamName: "test-task-id",
+		Entity: &cloudwatchlogs.Entity{Attributes: map[string]*string{
+			"PlatformType":     nil,
+			"InstanceId":       nil,
+			"AutoScalingGroup": nil,
+		}, KeyAttributes: map[string]*string{
+			"Name":        nil,
+			"Environment": nil,
+		}},
 	}
 	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
 	assert.True(t, ok)
@@ -323,6 +339,14 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 	streamKey := cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: expCfg.LogStreamName,
+		Entity: &cloudwatchlogs.Entity{Attributes: map[string]*string{
+			"PlatformType":     nil,
+			"InstanceId":       nil,
+			"AutoScalingGroup": nil,
+		}, KeyAttributes: map[string]*string{
+			"Name":        nil,
+			"Environment": nil,
+		}},
 	}
 	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
 	assert.True(t, ok)

@@ -78,7 +78,11 @@ func mapToString(m map[string]*string) string {
 	}
 	var pairs []string
 	for k, v := range m {
-		pairs = append(pairs, fmt.Sprintf("%s:%s", k, *v))
+		if v == nil {
+			pairs = append(pairs, fmt.Sprintf("%s:", k))
+		} else {
+			pairs = append(pairs, fmt.Sprintf("%s:%s", k, *v))
+		}
 	}
 	sort.Strings(pairs) // Ensure a consistent order
 	return strings.Join(pairs, ";")

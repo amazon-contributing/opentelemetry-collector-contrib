@@ -156,6 +156,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	}
 
 	entity := fetchEntityFields(resourceAttributes)
+	config.logger.Info("fetched entity:" + entity.GoString())
 
 	for j := 0; j < ilms.Len(); j++ {
 		ilm := ilms.At(j)
@@ -179,8 +180,10 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 				instrumentationScopeName: instrumentationScopeName,
 				receiver:                 metricReceiver,
 			}
+			config.logger.Info("entity after metadata creation:" + metadata.groupedMetricMetadata.entity.GoString())
 			err := addToGroupedMetric(metric, groupedMetrics, metadata, patternReplaceSucceeded, mt.metricDescriptor, config, mt.calculators)
 			if err != nil {
+				config.logger.Info("error with adding to grouped metric:" + err.Error())
 				return err
 			}
 		}
@@ -432,7 +435,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 			var f any
 			err := json.Unmarshal([]byte(val), &f)
 			if err != nil {
-				config.logger.Debug(
+				config.logger.Info(
 					"Failed to parse json-encoded string",
 					zap.String("label key", key),
 					zap.String("label value", val),
@@ -517,6 +520,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 
 	pleMsg, err := json.Marshal(fieldMap)
 	if err != nil {
+		config.logger.Error("error with marshalling the fieldMap: ", zap.Error(err))
 		return nil, err
 	}
 
@@ -524,6 +528,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 	if len(metricsMap) > 0 {
 		metricsMsg, err := json.Marshal(metricsMap)
 		if err != nil {
+			config.logger.Error("error with marshalling the metricsMap: ", zap.Error(err))
 			return nil, err
 		}
 		metricsMsg[0] = ','
@@ -545,6 +550,7 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 	cWMetric := translateGroupedMetricToCWMetric(groupedMetric, config)
 	event, err := translateCWMetricToEMF(cWMetric, config)
 	if err != nil {
+		config.logger.Info("error with translating CW Metric to EMF", zap.Error(err))
 		return nil, err
 	}
 	// Drop a nil putLogEvent for EnhancedContainerInsights

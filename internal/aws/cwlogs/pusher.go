@@ -4,8 +4,6 @@
 package cwlogs // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -66,15 +64,25 @@ type StreamKey struct {
 
 // Custom hash function for StreamKey. Necessary to uniquely identify with Entity.
 func (sk *StreamKey) Hash() string {
+	var attributes, keyAttributes string
+	if sk.Entity != nil {
+		if sk.Entity.Attributes != nil {
+			attributes = mapToString(sk.Entity.Attributes)
+		}
+		if sk.Entity.KeyAttributes != nil {
+			keyAttributes = mapToString(sk.Entity.KeyAttributes)
+		}
+	}
+
 	data := fmt.Sprintf(
 		"%s|%s|%s|%s",
 		sk.LogGroupName,
 		sk.LogStreamName,
-		mapToString(sk.Entity.Attributes),
-		mapToString(sk.Entity.KeyAttributes),
+		attributes,
+		keyAttributes,
 	)
-	hash := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(hash[:])
+	//hash := sha256.Sum256([]byte(data))
+	return data
 }
 
 func (logEvent *Event) Validate(logger *zap.Logger) error {
@@ -133,7 +141,9 @@ func newEventBatch(key StreamKey) *eventBatch {
 		putLogEventsInput: &cloudwatchlogs.PutLogEventsInput{
 			LogGroupName:  aws.String(key.LogGroupName),
 			LogStreamName: aws.String(key.LogStreamName),
-			LogEvents:     make([]*cloudwatchlogs.InputLogEvent, 0, maxRequestEventCount)},
+			LogEvents:     make([]*cloudwatchlogs.InputLogEvent, 0, maxRequestEventCount),
+			Entity:        key.Entity,
+		},
 	}
 }
 
@@ -262,7 +272,9 @@ func (p *logPusher) AddLogEntry(logEvent *Event) error {
 }
 
 func (p *logPusher) ForceFlush() error {
+	p.logger.Info("in force flush method for the log pusher")
 	prevBatch := p.renewEventBatch()
+	p.logger.Info("renewedEventBatch. The entity here is " + prevBatch.putLogEventsInput.Entity.GoString())
 	if prevBatch != nil {
 		return p.pushEventBatch(prevBatch)
 	}
@@ -320,13 +332,16 @@ func (p *logPusher) addLogEvent(logEvent *Event) *eventBatch {
 func (p *logPusher) renewEventBatch() *eventBatch {
 
 	var prevBatch *eventBatch
+	p.logger.Info("renewing EventBatch, just before the if statement")
 	if len(p.logEventBatch.putLogEventsInput.LogEvents) > 0 {
+		p.logger.Info("renewing EventBatch. The entity here is " + p.logEventBatch.putLogEventsInput.Entity.GoString())
 		prevBatch = p.logEventBatch
 		p.logEventBatch = newEventBatch(StreamKey{
 			LogGroupName:  *p.logGroupName,
 			LogStreamName: *p.logStreamName,
 			Entity:        p.entity,
 		})
+		p.logger.Info("renewed EventBatch. The entity here is " + p.logEventBatch.putLogEventsInput.Entity.GoString())
 	}
 
 	return prevBatch
@@ -417,25 +432,26 @@ type LogStreamManager interface {
 
 type logStreamManager struct {
 	logStreamMutex sync.Mutex
-	streams        map[StreamKey]bool
+	streams        map[string]bool
 	client         Client
 }
 
 func NewLogStreamManager(svcStructuredLog Client) LogStreamManager {
 	return &logStreamManager{
 		client:  svcStructuredLog,
-		streams: make(map[StreamKey]bool),
+		streams: make(map[string]bool),
 	}
 }
 
 func (lsm *logStreamManager) InitStream(streamKey StreamKey) error {
-	if _, ok := lsm.streams[streamKey]; !ok {
+	hash := streamKey.Hash()
+	if _, ok := lsm.streams[hash]; !ok {
 		lsm.logStreamMutex.Lock()
 		defer lsm.logStreamMutex.Unlock()
 
-		if _, ok := lsm.streams[streamKey]; !ok {
+		if _, ok := lsm.streams[hash]; !ok {
 			err := lsm.client.CreateStream(&streamKey.LogGroupName, &streamKey.LogStreamName)
-			lsm.streams[streamKey] = true
+			lsm.streams[hash] = true
 			return err
 		}
 	}

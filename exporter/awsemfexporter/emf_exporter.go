@@ -132,7 +132,9 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 
 	for _, groupedMetric := range groupedMetrics {
 		putLogEvent, err := translateGroupedMetricToEmf(groupedMetric, emf.config, defaultLogStream)
+		emf.config.logger.Info("putLogEvent", zap.Any("putLogEvent", putLogEvent))
 		if err != nil {
+			emf.config.logger.Error("error with translating grouped metric to emf")
 			if errors.Is(err, errMissingMetricsForEnhancedContainerInsights) {
 				emf.config.logger.Debug("Dropping empty putLogEvents for enhanced container insights", zap.Error(err))
 				continue
@@ -152,16 +154,20 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 			if emfPusher != nil {
 				returnError := emfPusher.AddLogEntry(putLogEvent)
 				if returnError != nil {
+					emf.config.logger.Error("could not get the emf pusher", zap.Error(returnError))
 					return wrapErrorIfBadRequest(returnError)
 				}
+				emf.config.logger.Info("did not crash when adding the log entry!")
 			}
 		}
 	}
 
 	if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
-		for _, emfPusher := range emf.listPushers() {
+		for num, emfPusher := range emf.listPushers() {
+			emf.config.logger.Info("force flushing emfpusher #" + string(rune(num)))
 			returnError := emfPusher.ForceFlush()
 			if returnError != nil {
+				emf.config.logger.Info("error with force flushing")
 				// TODO now we only have one logPusher, so it's ok to return after first error occurred
 				err := wrapErrorIfBadRequest(returnError)
 				if err != nil {
@@ -169,20 +175,23 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 				}
 				return err
 			}
+			emf.config.logger.Info("succeeded in force flushing")
 		}
 	}
 
-	emf.config.logger.Debug("Finish processing resource metrics", zap.Any("labels", labels))
+	emf.config.logger.Info("Finish processing resource metrics", zap.Any("labels", labels))
 
 	return nil
 }
 
 func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
 	var ok bool
-	if _, ok = emf.pusherMap[key.Hash()]; !ok {
-		emf.pusherMap[key.Hash()] = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
+	hash := key.Hash()
+	if _, ok = emf.pusherMap[hash]; !ok {
+		emf.pusherMap[hash] = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
 	}
-	return emf.pusherMap[key.Hash()]
+	emf.config.logger.Info("The hash is " + hash)
+	return emf.pusherMap[hash]
 }
 
 func (emf *emfExporter) listPushers() []cwlogs.Pusher {

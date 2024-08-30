@@ -39,6 +39,7 @@ func createTestResourceMetricsHelper(numMetrics int) pmetric.ResourceMetrics {
 	rm.Resource().Attributes().PutStr("ClusterName", "myCluster")
 	rm.Resource().Attributes().PutStr("PodName", "myPod")
 	rm.Resource().Attributes().PutStr(attributeReceiver, prometheusReceiver)
+	rm.Resource().Attributes().PutStr(keyAttributeEntityServiceName, "myServiceName")
 	sm := rm.ScopeMetrics().AppendEmpty()
 
 	m := sm.Metrics().AppendEmpty()
