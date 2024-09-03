@@ -340,7 +340,7 @@ func (p *logPusher) renewEventBatch() *eventBatch {
 	var prevBatch *eventBatch
 	p.logger.Info("renewing EventBatch, just before the if statement")
 	if len(p.logEventBatch.putLogEventsInput.LogEvents) > 0 {
-		p.logger.Info("renewing EventBatch. The entity here is " + p.logEventBatch.putLogEventsInput.Entity.GoString())
+		p.logger.Info("renewing EventBatch. The entity here is " + p.entity.GoString())
 		p.logger.Info("p.entity type: " + fmt.Sprintf("%T", p.entity))
 		prevBatch = p.logEventBatch
 		p.logEventBatch = newEventBatch(StreamKey{
