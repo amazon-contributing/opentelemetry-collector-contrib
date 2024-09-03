@@ -131,7 +131,8 @@ func TestPusher_newLogEventBatch(t *testing.T) {
 	logEventBatch := newEventBatch(StreamKey{
 		LogGroupName:  logGroup,
 		LogStreamName: logStreamName,
-	})
+		Entity:        &entity,
+	}, zap.NewExample())
 	assert.Equal(t, int64(0), logEventBatch.maxTimestampMs)
 	assert.Equal(t, int64(0), logEventBatch.minTimestampMs)
 	assert.Equal(t, 0, logEventBatch.byteTotal)

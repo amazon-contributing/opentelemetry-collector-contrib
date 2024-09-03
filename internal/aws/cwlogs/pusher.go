@@ -140,6 +140,7 @@ func newEventBatch(key StreamKey, logger *zap.Logger) *eventBatch {
 	logger.Info("in newEventBatch function")
 	logger.Info("logGroupName: " + key.LogGroupName)
 	logger.Info("logStreamName: " + key.LogStreamName)
+	logger.Info("p.entity type: " + fmt.Sprintf("%T", key.Entity))
 	logger.Info("entity: " + key.Entity.GoString())
 
 	return &eventBatch{
@@ -340,6 +341,7 @@ func (p *logPusher) renewEventBatch() *eventBatch {
 	p.logger.Info("renewing EventBatch, just before the if statement")
 	if len(p.logEventBatch.putLogEventsInput.LogEvents) > 0 {
 		p.logger.Info("renewing EventBatch. The entity here is " + p.logEventBatch.putLogEventsInput.Entity.GoString())
+		p.logger.Info("p.entity type: " + fmt.Sprintf("%T", p.entity))
 		prevBatch = p.logEventBatch
 		p.logEventBatch = newEventBatch(StreamKey{
 			LogGroupName:  *p.logGroupName,
