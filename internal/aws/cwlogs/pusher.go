@@ -250,7 +250,7 @@ func newLogPusher(streamKey StreamKey,
 		svcStructuredLog: svcStructuredLog,
 		logger:           logger,
 	}
-	pusher.logEventBatch = newEventBatch(streamKey)
+	pusher.logEventBatch = newEventBatch(streamKey, logger)
 
 	return pusher
 }
@@ -326,7 +326,7 @@ func (p *logPusher) addLogEvent(logEvent *Event) *eventBatch {
 			LogGroupName:  *p.logGroupName,
 			LogStreamName: *p.logStreamName,
 			Entity:        p.entity,
-		})
+		}, p.logger)
 	}
 	currentBatch.append(logEvent)
 	p.logEventBatch = currentBatch
