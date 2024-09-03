@@ -136,7 +136,12 @@ type eventBatch struct {
 }
 
 // Create a new log event batch if needed.
-func newEventBatch(key StreamKey) *eventBatch {
+func newEventBatch(key StreamKey, logger *zap.Logger) *eventBatch {
+	logger.Info("in newEventBatch function")
+	logger.Info("logGroupName: " + key.LogGroupName)
+	logger.Info("logStreamName: " + key.LogStreamName)
+	logger.Info("entity: " + key.Entity.GoString())
+
 	return &eventBatch{
 		putLogEventsInput: &cloudwatchlogs.PutLogEventsInput{
 			LogGroupName:  aws.String(key.LogGroupName),
@@ -340,7 +345,7 @@ func (p *logPusher) renewEventBatch() *eventBatch {
 			LogGroupName:  *p.logGroupName,
 			LogStreamName: *p.logStreamName,
 			Entity:        p.entity,
-		})
+		}, p.logger)
 		p.logger.Info("renewed EventBatch. The entity here is " + p.logEventBatch.putLogEventsInput.Entity.GoString())
 	}
 
