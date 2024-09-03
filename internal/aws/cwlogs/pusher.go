@@ -248,6 +248,7 @@ func newLogPusher(streamKey StreamKey,
 	pusher := &logPusher{
 		logGroupName:     aws.String(streamKey.LogGroupName),
 		logStreamName:    aws.String(streamKey.LogStreamName),
+		entity:           streamKey.Entity,
 		svcStructuredLog: svcStructuredLog,
 		logger:           logger,
 	}

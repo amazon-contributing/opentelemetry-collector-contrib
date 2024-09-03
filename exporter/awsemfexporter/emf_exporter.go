@@ -165,6 +165,7 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
 		for num, emfPusher := range emf.listPushers() {
 			emf.config.logger.Info("force flushing emfpusher #" + string(rune(num)))
+			emf.config.logger.Info("entity is ")
 			returnError := emfPusher.ForceFlush()
 			if returnError != nil {
 				emf.config.logger.Info("error with force flushing")
