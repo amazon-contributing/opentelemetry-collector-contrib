@@ -5,7 +5,6 @@ package awscloudwatchlogsexporter // import "github.com/open-telemetry/opentelem
 
 import (
 	"errors"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configretry"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 )
 
 // Config represent a configuration for the CloudWatch logs exporter.
