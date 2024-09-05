@@ -15,7 +15,6 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 )
 
-
 // CloudWatchLogsAPI provides an interface to enable mocking the
 // cloudwatchlogs.CloudWatchLogs service client's API operation,
 // paginators, and waiters. This make unit testing your code that calls out
