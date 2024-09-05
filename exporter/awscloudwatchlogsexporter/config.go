@@ -5,6 +5,7 @@ package awscloudwatchlogsexporter // import "github.com/open-telemetry/opentelem
 
 import (
 	"errors"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configretry"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 )
 
 // Config represent a configuration for the CloudWatch logs exporter.
@@ -27,7 +27,7 @@ type Config struct {
 	// that share the same source.
 	LogStreamName string `mapstructure:"log_stream_name"`
 
-	//Entity is the name of the service identifier of the CloudWatch log stream
+	// Entity is the name of the unique identifier of the CloudWatch log stream
 	Entity cloudwatchlogs.Entity
 
 	// Endpoint is the CloudWatch Logs service endpoint which the requests

@@ -16738,7 +16738,7 @@ type PutAccountPolicyInput struct {
 	// Using the selectionCriteria parameter is useful to help prevent infinite
 	// loops. For more information, see Log recursion prevention (https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Subscriptions-recursion-prevention.html).
 	//
-	// Specifing selectionCriteria is valid only when you specify SUBSCRIPTION_FILTER_POLICY
+	// Specifying selectionCriteria is valid only when you specify SUBSCRIPTION_FILTER_POLICY
 	// for policyType.
 	SelectionCriteria *string `locationName:"selectionCriteria" type:"string"`
 }
