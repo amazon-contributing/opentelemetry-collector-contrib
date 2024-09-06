@@ -166,7 +166,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	}
 
 	config.logger.Info("resourceAttributes", zap.Any("resourceAttributes", resourceAttributes.AsRaw()))
-	resourceAttributes, entity := fetchEntityFields(resourceAttributes)
+	entity, resourceAttributes := fetchEntityFields(resourceAttributes)
 	config.logger.Info("fetched entity:" + entity.GoString())
 
 	for j := 0; j < ilms.Len(); j++ {
