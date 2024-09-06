@@ -60,7 +60,7 @@ var keyAttributeEntityToShortNameMap = map[string]string{
 
 var attributeEntityToShortNameMap = map[string]string{
 	AttributeEntityCluster:   cluster,
-	AttributeEntityNamespace: deploymentEnvironment,
+	AttributeEntityNamespace: namespace,
 	AttributeEntityWorkload:  workload,
 	AttributeEntityNode:      node,
 }
