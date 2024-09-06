@@ -211,9 +211,8 @@ func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
 
 	return cloudwatchlogs.Entity{
 		Attributes: map[string]*string{
-			platformType:     entityFields["host.type"],
-			autoScalingGroup: entityFields[attributeEntityASG],
-			instanceIDTag:    entityFields["host.name"],
+			platformType:  entityFields["host.type"],
+			instanceIDTag: entityFields["host.name"],
 		},
 		KeyAttributes: map[string]*string{
 			serviceName:           entityFields["aws.entity.k8s.namespace.name"],
