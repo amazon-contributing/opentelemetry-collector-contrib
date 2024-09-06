@@ -194,11 +194,11 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 
 func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
 	entityFields := map[string]*string{
-		keyAttributeEntityServiceName:           nil,
-		keyAttributeEntityDeploymentEnvironment: nil,
-		attributeEntityASG:                      nil,
-		attributeEntityInstanceID:               nil,
-		attributeEntityPlatformType:             nil,
+		"aws.entity.k8s.namespace.name": nil, // Correct key for k8s namespace
+		"aws.deployment.name":           nil, // Correct key for deployment name
+		"host.name":                     nil, // Correct key for instance ID (host.name)
+		"host.type":                     nil, // Correct key for platform type (host.type)
+		"attributeEntityASG":            nil, // Adjust this key based on your actual key for ASG, if any
 	}
 
 	for key := range entityFields {
