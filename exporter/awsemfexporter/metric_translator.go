@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -50,6 +51,8 @@ const (
 	attributeEntityInstanceID               = "aws.entity.instance.id"
 	instanceIDTag                           = "InstanceId"
 )
+
+var resourceMutex sync.Mutex
 
 var keyAttributeEntityFields = []string{
 	keyAttributeEntityServiceName,
@@ -203,6 +206,8 @@ func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
 	serviceKeyAttr := map[string]*string{
 		entityType: aws.String(service),
 	}
+	resourceMutex.Lock()
+	defer resourceMutex.Unlock()
 
 	for _, key := range keyAttributeEntityFields {
 		if val, ok := resourceAttributes.Get(key); ok {
@@ -215,10 +220,7 @@ func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
 	}
 
 	return cloudwatchlogs.Entity{
-		KeyAttributes: map[string]*string{
-			serviceName:           serviceKeyAttr[keyAttributeEntityServiceName],
-			deploymentEnvironment: serviceKeyAttr[keyAttributeEntityDeploymentEnvironment],
-		},
+		KeyAttributes: serviceKeyAttr,
 	}
 }
 
