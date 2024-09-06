@@ -205,7 +205,7 @@ func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
 		if val, ok := resourceAttributes.Get(key); ok {
 			strVal := val.Str()
 			entityFields[key] = &strVal
-			resourceAttributes.Remove(key)
+			//resourceAttributes.Remove(key)
 		}
 	}
 
