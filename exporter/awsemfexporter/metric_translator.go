@@ -166,7 +166,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	}
 
 	config.logger.Info("resourceAttributes", zap.Any("resourceAttributes", resourceAttributes.AsRaw()))
-	entity := fetchEntityFields(rm.Resource().Attributes())
+	resourceAttributes, entity := fetchEntityFields(resourceAttributes)
 	config.logger.Info("fetched entity:" + entity.GoString())
 
 	for j := 0; j < ilms.Len(); j++ {
@@ -202,26 +202,26 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	return nil
 }
 
-func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
+func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, pcommon.Map) {
+	mutableResourceAttributes := pcommon.NewMap()
+	resourceAttributes.CopyTo(mutableResourceAttributes)
 	serviceKeyAttr := map[string]*string{
 		entityType: aws.String(service),
 	}
-	resourceMutex.Lock()
-	defer resourceMutex.Unlock()
 
 	for _, key := range keyAttributeEntityFields {
-		if val, ok := resourceAttributes.Get(key); ok {
+		if val, ok := mutableResourceAttributes.Get(key); ok {
 			strVal := val.Str()
 			if strVal != "" {
 				serviceKeyAttr[key] = aws.String(strVal)
 			}
-			resourceAttributes.Remove(key)
+			mutableResourceAttributes.Remove(key)
 		}
 	}
 
 	return cloudwatchlogs.Entity{
 		KeyAttributes: serviceKeyAttr,
-	}
+	}, mutableResourceAttributes
 }
 
 // translateGroupedMetricToCWMetric converts Grouped Metric format to CloudWatch Metric format.
