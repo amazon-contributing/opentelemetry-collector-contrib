@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"reflect"
@@ -18,7 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
-	aws "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
+	awsmetrics "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 )
 
 const (
@@ -41,6 +42,8 @@ const (
 	keyAttributeEntityDeploymentEnvironment = "aws.entity.deployment.environment"
 	deploymentEnvironment                   = "Environment"
 	attributeEntityPlatformType             = "aws.entity.platform.type"
+	entityType                              = "Type"
+	service                                 = "Service"
 	platformType                            = "PlatformType"
 	attributeEntityASG                      = "aws.entity.autoscalegroup"
 	autoScalingGroup                        = "AutoScalingGroup"
@@ -48,6 +51,10 @@ const (
 	instanceIDTag                           = "InstanceId"
 )
 
+var keyAttributeEntityFields = []string{
+	keyAttributeEntityServiceName,
+	keyAttributeEntityDeploymentEnvironment,
+}
 var errMissingMetricsForEnhancedContainerInsights = errors.New("nil event detected with EnhancedContainerInsights enabled")
 
 var fieldPrometheusTypes = map[pmetric.MetricType]string{
@@ -118,8 +125,8 @@ func newMetricTranslator(config Config) metricTranslator {
 	return metricTranslator{
 		metricDescriptor: mt,
 		calculators: &emfCalculators{
-			delta:   aws.NewFloat64DeltaCalculator(),
-			summary: aws.NewMetricCalculator(calculateSummaryDelta),
+			delta:   awsmetrics.NewFloat64DeltaCalculator(),
+			summary: awsmetrics.NewMetricCalculator(calculateSummaryDelta),
 		},
 	}
 }
@@ -142,11 +149,11 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 
 	ilms := rm.ScopeMetrics()
 	var metricReceiver string
-	if receiver, ok := resourceAttributes.Get(attributeReceiver); ok {
+	if receiver, ok := rm.Resource().Attributes().Get(attributeReceiver); ok {
 		metricReceiver = receiver.Str()
 	}
 
-	if serviceName, ok := resourceAttributes.Get("service.name"); ok {
+	if serviceName, ok := rm.Resource().Attributes().Get("service.name"); ok {
 		if strings.HasPrefix(serviceName.Str(), "containerInsightsKubeAPIServerScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsDCGMExporterScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsNeuronMonitorScraper") {
@@ -156,7 +163,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	}
 
 	config.logger.Info("resourceAttributes", zap.Any("resourceAttributes", resourceAttributes.AsRaw()))
-	entity := fetchEntityFields(resourceAttributes)
+	entity := fetchEntityFields(rm.Resource().Attributes())
 	config.logger.Info("fetched entity:" + entity.GoString())
 
 	for j := 0; j < ilms.Len(); j++ {
@@ -193,23 +200,24 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 }
 
 func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
-	entityFields := map[string]*string{
-		keyAttributeEntityServiceName:           nil,
-		keyAttributeEntityDeploymentEnvironment: nil,
+	serviceKeyAttr := map[string]*string{
+		entityType: aws.String(service),
 	}
 
-	for key := range entityFields {
+	for _, key := range keyAttributeEntityFields {
 		if val, ok := resourceAttributes.Get(key); ok {
 			strVal := val.Str()
-			entityFields[key] = &strVal
+			if strVal != "" {
+				serviceKeyAttr[key] = aws.String(strVal)
+			}
 			resourceAttributes.Remove(key)
 		}
 	}
 
 	return cloudwatchlogs.Entity{
 		KeyAttributes: map[string]*string{
-			serviceName:           entityFields[keyAttributeEntityServiceName],
-			deploymentEnvironment: entityFields[keyAttributeEntityDeploymentEnvironment],
+			serviceName:           serviceKeyAttr[keyAttributeEntityServiceName],
+			deploymentEnvironment: serviceKeyAttr[keyAttributeEntityDeploymentEnvironment],
 		},
 	}
 }
