@@ -155,6 +155,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 		}
 	}
 
+	config.logger.Info("resourceAttributes", zap.Any("resourceAttributes", resourceAttributes.AsRaw()))
 	entity := fetchEntityFields(resourceAttributes)
 	config.logger.Info("fetched entity:" + entity.GoString())
 
