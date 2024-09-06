@@ -217,8 +217,8 @@ func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, p
 	}
 	attributeMap := map[string]*string{}
 
-	processAttributes(keyAttributeEntityToShortNameMap, serviceKeyAttr)
-	processAttributes(attributeEntityToShortNameMap, attributeMap)
+	processAttributes(keyAttributeEntityToShortNameMap, serviceKeyAttr, mutableResourceAttributes)
+	processAttributes(attributeEntityToShortNameMap, attributeMap, mutableResourceAttributes)
 
 	return cloudwatchlogs.Entity{
 		KeyAttributes: serviceKeyAttr,
@@ -578,7 +578,7 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 	return event, nil
 }
 
-func processAttributes(entityMap map[string]string, targetMap map[string]*string) {
+func processAttributes(entityMap map[string]string, targetMap map[string]*string, mutableResourceAttributes pcommon.Map) {
 	for entityField, shortName := range entityMap {
 		if val, ok := mutableResourceAttributes.Get(entityField); ok {
 			if strVal := val.Str(); strVal != "" {
