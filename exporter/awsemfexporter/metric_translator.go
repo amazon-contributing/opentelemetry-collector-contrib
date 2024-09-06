@@ -58,6 +58,12 @@ var keyAttributeEntityFields = []string{
 	keyAttributeEntityServiceName,
 	keyAttributeEntityDeploymentEnvironment,
 }
+
+var keyAttributeEntityToShortNameMap = map[string]string{
+	keyAttributeEntityServiceName:           serviceName,
+	keyAttributeEntityDeploymentEnvironment: deploymentEnvironment,
+}
+
 var errMissingMetricsForEnhancedContainerInsights = errors.New("nil event detected with EnhancedContainerInsights enabled")
 
 var fieldPrometheusTypes = map[pmetric.MetricType]string{
@@ -209,13 +215,13 @@ func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, p
 		entityType: aws.String(service),
 	}
 
-	for _, key := range keyAttributeEntityFields {
-		if val, ok := mutableResourceAttributes.Get(key); ok {
+	for entityField, shortName := range keyAttributeEntityToShortNameMap {
+		if val, ok := mutableResourceAttributes.Get(entityField); ok {
 			strVal := val.Str()
 			if strVal != "" {
-				serviceKeyAttr[key] = aws.String(strVal)
+				serviceKeyAttr[shortName] = aws.String(strVal)
 			}
-			mutableResourceAttributes.Remove(key)
+			mutableResourceAttributes.Remove(entityField)
 		}
 	}
 
