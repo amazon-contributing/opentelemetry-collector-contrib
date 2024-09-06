@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -42,26 +41,28 @@ const (
 	serviceName                             = "Name"
 	keyAttributeEntityDeploymentEnvironment = "aws.entity.deployment.environment"
 	deploymentEnvironment                   = "Environment"
-	attributeEntityPlatformType             = "aws.entity.platform.type"
 	entityType                              = "Type"
 	service                                 = "Service"
-	platformType                            = "PlatformType"
-	attributeEntityASG                      = "aws.entity.autoscalegroup"
-	autoScalingGroup                        = "AutoScalingGroup"
-	attributeEntityInstanceID               = "aws.entity.instance.id"
-	instanceIDTag                           = "InstanceId"
+	AttributeEntityCluster                  = "aws.entity.k8s.cluster.name"
+	cluster                                 = "Cluster"
+	AttributeEntityNamespace                = "aws.entity.k8s.namespace.name"
+	namespace                               = "Namespace"
+	AttributeEntityWorkload                 = "aws.entity.k8s.workload.name"
+	workload                                = "Workload"
+	AttributeEntityNode                     = "aws.entity.k8s.node.name"
+	node                                    = "Node"
 )
-
-var resourceMutex sync.Mutex
-
-var keyAttributeEntityFields = []string{
-	keyAttributeEntityServiceName,
-	keyAttributeEntityDeploymentEnvironment,
-}
 
 var keyAttributeEntityToShortNameMap = map[string]string{
 	keyAttributeEntityServiceName:           serviceName,
 	keyAttributeEntityDeploymentEnvironment: deploymentEnvironment,
+}
+
+var attributeEntityToShortNameMap = map[string]string{
+	AttributeEntityCluster:   cluster,
+	AttributeEntityNamespace: deploymentEnvironment,
+	AttributeEntityWorkload:  workload,
+	AttributeEntityNode:      node,
 }
 
 var errMissingMetricsForEnhancedContainerInsights = errors.New("nil event detected with EnhancedContainerInsights enabled")
@@ -214,19 +215,14 @@ func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, p
 	serviceKeyAttr := map[string]*string{
 		entityType: aws.String(service),
 	}
+	attributeMap := map[string]*string{}
 
-	for entityField, shortName := range keyAttributeEntityToShortNameMap {
-		if val, ok := mutableResourceAttributes.Get(entityField); ok {
-			strVal := val.Str()
-			if strVal != "" {
-				serviceKeyAttr[shortName] = aws.String(strVal)
-			}
-			mutableResourceAttributes.Remove(entityField)
-		}
-	}
+	processAttributes(keyAttributeEntityToShortNameMap, serviceKeyAttr)
+	processAttributes(attributeEntityToShortNameMap, attributeMap)
 
 	return cloudwatchlogs.Entity{
 		KeyAttributes: serviceKeyAttr,
+		Attributes:    attributeMap,
 	}, mutableResourceAttributes
 }
 
@@ -580,4 +576,15 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 	event.Entity = entity
 
 	return event, nil
+}
+
+func processAttributes(entityMap map[string]string, targetMap map[string]*string) {
+	for entityField, shortName := range entityMap {
+		if val, ok := mutableResourceAttributes.Get(entityField); ok {
+			if strVal := val.Str(); strVal != "" {
+				targetMap[shortName] = aws.String(strVal)
+			}
+			mutableResourceAttributes.Remove(entityField)
+		}
+	}
 }

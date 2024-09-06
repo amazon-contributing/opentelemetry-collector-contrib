@@ -296,9 +296,6 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 			"aws.ecs.task.id":                       "test-task-id",
 			keyAttributeEntityServiceName:           "myService",
 			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
-			attributeEntityPlatformType:             "AWS::EC2",
-			attributeEntityASG:                      "test-group",
-			attributeEntityInstanceID:               "i-123456789",
 		},
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
