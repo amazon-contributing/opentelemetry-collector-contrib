@@ -36,7 +36,7 @@ const (
 	attributeReceiver         = "receiver"
 	fieldPrometheusMetricType = "prom_metric_type"
 
-	//Entity fields
+	// Entity fields
 	keyAttributeEntityServiceName           = "aws.entity.service.name"
 	serviceName                             = "Name"
 	keyAttributeEntityDeploymentEnvironment = "aws.entity.deployment.environment"
@@ -155,7 +155,6 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	cWNamespace := getNamespace(rm, config.Namespace)
 	logGroup, logStream, patternReplaceSucceeded := getLogInfo(rm, cWNamespace, config)
 	deltaInitialValue := config.RetainInitialValueOfDeltaMetric
-	resourceAttributes := rm.Resource().Attributes()
 
 	ilms := rm.ScopeMetrics()
 	var metricReceiver string
@@ -172,7 +171,8 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 		}
 	}
 
-	entity, resourceAttributes := fetchEntityFields(resourceAttributes)
+	entity, resourceAttributes := fetchEntityFields(rm.Resource().Attributes())
+	resourceAttributes.CopyTo(rm.Resource().Attributes())
 
 	for j := 0; j < ilms.Len(); j++ {
 		ilm := ilms.At(j)
@@ -523,7 +523,6 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 
 	pleMsg, err := json.Marshal(fieldMap)
 	if err != nil {
-		config.logger.Error("error with marshalling the fieldMap: ", zap.Error(err))
 		return nil, err
 	}
 
@@ -531,7 +530,6 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 	if len(metricsMap) > 0 {
 		metricsMsg, err := json.Marshal(metricsMap)
 		if err != nil {
-			config.logger.Error("error with marshalling the metricsMap: ", zap.Error(err))
 			return nil, err
 		}
 		metricsMsg[0] = ','
