@@ -81,7 +81,6 @@ func (sk *StreamKey) Hash() string {
 		attributes,
 		keyAttributes,
 	)
-	//hash := sha256.Sum256([]byte(data))
 	return data
 }
 
