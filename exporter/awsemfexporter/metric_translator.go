@@ -7,18 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
-	"go.opentelemetry.io/collector/pdata/pcommon"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/sdk/service/cloudwatchlogs"
 	awsmetrics "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 )
 
@@ -172,9 +172,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 		}
 	}
 
-	config.logger.Info("resourceAttributes", zap.Any("resourceAttributes", resourceAttributes.AsRaw()))
 	entity, resourceAttributes := fetchEntityFields(resourceAttributes)
-	config.logger.Info("fetched entity:" + entity.GoString())
 
 	for j := 0; j < ilms.Len(); j++ {
 		ilm := ilms.At(j)
@@ -198,10 +196,8 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 				instrumentationScopeName: instrumentationScopeName,
 				receiver:                 metricReceiver,
 			}
-			config.logger.Info("entity after metadata creation:" + metadata.groupedMetricMetadata.entity.GoString())
 			err := addToGroupedMetric(metric, groupedMetrics, metadata, patternReplaceSucceeded, mt.metricDescriptor, config, mt.calculators)
 			if err != nil {
-				config.logger.Info("error with adding to grouped metric:" + err.Error())
 				return err
 			}
 		}
@@ -210,6 +206,8 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 }
 
 func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, pcommon.Map) {
+	//the original resourceAttributes map is immutable, so we need to create a mutable copy
+	//to remove the entity fields from the attributes
 	mutableResourceAttributes := pcommon.NewMap()
 	resourceAttributes.CopyTo(mutableResourceAttributes)
 	serviceKeyAttr := map[string]*string{
@@ -440,7 +438,7 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 			var f any
 			err := json.Unmarshal([]byte(val), &f)
 			if err != nil {
-				config.logger.Info(
+				config.logger.Debug(
 					"Failed to parse json-encoded string",
 					zap.String("label key", key),
 					zap.String("label value", val),
@@ -555,7 +553,6 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 	cWMetric := translateGroupedMetricToCWMetric(groupedMetric, config)
 	event, err := translateCWMetricToEMF(cWMetric, config)
 	if err != nil {
-		config.logger.Info("error with translating CW Metric to EMF", zap.Error(err))
 		return nil, err
 	}
 	// Drop a nil putLogEvent for EnhancedContainerInsights
@@ -576,15 +573,4 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 	event.Entity = entity
 
 	return event, nil
-}
-
-func processAttributes(entityMap map[string]string, targetMap map[string]*string, mutableResourceAttributes pcommon.Map) {
-	for entityField, shortName := range entityMap {
-		if val, ok := mutableResourceAttributes.Get(entityField); ok {
-			if strVal := val.Str(); strVal != "" {
-				targetMap[shortName] = aws.String(strVal)
-			}
-			mutableResourceAttributes.Remove(entityField)
-		}
-	}
 }

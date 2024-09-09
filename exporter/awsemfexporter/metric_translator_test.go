@@ -6,6 +6,7 @@ package awsemfexporter
 import (
 	"errors"
 	"fmt"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/entity"
 	"math"
 	"reflect"
 	"sort"
@@ -39,7 +40,7 @@ func createTestResourceMetricsHelper(numMetrics int) pmetric.ResourceMetrics {
 	rm.Resource().Attributes().PutStr("ClusterName", "myCluster")
 	rm.Resource().Attributes().PutStr("PodName", "myPod")
 	rm.Resource().Attributes().PutStr(attributeReceiver, prometheusReceiver)
-	rm.Resource().Attributes().PutStr(keyAttributeEntityServiceName, "myServiceName")
+	rm.Resource().Attributes().PutStr(entity.KeyAttributeEntityServiceName, "myServiceName")
 	sm := rm.ScopeMetrics().AppendEmpty()
 
 	m := sm.Metrics().AppendEmpty()

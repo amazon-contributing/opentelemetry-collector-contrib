@@ -136,12 +136,7 @@ type eventBatch struct {
 }
 
 // Create a new log event batch if needed.
-func newEventBatch(key StreamKey, logger *zap.Logger) *eventBatch {
-	logger.Info("in newEventBatch function")
-	logger.Info("logGroupName: " + key.LogGroupName)
-	logger.Info("logStreamName: " + key.LogStreamName)
-	logger.Info("p.entity type: " + fmt.Sprintf("%T", key.Entity))
-	logger.Info("entity: " + key.Entity.GoString())
+func newEventBatch(key StreamKey) *eventBatch {
 
 	return &eventBatch{
 		putLogEventsInput: &cloudwatchlogs.PutLogEventsInput{
@@ -252,7 +247,7 @@ func newLogPusher(streamKey StreamKey,
 		svcStructuredLog: svcStructuredLog,
 		logger:           logger,
 	}
-	pusher.logEventBatch = newEventBatch(streamKey, logger)
+	pusher.logEventBatch = newEventBatch(streamKey)
 
 	return pusher
 }
@@ -279,9 +274,7 @@ func (p *logPusher) AddLogEntry(logEvent *Event) error {
 }
 
 func (p *logPusher) ForceFlush() error {
-	p.logger.Info("in force flush method for the log pusher")
 	prevBatch := p.renewEventBatch()
-	p.logger.Info("renewedEventBatch. The entity here is " + prevBatch.putLogEventsInput.Entity.GoString())
 	if prevBatch != nil {
 		return p.pushEventBatch(prevBatch)
 	}
@@ -328,7 +321,7 @@ func (p *logPusher) addLogEvent(logEvent *Event) *eventBatch {
 			LogGroupName:  *p.logGroupName,
 			LogStreamName: *p.logStreamName,
 			Entity:        p.entity,
-		}, p.logger)
+		})
 	}
 	currentBatch.append(logEvent)
 	p.logEventBatch = currentBatch
@@ -339,17 +332,13 @@ func (p *logPusher) addLogEvent(logEvent *Event) *eventBatch {
 func (p *logPusher) renewEventBatch() *eventBatch {
 
 	var prevBatch *eventBatch
-	p.logger.Info("renewing EventBatch, just before the if statement")
 	if len(p.logEventBatch.putLogEventsInput.LogEvents) > 0 {
-		p.logger.Info("renewing EventBatch. The entity here is " + p.entity.GoString())
-		p.logger.Info("p.entity type: " + fmt.Sprintf("%T", p.entity))
 		prevBatch = p.logEventBatch
 		p.logEventBatch = newEventBatch(StreamKey{
 			LogGroupName:  *p.logGroupName,
 			LogStreamName: *p.logStreamName,
 			Entity:        p.entity,
-		}, p.logger)
-		p.logger.Info("renewed EventBatch. The entity here is " + p.logEventBatch.putLogEventsInput.Entity.GoString())
+		})
 	}
 
 	return prevBatch

@@ -366,3 +366,39 @@ func TestGetLogInfo(t *testing.T) {
 	}
 
 }
+
+func TestProcessAttributes(t *testing.T) {
+	testCases := []struct {
+		name     string
+		key      string
+		value    string
+		expected string
+	}{
+		{
+			name:     "Non-empty string value",
+			key:      "testKey",
+			value:    "testValue",
+			expected: "testValue",
+		},
+		{
+			name:     "Empty string value",
+			key:      "emptyKey",
+			value:    "",
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			attrs := pcommon.NewMap()
+			attrs.PutStr(tc.key, tc.value)
+
+			processAttributes(make(map[string]string), make(map[string]*string), attrs)
+
+			val, ok := attrs.Get(tc.key)
+			assert.True(t, ok, "Key should exist in the map")
+			actualVal := val.Str()
+			assert.Equal(t, tc.expected, actualVal, "Value should match the expected value")
+		})
+	}
+}

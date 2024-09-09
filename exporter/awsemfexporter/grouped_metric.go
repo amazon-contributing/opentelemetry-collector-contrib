@@ -38,7 +38,6 @@ func addToGroupedMetric(
 ) error {
 
 	dps := getDataPoints(pmd, metadata, config.logger)
-	config.logger.Info("got datapoints")
 	if dps == nil || dps.Len() == 0 {
 		return nil
 	}
@@ -54,14 +53,12 @@ func addToGroupedMetric(
 			continue
 		}
 		dps, retained := dps.CalculateDeltaDatapoints(i, metadata.instrumentationScopeName, config.DetailedMetrics, calculators)
-		config.logger.Info("Calculated Delta Datapoints")
 		if !retained {
 			continue
 		}
 		config.logger.Info("Retained")
 
 		for _, dp := range dps {
-			config.logger.Info("Traversing through datapoints")
 			labels := dp.labels
 
 			if metricType, ok := labels["Type"]; ok {
@@ -73,7 +70,6 @@ func addToGroupedMetric(
 			// if patterns were found in config file and weren't replaced by resource attributes, replace those patterns with metric labels.
 			// if patterns are provided for a valid key and that key doesn't exist in the resource attributes, it is replaced with `undefined`.
 			if !patternReplaceSucceeded {
-				config.logger.Info("patternReplaceSucceeded is false")
 				if strings.Contains(metadata.logGroup, "undefined") {
 					metadata.logGroup, _ = replacePatterns(config.LogGroupName, labels, config.logger)
 				}
@@ -81,7 +77,6 @@ func addToGroupedMetric(
 					metadata.logStream, _ = replacePatterns(config.LogStreamName, labels, config.logger)
 				}
 			}
-			config.logger.Info("replaced the patterns for lg and ls")
 
 			metric := &metricInfo{
 				value: dp.value,
@@ -96,7 +91,6 @@ func addToGroupedMetric(
 
 			// Extra params to use when grouping metrics
 			groupKey := aws.NewKey(metadata.groupedMetricMetadata, labels)
-			//config.logger.Info("entity in metadata key:" + groupKey.MetricMetadata.(cWMetricMetadata).entity.GoString())
 			if _, ok := groupedMetrics[groupKey]; ok {
 				// if MetricName already exists in metrics map, print warning log
 				if _, ok := groupedMetrics[groupKey].metrics[dp.name]; ok {

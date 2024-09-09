@@ -5,6 +5,7 @@ package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collec
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"sort"
 	"strings"
 	"time"
@@ -171,4 +172,15 @@ func attrMaptoStringMap(attrMap pcommon.Map) map[string]string {
 		return true
 	})
 	return strMap
+}
+
+func processAttributes(entityMap map[string]string, targetMap map[string]*string, mutableResourceAttributes pcommon.Map) {
+	for entityField, shortName := range entityMap {
+		if val, ok := mutableResourceAttributes.Get(entityField); ok {
+			if strVal := val.Str(); strVal != "" {
+				targetMap[shortName] = aws.String(strVal)
+			}
+			mutableResourceAttributes.Remove(entityField)
+		}
+	}
 }
