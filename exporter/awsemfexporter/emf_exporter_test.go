@@ -6,7 +6,6 @@ package awsemfexporter
 import (
 	"context"
 	"errors"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/entity"
 	"os"
 	"testing"
 
@@ -199,7 +198,7 @@ func TestConsumeMetricsWithLogGroupStreamConfig(t *testing.T) {
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: expCfg.LogStreamName,
 		Entity: &cloudwatchlogs.Entity{KeyAttributes: map[string]*string{
-			entity.EntityType: aws.String(entity.Service),
+			entityType: aws.String(service),
 		}},
 	}
 	expectedStreamKeyHash := streamKey.Hash()
@@ -225,11 +224,11 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 		metricNames:  []string{"metric_1", "metric_2"},
 		metricValues: [][]float64{{100}, {4}},
 		resourceAttributeMap: map[string]any{
-			"aws.ecs.cluster.name":                         "test-cluster-name",
-			"aws.ecs.task.id":                              "test-task-id",
-			entity.KeyAttributeEntityServiceName:           "myService",
-			entity.KeyAttributeEntityDeploymentEnvironment: "myEnvironment",
-			entity.AttributeEntityCluster:                  "test-cluster-name",
+			"aws.ecs.cluster.name":                  "test-cluster-name",
+			"aws.ecs.task.id":                       "test-task-id",
+			keyAttributeEntityServiceName:           "myService",
+			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
+			attributeEntityCluster:                  "test-cluster-name",
 		},
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
@@ -242,7 +241,7 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 				"Cluster": aws.String("test-cluster-name"),
 			},
 			KeyAttributes: map[string]*string{
-				"Type":        aws.String(entity.Service),
+				"Type":        aws.String(service),
 				"Name":        aws.String("myService"),
 				"Environment": aws.String("myEnvironment"),
 			}},
@@ -266,7 +265,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 	assert.NotNil(t, exp)
 	var entity = &cloudwatchlogs.Entity{
 		KeyAttributes: map[string]*string{
-			"Type":        aws.String(entity.Service),
+			"Type":        aws.String(service),
 			"Name":        aws.String("myService"),
 			"Environment": aws.String("myEnvironment"),
 		},
@@ -276,10 +275,10 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 		metricNames:  []string{"metric_1", "metric_2"},
 		metricValues: [][]float64{{100}, {4}},
 		resourceAttributeMap: map[string]any{
-			"aws.ecs.cluster.name":                         "test-cluster-name",
-			"aws.ecs.task.id":                              "test-task-id",
-			entity.KeyAttributeEntityServiceName:           "myService",
-			entity.KeyAttributeEntityDeploymentEnvironment: "myEnvironment",
+			"aws.ecs.cluster.name":                  "test-cluster-name",
+			"aws.ecs.task.id":                       "test-task-id",
+			keyAttributeEntityServiceName:           "myService",
+			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
 		},
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
@@ -311,10 +310,10 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 		metricNames:  []string{"metric_1", "metric_2"},
 		metricValues: [][]float64{{100}, {4}},
 		resourceAttributeMap: map[string]any{
-			"aws.ecs.cluster.name":                         "test-cluster-name",
-			"aws.ecs.task.id":                              "test-task-id",
-			entity.KeyAttributeEntityServiceName:           "myService",
-			entity.KeyAttributeEntityDeploymentEnvironment: "myEnvironment",
+			"aws.ecs.cluster.name":                  "test-cluster-name",
+			"aws.ecs.task.id":                       "test-task-id",
+			keyAttributeEntityServiceName:           "myService",
+			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
 		},
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
@@ -324,7 +323,7 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 		LogStreamName: expCfg.LogStreamName,
 		Entity: &cloudwatchlogs.Entity{
 			KeyAttributes: map[string]*string{
-				"Type":        aws.String(entity.Service),
+				"Type":        aws.String(service),
 				"Name":        aws.String("myService"),
 				"Environment": aws.String("myEnvironment"),
 			},
@@ -360,7 +359,7 @@ func TestPushMetricsDataWithErr(t *testing.T) {
 		LogStreamName: "test-logStreamName",
 		Entity: &cloudwatchlogs.Entity{
 			KeyAttributes: map[string]*string{
-				"Type": aws.String(entity.Service),
+				"Type": aws.String(service),
 			},
 		},
 	}

@@ -43,13 +43,13 @@ const (
 	deploymentEnvironment                   = "Environment"
 	entityType                              = "Type"
 	service                                 = "Service"
-	AttributeEntityCluster                  = "aws.entity.k8s.cluster.name"
+	attributeEntityCluster                  = "aws.entity.k8s.cluster.name"
 	cluster                                 = "Cluster"
-	AttributeEntityNamespace                = "aws.entity.k8s.namespace.name"
+	attributeEntityNamespace                = "aws.entity.k8s.namespace.name"
 	namespace                               = "Namespace"
-	AttributeEntityWorkload                 = "aws.entity.k8s.workload.name"
+	attributeEntityWorkload                 = "aws.entity.k8s.workload.name"
 	workload                                = "Workload"
-	AttributeEntityNode                     = "aws.entity.k8s.node.name"
+	attributeEntityNode                     = "aws.entity.k8s.node.name"
 	node                                    = "Node"
 )
 
@@ -59,10 +59,10 @@ var keyAttributeEntityToShortNameMap = map[string]string{
 }
 
 var attributeEntityToShortNameMap = map[string]string{
-	AttributeEntityCluster:   cluster,
-	AttributeEntityNamespace: namespace,
-	AttributeEntityWorkload:  workload,
-	AttributeEntityNode:      node,
+	attributeEntityCluster:   cluster,
+	attributeEntityNamespace: namespace,
+	attributeEntityWorkload:  workload,
+	attributeEntityNode:      node,
 }
 
 var errMissingMetricsForEnhancedContainerInsights = errors.New("nil event detected with EnhancedContainerInsights enabled")

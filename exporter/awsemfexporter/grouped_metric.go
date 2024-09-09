@@ -56,7 +56,6 @@ func addToGroupedMetric(
 		if !retained {
 			continue
 		}
-		config.logger.Info("Retained")
 
 		for _, dp := range dps {
 			labels := dp.labels
@@ -82,12 +81,10 @@ func addToGroupedMetric(
 				value: dp.value,
 				unit:  translateUnit(pmd, descriptor),
 			}
-			config.logger.Info("created the metric")
 
 			if dp.timestampMs > 0 {
 				metadata.timestampMs = dp.timestampMs
 			}
-			config.logger.Info("set the timestamp")
 
 			// Extra params to use when grouping metrics
 			groupKey := aws.NewKey(metadata.groupedMetricMetadata, labels)

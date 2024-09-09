@@ -303,7 +303,7 @@ func (p *logPusher) pushEventBatch(req any) error {
 		zap.Int("NumOfLogEvents", len(putLogEventsInput.LogEvents)),
 		zap.Float64("LogEventsSize", float64(logEventBatch.byteTotal)/float64(1024)),
 		zap.Int64("Time", time.Since(startTime).Nanoseconds()/int64(time.Millisecond)),
-		zap.String("Entity", logEventBatch.putLogEventsInput.Entity.GoString()))
+	)
 
 	return nil
 }

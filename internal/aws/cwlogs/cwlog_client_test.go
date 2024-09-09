@@ -84,12 +84,8 @@ var logGroup = "logGroup"
 var logStreamName = "logStream"
 
 var entity = cloudwatchlogs.Entity{
-	Attributes: map[string]*string{
-		"PlatformType":         aws.String("AWS::EC2"),
-		"EC2.InstanceId":       aws.String("i-123456789"),
-		"EC2.AutoScalingGroup": aws.String("test-group"),
-	},
 	KeyAttributes: map[string]*string{
+		"Type":        aws.String("Service"),
 		"Name":        aws.String("myService"),
 		"Environment": aws.String("myEnvironment"),
 	},
