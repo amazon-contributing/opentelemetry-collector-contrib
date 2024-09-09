@@ -206,8 +206,8 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 }
 
 func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, pcommon.Map) {
-	//the original resourceAttributes map is immutable, so we need to create a mutable copy
-	//to remove the entity fields from the attributes
+	// the original resourceAttributes map is immutable, so we need to create a mutable copy
+	// to remove the entity fields from the attributes
 	mutableResourceAttributes := pcommon.NewMap()
 	resourceAttributes.CopyTo(mutableResourceAttributes)
 	serviceKeyAttr := map[string]*string{
