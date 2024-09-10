@@ -174,6 +174,8 @@ func attrMaptoStringMap(attrMap pcommon.Map) map[string]string {
 	return strMap
 }
 
+// processAttributes fetches the aws.entity fields and creates an entity to be sent at the PutLogEvent call. It also
+// removes the entity attributes so that it is not tagged as a dimension, and reduces the size of the PLE payload.
 func processAttributes(entityMap map[string]string, targetMap map[string]*string, mutableResourceAttributes pcommon.Map) {
 	for entityField, shortName := range entityMap {
 		if val, ok := mutableResourceAttributes.Get(entityField); ok {
