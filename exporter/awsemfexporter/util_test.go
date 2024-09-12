@@ -456,7 +456,8 @@ func TestProcessAttributes(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			attrs := pcommon.NewMap()
-			attrs.FromRaw(tc.resourceAttributes)
+			err := attrs.FromRaw(tc.resourceAttributes)
+			assert.Nil(t, err)
 			targetMap := make(map[string]*string)
 			for _, entityMap := range tc.entityMap {
 				processAttributes(entityMap, targetMap, attrs)
