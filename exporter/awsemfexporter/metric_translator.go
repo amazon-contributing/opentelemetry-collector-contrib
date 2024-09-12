@@ -210,16 +210,16 @@ func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, p
 	// to remove the entity fields from the attributes
 	mutableResourceAttributes := pcommon.NewMap()
 	resourceAttributes.CopyTo(mutableResourceAttributes)
-	serviceKeyAttr := map[string]*string{
+	keyAttributesMap := map[string]*string{
 		entityType: aws.String(service),
 	}
 	attributeMap := map[string]*string{}
 
-	processAttributes(keyAttributeEntityToShortNameMap, serviceKeyAttr, mutableResourceAttributes)
+	processAttributes(keyAttributeEntityToShortNameMap, keyAttributesMap, mutableResourceAttributes)
 	processAttributes(attributeEntityToShortNameMap, attributeMap, mutableResourceAttributes)
 
 	return cloudwatchlogs.Entity{
-		KeyAttributes: serviceKeyAttr,
+		KeyAttributes: keyAttributesMap,
 		Attributes:    attributeMap,
 	}, mutableResourceAttributes
 }

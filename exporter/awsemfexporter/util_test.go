@@ -4,6 +4,7 @@
 package awsemfexporter
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -369,36 +370,99 @@ func TestGetLogInfo(t *testing.T) {
 
 func TestProcessAttributes(t *testing.T) {
 	testCases := []struct {
-		name     string
-		key      string
-		value    string
-		expected string
+		name               string
+		entityMap          []map[string]string
+		resourceAttributes map[string]any
+		wantedAttributes   map[string]*string
+		leftoverAttributes map[string]any
 	}{
 		{
-			name:     "Non-empty string value",
-			key:      "testKey",
-			value:    "testValue",
-			expected: "testValue",
+			name:      "key_attributes",
+			entityMap: []map[string]string{keyAttributeEntityToShortNameMap},
+			resourceAttributes: map[string]any{
+				keyAttributeEntityServiceName:           "my-service",
+				keyAttributeEntityDeploymentEnvironment: "my-environment",
+			},
+			wantedAttributes: map[string]*string{
+				serviceName:           aws.String("my-service"),
+				deploymentEnvironment: aws.String("my-environment"),
+			},
+			leftoverAttributes: make(map[string]any),
 		},
 		{
-			name:     "Empty string value",
-			key:      "emptyKey",
-			value:    "",
-			expected: "",
+			name:      "non-key_attributes",
+			entityMap: []map[string]string{attributeEntityToShortNameMap},
+			resourceAttributes: map[string]any{
+				attributeEntityCluster:   "my-cluster",
+				attributeEntityNamespace: "my-namespace",
+				attributeEntityNode:      "my-node",
+				attributeEntityWorkload:  "my-workload",
+			},
+			wantedAttributes: map[string]*string{
+				cluster:   aws.String("my-cluster"),
+				namespace: aws.String("my-namespace"),
+				node:      aws.String("my-node"),
+				workload:  aws.String("my-workload"),
+			},
+			leftoverAttributes: make(map[string]any),
+		},
+		{
+			name:      "key_and_non_key_attributes",
+			entityMap: []map[string]string{keyAttributeEntityToShortNameMap, attributeEntityToShortNameMap},
+			resourceAttributes: map[string]any{
+				keyAttributeEntityServiceName:           "my-service",
+				keyAttributeEntityDeploymentEnvironment: "my-environment",
+				attributeEntityCluster:                  "my-cluster",
+				attributeEntityNamespace:                "my-namespace",
+				attributeEntityNode:                     "my-node",
+				attributeEntityWorkload:                 "my-workload",
+			},
+			wantedAttributes: map[string]*string{
+				serviceName:           aws.String("my-service"),
+				deploymentEnvironment: aws.String("my-environment"),
+				cluster:               aws.String("my-cluster"),
+				namespace:             aws.String("my-namespace"),
+				node:                  aws.String("my-node"),
+				workload:              aws.String("my-workload"),
+			},
+			leftoverAttributes: make(map[string]any),
+		},
+		{
+			name:      "key_and_non_key_attributes_plus_extras",
+			entityMap: []map[string]string{keyAttributeEntityToShortNameMap, attributeEntityToShortNameMap},
+			resourceAttributes: map[string]any{
+				"extra_attribute":                       "extra_value",
+				keyAttributeEntityServiceName:           "my-service",
+				keyAttributeEntityDeploymentEnvironment: "my-environment",
+				attributeEntityCluster:                  "my-cluster",
+				attributeEntityNamespace:                "my-namespace",
+				attributeEntityNode:                     "my-node",
+				attributeEntityWorkload:                 "my-workload",
+			},
+			wantedAttributes: map[string]*string{
+				serviceName:           aws.String("my-service"),
+				deploymentEnvironment: aws.String("my-environment"),
+				cluster:               aws.String("my-cluster"),
+				namespace:             aws.String("my-namespace"),
+				node:                  aws.String("my-node"),
+				workload:              aws.String("my-workload"),
+			},
+			leftoverAttributes: map[string]any{
+				"extra_attribute": "extra_value",
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			attrs := pcommon.NewMap()
-			attrs.PutStr(tc.key, tc.value)
-
-			processAttributes(make(map[string]string), make(map[string]*string), attrs)
-
-			val, ok := attrs.Get(tc.key)
-			assert.True(t, ok, "Key should exist in the map")
-			actualVal := val.Str()
-			assert.Equal(t, tc.expected, actualVal, "Value should match the expected value")
+			attrs.FromRaw(tc.resourceAttributes)
+			targetMap := make(map[string]*string)
+			for _, entityMap := range tc.entityMap {
+				processAttributes(entityMap, targetMap, attrs)
+			}
+			assert.Equal(t, tc.leftoverAttributes, attrs.AsRaw())
+			assert.Equal(t, tc.wantedAttributes, targetMap)
 		})
 	}
 }
