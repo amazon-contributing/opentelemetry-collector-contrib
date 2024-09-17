@@ -179,10 +179,11 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 			metricReceiver = containerInsightsReceiver
 		}
 	}
+	// the original resourceAttributes map is immutable, so we need to create a mutable copy of the resource metrics
+	// to remove the entity fields from the attributes
 	newResourceMetrics := pmetric.NewResourceMetrics()
 	rm.CopyTo(newResourceMetrics)
-	entity, _ := fetchEntityFields(newResourceMetrics.Resource().Attributes())
-	//resourceAttributes.CopyTo(rm.Resource().Attributes())
+	entity := fetchEntityFields(newResourceMetrics.Resource().Attributes())
 	rm = newResourceMetrics
 
 	for j := 0; j < ilms.Len(); j++ {
@@ -216,21 +217,17 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	return nil
 }
 
-func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, pcommon.Map) {
-	// the original resourceAttributes map is immutable, so we need to create a mutable copy
-	// to remove the entity fields from the attributes
-	mutableResourceAttributes := pcommon.NewMap()
-	resourceAttributes.CopyTo(mutableResourceAttributes)
+func fetchEntityFields(resourceAttributes pcommon.Map) cloudwatchlogs.Entity {
 	keyAttributesMap := map[string]*string{}
 	attributeMap := map[string]*string{}
 
-	processAttributes(keyAttributeEntityToShortNameMap, keyAttributesMap, mutableResourceAttributes)
-	processAttributes(attributeEntityToShortNameMap, attributeMap, mutableResourceAttributes)
+	processAttributes(keyAttributeEntityToShortNameMap, keyAttributesMap, resourceAttributes)
+	processAttributes(attributeEntityToShortNameMap, attributeMap, resourceAttributes)
 
 	return cloudwatchlogs.Entity{
 		KeyAttributes: keyAttributesMap,
 		Attributes:    attributeMap,
-	}, mutableResourceAttributes
+	}
 }
 
 // translateGroupedMetricToCWMetric converts Grouped Metric format to CloudWatch Metric format.

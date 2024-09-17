@@ -2579,6 +2579,7 @@ func TestTranslateOtToGroupedMetricForInitialDeltaValue(t *testing.T) {
 
 func TestFetchEntityFields(t *testing.T) {
 	resourceMetrics := pmetric.NewResourceMetrics()
+	resourceMetrics.Resource().Attributes().PutStr(keyAttributeEntityType, "Service")
 	resourceMetrics.Resource().Attributes().PutStr(keyAttributeEntityDeploymentEnvironment, "my-environment")
 	resourceMetrics.Resource().Attributes().PutStr(keyAttributeEntityServiceName, "my-service")
 	resourceMetrics.Resource().Attributes().PutStr(attributeEntityNode, "my-node")
@@ -2598,10 +2599,9 @@ func TestFetchEntityFields(t *testing.T) {
 			workload:  aws.String("my-workload"),
 		},
 	}
-
-	entity, attrs := fetchEntityFields(resourceMetrics.Resource().Attributes())
+	assert.Equal(t, 7, resourceMetrics.Resource().Attributes().Len())
+	entity := fetchEntityFields(resourceMetrics.Resource().Attributes())
 	assert.Equal(t, expectedEntity, entity)
-	attrs.CopyTo(resourceMetrics.Resource().Attributes())
 	assert.Equal(t, 0, resourceMetrics.Resource().Attributes().Len())
 
 }

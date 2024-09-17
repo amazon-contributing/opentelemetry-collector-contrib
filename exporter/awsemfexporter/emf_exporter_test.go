@@ -197,12 +197,10 @@ func TestConsumeMetricsWithLogGroupStreamConfig(t *testing.T) {
 	streamKey := &cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: expCfg.LogStreamName,
-		Entity: &cloudwatchlogs.Entity{KeyAttributes: map[string]*string{
-			entityType: aws.String(service),
-		}},
+		Entity:        &cloudwatchlogs.Entity{},
 	}
 	expectedStreamKeyHash := streamKey.Hash()
-	pusherMap, ok := exp.pusherMap[expectedStreamKeyHash]
+	pusherMap, ok := exp.boundedPusherMap.get(expectedStreamKeyHash)
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -229,6 +227,7 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 			keyAttributeEntityServiceName:           "myService",
 			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
 			attributeEntityCluster:                  "test-cluster-name",
+			keyAttributeEntityType:                  "Service",
 		},
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
@@ -241,12 +240,12 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 				"Cluster": aws.String("test-cluster-name"),
 			},
 			KeyAttributes: map[string]*string{
-				"Type":        aws.String(service),
+				"Type":        aws.String("Service"),
 				"Name":        aws.String("myService"),
 				"Environment": aws.String("myEnvironment"),
 			}},
 	}
-	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
+	pusherMap, ok := exp.boundedPusherMap.get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -265,7 +264,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 	assert.NotNil(t, exp)
 	var entity = &cloudwatchlogs.Entity{
 		KeyAttributes: map[string]*string{
-			"Type":        aws.String(service),
+			"Type":        aws.String("Service"),
 			"Name":        aws.String("myService"),
 			"Environment": aws.String("myEnvironment"),
 		},
@@ -279,6 +278,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 			"aws.ecs.task.id":                       "test-task-id",
 			keyAttributeEntityServiceName:           "myService",
 			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
+			keyAttributeEntityType:                  service,
 		},
 	})
 	require.Error(t, exp.pushMetricsData(ctx, md))
@@ -288,7 +288,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 		LogStreamName: "test-task-id",
 		Entity:        entity,
 	}
-	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
+	pusherMap, ok := exp.boundedPusherMap.get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -312,6 +312,7 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 		resourceAttributeMap: map[string]any{
 			"aws.ecs.cluster.name":                  "test-cluster-name",
 			"aws.ecs.task.id":                       "test-task-id",
+			keyAttributeEntityType:                  service,
 			keyAttributeEntityServiceName:           "myService",
 			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
 		},
@@ -323,13 +324,13 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 		LogStreamName: expCfg.LogStreamName,
 		Entity: &cloudwatchlogs.Entity{
 			KeyAttributes: map[string]*string{
-				"Type":        aws.String(service),
+				"Type":        aws.String("Service"),
 				"Name":        aws.String("myService"),
 				"Environment": aws.String("myEnvironment"),
 			},
 		},
 	}
-	pusherMap, ok := exp.pusherMap[streamKey.Hash()]
+	pusherMap, ok := exp.boundedPusherMap.get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -353,18 +354,13 @@ func TestPushMetricsDataWithErr(t *testing.T) {
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
 	logPusher.On("ForceFlush", nil).Return("").Once()
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
-	exp.pusherMap = map[string]cwlogs.Pusher{}
+	exp.boundedPusherMap = newBoundedPusherMap()
 	streamKey := cwlogs.StreamKey{
 		LogGroupName:  "test-logGroupName",
 		LogStreamName: "test-logStreamName",
-		Entity: &cloudwatchlogs.Entity{
-			KeyAttributes: map[string]*string{
-				"Type": aws.String(service),
-			},
-		},
+		Entity:        &cloudwatchlogs.Entity{},
 	}
-	exp.pusherMap[streamKey.Hash()] = logPusher
-
+	exp.boundedPusherMap.add(streamKey.Hash(), logPusher, zap.NewExample())
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
 		metricValues: [][]float64{{100}, {4}},
