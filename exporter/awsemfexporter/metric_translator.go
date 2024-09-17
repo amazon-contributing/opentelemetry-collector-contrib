@@ -179,9 +179,11 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 			metricReceiver = containerInsightsReceiver
 		}
 	}
-
-	entity, resourceAttributes := fetchEntityFields(rm.Resource().Attributes())
-	resourceAttributes.CopyTo(rm.Resource().Attributes())
+	newResourceMetrics := pmetric.NewResourceMetrics()
+	rm.CopyTo(newResourceMetrics)
+	entity, _ := fetchEntityFields(newResourceMetrics.Resource().Attributes())
+	//resourceAttributes.CopyTo(rm.Resource().Attributes())
+	rm = newResourceMetrics
 
 	for j := 0; j < ilms.Len(); j++ {
 		ilm := ilms.At(j)
