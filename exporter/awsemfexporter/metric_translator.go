@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/multierr"
@@ -41,8 +40,14 @@ const (
 	serviceName                             = "Name"
 	keyAttributeEntityDeploymentEnvironment = "aws.entity.deployment.environment"
 	deploymentEnvironment                   = "Environment"
+	keyAttributeEntityType                  = "aws.entity.type"
 	entityType                              = "Type"
 	service                                 = "Service"
+	resource                                = "Resource"
+	keyAttributeEntityResourceType          = "aws.entity.resource.type"
+	resourceType                            = "ResourceType"
+	keyAttributeEntityIdentifier            = "aws.entity.resource.identifier"
+	identifier                              = "Identifier"
 	attributeEntityCluster                  = "aws.entity.k8s.cluster.name"
 	cluster                                 = "Cluster"
 	attributeEntityNamespace                = "aws.entity.k8s.namespace.name"
@@ -54,6 +59,9 @@ const (
 )
 
 var keyAttributeEntityToShortNameMap = map[string]string{
+	keyAttributeEntityType:                  entityType,
+	keyAttributeEntityResourceType:          resourceType,
+	keyAttributeEntityIdentifier:            identifier,
 	keyAttributeEntityServiceName:           serviceName,
 	keyAttributeEntityDeploymentEnvironment: deploymentEnvironment,
 }
@@ -63,6 +71,7 @@ var attributeEntityToShortNameMap = map[string]string{
 	attributeEntityNamespace: namespace,
 	attributeEntityWorkload:  workload,
 	attributeEntityNode:      node,
+	// TODO: add attributes for EC2
 }
 
 var errMissingMetricsForEnhancedContainerInsights = errors.New("nil event detected with EnhancedContainerInsights enabled")
@@ -210,9 +219,7 @@ func fetchEntityFields(resourceAttributes pcommon.Map) (cloudwatchlogs.Entity, p
 	// to remove the entity fields from the attributes
 	mutableResourceAttributes := pcommon.NewMap()
 	resourceAttributes.CopyTo(mutableResourceAttributes)
-	keyAttributesMap := map[string]*string{
-		entityType: aws.String(service),
-	}
+	keyAttributesMap := map[string]*string{}
 	attributeMap := map[string]*string{}
 
 	processAttributes(keyAttributeEntityToShortNameMap, keyAttributesMap, mutableResourceAttributes)

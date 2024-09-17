@@ -89,6 +89,10 @@ var entity = cloudwatchlogs.Entity{
 		"Name":        aws.String("myService"),
 		"Environment": aws.String("myEnvironment"),
 	},
+	Attributes: map[string]*string{
+		"Instance": aws.String("i-1234567"),
+		"Type":     aws.String("AWS::EC2"),
+	},
 }
 var emptySequenceToken = ""
 

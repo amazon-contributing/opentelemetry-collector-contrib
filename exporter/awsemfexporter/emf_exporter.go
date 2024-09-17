@@ -7,9 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/google/uuid"
@@ -19,6 +16,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+	"strings"
+	"sync"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/appsignals"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
@@ -36,7 +35,7 @@ const (
 )
 
 type emfExporter struct {
-	pusherMap        map[string]cwlogs.Pusher
+	boundedPusherMap boundedPusherMap
 	svcStructuredLog *cwlogs.Client
 	config           *Config
 
@@ -86,8 +85,8 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 		metricTranslator:      newMetricTranslator(*config),
 		retryCnt:              *awsConfig.MaxRetries,
 		collectorID:           collectorIdentifier.String(),
-		pusherMap:             map[string]cwlogs.Pusher{},
 		processResourceLabels: func(map[string]string) {},
+		boundedPusherMap:      newBoundedPusherMap(),
 	}
 
 	if config.IsAppSignalsEnabled() {
@@ -179,11 +178,15 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 
 func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
 	var ok bool
+	var pusher cwlogs.Pusher
 	hash := key.Hash()
-	if _, ok = emf.pusherMap[hash]; !ok {
-		emf.pusherMap[hash] = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
+	if _, ok = emf.boundedPusherMap.get(hash); !ok {
+		pusher = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
+		emf.boundedPusherMap.add(hash, pusher, emf.config.logger)
 	}
-	return emf.pusherMap[hash]
+
+	//return emf.pusherMap[hash]
+	return pusher
 }
 
 func (emf *emfExporter) listPushers() []cwlogs.Pusher {
@@ -191,7 +194,7 @@ func (emf *emfExporter) listPushers() []cwlogs.Pusher {
 	defer emf.pusherMapLock.Unlock()
 
 	var pushers []cwlogs.Pusher
-	for _, pusher := range emf.pusherMap {
+	for _, pusher := range emf.boundedPusherMap.listAllPushers() {
 		pushers = append(pushers, pusher)
 	}
 	return pushers
