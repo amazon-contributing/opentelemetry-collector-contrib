@@ -55,7 +55,7 @@ func NewEvent(timestampMs int64, message string) *Event {
 	return event
 }
 
-// Uniquely identify a cloudwatch logs stream
+// Uniquely identify a cloudwatch logs stream. Any changes to this struct will require updates to Hash
 type StreamKey struct {
 	LogGroupName  string
 	LogStreamName string

@@ -4,9 +4,9 @@
 package awsemfexporter
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"

@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/google/uuid"
@@ -16,8 +19,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
-	"strings"
-	"sync"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/appsignals"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
