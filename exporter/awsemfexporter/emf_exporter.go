@@ -35,7 +35,7 @@ const (
 )
 
 type emfExporter struct {
-	boundedPusherMap boundedPusherMap
+	boundedPusherMap BoundedPusherMap
 	svcStructuredLog *cwlogs.Client
 	config           *Config
 
@@ -86,7 +86,7 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 		retryCnt:              *awsConfig.MaxRetries,
 		collectorID:           collectorIdentifier.String(),
 		processResourceLabels: func(map[string]string) {},
-		boundedPusherMap:      newBoundedPusherMap(),
+		boundedPusherMap:      NewBoundedPusherMap(),
 	}
 
 	if config.IsAppSignalsEnabled() {
@@ -180,9 +180,9 @@ func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
 	var ok bool
 	hash := key.Hash()
 	var pusher cwlogs.Pusher
-	if pusher, ok = emf.boundedPusherMap.get(hash); !ok {
+	if pusher, ok = emf.boundedPusherMap.Get(hash); !ok {
 		pusher = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
-		emf.boundedPusherMap.add(hash, pusher, emf.config.logger)
+		emf.boundedPusherMap.Add(hash, pusher, emf.config.logger)
 	}
 
 	return pusher
@@ -193,7 +193,7 @@ func (emf *emfExporter) listPushers() []cwlogs.Pusher {
 	defer emf.pusherMapLock.Unlock()
 
 	var pushers []cwlogs.Pusher
-	for _, pusher := range emf.boundedPusherMap.listAllPushers() {
+	for _, pusher := range emf.boundedPusherMap.ListAllPushers() {
 		pushers = append(pushers, pusher)
 	}
 	return pushers

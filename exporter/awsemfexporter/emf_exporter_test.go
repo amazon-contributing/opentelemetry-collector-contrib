@@ -200,7 +200,7 @@ func TestConsumeMetricsWithLogGroupStreamConfig(t *testing.T) {
 		Entity:        &cloudwatchlogs.Entity{},
 	}
 	expectedStreamKeyHash := streamKey.Hash()
-	pusherMap, ok := exp.boundedPusherMap.get(expectedStreamKeyHash)
+	pusherMap, ok := exp.boundedPusherMap.Get(expectedStreamKeyHash)
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -245,7 +245,7 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 				"Environment": aws.String("myEnvironment"),
 			}},
 	}
-	pusherMap, ok := exp.boundedPusherMap.get(streamKey.Hash())
+	pusherMap, ok := exp.boundedPusherMap.Get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -288,7 +288,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 		LogStreamName: "test-task-id",
 		Entity:        entity,
 	}
-	pusherMap, ok := exp.boundedPusherMap.get(streamKey.Hash())
+	pusherMap, ok := exp.boundedPusherMap.Get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -330,7 +330,7 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 			},
 		},
 	}
-	pusherMap, ok := exp.boundedPusherMap.get(streamKey.Hash())
+	pusherMap, ok := exp.boundedPusherMap.Get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -354,13 +354,13 @@ func TestPushMetricsDataWithErr(t *testing.T) {
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
 	logPusher.On("ForceFlush", nil).Return("").Once()
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
-	exp.boundedPusherMap = newBoundedPusherMap()
+	exp.boundedPusherMap = NewBoundedPusherMap()
 	streamKey := cwlogs.StreamKey{
 		LogGroupName:  "test-logGroupName",
 		LogStreamName: "test-logStreamName",
 		Entity:        &cloudwatchlogs.Entity{},
 	}
-	exp.boundedPusherMap.add(streamKey.Hash(), logPusher, zap.NewExample())
+	exp.boundedPusherMap.Add(streamKey.Hash(), logPusher, zap.NewExample())
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
 		metricValues: [][]float64{{100}, {4}},

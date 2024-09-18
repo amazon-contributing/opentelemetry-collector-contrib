@@ -1,3 +1,6 @@
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package awsemfexporter
 
 import (
@@ -11,22 +14,22 @@ const (
 	pusherMapLimit = 1000
 )
 
-type boundedPusherMap struct {
+type BoundedPusherMap struct {
 	pusherMap          map[string]cwlogs.Pusher
 	limit              int
 	stalePusherTracker map[string]time.Time
 }
 
-func newBoundedPusherMap() boundedPusherMap {
-	return boundedPusherMap{
+func NewBoundedPusherMap() BoundedPusherMap {
+	return BoundedPusherMap{
 		pusherMap:          make(map[string]cwlogs.Pusher),
 		limit:              pusherMapLimit,
 		stalePusherTracker: make(map[string]time.Time),
 	}
 }
 
-func (bpm *boundedPusherMap) add(key string, pusher cwlogs.Pusher, logger *zap.Logger) {
-	err := bpm.evictStalePushers()
+func (bpm *BoundedPusherMap) Add(key string, pusher cwlogs.Pusher, logger *zap.Logger) {
+	err := bpm.EvictStalePushers()
 	if err != nil {
 		logger.Error("Error with evicting stale pushers", zap.Error(err))
 		return
@@ -35,7 +38,7 @@ func (bpm *boundedPusherMap) add(key string, pusher cwlogs.Pusher, logger *zap.L
 	bpm.stalePusherTracker[key] = time.Now()
 }
 
-func (bpm *boundedPusherMap) get(key string) (cwlogs.Pusher, bool) {
+func (bpm *BoundedPusherMap) Get(key string) (cwlogs.Pusher, bool) {
 	pusher, ok := bpm.pusherMap[key]
 	if ok {
 		bpm.stalePusherTracker[key] = time.Now()
@@ -43,7 +46,7 @@ func (bpm *boundedPusherMap) get(key string) (cwlogs.Pusher, bool) {
 	return pusher, ok
 }
 
-func (bpm *boundedPusherMap) evictStalePushers() error {
+func (bpm *BoundedPusherMap) EvictStalePushers() error {
 	if len(bpm.pusherMap) < bpm.limit {
 		return nil
 	}
@@ -62,7 +65,7 @@ func (bpm *boundedPusherMap) evictStalePushers() error {
 	return nil
 }
 
-func (bpm *boundedPusherMap) listAllPushers() []cwlogs.Pusher {
+func (bpm *BoundedPusherMap) ListAllPushers() []cwlogs.Pusher {
 	var pushers []cwlogs.Pusher
 	for _, pusher := range bpm.pusherMap {
 		pushers = append(pushers, pusher)
