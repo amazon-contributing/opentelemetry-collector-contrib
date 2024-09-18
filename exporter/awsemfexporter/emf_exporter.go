@@ -103,11 +103,7 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 }
 
 func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) error {
-	// the original resourceAttributes map is immutable, so we need to create a mutable copy of the resource metrics
-	// to remove the entity fields from the attributes
-	mutableMetrics := pmetric.NewMetrics()
-	md.CopyTo(mutableMetrics)
-	rms := mutableMetrics.ResourceMetrics()
+	rms := md.ResourceMetrics()
 	labels := map[string]string{}
 	for i := 0; i < rms.Len(); i++ {
 		rm := rms.At(i)
@@ -131,7 +127,6 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 		if err != nil {
 			return err
 		}
-		rms.At(i).Resource().Attributes().RemoveIf(filterEntityAttributes())
 	}
 
 	for _, groupedMetric := range groupedMetrics {
@@ -179,14 +174,6 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	emf.config.logger.Debug("Finish processing resource metrics", zap.Any("labels", labels))
 
 	return nil
-}
-
-func filterEntityAttributes() func(s string, _ pcommon.Value) bool {
-	return func(s string, _ pcommon.Value) bool {
-		_, containsKeyAttribute := keyAttributeEntityToShortNameMap[s]
-		_, containsAttribute := keyAttributeEntityToShortNameMap[s]
-		return containsKeyAttribute || containsAttribute
-	}
 }
 
 func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {

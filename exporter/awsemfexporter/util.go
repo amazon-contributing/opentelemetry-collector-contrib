@@ -182,7 +182,7 @@ func processAttributes(entityMap map[string]string, targetMap map[string]*string
 			if strVal := val.Str(); strVal != "" {
 				targetMap[shortName] = aws.String(strVal)
 			}
-			//mutableResourceAttributes.Remove(entityField)
+			mutableResourceAttributes.Remove(entityField)
 		}
 	}
 }

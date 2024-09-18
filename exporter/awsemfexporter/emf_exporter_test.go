@@ -75,28 +75,6 @@ func TestConsumeMetrics(t *testing.T) {
 	require.NoError(t, exp.shutdown(ctx))
 }
 
-func TestFilterEntities(t *testing.T) {
-	md := generateTestMetrics(testMetric{
-		metricNames:  []string{"metric_1", "metric_2"},
-		metricValues: [][]float64{{100}, {4}},
-		resourceAttributeMap: map[string]any{
-			"aws.ecs.cluster.name":                  "test-cluster-name",
-			"aws.ecs.task.id":                       "test-task-id",
-			keyAttributeEntityType:                  service,
-			keyAttributeEntityServiceName:           "myService",
-			keyAttributeEntityDeploymentEnvironment: "myEnvironment",
-		},
-	})
-
-	rms := md.ResourceMetrics()
-
-	for i := 0; i < rms.Len(); i++ {
-		assert.Equal(t, 5, rms.At(i).Resource().Attributes().Len())
-		rms.At(i).Resource().Attributes().RemoveIf(filterEntityAttributes())
-		assert.Equal(t, 2, rms.At(i).Resource().Attributes().Len())
-	}
-}
-
 func TestConsumeMetricsWithNaNValues(t *testing.T) {
 	tests := []struct {
 		testName     string

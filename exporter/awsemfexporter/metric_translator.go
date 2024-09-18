@@ -165,7 +165,6 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	logGroup, logStream, patternReplaceSucceeded := getLogInfo(rm, cWNamespace, config)
 	deltaInitialValue := config.RetainInitialValueOfDeltaMetric
 
-	ilms := rm.ScopeMetrics()
 	var metricReceiver string
 	if receiver, ok := rm.Resource().Attributes().Get(attributeReceiver); ok {
 		metricReceiver = receiver.Str()
@@ -179,7 +178,13 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 			metricReceiver = containerInsightsReceiver
 		}
 	}
-	entity := fetchEntityFields(rm.Resource().Attributes())
+	// the original resourceAttributes map is immutable, so we need to create a mutable copy of the resource metrics
+	// to remove the entity fields from the attributes
+	mutableMetrics := pmetric.NewResourceMetrics()
+	rm.CopyTo(mutableMetrics)
+	entity := fetchEntityFields(mutableMetrics.Resource().Attributes())
+
+	ilms := mutableMetrics.ScopeMetrics()
 
 	for j := 0; j < ilms.Len(); j++ {
 		ilm := ilms.At(j)
