@@ -4,11 +4,13 @@
 package awsemfexporter
 
 import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 )
 
 // MockPusher implements the cwlogs.Pusher interface for testing

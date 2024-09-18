@@ -5,9 +5,11 @@ package awsemfexporter
 
 import (
 	"errors"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
-	"go.uber.org/zap"
 	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 )
 
 const (
