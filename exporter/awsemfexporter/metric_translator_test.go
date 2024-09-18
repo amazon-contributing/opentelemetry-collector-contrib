@@ -2599,10 +2599,8 @@ func TestFetchEntityFields(t *testing.T) {
 			workload:  aws.String("my-workload"),
 		},
 	}
-	assert.Equal(t, 7, resourceMetrics.Resource().Attributes().Len())
 	entity := fetchEntityFields(resourceMetrics.Resource().Attributes())
 	assert.Equal(t, expectedEntity, entity)
-	assert.Equal(t, 0, resourceMetrics.Resource().Attributes().Len())
 
 }
 

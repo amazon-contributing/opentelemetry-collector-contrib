@@ -374,7 +374,6 @@ func TestProcessAttributes(t *testing.T) {
 		entityMap          []map[string]string
 		resourceAttributes map[string]any
 		wantedAttributes   map[string]*string
-		leftoverAttributes map[string]any
 	}{
 		{
 			name:      "key_attributes",
@@ -387,7 +386,6 @@ func TestProcessAttributes(t *testing.T) {
 				serviceName:           aws.String("my-service"),
 				deploymentEnvironment: aws.String("my-environment"),
 			},
-			leftoverAttributes: make(map[string]any),
 		},
 		{
 			name:      "non-key_attributes",
@@ -404,7 +402,6 @@ func TestProcessAttributes(t *testing.T) {
 				node:      aws.String("my-node"),
 				workload:  aws.String("my-workload"),
 			},
-			leftoverAttributes: make(map[string]any),
 		},
 		{
 			name:      "key_and_non_key_attributes",
@@ -425,7 +422,6 @@ func TestProcessAttributes(t *testing.T) {
 				node:                  aws.String("my-node"),
 				workload:              aws.String("my-workload"),
 			},
-			leftoverAttributes: make(map[string]any),
 		},
 		{
 			name:      "key_and_non_key_attributes_plus_extras",
@@ -447,9 +443,6 @@ func TestProcessAttributes(t *testing.T) {
 				node:                  aws.String("my-node"),
 				workload:              aws.String("my-workload"),
 			},
-			leftoverAttributes: map[string]any{
-				"extra_attribute": "extra_value",
-			},
 		},
 	}
 
@@ -462,7 +455,6 @@ func TestProcessAttributes(t *testing.T) {
 			for _, entityMap := range tc.entityMap {
 				processAttributes(entityMap, targetMap, attrs)
 			}
-			assert.Equal(t, tc.leftoverAttributes, attrs.AsRaw())
 			assert.Equal(t, tc.wantedAttributes, targetMap)
 		})
 	}

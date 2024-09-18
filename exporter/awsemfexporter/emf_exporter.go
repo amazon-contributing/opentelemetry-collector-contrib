@@ -103,7 +103,11 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 }
 
 func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) error {
-	rms := md.ResourceMetrics()
+	// the original resourceAttributes map is immutable, so we need to create a mutable copy of the resource metrics
+	// to remove the entity fields from the attributes
+	mutableMetrics := pmetric.NewMetrics()
+	md.CopyTo(mutableMetrics)
+	rms := mutableMetrics.ResourceMetrics()
 	labels := map[string]string{}
 	for i := 0; i < rms.Len(); i++ {
 		rm := rms.At(i)
@@ -127,6 +131,7 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 		if err != nil {
 			return err
 		}
+		rms.At(i).Resource().Attributes().RemoveIf(filterEntityAttributes())
 	}
 
 	for _, groupedMetric := range groupedMetrics {
@@ -176,6 +181,14 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	return nil
 }
 
+func filterEntityAttributes() func(s string, _ pcommon.Value) bool {
+	return func(s string, _ pcommon.Value) bool {
+		_, containsKeyAttribute := keyAttributeEntityToShortNameMap[s]
+		_, containsAttribute := keyAttributeEntityToShortNameMap[s]
+		return containsKeyAttribute || containsAttribute
+	}
+}
+
 func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
 	var ok bool
 	hash := key.Hash()
@@ -192,11 +205,7 @@ func (emf *emfExporter) listPushers() []cwlogs.Pusher {
 	emf.pusherMapLock.Lock()
 	defer emf.pusherMapLock.Unlock()
 
-	var pushers []cwlogs.Pusher
-	for _, pusher := range emf.boundedPusherMap.ListAllPushers() {
-		pushers = append(pushers, pusher)
-	}
-	return pushers
+	return emf.boundedPusherMap.ListAllPushers()
 }
 
 func (emf *emfExporter) start(_ context.Context, host component.Host) error {

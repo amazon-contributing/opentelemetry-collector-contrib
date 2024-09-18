@@ -179,12 +179,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 			metricReceiver = containerInsightsReceiver
 		}
 	}
-	// the original resourceAttributes map is immutable, so we need to create a mutable copy of the resource metrics
-	// to remove the entity fields from the attributes
-	newResourceMetrics := pmetric.NewResourceMetrics()
-	rm.CopyTo(newResourceMetrics)
-	entity := fetchEntityFields(newResourceMetrics.Resource().Attributes())
-	rm = newResourceMetrics
+	entity := fetchEntityFields(rm.Resource().Attributes())
 
 	for j := 0; j < ilms.Len(); j++ {
 		ilm := ilms.At(j)
