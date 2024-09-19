@@ -13,6 +13,7 @@ import (
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/google/uuid"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/exporter"
@@ -33,10 +34,12 @@ const (
 	// AppSignals EMF config
 	appSignalsMetricNamespace    = "ApplicationSignals"
 	appSignalsLogGroupNamePrefix = "/aws/application-signals/"
+
+	pusherMapLimit = 1000
 )
 
 type emfExporter struct {
-	boundedPusherMap BoundedPusherMap
+	pusherMap        *lru.Cache[string, cwlogs.Pusher]
 	svcStructuredLog *cwlogs.Client
 	config           *Config
 
@@ -80,6 +83,12 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 		return nil, err
 	}
 
+	boundedPusherMap, err := lru.New[string, cwlogs.Pusher](pusherMapLimit)
+
+	if err != nil {
+		return nil, err
+	}
+
 	emfExporter := &emfExporter{
 		svcStructuredLog:      svcStructuredLog,
 		config:                config,
@@ -87,7 +96,7 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 		retryCnt:              *awsConfig.MaxRetries,
 		collectorID:           collectorIdentifier.String(),
 		processResourceLabels: func(map[string]string) {},
-		boundedPusherMap:      NewBoundedPusherMap(),
+		pusherMap:             boundedPusherMap,
 	}
 
 	if config.IsAppSignalsEnabled() {
@@ -181,9 +190,9 @@ func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
 	var ok bool
 	hash := key.Hash()
 	var pusher cwlogs.Pusher
-	if pusher, ok = emf.boundedPusherMap.Get(hash); !ok {
+	if pusher, ok = emf.pusherMap.Get(hash); !ok {
 		pusher = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
-		emf.boundedPusherMap.Add(hash, pusher, emf.config.logger)
+		emf.pusherMap.Add(hash, pusher)
 	}
 
 	return pusher
@@ -193,7 +202,7 @@ func (emf *emfExporter) listPushers() []cwlogs.Pusher {
 	emf.pusherMapLock.Lock()
 	defer emf.pusherMapLock.Unlock()
 
-	return emf.boundedPusherMap.ListAllPushers()
+	return emf.pusherMap.Values()
 }
 
 func (emf *emfExporter) start(_ context.Context, host component.Host) error {

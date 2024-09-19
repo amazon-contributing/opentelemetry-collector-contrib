@@ -76,12 +76,12 @@ func mapToString(m map[string]*string) string {
 	if m == nil {
 		return ""
 	}
-	var pairs []string
+	pairs := make([]string, 0, len(m))
 	for k, v := range m {
 		if v == nil {
-			pairs = append(pairs, fmt.Sprintf("%s:", k))
+			pairs = append(pairs, k+":")
 		} else {
-			pairs = append(pairs, fmt.Sprintf("%s:%s", k, *v))
+			pairs = append(pairs, k+":"+*v)
 		}
 	}
 	sort.Strings(pairs) // Ensure a consistent order

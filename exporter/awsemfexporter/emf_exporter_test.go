@@ -12,6 +12,7 @@ import (
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -197,10 +198,13 @@ func TestConsumeMetricsWithLogGroupStreamConfig(t *testing.T) {
 	streamKey := &cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
 		LogStreamName: expCfg.LogStreamName,
-		Entity:        &cloudwatchlogs.Entity{},
+		Entity: &cloudwatchlogs.Entity{
+			KeyAttributes: map[string]*string{},
+			Attributes:    map[string]*string{},
+		},
 	}
 	expectedStreamKeyHash := streamKey.Hash()
-	pusherMap, ok := exp.boundedPusherMap.Get(expectedStreamKeyHash)
+	pusherMap, ok := exp.pusherMap.Get(expectedStreamKeyHash)
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -236,16 +240,17 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 		LogGroupName:  "/aws/ecs/containerinsights/test-cluster-name/performance",
 		LogStreamName: "test-task-id",
 		Entity: &cloudwatchlogs.Entity{
-			Attributes: map[string]*string{
-				"Cluster": aws.String("test-cluster-name"),
-			},
 			KeyAttributes: map[string]*string{
 				"Type":        aws.String("Service"),
 				"Name":        aws.String("myService"),
 				"Environment": aws.String("myEnvironment"),
-			}},
+			},
+			Attributes: map[string]*string{
+				"Cluster": aws.String("test-cluster-name"),
+			},
+		},
 	}
-	pusherMap, ok := exp.boundedPusherMap.Get(streamKey.Hash())
+	pusherMap, ok := exp.pusherMap.Get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -268,6 +273,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 			"Name":        aws.String("myService"),
 			"Environment": aws.String("myEnvironment"),
 		},
+		Attributes: map[string]*string{},
 	}
 
 	md := generateTestMetrics(testMetric{
@@ -288,7 +294,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 		LogStreamName: "test-task-id",
 		Entity:        entity,
 	}
-	pusherMap, ok := exp.boundedPusherMap.Get(streamKey.Hash())
+	pusherMap, ok := exp.pusherMap.Get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -324,13 +330,14 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 		LogStreamName: expCfg.LogStreamName,
 		Entity: &cloudwatchlogs.Entity{
 			KeyAttributes: map[string]*string{
-				"Type":        aws.String("Service"),
 				"Name":        aws.String("myService"),
 				"Environment": aws.String("myEnvironment"),
+				"Type":        aws.String("Service"),
 			},
+			Attributes: map[string]*string{},
 		},
 	}
-	pusherMap, ok := exp.boundedPusherMap.Get(streamKey.Hash())
+	pusherMap, ok := exp.pusherMap.Get(streamKey.Hash())
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
@@ -354,13 +361,17 @@ func TestPushMetricsDataWithErr(t *testing.T) {
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
 	logPusher.On("ForceFlush", nil).Return("").Once()
 	logPusher.On("ForceFlush", nil).Return("some error").Once()
-	exp.boundedPusherMap = NewBoundedPusherMap()
+	exp.pusherMap, err = lru.New[string, cwlogs.Pusher](pusherMapLimit)
+	assert.Nil(t, err)
 	streamKey := cwlogs.StreamKey{
 		LogGroupName:  "test-logGroupName",
 		LogStreamName: "test-logStreamName",
-		Entity:        &cloudwatchlogs.Entity{},
+		Entity: &cloudwatchlogs.Entity{
+			Attributes:    map[string]*string{},
+			KeyAttributes: map[string]*string{},
+		},
 	}
-	exp.boundedPusherMap.Add(streamKey.Hash(), logPusher, zap.NewExample())
+	exp.pusherMap.Add(streamKey.Hash(), logPusher)
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
 		metricValues: [][]float64{{100}, {4}},
