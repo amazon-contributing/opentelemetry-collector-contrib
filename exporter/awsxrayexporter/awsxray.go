@@ -5,7 +5,9 @@ package awsxrayexporter // import "github.com/open-telemetry/opentelemetry-colle
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"fmt"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -24,7 +26,10 @@ import (
 )
 
 const (
-	maxSegmentsPerPut = int(50) // limit imposed by PutTraceSegments API
+	maxSegmentsPerPut               = int(50) // limit imposed by PutTraceSegments API
+	otlpFormatPrefix                = "T1S"   // X-Ray PutTraceSegment API uses this prefix to detect the format
+	otlpFormatKeyIndexAllAttributes = "aws.xray.exporter.config.index_all_attributes"
+	otlpFormatKeyIndexAttributes    = "aws.xray.exporter.config.indexed_attributes"
 )
 
 // newTracesExporter creates an exporter.Traces that converts to an X-Ray PutTraceSegments
@@ -57,7 +62,15 @@ func newTracesExporter(
 			var err error
 			logger.Debug("TracesExporter", typeLog, nameLog, zap.Int("#spans", td.SpanCount()))
 
-			documents := extractResourceSpans(cfg, logger, td)
+			var documents []*string
+			if cfg.TransitSpanInOtlpFormat {
+				documents, err = encodeOtlpAsBase64(td, cfg)
+				if err != nil {
+					return err
+				}
+			} else { // by default use xray format
+				documents = extractResourceSpans(cfg, logger, td)
+			}
 
 			for offset := 0; offset < len(documents); offset += maxSegmentsPerPut {
 				var nextOffset int
@@ -136,4 +149,39 @@ func wrapErrorIfBadRequest(err error) error {
 		return consumererror.NewPermanent(err)
 	}
 	return err
+}
+
+// encodeOtlpAsBase64 builds bytes from traces and generate base64 value for them
+func encodeOtlpAsBase64(td ptrace.Traces, cfg *Config) ([]*string, error) {
+	var documents []*string
+	marshaller := &ptrace.ProtoMarshaler{}
+	for i := 0; i < td.ResourceSpans().Len(); i++ {
+		// 1. build a new trace with one resource span
+		singleTrace := ptrace.NewTraces()
+		td.ResourceSpans().At(i).CopyTo(singleTrace.ResourceSpans().AppendEmpty())
+
+		// 2. append index configuration to resource span as attributes, such that X-Ray Service build indexes based on them.
+		injectIndexConfigIntoOtlpPayload(singleTrace.ResourceSpans().At(0), cfg)
+
+		// 3. Marshal single trace into proto bytes
+		bytes, err := marshaller.MarshalTraces(singleTrace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal traces: %w", err)
+		}
+
+		// 4. build bytes into base64 and append with PROTOCOL HEADER at the beginning
+		base64Str := otlpFormatPrefix + base64.StdEncoding.EncodeToString(bytes)
+		documents = append(documents, &base64Str)
+	}
+
+	return documents, nil
+}
+
+func injectIndexConfigIntoOtlpPayload(resourceSpan ptrace.ResourceSpans, cfg *Config) {
+	attributes := resourceSpan.Resource().Attributes()
+	attributes.PutBool(otlpFormatKeyIndexAllAttributes, cfg.IndexAllAttributes)
+	indexAttributes := attributes.PutEmptySlice(otlpFormatKeyIndexAttributes)
+	for _, indexAttribute := range cfg.IndexedAttributes {
+		indexAttributes.AppendEmpty().SetStr(indexAttribute)
+	}
 }
