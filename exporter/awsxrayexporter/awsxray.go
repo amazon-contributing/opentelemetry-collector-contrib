@@ -64,7 +64,7 @@ func newTracesExporter(
 			logger.Debug("TracesExporter", typeLog, nameLog, zap.Int("#spans", td.SpanCount()))
 
 			var documents []*string
-			if cfg.TransitSpanInOtlpFormat {
+			if cfg.TransitSpansInOtlpFormat {
 				documents, err = encodeOtlpAsBase64(td, cfg)
 				if err != nil {
 					return err

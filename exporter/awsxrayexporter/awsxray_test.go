@@ -123,7 +123,7 @@ func TestMiddleware(t *testing.T) {
 
 func TestTraceExportOtlpFormat(t *testing.T) {
 	config := generateConfig(t)
-	config.TransitSpanInOtlpFormat = true
+	config.TransitSpansInOtlpFormat = true
 
 	traceExporter := initializeTracesExporter(t, generateConfig(t), telemetrytest.NewNopRegistry())
 	ctx := context.Background()
