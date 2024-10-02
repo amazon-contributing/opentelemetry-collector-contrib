@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/translator"
@@ -154,7 +155,6 @@ func wrapErrorIfBadRequest(err error) error {
 // encodeOtlpAsBase64 builds bytes from traces and generate base64 value for them
 func encodeOtlpAsBase64(td ptrace.Traces, cfg *Config) ([]*string, error) {
 	var documents []*string
-	marshaller := &ptrace.ProtoMarshaler{}
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
 		// 1. build a new trace with one resource span
 		singleTrace := ptrace.NewTraces()
@@ -164,7 +164,7 @@ func encodeOtlpAsBase64(td ptrace.Traces, cfg *Config) ([]*string, error) {
 		injectIndexConfigIntoOtlpPayload(singleTrace.ResourceSpans().At(0), cfg)
 
 		// 3. Marshal single trace into proto bytes
-		bytes, err := marshaller.MarshalTraces(singleTrace)
+		bytes, err := ptraceotlp.NewExportRequestFromTraces(singleTrace).MarshalProto()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal traces: %w", err)
 		}
