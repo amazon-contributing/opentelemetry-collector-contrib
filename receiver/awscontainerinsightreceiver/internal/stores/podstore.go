@@ -120,9 +120,11 @@ type PodStore struct {
 	addFullPodNameMetricLabel       bool
 	includeEnhancedMetrics          bool
 	enableAcceleratedComputeMetrics bool
+	enableKueueMetrics              bool
 }
 
-func NewPodStore(client podClient, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool, enableAcceleratedComputeMetrics bool, hostName string, isSystemdEnabled bool, logger *zap.Logger) (*PodStore, error) {
+func NewPodStore(client podClient, prefFullPodName bool, addFullPodNameMetricLabel bool, includeEnhancedMetrics bool,
+	enableAcceleratedComputeMetrics bool, enableKueueMetrics bool, hostName string, isSystemdEnabled bool, logger *zap.Logger) (*PodStore, error) {
 	if hostName == "" {
 		return nil, fmt.Errorf("missing environment variable %s. Please check your deployment YAML config or passed as part of the agent config", ci.HostName)
 	}
@@ -153,6 +155,7 @@ func NewPodStore(client podClient, prefFullPodName bool, addFullPodNameMetricLab
 		prefFullPodName:                 prefFullPodName,
 		includeEnhancedMetrics:          includeEnhancedMetrics,
 		enableAcceleratedComputeMetrics: enableAcceleratedComputeMetrics,
+		enableKueueMetrics:              enableKueueMetrics,
 		k8sClient:                       k8sClient,
 		logger:                          logger,
 		addFullPodNameMetricLabel:       addFullPodNameMetricLabel,

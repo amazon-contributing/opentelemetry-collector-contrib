@@ -42,6 +42,9 @@ const (
 
 	// Don't enable EKS control plane metrics by default
 	defaultEnableControlPlaneMetrics = false
+
+	// Don't enable Kueue metrics by default
+	defaultEnableKueueMetrics = false
 )
 
 // NewFactory creates a factory for AWS container insight receiver
@@ -64,6 +67,7 @@ func createDefaultConfig() component.Config {
 		ClusterName:                 defaultClusterName,
 		LeaderLockName:              defaultLeaderLockName,
 		EnableControlPlaneMetrics:   defaultEnableControlPlaneMetrics,
+		EnableKueueMetrics:          defaultEnableKueueMetrics,
 	}
 }
 
