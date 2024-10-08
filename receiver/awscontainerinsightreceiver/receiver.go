@@ -58,6 +58,7 @@ type awsContainerInsightReceiver struct {
 	podResourcesStore        *stores.PodResourcesStore
 	dcgmScraper              *prometheusscraper.SimplePrometheusScraper
 	neuronMonitorScraper     *prometheusscraper.SimplePrometheusScraper
+	kueueScraper             *k8sapiserver.KueuePrometheusScraper
 	efaSysfsScraper          *efa.Scraper
 }
 
@@ -190,6 +191,11 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 			}
 		}
 
+		err = acir.initKueuePrometheusScraper(ctx, host, hostInfo, leaderElection)
+		if err != nil {
+			acir.settings.Logger.Warn("Unable to start kueue prometheus scraper", zap.Error(err))
+		}
+
 		err = acir.initDcgmScraper(ctx, host, hostInfo, k8sDecorator)
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start dcgm scraper", zap.Error(err))
@@ -286,6 +292,47 @@ func (acir *awsContainerInsightReceiver) initPrometheusScraper(ctx context.Conte
 	})
 	return err
 }
+
+func (acir *awsContainerInsightReceiver) initKueuePrometheusScraper(
+	ctx context.Context,
+	host component.Host,
+	hostInfo *hostinfo.Info,
+	leaderElection *k8sapiserver.LeaderElection,
+) error {
+	if !acir.config.EnableKueueMetrics {
+		return nil
+	}
+
+	endpoint, err := acir.getK8sAPIServerEndpoint()
+	if err != nil {
+		return err
+	}
+
+	acir.settings.Logger.Debug("kube apiserver endpoint found", zap.String("endpoint", endpoint))
+	// use the same leader
+
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return err
+	}
+	bearerToken := restConfig.BearerToken
+	if bearerToken == "" {
+		return errors.New("bearer token was empty")
+	}
+
+	acir.kueueScraper, err = k8sapiserver.NewKueuePrometheusScraper(k8sapiserver.KueuePrometheusScraperOpts{
+		Ctx:                 ctx,
+		TelemetrySettings:   acir.settings,
+		Endpoint:            endpoint,
+		Consumer:            acir.nextConsumer,
+		Host:                host,
+		ClusterNameProvider: hostInfo,
+		BearerToken:         bearerToken,
+		LeaderElection:      leaderElection,
+	})
+	return err
+}
+
 func (acir *awsContainerInsightReceiver) initDcgmScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, decorator *stores.K8sDecorator) error {
 	if !acir.config.EnableAcceleratedComputeMetrics {
 		return nil
@@ -455,6 +502,11 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 
 	if acir.efaSysfsScraper != nil {
 		mds = append(mds, acir.efaSysfsScraper.GetMetrics()...)
+	}
+
+	if acir.kueueScraper != nil {
+		// this does not return any metrics, it just ensures scraping is running
+		acir.kueueScraper.GetMetrics() //nolint:errcheck
 	}
 
 	for _, md := range mds {
