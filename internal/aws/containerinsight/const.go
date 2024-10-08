@@ -151,6 +151,18 @@ const (
 	HyperPodSchedulable                     = "schedulable"
 	HyperPodUnschedulable                   = "unschedulable"
 
+	// kueue metrics
+
+	KueuePendingWorkloads              = "kueue_pending_workloads"
+	KueueEvictedWorkloadsTotal         = "kueue_evicted_workloads_total"
+	KueueAdmissionWaitTimeSecondsSum   = "kueue_admission_wait_time_seconds_sum"
+	KueueAdmissionWaitTimeSecondsCount = "kueue_admission_wait_time_seconds_count"
+	KueueAdmittedWorkloadsTotal        = "kueue_admitted_workloads_total"
+	KueueAdmittedActiveWorkloads       = "kueue_admitted_active_workloads"
+	KueueClusterQueueResourceUsage     = "kueue_cluster_queue_resource_usage"
+	KueueClusterQueueNominalQuota      = "kueue_cluster_queue_nominal_quota"
+	KueueClusterQueueBorrowingLimit    = "kueue_cluster_kueue_borrowing_limit"
+
 	// Define the metric types
 	TypeCluster            = "Cluster"
 	TypeClusterService     = "ClusterService"
@@ -173,6 +185,10 @@ const (
 	TypeContainer          = "Container"
 	TypeContainerFS        = "ContainerFS"
 	TypeContainerDiskIO    = "ContainerDiskIO"
+
+	// kueue metric types
+	TypeClusterQueue = "ClusterQueue"
+
 	// Special type for pause container
 	// because containerd does not set container name pause container name to POD like docker does.
 	TypeInfraContainer  = "InfraContainer"
@@ -189,6 +205,7 @@ const (
 	// unit
 	UnitBytes       = "Bytes"
 	UnitMegaBytes   = "Megabytes"
+	UnitSecond      = "Second"
 	UnitNanoSecond  = "Nanoseconds"
 	UnitBytesPerSec = "Bytes/Second"
 	UnitCount       = "Count"
@@ -324,6 +341,18 @@ func init() {
 		// cluster metrics
 		NodeCount:       UnitCount,
 		FailedNodeCount: UnitCount,
+
+		// kueue metrics
+		KueuePendingWorkloads:              UnitCount,
+		KueueEvictedWorkloadsTotal:         UnitCount,
+		KueueAdmissionWaitTimeSecondsSum:   UnitSecond,
+		KueueAdmissionWaitTimeSecondsCount: UnitCount,
+		KueueAdmittedWorkloadsTotal:        UnitCount,
+		KueueAdmittedActiveWorkloads:       UnitCount,
+		// TODO: how do we want to handle these? is straight count for CPU and GPU cores, but is bytes for memory.
+		KueueClusterQueueResourceUsage:  UnitCount,
+		KueueClusterQueueNominalQuota:   UnitCount,
+		KueueClusterQueueBorrowingLimit: UnitCount,
 
 		// others
 		RunningPodCount:       UnitCount,
