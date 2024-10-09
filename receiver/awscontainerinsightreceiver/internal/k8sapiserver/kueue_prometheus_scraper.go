@@ -103,9 +103,10 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 							model.AddressLabel: model.LabelValue(opts.Endpoint),
 							"ClusterName":      model.LabelValue(opts.ClusterNameProvider.GetClusterName()),
 							"Version":          model.LabelValue("0"),
-							"Sources":          model.LabelValue("[\"apiserver\"]"),
-							"NodeName":         model.LabelValue(os.Getenv("HOST_NAME")),
-							"Type":             model.LabelValue("KueueMetric"), // TODO: reach alignment with cwa team about what this should be
+							// AFAIK 'Sources' identifies metric source to a human. currently states metrics come from k8s api server. this can/should be changed to something like 'kueue'
+							"Sources":  model.LabelValue("[\"apiserver\"]"),
+							"NodeName": model.LabelValue(os.Getenv("HOST_NAME")),
+							"Type":     model.LabelValue("KueueMetric"), // TODO: reach alignment with cwa team about what this should be
 						},
 					},
 				},
@@ -140,43 +141,6 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 				Replacement:  "$1:$2",
 				TargetLabel:  "__address__",
 			},
-			// { // specify scheme from service annotation (i think this is unnecessary)
-			// 	Action:       relabel.Replace,
-			// 	Regex:        relabel.MustNewRegexp("(https?)"),
-			// 	SourceLabels: model.LabelNames{"__meta_kubernetes_service_annotation_prometheus_io_scheme"},
-			// 	TargetLabel:  "__scheme__",
-			// },
-			// { // specify metrics path from service annotation (i think this is unnecessary)
-			// 	Action:       relabel.Replace,
-			// 	Regex:        relabel.MustNewRegexp("(.+)"),
-			// 	SourceLabels: model.LabelNames{"__meta_kubernetes_service_annotation_prometheus_io_path"},
-			// 	TargetLabel:  "__metrics_path__",
-			// },
-			// cosmetic actions don't remove existing labels. SourceLabel value is just copied to TargetLabel
-			// { // cosmetic - copy values of all labels starting with "__meta_kubernetes_service_label_" to labels with that prefix omitted.
-			// 	Action: relabel.LabelMap,
-			// 	Regex:  relabel.MustNewRegexp("__meta_kubernetes_service_label_(.+)"),
-			// },
-			// { // cosmetic - add label "Namespace" with value from meta tag
-			// 	Action:       relabel.Replace,
-			// 	SourceLabels: model.LabelNames{"__meta_kubernetes_namespace"},
-			// 	TargetLabel:  "Namespace",
-			// },
-			// { // cosmetic - add label "kubernetes_node" with value from meta tag
-			// 	Action:       relabel.Replace,
-			// 	SourceLabels: model.LabelNames{"__meta_kubernetes_pod_node_name"},
-			// 	TargetLabel:  "kubernetes_node",
-			// },
-			// { // cosmetic - add label "pod_name" with value from meta tag
-			// 	Action:       relabel.Replace,
-			// 	SourceLabels: model.LabelNames{"__meta_kubernetes_pod_name"},
-			// 	TargetLabel:  "pod_name",
-			// },
-			// { // cosmetic - add label "container_name" with value from meta tag
-			// 	Action:       relabel.Replace,
-			// 	SourceLabels: model.LabelNames{"__meta_kubernetes_pod_container_name"},
-			// 	TargetLabel:  "container_name",
-			// },
 		},
 	}
 
