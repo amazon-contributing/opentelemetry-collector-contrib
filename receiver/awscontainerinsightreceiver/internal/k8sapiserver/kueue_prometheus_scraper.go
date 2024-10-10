@@ -26,10 +26,9 @@ import (
 )
 
 const (
-	// caFile               = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"  // defined in prometheus_scraper.go
 	kmCollectionInterval = 60 * time.Second
-	// needs to be "containerInsightsKueueServerScraper" for histogram deltas in the emf exporter
-	kmJobName                   = "containerInsightsKueueMetricsScraper" // align with cwa team on what this should be
+	// kmJobName needs to be "containerInsightsKueueMetricsScraper" so metric translator tags the source as the container insights receiver
+	kmJobName                   = "containerInsightsKueueMetricsScraper"
 	kueueMetricServiceSelector  = "k8s-app=kueue-metrics-service"
 	kueueManagerServiceSelector = "k8s-app=kueue-controller-manager-metrics-service"
 )
@@ -102,8 +101,6 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
 					IncludeOwnNamespace: false, // false allows scraper to look in other namespaces
 				},
-				// scraper currently tries to access manager directly. if this doesn't work,
-				// setting up a proxy service in helm charts repo may be necessary.
 				Selectors: []kubernetes.SelectorConfig{
 					{
 						Role:  kubernetes.RoleService,
