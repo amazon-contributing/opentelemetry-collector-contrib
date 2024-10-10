@@ -349,10 +349,11 @@ func init() {
 		KueueAdmissionWaitTimeSecondsCount: UnitCount,
 		KueueAdmittedWorkloadsTotal:        UnitCount,
 		KueueAdmittedActiveWorkloads:       UnitCount,
-		// TODO: how do we want to handle these? is straight count for CPU and GPU cores, but is bytes for memory.
-		KueueClusterQueueResourceUsage:  UnitCount,
-		KueueClusterQueueNominalQuota:   UnitCount,
-		KueueClusterQueueBorrowingLimit: UnitCount,
+		KueueClusterQueueResourceUsage:     UnitCount,
+		KueueClusterQueueNominalQuota:      UnitCount,
+		KueueClusterQueueBorrowingLimit:    UnitCount,
+		// unit for KueueClusterQueue resource metrics depend on resource type. UnitCount is appropriate
+		// for CPU and CPU cores, but UnitBytes would be more appropriate for resource type memory.
 
 		// others
 		RunningPodCount:       UnitCount,
