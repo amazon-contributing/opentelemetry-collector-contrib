@@ -303,14 +303,6 @@ func (acir *awsContainerInsightReceiver) initKueuePrometheusScraper(
 		return nil
 	}
 
-	endpoint, err := acir.getK8sAPIServerEndpoint()
-	if err != nil {
-		return err
-	}
-
-	acir.settings.Logger.Debug("kube apiserver endpoint found", zap.String("endpoint", endpoint))
-	// use the same leader
-
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -323,7 +315,6 @@ func (acir *awsContainerInsightReceiver) initKueuePrometheusScraper(
 	acir.kueueScraper, err = k8sapiserver.NewKueuePrometheusScraper(k8sapiserver.KueuePrometheusScraperOpts{
 		Ctx:                 ctx,
 		TelemetrySettings:   acir.settings,
-		Endpoint:            endpoint,
 		Consumer:            acir.nextConsumer,
 		Host:                host,
 		ClusterNameProvider: hostInfo,
