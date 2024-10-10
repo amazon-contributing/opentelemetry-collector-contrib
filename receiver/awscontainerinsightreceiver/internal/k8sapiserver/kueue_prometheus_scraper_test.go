@@ -6,8 +6,6 @@ package k8sapiserver
 import (
 	"context"
 	"strings"
-
-	// "strings"
 	"testing"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/mocks"
@@ -22,12 +20,6 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 )
-
-// const (
-// 	dummyInstanceID   = "i-0000000000"
-// 	dummyClusterName  = "cluster-name"
-// 	dummyInstanceType = "instance-type"
-// )
 
 const kueueMetrics = `
 # HELP kueue_pending_workloads Number of pending workloads

@@ -28,7 +28,7 @@ import (
 const (
 	// caFile               = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"  // defined in prometheus_scraper.go
 	kmCollectionInterval = 60 * time.Second
-	// needs to start with "containerInsightsKubeAPIServerScraper" for histogram deltas in the emf exporter
+	// needs to be "containerInsightsKueueServerScraper" for histogram deltas in the emf exporter
 	kmJobName                   = "containerInsightsKueueMetricsScraper" // align with cwa team on what this should be
 	kueueMetricServiceSelector  = "k8s-app=kueue-metrics-service"
 	kueueManagerServiceSelector = "k8s-app=kueue-controller-manager-metrics-service"
