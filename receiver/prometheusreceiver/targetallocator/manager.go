@@ -99,12 +99,15 @@ func (m *Manager) Shutdown() {
 // baseDiscoveryCfg can be used to provide additional ScrapeConfigs which will be added to the retrieved jobs.
 func (m *Manager) sync(compareHash uint64, httpClient *http.Client) (uint64, error) {
 	m.settings.Logger.Debug("Syncing target allocator jobs")
+	m.settings.Logger.Debug("endpoint", zap.String("endpoint", m.cfg.Endpoint))
+
 	scrapeConfigsResponse, err := getScrapeConfigsResponse(httpClient, m.cfg.Endpoint)
 	if err != nil {
 		m.settings.Logger.Error("Failed to retrieve job list", zap.Error(err))
 		return 0, err
 	}
 
+	m.settings.Logger.Debug("Scrape configs response", zap.Reflect("scrape_configs", scrapeConfigsResponse))
 	hash, err := getScrapeConfigHash(scrapeConfigsResponse)
 	if err != nil {
 		m.settings.Logger.Error("Failed to hash job list", zap.Error(err))

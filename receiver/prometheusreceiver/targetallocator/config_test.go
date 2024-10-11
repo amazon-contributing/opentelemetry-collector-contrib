@@ -4,6 +4,7 @@
 package targetallocator // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/targetallocator"
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -34,6 +35,20 @@ func TestLoadTargetAllocatorConfig(t *testing.T) {
 	assert.Equal(t, 5*time.Second, cfg.ClientConfig.Timeout)
 	assert.Equal(t, "client.crt", cfg.ClientConfig.TLSSetting.CertFile)
 	assert.Equal(t, 30*time.Second, cfg.Interval)
+	assert.Equal(t, "collector-1", cfg.CollectorID)
+}
+func TestLoadTargetAllocatorK8Config(t *testing.T) {
+	os.Setenv("POD_NAME", "collector-1")
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "k8-config.yaml"))
+	require.NoError(t, err)
+	cfg := &Config{}
+
+	sub, err := cm.Sub("target_allocator")
+	require.NoError(t, err)
+	require.NoError(t, sub.Unmarshal(cfg))
+	require.NoError(t, component.ValidateConfig(cfg))
+
+	assert.Equal(t, "http://target-allocator-service:80", cfg.ClientConfig.Endpoint)
 	assert.Equal(t, "collector-1", cfg.CollectorID)
 }
 

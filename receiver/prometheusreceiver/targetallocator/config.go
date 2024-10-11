@@ -5,6 +5,7 @@ package targetallocator // import "github.com/open-telemetry/opentelemetry-colle
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -24,6 +25,26 @@ type Config struct {
 	CollectorID             string                `mapstructure:"collector_id"`
 	HTTPSDConfig            *PromHTTPSDConfig     `mapstructure:"http_sd_config"`
 	HTTPScrapeConfig        *PromHTTPClientConfig `mapstructure:"http_scrape_config"`
+}
+
+var _ confmap.Unmarshaler = (*Config)(nil)
+
+func getPodName() string {
+	return os.Getenv("POD_NAME")
+}
+func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
+	err := componentParser.Unmarshal(cfg)
+	if err != nil {
+		return err
+	}
+	if collector_id := cfg.CollectorID; collector_id == "" {
+		podName := getPodName()
+		if podName == "" {
+			return errors.New("POD_NAME env var not found ")
+		}
+		cfg.CollectorID = podName
+	}
+	return nil
 }
 
 // PromHTTPSDConfig is a redeclaration of promHTTP.SDConfig because we need custom unmarshaling

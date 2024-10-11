@@ -7,9 +7,11 @@ package targetallocator
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -28,7 +30,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
-	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/config/configtls"
 	"go.opentelemetry.io/collector/receiver/receivertest"
@@ -58,9 +59,15 @@ type hTTPSDResponse struct {
 	Labels  map[model.LabelName]model.LabelValue `json:"labels"`
 }
 
+type expectedMetricRelabelConfigTestResult struct {
+	JobName            string
+	MetricRelabelRegex relabel.Regexp
+}
+
 type expectedTestResultJobMap struct {
-	Targets []string
-	Labels  model.LabelSet
+	Targets             []string
+	Labels              model.LabelSet
+	MetricRelabelConfig *expectedMetricRelabelConfigTestResult
 }
 
 type expectedTestResult struct {
@@ -158,6 +165,109 @@ type Responses struct {
 	responses   map[string][]mockTargetAllocatorResponseRaw
 }
 
+func TestGetScrapeConfigHash(t *testing.T) {
+	jobToScrapeConfig1 := map[string]*promconfig.ScrapeConfig{}
+	jobToScrapeConfig1["job1"] = &promconfig.ScrapeConfig{
+		JobName:         "job1",
+		HonorTimestamps: true,
+		ScrapeInterval:  model.Duration(30 * time.Second),
+		ScrapeTimeout:   model.Duration(30 * time.Second),
+		MetricsPath:     "/metrics",
+		Scheme:          "http",
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"a"},
+				TargetLabel:  "d",
+				Action:       relabel.KeepEqual,
+			},
+		},
+	}
+	jobToScrapeConfig1["job2"] = &promconfig.ScrapeConfig{
+		JobName:         "job2",
+		HonorTimestamps: true,
+		ScrapeInterval:  model.Duration(30 * time.Second),
+		ScrapeTimeout:   model.Duration(30 * time.Second),
+		MetricsPath:     "/metrics",
+		Scheme:          "http",
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"a"},
+				TargetLabel:  "d",
+				Action:       relabel.KeepEqual,
+			},
+		},
+	}
+	jobToScrapeConfig1["job3"] = &promconfig.ScrapeConfig{
+		JobName:         "job3",
+		HonorTimestamps: true,
+		ScrapeInterval:  model.Duration(30 * time.Second),
+		ScrapeTimeout:   model.Duration(30 * time.Second),
+		MetricsPath:     "/metrics",
+		Scheme:          "http",
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"a"},
+				TargetLabel:  "d",
+				Action:       relabel.KeepEqual,
+			},
+		},
+	}
+	jobToScrapeConfig2 := map[string]*promconfig.ScrapeConfig{}
+	jobToScrapeConfig2["job2"] = &promconfig.ScrapeConfig{
+		JobName:         "job2",
+		HonorTimestamps: true,
+		ScrapeInterval:  model.Duration(30 * time.Second),
+		ScrapeTimeout:   model.Duration(30 * time.Second),
+		MetricsPath:     "/metrics",
+		Scheme:          "http",
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"a"},
+				TargetLabel:  "d",
+				Action:       relabel.KeepEqual,
+			},
+		},
+	}
+	jobToScrapeConfig2["job1"] = &promconfig.ScrapeConfig{
+		JobName:         "job1",
+		HonorTimestamps: true,
+		ScrapeInterval:  model.Duration(30 * time.Second),
+		ScrapeTimeout:   model.Duration(30 * time.Second),
+		MetricsPath:     "/metrics",
+		Scheme:          "http",
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"a"},
+				TargetLabel:  "d",
+				Action:       relabel.KeepEqual,
+			},
+		},
+	}
+	jobToScrapeConfig2["job3"] = &promconfig.ScrapeConfig{
+		JobName:         "job3",
+		HonorTimestamps: true,
+		ScrapeInterval:  model.Duration(30 * time.Second),
+		ScrapeTimeout:   model.Duration(30 * time.Second),
+		MetricsPath:     "/metrics",
+		Scheme:          "http",
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"a"},
+				TargetLabel:  "d",
+				Action:       relabel.KeepEqual,
+			},
+		},
+	}
+
+	hash1, err := getScrapeConfigHash(jobToScrapeConfig1)
+	require.NoError(t, err)
+
+	hash2, err := getScrapeConfigHash(jobToScrapeConfig2)
+	require.NoError(t, err)
+
+	assert.Equal(t, hash1, hash2)
+}
+
 func TestTargetAllocatorJobRetrieval(t *testing.T) {
 	for _, tc := range []struct {
 		desc      string
@@ -175,6 +285,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job1",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -184,6 +295,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job2",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -266,6 +378,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job1",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -275,6 +388,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job2",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -355,6 +469,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job1",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -364,6 +479,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job2",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -375,6 +491,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job1",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -384,6 +501,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 								"job_name":               "job3",
 								"scrape_interval":        "30s",
 								"scrape_timeout":         "30s",
+								"scrape_protocols":       []string{"OpenMetricsText1.0.0", "OpenMetricsText0.0.1", "PrometheusText0.0.4"},
 								"metrics_path":           "/metrics",
 								"scheme":                 "http",
 								"relabel_configs":        nil,
@@ -585,7 +703,7 @@ func TestTargetAllocatorJobRetrieval(t *testing.T) {
 			providers := discoveryManager.Providers()
 			if tc.want.empty {
 				// if no base config is supplied and the job retrieval fails then no configuration should be found
-				require.Len(t, providers, 0)
+				require.Empty(t, providers)
 				return
 			}
 
@@ -657,8 +775,8 @@ func TestConfigureSDHTTPClientConfigFromTA(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	assert.Equal(t, false, httpSD.HTTPClientConfig.FollowRedirects)
-	assert.Equal(t, true, httpSD.HTTPClientConfig.TLSConfig.InsecureSkipVerify)
+	assert.False(t, httpSD.HTTPClientConfig.FollowRedirects)
+	assert.True(t, httpSD.HTTPClientConfig.TLSConfig.InsecureSkipVerify)
 	assert.Equal(t, "test.server", httpSD.HTTPClientConfig.TLSConfig.ServerName)
 	assert.Equal(t, "/path/to/ca", httpSD.HTTPClientConfig.TLSConfig.CAFile)
 	assert.Equal(t, "/path/to/cert", httpSD.HTTPClientConfig.TLSConfig.CertFile)
