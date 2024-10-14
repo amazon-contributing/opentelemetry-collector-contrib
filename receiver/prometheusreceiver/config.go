@@ -51,6 +51,7 @@ func (cfg *Config) Validate() error {
 type PromConfig promconfig.Config
 
 var _ confmap.Unmarshaler = (*PromConfig)(nil)
+var _ confmap.Marshaler = (*PromConfig)(nil)
 
 func (cfg *PromConfig) Unmarshal(componentParser *confmap.Conf) error {
 	cfgMap := componentParser.ToStringMap()
@@ -58,6 +59,20 @@ func (cfg *PromConfig) Unmarshal(componentParser *confmap.Conf) error {
 		return nil
 	}
 	return unmarshalYAML(cfgMap, (*promconfig.Config)(cfg))
+}
+
+func (cfg PromConfig) Marshal(componentParser *confmap.Conf) error {
+	yamlOut, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("prometheus receiver: failed to marshal config to yaml: %w", err)
+	}
+
+	var result map[string]any
+	err = yaml.UnmarshalStrict(yamlOut, &result)
+	if err != nil {
+		return fmt.Errorf("prometheus receiver: failed to unmarshal yaml to prometheus config object: %w", err)
+	}
+	return componentParser.Merge(confmap.NewFromStringMap(result))
 }
 
 func (cfg *PromConfig) Validate() error {
