@@ -68,7 +68,7 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 	// immediately sync jobs, not waiting for the first tick
 	savedHash, err := m.sync(uint64(0), httpClient)
 	if err != nil {
-		return err
+		m.settings.Logger.Error("Failed to sync target allocator", zap.Error(err))
 	}
 	go func() {
 		targetAllocatorIntervalTicker := time.NewTicker(m.cfg.Interval)
