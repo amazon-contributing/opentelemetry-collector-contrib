@@ -9,7 +9,7 @@ import (
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
 
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/common"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
 )
 
 type MetricPruner struct {

@@ -12,9 +12,9 @@ import (
 	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 	"go.uber.org/zap"
 
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/common"
-	appsignalsconfig "github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/config"
-	attr "github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/attributes"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	appsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 const (

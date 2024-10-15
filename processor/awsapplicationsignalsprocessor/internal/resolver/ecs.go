@@ -10,9 +10,9 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/common"
-	attr "github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/attributes"
-	"github.com/aws/amazon-cloudwatch-agent/translator/util/ecsutil"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/ecsutil"
 )
 
 type ecsResourceAttributesResolver struct {

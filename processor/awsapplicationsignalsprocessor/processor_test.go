@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT
 
-package awsapplicationsignals
+package awsapplicationsignalsprocessor
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/config"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/rules"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/rules"
 )
 
 var testRules = []rules.Rule{

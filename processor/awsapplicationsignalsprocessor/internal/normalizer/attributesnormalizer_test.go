@@ -12,7 +12,7 @@ import (
 	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 	"go.uber.org/zap"
 
-	attr "github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/attributes"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 func TestRenameAttributes_for_metric(t *testing.T) {

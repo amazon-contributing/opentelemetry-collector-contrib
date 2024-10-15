@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT
 
-package awsapplicationsignals
+package awsapplicationsignalsprocessor
 
 import (
 	"path/filepath"
@@ -12,8 +12,8 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
 
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/config"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/rules"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/rules"
 )
 
 var expectedRules = []rules.Rule{

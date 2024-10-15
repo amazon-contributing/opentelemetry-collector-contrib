@@ -19,10 +19,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/common"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/config"
-	attr "github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/attributes"
-	"github.com/aws/amazon-cloudwatch-agent/translator/util/eksdetector"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 // MockDeleter deletes a key immediately, useful for testing.
@@ -835,8 +834,6 @@ func TestEksResolver(t *testing.T) {
 }
 
 func TestK8sResourceAttributesResolverOnEKS(t *testing.T) {
-	eksdetector.NewDetector = eksdetector.TestEKSDetector
-	eksdetector.IsEKS = eksdetector.TestIsEKSCacheEKS
 	// helper function to get string values from the attributes
 	getStrAttr := func(attributes pcommon.Map, key string, t *testing.T) string {
 		if value, ok := attributes.Get(key); ok {
@@ -912,8 +909,6 @@ func TestK8sResourceAttributesResolverOnEKS(t *testing.T) {
 }
 
 func TestK8sResourceAttributesResolverOnK8S(t *testing.T) {
-	eksdetector.NewDetector = eksdetector.TestK8sDetector
-	eksdetector.IsEKS = eksdetector.TestIsEKSCacheK8s
 	// helper function to get string values from the attributes
 	getStrAttr := func(attributes pcommon.Map, key string, t *testing.T) string {
 		if value, ok := attributes.Get(key); ok {
@@ -989,7 +984,6 @@ func TestK8sResourceAttributesResolverOnK8S(t *testing.T) {
 }
 
 func TestK8sResourceAttributesResolverOnK8SOnPrem(t *testing.T) {
-	eksdetector.NewDetector = eksdetector.TestK8sDetector
 	// helper function to get string values from the attributes
 	getStrAttr := func(attributes pcommon.Map, key string, t *testing.T) string {
 		if value, ok := attributes.Get(key); ok {

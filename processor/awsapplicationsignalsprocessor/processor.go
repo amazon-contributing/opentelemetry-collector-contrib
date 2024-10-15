@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT
 
-package awsapplicationsignals
+package awsapplicationsignalsprocessor
 
 import (
 	"context"
@@ -15,12 +15,12 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	appsignalsconfig "github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/config"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/cardinalitycontrol"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/normalizer"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/prune"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/internal/resolver"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/rules"
+	appsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/cardinalitycontrol"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/normalizer"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/prune"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/resolver"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/rules"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.uber.org/zap"
 
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/common"
-	"github.com/aws/amazon-cloudwatch-agent/plugins/processors/awsapplicationsignals/config"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 )
 
 const (
