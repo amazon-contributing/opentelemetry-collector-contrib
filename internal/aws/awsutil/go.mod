@@ -1,9 +1,9 @@
-module github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil
+module github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil
 
 go 1.22.4
 
 require (
-	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-00010101000000-000000000000
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20241011214336-9ae2897e22a4
 	github.com/aws/aws-sdk-go v1.53.11
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/goleak v1.3.0

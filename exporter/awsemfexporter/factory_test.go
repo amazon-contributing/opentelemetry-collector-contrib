@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/collector/confmap/confmaptest"
 	"go.opentelemetry.io/collector/exporter/exportertest"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/metadata"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/metadata"
 )
 
 func TestCreateDefaultConfig(t *testing.T) {

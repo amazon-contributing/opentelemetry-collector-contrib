@@ -15,8 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/xray"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
-	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil"
+	awsxray "github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/xray"
 )
 
 const (

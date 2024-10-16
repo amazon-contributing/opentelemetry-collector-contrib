@@ -15,8 +15,8 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
-	aws "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/cwlogs"
+	aws "github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/metrics"
 )
 
 const (

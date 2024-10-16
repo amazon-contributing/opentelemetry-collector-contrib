@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/handler"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/cwlogs/handler"
 )
 
 const (
