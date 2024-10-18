@@ -29,8 +29,9 @@ const (
 	kmCollectionInterval = 60 * time.Second
 	// kmJobName needs to be "containerInsightsKueueMetricsScraper" so metric translator tags the source as the container insights receiver
 	kmJobName                   = "containerInsightsKueueMetricsScraper"
-	kueueMetricServiceSelector  = "k8s-app=kueue-metrics-service"
-	kueueManagerServiceSelector = "k8s-app=kueue-controller-manager-metrics-service"
+	kueueNamespace              = "kueue-system"
+	kueueNameLabelSelector      = "app.kubernetes.io/name=kueue"
+	kueueComponentLabelSelector = "app.kubernetes.io/component=controller"
 )
 
 var ( // list of regular expressions for the kueue metrics this scraper is intended to capture
@@ -99,12 +100,12 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
-					IncludeOwnNamespace: false, // false allows scraper to look in other namespaces
+					Names: []string{kueueNamespace}, // specify kueue-system namespace
 				},
 				Selectors: []kubernetes.SelectorConfig{
 					{
 						Role:  kubernetes.RoleService,
-						Label: kueueManagerServiceSelector,
+						Label: fmt.Sprintf("%s,%s", kueueNameLabelSelector, kueueComponentLabelSelector),
 					},
 				},
 			},
