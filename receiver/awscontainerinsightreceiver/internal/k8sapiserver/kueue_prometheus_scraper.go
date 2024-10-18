@@ -98,7 +98,7 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
-					Names: []string{kueueNamespace}, // specify kueue-system namespace
+					Names: []string{kueueNamespace},
 				},
 				Selectors: []kubernetes.SelectorConfig{
 					{
