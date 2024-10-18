@@ -244,6 +244,35 @@ func generateTestExponentialHistogramMetricWithInfs(name string) pmetric.Metrics
 	return otelMetrics
 }
 
+func generateTestExponentialHistogramMetricWithLongBuckets(name string) pmetric.Metrics {
+	otelMetrics := pmetric.NewMetrics()
+	rs := otelMetrics.ResourceMetrics().AppendEmpty()
+	metrics := rs.ScopeMetrics().AppendEmpty().Metrics()
+	metric := metrics.AppendEmpty()
+	metric.SetName(name)
+	metric.SetUnit("Seconds")
+	exponentialHistogramMetric := metric.SetEmptyExponentialHistogram()
+
+	exponentialHistogramDatapoint := exponentialHistogramMetric.DataPoints().AppendEmpty()
+	exponentialHistogramDatapoint.SetCount(3662)
+	exponentialHistogramDatapoint.SetSum(1000)
+	exponentialHistogramDatapoint.SetMin(-9e+17)
+	exponentialHistogramDatapoint.SetMax(9e+17)
+	exponentialHistogramDatapoint.SetZeroCount(2)
+	posBucketCounts := make([]uint64, 60)
+	for i := range posBucketCounts {
+		posBucketCounts[i] = uint64(i + 1)
+	}
+	exponentialHistogramDatapoint.Positive().BucketCounts().FromRaw(posBucketCounts)
+	negBucketCounts := make([]uint64, 60)
+	for i := range negBucketCounts {
+		negBucketCounts[i] = uint64(i + 1)
+	}
+	exponentialHistogramDatapoint.Negative().BucketCounts().FromRaw(negBucketCounts)
+	exponentialHistogramDatapoint.Attributes().PutStr("label1", "value1")
+	return otelMetrics
+}
+
 func generateTestSummaryMetric(name string) pmetric.Metrics {
 	otelMetrics := pmetric.NewMetrics()
 	rs := otelMetrics.ResourceMetrics().AppendEmpty()
@@ -894,7 +923,7 @@ func TestCalculateDeltaDatapoints_ExponentialHistogramDataPointSlice(t *testing.
 			}(),
 			expectedDatapoint: dataPoint{
 				name:   "foo",
-				value:  &cWMetricHistogram{Values: []float64{1.5, 3, 6, 0, -1.5, -3, -6}, Counts: []float64{1, 2, 3, 4, 1, 2, 3}},
+				value:  &cWMetricHistogram{Values: []float64{6, 3, 1.5, 0, -1.5, -3, -6}, Counts: []float64{3, 2, 1, 4, 1, 2, 3}},
 				labels: map[string]string{"label1": "value1"},
 			},
 		},
@@ -915,7 +944,7 @@ func TestCalculateDeltaDatapoints_ExponentialHistogramDataPointSlice(t *testing.
 			}(),
 			expectedDatapoint: dataPoint{
 				name:   "foo",
-				value:  &cWMetricHistogram{Values: []float64{0.625, 2.5, 10, 0, -0.625, -2.5, -10}, Counts: []float64{1, 2, 3, 4, 1, 2, 3}},
+				value:  &cWMetricHistogram{Values: []float64{10, 2.5, 0.625, 0, -0.625, -2.5, -10}, Counts: []float64{3, 2, 1, 4, 1, 2, 3}},
 				labels: map[string]string{"label1": "value1", "label2": "value2"},
 			},
 		},
@@ -934,6 +963,89 @@ func TestCalculateDeltaDatapoints_ExponentialHistogramDataPointSlice(t *testing.
 			assert.True(t, retained)
 			assert.Equal(t, 1, exponentialHistogramDatapointSlice.Len())
 			assert.Equal(t, tc.expectedDatapoint, dps[0])
+		})
+	}
+
+}
+
+func TestCalculateDeltaDatapoints_ExponentialHistogramDataPointSliceWithSplitDataPoints(t *testing.T) {
+	dmd := generateDeltaMetricMetadata(false, "foo", false)
+
+	testCases := []struct {
+		name               string
+		histogramDPS       pmetric.ExponentialHistogramDataPointSlice
+		expectedDatapoint1 dataPoint
+		expectedDatapoint2 dataPoint
+	}{
+		{
+			name: "Exponential histogram with more than 100 buckets",
+			histogramDPS: func() pmetric.ExponentialHistogramDataPointSlice {
+				histogramDPS := pmetric.NewExponentialHistogramDataPointSlice()
+				histogramDP := histogramDPS.AppendEmpty()
+				posBucketCounts := make([]uint64, 60)
+				for i := range posBucketCounts {
+					posBucketCounts[i] = uint64(i + 1)
+				}
+				histogramDP.Positive().BucketCounts().FromRaw(posBucketCounts)
+				histogramDP.SetZeroCount(2)
+				negBucketCounts := make([]uint64, 60)
+				for i := range negBucketCounts {
+					negBucketCounts[i] = uint64(i + 1)
+				}
+				histogramDP.Negative().BucketCounts().FromRaw(negBucketCounts)
+				histogramDP.SetSum(1000)
+				histogramDP.SetMin(-9e+17)
+				histogramDP.SetMax(9e+17)
+				histogramDP.SetCount(uint64(3662))
+				histogramDP.Attributes().PutStr("label1", "value1")
+				return histogramDPS
+			}(),
+			expectedDatapoint1: dataPoint{
+				name: "foo",
+				value: &cWMetricHistogram{
+					Values: []float64{4.12316860416e+11, 2.06158430208e+11, 1.03079215104e+11, 5.1539607552e+10, 2.5769803776e+10,
+						1.2884901888e+10, 6.442450944e+09, 3.221225472e+09, 1.610612736e+09, 8.05306368e+08, 4.02653184e+08, 2.01326592e+08, 1.00663296e+08,
+						5.0331648e+07, 2.5165824e+07, 1.2582912e+07, 6.291456e+06, 3.145728e+06, 1.572864e+06, 786432, 393216, 196608, 98304, 49152, 24576,
+						12288, 6144, 3072, 1536, 768, 384, 192, 96, 48, 24, 12, 6, 3, 1.5, 0, -1.5, -3, -6, -12, -24, -48, -96, -192, -384, -768, -1536, -3072,
+						-6144, -12288, -24576, -49152, -98304, -196608, -393216, -786432, -1.572864e+06, -3.145728e+06, -6.291456e+06, -1.2582912e+07, -2.5165824e+07,
+						-5.0331648e+07, -1.00663296e+08, -2.01326592e+08, -4.02653184e+08, -8.05306368e+08, -1.610612736e+09, -3.221225472e+09, -6.442450944e+09,
+						-1.2884901888e+10, -2.5769803776e+10, -5.1539607552e+10, -1.03079215104e+11, -2.06158430208e+11, -4.12316860416e+11, -8.24633720832e+11,
+						-1.649267441664e+12, -3.298534883328e+12, -6.597069766656e+12, -1.3194139533312e+13, -2.6388279066624e+13, -5.2776558133248e+13,
+						-1.05553116266496e+14, -2.11106232532992e+14, -4.22212465065984e+14, -8.44424930131968e+14, -1.688849860263936e+15, -3.377699720527872e+15,
+						-6.755399441055744e+15, -1.3510798882111488e+16, -2.7021597764222976e+16, -5.404319552844595e+16, -1.080863910568919e+17, -2.161727821137838e+17,
+						-4.323455642275676e+17, -8.646911284551352e+17},
+					Counts: []float64{39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7,
+						6, 5, 4, 3, 2, 1, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+						34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60},
+					Sum: 1000, Count: 2612, Min: -9e+17, Max: 5.49755813888e+11},
+				labels: map[string]string{"label1": "value1"},
+			},
+			expectedDatapoint2: dataPoint{
+				name: "foo",
+				value: &cWMetricHistogram{
+					Values: []float64{8.646911284551352e+17, 4.323455642275676e+17, 2.161727821137838e+17, 1.080863910568919e+17, 5.404319552844595e+16, 2.7021597764222976e+16,
+						1.3510798882111488e+16, 6.755399441055744e+15, 3.377699720527872e+15, 1.688849860263936e+15, 8.44424930131968e+14, 4.22212465065984e+14,
+						2.11106232532992e+14, 1.05553116266496e+14, 5.2776558133248e+13, 2.6388279066624e+13, 1.3194139533312e+13, 6.597069766656e+12, 3.298534883328e+12,
+						1.649267441664e+12, 8.24633720832e+11},
+					Counts: []float64{60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40},
+					Sum:    0, Count: 1050, Min: 5.49755813888e+11, Max: 9e+17},
+				labels: map[string]string{"label1": "value1"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(_ *testing.T) {
+			exponentialHistogramDatapointSlice := exponentialHistogramDataPointSlice{dmd, tc.histogramDPS}
+			emfCalcs := setupEmfCalculators()
+			defer require.NoError(t, shutdownEmfCalculators(emfCalcs))
+			dps, retained := exponentialHistogramDatapointSlice.CalculateDeltaDatapoints(0, instrLibName, false, emfCalcs)
+
+			assert.True(t, retained)
+			assert.Equal(t, 1, exponentialHistogramDatapointSlice.Len())
+			assert.Equal(t, 2, len(dps))
+			assert.Equal(t, tc.expectedDatapoint1, dps[0])
+			assert.Equal(t, tc.expectedDatapoint2, dps[1])
 		})
 	}
 
