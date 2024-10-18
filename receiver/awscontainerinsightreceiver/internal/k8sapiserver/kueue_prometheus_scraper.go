@@ -38,8 +38,6 @@ var ( // list of regular expressions for the kueue metrics this scraper is inten
 	kueueMetricAllowList = []string{
 		"^kueue_pending_workloads$",
 		"^kueue_evicted_workloads_total$",
-		"^kueue_admission_wait_time_seconds_(sum|count)$",
-		"^kueue_admitted_workloads_total$",
 		"^kueue_admitted_active_workloads$",
 		"^kueue_cluster_queue_resource_usage$",
 		"^kueue_cluster_queue_nominal_quota$",

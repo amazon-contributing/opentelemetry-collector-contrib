@@ -22,23 +22,19 @@ import (
 )
 
 const kueueMetrics = `
-# HELP kueue_pending_workloads Number of pending workloads
+# HELP kueue_pending_workloads Number of pending workloads per cluster queue and status
 # TYPE kueue_pending_workloads gauge
 kueue_pending_workloads{queue="default"} 3
-# HELP kueue_admission_wait_time_seconds_sum Sum of all admission wait time observations
-# TYPE kueue_admission_wait_time_seconds_sum counter
-kueue_admission_wait_time_seconds_sum{queue="default"} 219
-# HELP kueue_admission_wait_time_seconds_count Count of admission wait time observations
-# TYPE kueue_admission_wait_time_seconds_count counter
-kueue_admission_wait_time_seconds_count{queue="default"} 27
+# HELP kueue_admitted_active_workloads The number of admitted workloads that are active per cluster queue
+# TYPE kueue_admitted_active_workloads gauge
+kueue_admitted_active_workloads{queue="default"} 5
 `
 
 type mockKueueConsumer struct {
-	t                             *testing.T
-	called                        *bool
-	pendingWorkloadCount          *bool
-	admissionDurationSecondsCount *bool
-	admissionDurationSecondsSum   *bool
+	t                    *testing.T
+	called               *bool
+	pendingWorkloadCount *bool
+	activeWorkloadCount  *bool
 }
 
 func (m mockKueueConsumer) Capabilities() consumer.Capabilities {
@@ -57,12 +53,9 @@ func (m mockKueueConsumer) ConsumeMetrics(_ context.Context, md pmetric.Metrics)
 		case "kueue_pending_workloads":
 			assert.Equal(m.t, float64(3), metric.Gauge().DataPoints().At(0).DoubleValue())
 			*m.pendingWorkloadCount = true
-		case "kueue_admission_wait_time_seconds_sum":
-			assert.Equal(m.t, float64(219), metric.Sum().DataPoints().At(0).DoubleValue())
-			*m.admissionDurationSecondsSum = true
-		case "kueue_admission_wait_time_seconds_count":
-			assert.Equal(m.t, float64(27), metric.Sum().DataPoints().At(0).DoubleValue())
-			*m.admissionDurationSecondsCount = true
+		case "kueue_admitted_active_workloads":
+			assert.Equal(m.t, float64(5), metric.Gauge().DataPoints().At(0).DoubleValue())
+			*m.activeWorkloadCount = true
 		}
 	}
 	*m.called = true
@@ -127,15 +120,13 @@ func TestNewKueuePrometheusScraperBadInputs(t *testing.T) {
 func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 	consumerCalled := false
 	pendingWorkloadCount := false
-	admissionDurationSum := false
-	admissionDurationCount := false
+	activeWorkloadCount := false
 
 	mConsumer := mockKueueConsumer{
-		t:                             t,
-		called:                        &consumerCalled,
-		pendingWorkloadCount:          &pendingWorkloadCount,
-		admissionDurationSecondsSum:   &admissionDurationSum,
-		admissionDurationSecondsCount: &admissionDurationCount,
+		t:                    t,
+		called:               &consumerCalled,
+		pendingWorkloadCount: &pendingWorkloadCount,
+		activeWorkloadCount:  &activeWorkloadCount,
 	}
 
 	settings := componenttest.NewNopTelemetrySettings()
@@ -227,8 +218,7 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 	// assert consumer was called and all metrics were processed
 	assert.True(t, *mConsumer.called)
 	assert.True(t, *mConsumer.pendingWorkloadCount)
-	assert.True(t, *mConsumer.admissionDurationSecondsSum)
-	assert.True(t, *mConsumer.admissionDurationSecondsCount)
+	assert.True(t, *mConsumer.activeWorkloadCount)
 }
 
 func TestKueuePrometheusScraperJobName(t *testing.T) {
