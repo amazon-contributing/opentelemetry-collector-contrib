@@ -19,6 +19,10 @@ func TestValidatePassed(t *testing.T) {
 			NewEKSResolver("test"),
 		},
 		{
+			"testEKSWithoutName",
+			NewEKSResolverWithoutName(),
+		},
+		{
 			"testK8S",
 			NewK8sResolver("test"),
 		},
@@ -60,10 +64,6 @@ func TestValidateFailedOnEmptyResolverName(t *testing.T) {
 		name     string
 		resolver Resolver
 	}{
-		{
-			"testEKS",
-			NewEKSResolver(""),
-		},
 		{
 			"testK8S",
 			NewK8sResolver(""),

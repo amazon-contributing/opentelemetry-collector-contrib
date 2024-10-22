@@ -592,6 +592,20 @@ func newKubernetesResourceAttributesResolver(platformCode, clusterName string) *
 		attributeMap: DefaultInheritedAttributes,
 	}
 }
+
+// Attempt to get the `k8s.cluster.name“ attribute that should be populated from resourcedetectionprocessor.
+// If that attribute doesn't exist (e.g. resourcedetectionprocessor is not used or fails to get the k8s attributes),
+// fallback to the processor's configured clusterName (which is "UNKNOWN" if not specified).
+func (h *kubernetesResourceAttributesResolver) getResourceDetectorClusterName(resourceAttributes pcommon.Map) string {
+	clusterName := h.clusterName
+
+	if val, ok := resourceAttributes.Get(attr.ResourceDetectionClusterName); ok {
+		clusterName = val.Str()
+	}
+
+	return clusterName
+}
+
 func (h *kubernetesResourceAttributesResolver) Process(attributes, resourceAttributes pcommon.Map) error {
 	for attrKey, mappingKey := range h.attributeMap {
 		if val, ok := resourceAttributes.Get(attrKey); ok {
@@ -600,10 +614,10 @@ func (h *kubernetesResourceAttributesResolver) Process(attributes, resourceAttri
 	}
 	if h.platformCode == config.PlatformEKS {
 		attributes.PutStr(common.AttributePlatformType, AttributePlatformEKS)
-		attributes.PutStr(common.AttributeEKSClusterName, h.clusterName)
+		attributes.PutStr(common.AttributeEKSClusterName, h.getResourceDetectorClusterName(resourceAttributes))
 	} else {
 		attributes.PutStr(common.AttributePlatformType, AttributePlatformK8S)
-		attributes.PutStr(common.AttributeK8SClusterName, h.clusterName)
+		attributes.PutStr(common.AttributeK8SClusterName, h.getResourceDetectorClusterName(resourceAttributes))
 	}
 	var namespace string
 	if nsAttr, ok := resourceAttributes.Get(semconv.AttributeK8SNamespaceName); ok {
@@ -613,7 +627,7 @@ func (h *kubernetesResourceAttributesResolver) Process(attributes, resourceAttri
 	}
 
 	if val, ok := attributes.Get(attr.AWSLocalEnvironment); !ok {
-		env := generateLocalEnvironment(h.platformCode, h.clusterName+"/"+namespace)
+		env := generateLocalEnvironment(h.platformCode, h.getResourceDetectorClusterName(resourceAttributes)+"/"+namespace)
 		attributes.PutStr(attr.AWSLocalEnvironment, env)
 	} else {
 		attributes.PutStr(attr.AWSLocalEnvironment, val.Str())
@@ -623,7 +637,7 @@ func (h *kubernetesResourceAttributesResolver) Process(attributes, resourceAttri
 	// The application log group in Container Insights is a fixed pattern:
 	// "/aws/containerinsights/{Cluster_Name}/application"
 	// See https://github.com/aws/amazon-cloudwatch-agent-operator/blob/fe144bb02d7b1930715aa3ea32e57a5ff13406aa/helm/templates/fluent-bit-configmap.yaml#L82
-	logGroupName := "/aws/containerinsights/" + h.clusterName + "/application"
+	logGroupName := "/aws/containerinsights/" + h.getResourceDetectorClusterName(resourceAttributes) + "/application"
 	resourceAttributes.PutStr(semconv.AttributeAWSLogGroupNames, logGroupName)
 
 	return nil

@@ -55,9 +55,6 @@ func (cfg *Config) Validate() error {
 	for _, resolver := range cfg.Resolvers {
 		switch resolver.Platform {
 		case PlatformEKS:
-			if resolver.Name == "" {
-				return errors.New("name must not be empty for eks resolver")
-			}
 		case PlatformK8s:
 			if resolver.Name == "" {
 				return errors.New("name must not be empty for k8s resolver")
