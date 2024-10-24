@@ -44,7 +44,14 @@ var ( // list of regular expressions for the kueue metrics this scraper is inten
 		"^kueue_cluster_queue_nominal_quota$",
 		"^kueue_cluster_queue_borrowing_limit$",
 	}
-	kueueMetricsAllowRegex = strings.Join(kueueMetricAllowList, "|")
+	kueueMetricsAllowRegex    = strings.Join(kueueMetricAllowList, "|")
+	kueueDimensionsRelabelMap = map[string]string{
+		"cluster_queue": "ClusterQueue",
+		"flavor":        "Flavor",
+		"reason":        "Reason",
+		"resource":      "Resource",
+		"status":        "Status",
+	}
 )
 
 type KueuePrometheusScraper struct {
@@ -175,6 +182,19 @@ func GetKueueRelabelConfigs(cluster_name string) []*relabel.Config {
 			TargetLabel: "ClusterName",
 			Replacement: cluster_name,
 		},
+	}
+	// relabel configs to change casing conventions for Kueue dimensions
+	for sourceLabel, targetLabel := range kueueDimensionsRelabelMap {
+		relabel_configs = append(
+			relabel_configs,
+			&relabel.Config{
+				Action:       relabel.Replace,
+				Regex:        relabel.MustNewRegexp("(.*)"),
+				SourceLabels: model.LabelNames{model.LabelName(sourceLabel)},
+				TargetLabel:  targetLabel,
+				Replacement:  "${1}",
+			},
+		)
 	}
 	return relabel_configs
 }
