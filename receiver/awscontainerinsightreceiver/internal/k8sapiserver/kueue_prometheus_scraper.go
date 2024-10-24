@@ -32,6 +32,7 @@ const (
 	kueueNamespace              = "kueue-system"
 	kueueNameLabelSelector      = "app.kubernetes.io/name=kueue"
 	kueueComponentLabelSelector = "app.kubernetes.io/component=controller"
+	kueueServiceFieldSelector   = "metadata.name=kueue-controller-manager-metrics-service"
 )
 
 var ( // list of regular expressions for the kueue metrics this scraper is intended to capture
@@ -103,6 +104,7 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 					{
 						Role:  kubernetes.RoleService,
 						Label: fmt.Sprintf("%s,%s", kueueNameLabelSelector, kueueComponentLabelSelector),
+						Field: kueueServiceFieldSelector,
 					},
 				},
 			},
