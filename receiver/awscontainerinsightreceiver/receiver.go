@@ -446,6 +446,9 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.efaSysfsScraper != nil {
 		acir.efaSysfsScraper.Shutdown()
 	}
+	if acir.kueueScraper != nil {
+		acir.kueueScraper.Shutdown()
+	}
 	if acir.decorators != nil {
 		for i := len(acir.decorators) - 1; i >= 0; i-- {
 			errs = errors.Join(errs, acir.decorators[i].Shutdown())
@@ -496,7 +499,7 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 	}
 
 	if acir.kueueScraper != nil {
-		// this does not return any metrics, it just ensures scraping is running
+		// this does not return any metrics, it just ensures scraping is running on elected leader node
 		acir.kueueScraper.GetMetrics() //nolint:errcheck
 	}
 
