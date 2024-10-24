@@ -109,36 +109,7 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 				},
 			},
 		},
-		MetricRelabelConfigs: []*relabel.Config{
-			{ // filter by metric name: keep only the Kueue metrics specified via regex in `kueueMetricAllowList`
-				Action:       relabel.Keep,
-				Regex:        relabel.MustNewRegexp(kueueMetricsAllowRegex),
-				SourceLabels: model.LabelNames{"__name__"},
-			},
-			// type conflicts with the log Type in the container insights output format.
-			{ // add "kubernetes_type" to serve as non-conflicting name.
-				Action:      relabel.LabelMap,
-				Regex:       relabel.MustNewRegexp("^type$"),
-				Replacement: "kubernetes_type",
-			},
-			{ // drop conflicting name "type"
-				Action: relabel.LabelDrop,
-				Regex:  relabel.MustNewRegexp("^type$"),
-			},
-			{ // add port to value of label "__address__" if it isn't already included.
-				Action:       relabel.Replace,
-				Regex:        relabel.MustNewRegexp("([^:]+)(?::\\d+)?;(\\d+)"),
-				SourceLabels: model.LabelNames{"__address__", "__meta_kubernetes_service_annotation_prometheus_io_port"},
-				Replacement:  "$1:$2",
-				TargetLabel:  "__address__",
-			},
-			{ // add cluster name as a label
-				Action:      relabel.Replace,
-				Regex:       relabel.MustNewRegexp(".*"),
-				TargetLabel: "ClusterName",
-				Replacement: opts.ClusterNameProvider.GetClusterName(),
-			},
-		},
+		MetricRelabelConfigs: GetKueueRelabelConfigs(opts.ClusterNameProvider.GetClusterName()),
 	}
 
 	if opts.BearerToken != "" {
@@ -172,6 +143,40 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 		prometheusReceiver:  promReceiver,
 		leaderElection:      opts.LeaderElection,
 	}, nil
+}
+
+func GetKueueRelabelConfigs(cluster_name string) []*relabel.Config {
+	relabel_configs := []*relabel.Config{
+		{ // filter by metric name: keep only the Kueue metrics specified via regex in `kueueMetricAllowList`
+			Action:       relabel.Keep,
+			Regex:        relabel.MustNewRegexp(kueueMetricsAllowRegex),
+			SourceLabels: model.LabelNames{"__name__"},
+		},
+		// type conflicts with the log Type in the container insights output format.
+		{ // add "kubernetes_type" to serve as non-conflicting name.
+			Action:      relabel.LabelMap,
+			Regex:       relabel.MustNewRegexp("^type$"),
+			Replacement: "kubernetes_type",
+		},
+		{ // drop conflicting name "type"
+			Action: relabel.LabelDrop,
+			Regex:  relabel.MustNewRegexp("^type$"),
+		},
+		{ // add port to value of label "__address__" if it isn't already included.
+			Action:       relabel.Replace,
+			Regex:        relabel.MustNewRegexp("([^:]+)(?::\\d+)?;(\\d+)"),
+			SourceLabels: model.LabelNames{"__address__", "__meta_kubernetes_service_annotation_prometheus_io_port"},
+			Replacement:  "$1:$2",
+			TargetLabel:  "__address__",
+		},
+		{ // add cluster name as a label
+			Action:      relabel.Replace,
+			Regex:       relabel.MustNewRegexp(".*"),
+			TargetLabel: "ClusterName",
+			Replacement: cluster_name,
+		},
+	}
+	return relabel_configs
 }
 
 func (ps *KueuePrometheusScraper) GetMetrics() []pmetric.Metrics {
