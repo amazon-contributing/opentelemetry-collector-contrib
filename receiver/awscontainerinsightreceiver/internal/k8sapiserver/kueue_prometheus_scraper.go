@@ -44,7 +44,6 @@ var ( // list of regular expressions for the kueue metrics this scraper is inten
 		"^kueue_admitted_active_workloads$",
 		"^kueue_cluster_queue_resource_usage$",
 		"^kueue_cluster_queue_nominal_quota$",
-		"^kueue_cluster_queue_borrowing_limit$",
 	}
 	kueueMetricsAllowRegex    = strings.Join(kueueMetricAllowList, "|")
 	kueueDimensionsRelabelMap = map[string]string{

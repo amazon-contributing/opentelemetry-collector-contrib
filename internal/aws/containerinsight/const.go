@@ -153,15 +153,11 @@ const (
 
 	// kueue metrics
 
-	KueuePendingWorkloads              = "kueue_pending_workloads"
-	KueueEvictedWorkloadsTotal         = "kueue_evicted_workloads_total"
-	KueueAdmissionWaitTimeSecondsSum   = "kueue_admission_wait_time_seconds_sum"
-	KueueAdmissionWaitTimeSecondsCount = "kueue_admission_wait_time_seconds_count"
-	KueueAdmittedWorkloadsTotal        = "kueue_admitted_workloads_total"
-	KueueAdmittedActiveWorkloads       = "kueue_admitted_active_workloads"
-	KueueClusterQueueResourceUsage     = "kueue_cluster_queue_resource_usage"
-	KueueClusterQueueNominalQuota      = "kueue_cluster_queue_nominal_quota"
-	KueueClusterQueueBorrowingLimit    = "kueue_cluster_kueue_borrowing_limit"
+	KueuePendingWorkloads          = "kueue_pending_workloads"
+	KueueEvictedWorkloadsTotal     = "kueue_evicted_workloads_total"
+	KueueAdmittedActiveWorkloads   = "kueue_admitted_active_workloads"
+	KueueClusterQueueResourceUsage = "kueue_cluster_queue_resource_usage"
+	KueueClusterQueueNominalQuota  = "kueue_cluster_queue_nominal_quota"
 
 	// Define the metric types
 	TypeCluster            = "Cluster"
@@ -187,6 +183,7 @@ const (
 	TypeContainerDiskIO    = "ContainerDiskIO"
 
 	// kueue metric types
+	TypeWorkload     = "KueueWorkload"
 	TypeClusterQueue = "ClusterQueue"
 
 	// Special type for pause container
@@ -343,15 +340,11 @@ func init() {
 		FailedNodeCount: UnitCount,
 
 		// kueue metrics
-		KueuePendingWorkloads:              UnitCount,
-		KueueEvictedWorkloadsTotal:         UnitCount,
-		KueueAdmissionWaitTimeSecondsSum:   UnitSecond,
-		KueueAdmissionWaitTimeSecondsCount: UnitCount,
-		KueueAdmittedWorkloadsTotal:        UnitCount,
-		KueueAdmittedActiveWorkloads:       UnitCount,
-		KueueClusterQueueResourceUsage:     UnitCount,
-		KueueClusterQueueNominalQuota:      UnitCount,
-		KueueClusterQueueBorrowingLimit:    UnitCount,
+		KueuePendingWorkloads:          UnitCount,
+		KueueEvictedWorkloadsTotal:     UnitCount,
+		KueueAdmittedActiveWorkloads:   UnitCount,
+		KueueClusterQueueResourceUsage: UnitCount,
+		KueueClusterQueueNominalQuota:  UnitCount,
 		// unit for KueueClusterQueue resource metrics depend on resource type. UnitCount is appropriate
 		// for CPU and CPU cores, but UnitBytes would be more appropriate for resource type memory.
 
