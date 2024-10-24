@@ -22,6 +22,7 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 
+	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver"
 )
 
@@ -33,6 +34,7 @@ const (
 	kueueNameLabelSelector      = "app.kubernetes.io/name=kueue"
 	kueueComponentLabelSelector = "app.kubernetes.io/component=controller"
 	kueueServiceFieldSelector   = "metadata.name=kueue-controller-manager-metrics-service"
+	kueueMetricsLogStream       = "kubernetes-kueue"
 )
 
 var ( // list of regular expressions for the kueue metrics this scraper is intended to capture
@@ -181,6 +183,12 @@ func GetKueueRelabelConfigs(cluster_name string) []*relabel.Config {
 			Regex:       relabel.MustNewRegexp(".*"),
 			TargetLabel: "ClusterName",
 			Replacement: cluster_name,
+		},
+		{ // spoof an 'node name' in order to set name of destination log stream
+			Action:      relabel.Replace,
+			Regex:       relabel.MustNewRegexp(".*"),
+			TargetLabel: ci.NodeNameKey,
+			Replacement: kueueMetricsLogStream,
 		},
 	}
 	// relabel configs to change casing conventions for Kueue dimensions
