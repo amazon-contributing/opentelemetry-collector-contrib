@@ -83,7 +83,6 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 	scrapeConfig := &config.ScrapeConfig{
 		HTTPClientConfig: configutil.HTTPClientConfig{
 			TLSConfig: configutil.TLSConfig{
-				CAFile:             caFile,
 				InsecureSkipVerify: true,
 			},
 		},
