@@ -61,9 +61,9 @@ type Config struct {
 	// EnableAcceleratedComputeMetrics enables features with accelerated compute resources where metrics are scraped from vendor specific sources
 	EnableAcceleratedComputeMetrics bool `mapstructure:"accelerated_compute_metrics"`
 
-	// EnableKueueMetrics enables scraping of Kueue API endpoint (provided it is installed into the cluster) to get a set
+	// EnableKueueContainerInsights enables scraping of Kueue API endpoint (provided it is installed into the cluster) to get a set
 	// of Kueue metrics as defined by `kueueMetricAllowList` (used by `KueuePrometheusScraper`)
-	EnableKueueMetrics bool `mapstructure:"kueue_metrics"`
+	EnableKueueContainerInsights bool `mapstructure:"kueue_container_insights"`
 
 	// KubeConfigPath is an optional attribute to override the default kube config path in an EC2 environment
 	KubeConfigPath string `mapstructure:"kube_config_path"`
