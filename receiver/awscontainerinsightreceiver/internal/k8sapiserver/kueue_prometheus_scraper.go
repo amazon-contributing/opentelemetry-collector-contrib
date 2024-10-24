@@ -110,7 +110,6 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 		},
 		MetricRelabelConfigs: []*relabel.Config{
 			{ // filter by metric name: keep only the Kueue metrics specified via regex in `kueueMetricAllowList`
-
 				Action:       relabel.Keep,
 				Regex:        relabel.MustNewRegexp(kueueMetricsAllowRegex),
 				SourceLabels: model.LabelNames{"__name__"},
@@ -132,8 +131,9 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 				Replacement:  "$1:$2",
 				TargetLabel:  "__address__",
 			},
-			// add cluster name as a label
-			{
+			{ // add cluster name as a label
+				Action:      relabel.Replace,
+				Regex:       relabel.MustNewRegexp(".*"),
 				TargetLabel: "ClusterName",
 				Replacement: opts.ClusterNameProvider.GetClusterName(),
 			},
