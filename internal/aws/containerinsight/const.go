@@ -183,7 +183,6 @@ const (
 	TypeContainerDiskIO    = "ContainerDiskIO"
 
 	// kueue metric types
-	TypeWorkload     = "KueueWorkload"
 	TypeClusterQueue = "ClusterQueue"
 
 	// Special type for pause container
