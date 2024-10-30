@@ -37,7 +37,7 @@ func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
 	if err != nil {
 		return err
 	}
-	if collector_id := cfg.CollectorID; collector_id == "" {
+	if collectorID := cfg.CollectorID; collectorID == "" {
 		podName := getPodName()
 		if podName == "" {
 			return errors.New("POD_NAME env var not found ")

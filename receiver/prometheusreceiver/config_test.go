@@ -5,7 +5,6 @@ package prometheusreceiver
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,20 +22,6 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/internal/metadata"
 )
-
-func setup() {
-	err := os.Setenv("POD_NAME", "collector-1")
-	if err != nil {
-
-		os.Exit(1)
-	}
-}
-func teardown() {
-	err := os.Unsetenv("POD_NAME")
-	if err != nil {
-		os.Exit(1)
-	}
-}
 
 func TestLoadConfig(t *testing.T) {
 	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
@@ -123,7 +108,7 @@ func TestLoadTargetAllocatorConfig(t *testing.T) {
 	sub, err = cm.Sub(component.NewIDWithName(metadata.Type, "k8Setup").String())
 	require.NoError(t, err)
 
-	os.Setenv("POD_NAME", "collector-1")
+	t.Setenv("POD_NAME", "collector-1")
 	cfg = factory.CreateDefaultConfig()
 	require.NoError(t, sub.Unmarshal(cfg))
 	require.NoError(t, component.ValidateConfig(cfg))

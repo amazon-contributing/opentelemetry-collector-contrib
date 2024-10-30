@@ -4,7 +4,6 @@
 package targetallocator // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/targetallocator"
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -38,7 +37,7 @@ func TestLoadTargetAllocatorConfig(t *testing.T) {
 	assert.Equal(t, "collector-1", cfg.CollectorID)
 }
 func TestLoadTargetAllocatorK8Config(t *testing.T) {
-	os.Setenv("POD_NAME", "collector-1")
+	t.Setenv("POD_NAME", "collector-1")
 	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "k8-config.yaml"))
 	require.NoError(t, err)
 	cfg := &Config{}
