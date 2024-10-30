@@ -4,9 +4,9 @@ go 1.22.5
 
 require (
 	github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware v0.0.0-20240419190856-2f880467f335
-	github.com/aws/aws-sdk-go v1.53.11
 	github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil v0.103.0
 	github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/xray v0.103.0
+	github.com/aws/aws-sdk-go v1.53.11
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/collector/component v0.103.0
 	go.opentelemetry.io/collector/confmap v0.103.0
@@ -22,7 +22,7 @@ require (
 )
 
 require (
-	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20241011214336-9ae2897e22a4 // indirect
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20241024160840-0c7076070f12 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.22.2 // indirect
 	github.com/aws/smithy-go v1.16.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -69,9 +69,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray => ./../../internal/aws/xray
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/xray => ./../../internal/aws/xray
 
-replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil => ./../../internal/aws/awsutil
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil => ./../../internal/aws/awsutil
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../override/aws
 
