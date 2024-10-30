@@ -7,7 +7,6 @@ require (
 	github.com/aws/aws-sdk-go v1.53.11
 	github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil v0.103.0
 	github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/xray v0.103.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.103.0
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/collector/component v0.103.0
 	go.opentelemetry.io/collector/confmap v0.103.0
@@ -73,8 +72,6 @@ require (
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray => ./../../internal/aws/xray
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil => ./../../internal/aws/awsutil
-
-replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal => ../../internal/coreinternal
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../override/aws
 

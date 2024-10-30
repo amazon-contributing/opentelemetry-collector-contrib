@@ -10,7 +10,6 @@ require (
 	github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil v0.103.0
 	github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/cwlogs v0.103.0
 	github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/metrics v0.103.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.103.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/resourcetotelemetry v0.103.0
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/collector/component v0.103.0
@@ -79,8 +78,6 @@ replace github.com/amazon-contributing/opentelemetry-collector-contrib/internal/
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil => ../../internal/aws/awsutil
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/cwlogs => ../../internal/aws/cwlogs
-
-replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal => ../../internal/coreinternal
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/resourcetotelemetry => ../../pkg/resourcetotelemetry
 

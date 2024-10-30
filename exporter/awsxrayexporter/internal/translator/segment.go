@@ -21,7 +21,6 @@ import (
 	conventions "go.opentelemetry.io/collector/semconv/v1.8.0"
 
 	awsxray "github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/xray"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal/traceutil"
 )
 
 // AWS X-Ray acceptable values for origin field.
@@ -93,6 +92,17 @@ var removeAnnotationsFromServiceSegment = []string{
 var (
 	writers = newWriterPool(2048)
 )
+
+// Copied from https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.103.0/internal/coreinternal/traceutil/traceutil.go#L49-L56
+// We do not want to add a dependency on internal package `occonventions`.
+// spanIDToHexOrEmptyString returns a hex string from SpanID.
+// An empty string is returned, if SpanID is empty.
+func spanIDToHexOrEmptyString(id pcommon.SpanID) string {
+	if id.IsEmpty() {
+		return ""
+	}
+	return hex.EncodeToString(id[:])
+}
 
 // MakeSegmentDocuments converts spans to json documents
 func MakeSegmentDocuments(span ptrace.Span, resource pcommon.Resource, indexedAttrs []string, indexAllAttrs bool, logGroupNames []string, skipTimestampValidation bool) ([]string, error) {
@@ -464,12 +474,12 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 	}
 
 	return &awsxray.Segment{
-		ID:          awsxray.String(traceutil.SpanIDToHexOrEmptyString(span.SpanID())),
+		ID:          awsxray.String(spanIDToHexOrEmptyString(span.SpanID())),
 		TraceID:     awsxray.String(traceID),
 		Name:        awsxray.String(name),
 		StartTime:   awsP.Float64(startTime),
 		EndTime:     awsP.Float64(endTime),
-		ParentID:    awsxray.String(traceutil.SpanIDToHexOrEmptyString(span.ParentSpanID())),
+		ParentID:    awsxray.String(spanIDToHexOrEmptyString(span.ParentSpanID())),
 		Fault:       awsP.Bool(isFault),
 		Error:       awsP.Bool(isError),
 		Throttle:    awsP.Bool(isThrottle),
