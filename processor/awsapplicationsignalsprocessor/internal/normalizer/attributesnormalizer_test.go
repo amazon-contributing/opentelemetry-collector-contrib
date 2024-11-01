@@ -111,7 +111,7 @@ func TestTruncateAttributes(t *testing.T) {
 		longValue[i] = 'a'
 	}
 	longStringValue := string(longValue)
-	for key, _ := range attributesRenamingForMetric {
+	for key := range attributesRenamingForMetric {
 		attributes.PutStr(key, longStringValue)
 	}
 

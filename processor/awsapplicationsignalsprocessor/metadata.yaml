@@ -1,0 +1,11 @@
+type: awsapplicationsignals
+
+status:
+  class: processor
+  stability:
+    development: [traces, metrics]
+  codeowners:
+    active: [mxiamxia, jj22ee]
+tests:
+  goleak:
+    skip: true
