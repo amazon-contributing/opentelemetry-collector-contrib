@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/google/uuid"
@@ -22,6 +21,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.uber.org/zap"
+
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
@@ -99,6 +100,8 @@ func newCwLogsExporter(config component.Config, params exp.CreateSettings) (exp.
 }
 
 func (e *cwlExporter) consumeLogs(_ context.Context, ld plog.Logs) error {
+	e.logger.Info(fmt.Sprintf("TESTING %v", ld.ResourceLogs().At(0)))
+
 	pusher := e.pusherFactory.CreateMultiStreamPusher()
 	var errs error
 
