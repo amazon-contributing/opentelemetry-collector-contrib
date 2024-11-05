@@ -164,7 +164,10 @@ func TestClearStaleService(t *testing.T) {
 	cancel()
 
 	metricsLimiter := limiter.(*MetricsLimiter)
+
+	metricsLimiter.mapLock.RLock()
 	assert.Equal(t, 0, len(metricsLimiter.services))
+	metricsLimiter.mapLock.RUnlock()
 }
 
 func TestInheritanceAfterRotation(t *testing.T) {
@@ -220,14 +223,18 @@ func TestRotationInterval(t *testing.T) {
 	// wait for secondary to be created
 	time.Sleep(7 * time.Second)
 	for i := 0; i < 5; i++ {
+		svc.rwLock.Lock()
 		svc.secondaryCMS.matrix[0][0] = 1
+		svc.rwLock.Unlock()
 
 		// wait for rotation
 		time.Sleep(5 * time.Second)
 
 		// verify secondary is promoted to primary
+		svc.rwLock.RLock()
 		assert.Equal(t, 0, svc.secondaryCMS.matrix[0][0])
 		assert.Equal(t, 1, svc.primaryCMS.matrix[0][0])
+		svc.rwLock.RUnlock()
 	}
 }
 

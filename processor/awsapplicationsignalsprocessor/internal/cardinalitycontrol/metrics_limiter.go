@@ -157,7 +157,15 @@ func (m *MetricsLimiter) filterAWSDeclaredAttributes(attributes, resourceAttribu
 
 func (m *MetricsLimiter) removeStaleServices() {
 	var svcToRemove []string
+
+	m.mapLock.Lock()
+	defer m.mapLock.Unlock()
+
 	for name, svc := range m.services {
+
+		svc.rwLock.Lock()
+		defer svc.rwLock.Unlock()
+
 		if svc.rotations > 3 {
 			if svc.countSnapshot[0] == svc.countSnapshot[1] && svc.countSnapshot[1] == svc.countSnapshot[2] {
 				svc.cancelFunc()
@@ -166,8 +174,6 @@ func (m *MetricsLimiter) removeStaleServices() {
 		}
 	}
 
-	m.mapLock.Lock()
-	defer m.mapLock.Unlock()
 
 	for _, name := range svcToRemove {
 		m.logger.Info("remove stale service " + name + ".")
@@ -327,6 +333,9 @@ func (t *topKMetrics) findMinMetric() *MetricData {
 }
 
 func (s *service) admitMetricData(metric *MetricData) bool {
+	s.rwLock.Lock()
+	defer s.rwLock.Unlock()
+
 	_, found := s.primaryTopK.metricMap[metric.hashKey]
 	if len(s.primaryTopK.metricMap) < s.primaryTopK.sizeLimit || found {
 		return true
