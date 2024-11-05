@@ -6,14 +6,13 @@ package resolver
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"go.opentelemetry.io/collector/pdata/pcommon"
-	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
 	appsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/ecsutil"
+	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/collector/pdata/pcommon"
+	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 )
 
 func TestResourceAttributesResolverWithECSClusterName(t *testing.T) {
@@ -66,7 +65,7 @@ func TestResourceAttributesResolverWithECSClusterName(t *testing.T) {
 			resourceAttributes := pcommon.NewMap()
 			resourceAttributes.PutStr(semconv.AttributeAWSECSTaskARN, tc.ecsTaskArn)
 
-			resolver.Process(attributes, resourceAttributes)
+			_ = resolver.Process(attributes, resourceAttributes)
 
 			attribute, ok := attributes.Get(common.AttributePlatformType)
 			assert.True(t, ok)
@@ -87,19 +86,19 @@ func TestResourceAttributesResolverWithECSClusterName(t *testing.T) {
 func TestGetClusterName(t *testing.T) {
 	resourceAttributes := pcommon.NewMap()
 	resourceAttributes.PutStr(semconv.AttributeAWSECSClusterARN, "arn:aws:ecs:us-west-2:123456789123:cluster/my-cluster")
-	clusterName, taskId := getECSResourcesFromResourceAttributes(resourceAttributes)
+	clusterName, taskID := getECSResourcesFromResourceAttributes(resourceAttributes)
 	assert.Equal(t, "my-cluster", clusterName)
-	assert.Equal(t, "", taskId)
+	assert.Equal(t, "", taskID)
 
 	resourceAttributes = pcommon.NewMap()
 	resourceAttributes.PutStr(semconv.AttributeAWSECSTaskARN, "arn:aws:ecs:us-west-1:123456789123:task/10838bedacbbb5b")
-	clusterName, taskId = getECSResourcesFromResourceAttributes(resourceAttributes)
+	clusterName, taskID = getECSResourcesFromResourceAttributes(resourceAttributes)
 	assert.Equal(t, "", clusterName)
-	assert.Equal(t, "10838bedacbbb5b", taskId)
+	assert.Equal(t, "10838bedacbbb5b", taskID)
 
 	resourceAttributes = pcommon.NewMap()
 	resourceAttributes.PutStr(semconv.AttributeAWSECSTaskARN, "arn:aws:ecs:us-west-1:123456789123:task/my-cluster/10838bedacbbb5b")
-	clusterName, taskId = getECSResourcesFromResourceAttributes(resourceAttributes)
+	clusterName, taskID = getECSResourcesFromResourceAttributes(resourceAttributes)
 	assert.Equal(t, "my-cluster", clusterName)
-	assert.Equal(t, "10838bedacbbb5b", taskId)
+	assert.Equal(t, "10838bedacbbb5b", taskID)
 }

@@ -7,12 +7,11 @@ import (
 	"context"
 	"strings"
 
-	"go.opentelemetry.io/collector/pdata/pcommon"
-	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
 	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/ecsutil"
+	"go.opentelemetry.io/collector/pdata/pcommon"
+	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 )
 
 type ecsResourceAttributesResolver struct {
@@ -27,7 +26,7 @@ func (e *ecsResourceAttributesResolver) Process(attributes, resourceAttributes p
 		}
 	}
 
-	clusterName, taskId := getECSResourcesFromResourceAttributes(resourceAttributes)
+	clusterName, taskID := getECSResourcesFromResourceAttributes(resourceAttributes)
 	if clusterName == "" {
 		clusterName = ecsutil.GetECSUtilSingleton().Cluster
 	}
@@ -35,8 +34,8 @@ func (e *ecsResourceAttributesResolver) Process(attributes, resourceAttributes p
 	attributes.PutStr(common.AttributePlatformType, e.platformType)
 	attributes.PutStr(attr.AWSLocalEnvironment, e.getLocalEnvironment(attributes, resourceAttributes, clusterName))
 	attributes.PutStr(attr.AWSECSClusterName, clusterName)
-	if taskId != "" {
-		attributes.PutStr(attr.AWSECSTaskID, taskId)
+	if taskID != "" {
+		attributes.PutStr(attr.AWSECSTaskID, taskID)
 	}
 	return nil
 }
@@ -65,7 +64,7 @@ func (e *ecsResourceAttributesResolver) getLocalEnvironment(attributes pcommon.M
 	return generateLocalEnvironment(e.defaultEnvPrefix, AttributeEnvironmentDefault)
 }
 
-func (e *ecsResourceAttributesResolver) Stop(ctx context.Context) error {
+func (e *ecsResourceAttributesResolver) Stop(_ context.Context) error {
 	return nil
 }
 
@@ -80,7 +79,7 @@ func newECSResourceAttributesResolver(defaultEnvPrefix string, hostIn string) *e
 	}
 }
 
-func getECSResourcesFromResourceAttributes(resourceAttributes pcommon.Map) (clusterName, taskId string) {
+func getECSResourcesFromResourceAttributes(resourceAttributes pcommon.Map) (clusterName, taskID string) {
 	if clusterAttr, ok := resourceAttributes.Get(semconv.AttributeAWSECSClusterARN); ok {
 		parts := strings.Split(clusterAttr.Str(), "/")
 		clusterName = parts[len(parts)-1]
@@ -91,13 +90,13 @@ func getECSResourcesFromResourceAttributes(resourceAttributes pcommon.Map) (clus
 			taskParts := strings.Split(parts[1], "/")
 			// New Task ARN format "task/cluster-name/task-id".
 			if len(taskParts) == 2 {
-				taskId = taskParts[1]
+				taskID = taskParts[1]
 				if clusterName == "" {
 					clusterName = taskParts[0]
 				}
 			} else if len(taskParts) == 1 {
 				// Legacy Task ARN format "task/task-id".
-				taskId = taskParts[0]
+				taskID = taskParts[0]
 			}
 		}
 	}

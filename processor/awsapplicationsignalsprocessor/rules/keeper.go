@@ -4,9 +4,8 @@
 package rules // import "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/rules"
 
 import (
-	"go.opentelemetry.io/collector/pdata/pcommon"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 )
 
 type KeepActions struct {

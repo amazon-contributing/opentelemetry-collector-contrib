@@ -31,26 +31,26 @@ type ecsMetadataResponse struct {
 	TaskARN string
 }
 
-type ecsUtil struct {
+type EcsUtil struct {
 	Cluster    string
 	Region     string
 	TaskARN    string
-	httpClient *httpclient.HttpClient
+	httpClient *httpclient.HTTPClient
 }
 
-var ecsUtilInstance *ecsUtil
+var ecsUtilInstance *EcsUtil
 
 var ecsUtilOnce sync.Once
 
-func GetECSUtilSingleton() *ecsUtil {
+func GetECSUtilSingleton() *EcsUtil {
 	ecsUtilOnce.Do(func() {
 		ecsUtilInstance = initECSUtilSingleton()
 	})
 	return ecsUtilInstance
 }
 
-func initECSUtilSingleton() (newInstance *ecsUtil) {
-	newInstance = &ecsUtil{httpClient: httpclient.New()}
+func initECSUtilSingleton() (newInstance *EcsUtil) {
+	newInstance = &EcsUtil{httpClient: httpclient.New()}
 	if os.Getenv(RunInContainer) != TrueValue {
 		return
 	}
@@ -69,11 +69,11 @@ func initECSUtilSingleton() (newInstance *ecsUtil) {
 
 }
 
-func (e *ecsUtil) IsECS() bool {
+func (e *EcsUtil) IsECS() bool {
 	return e.Region != ""
 }
 
-func (e *ecsUtil) getECSMetadata() (em *ecsMetadataResponse, err error) {
+func (e *EcsUtil) getECSMetadata() (em *ecsMetadataResponse, err error) {
 	// Based on endpoint to get ECS metadata, for more information on the respond, https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint.html
 	if v4MetadataEndpoint, ok := os.LookupEnv(v4MetadataEndpointEnv); ok {
 		em, err = e.getMetadataResponse(v4MetadataEndpoint + "/task")
@@ -85,7 +85,7 @@ func (e *ecsUtil) getECSMetadata() (em *ecsMetadataResponse, err error) {
 	return
 }
 
-func (e *ecsUtil) getMetadataResponse(endpoint string) (em *ecsMetadataResponse, err error) {
+func (e *EcsUtil) getMetadataResponse(endpoint string) (em *ecsMetadataResponse, err error) {
 	em = &ecsMetadataResponse{}
 	resp, err := e.httpClient.Request(endpoint)
 
@@ -105,7 +105,7 @@ func (e *ecsUtil) getMetadataResponse(endpoint string) (em *ecsMetadataResponse,
 // arn:aws:ecs:region:aws_account_id:task/task-id
 // arn:aws:ecs:region:aws_account_id:task/cluster-name/task-id
 // This function will return region extracted from Task ARN
-func (e *ecsUtil) parseRegion(em *ecsMetadataResponse) {
+func (e *EcsUtil) parseRegion(em *ecsMetadataResponse) {
 	splitedContent := strings.Split(em.TaskARN, ":")
 	// When splitting the ARN with ":", the 4th segment is the region
 	if len(splitedContent) < 4 {
@@ -116,7 +116,7 @@ func (e *ecsUtil) parseRegion(em *ecsMetadataResponse) {
 
 // There is only one format for ClusterArn (https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Cluster.html)
 // arn:aws:ecs:region:aws_account_id:cluster/cluster-name
-func (e *ecsUtil) parseClusterName(em *ecsMetadataResponse) {
+func (e *EcsUtil) parseClusterName(em *ecsMetadataResponse) {
 	splitedContent := strings.Split(em.Cluster, "/")
 	// When splitting the ClusterName with /, the last is always the cluster name
 	if len(splitedContent) == 0 {

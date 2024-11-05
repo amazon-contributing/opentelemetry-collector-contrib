@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	deprecatedsemconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 	"go.uber.org/zap"
-
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
-	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 const (
@@ -25,7 +24,7 @@ const (
 	defaultMetricAttributeLength = 1024
 )
 
-type attributesNormalizer struct {
+type AttributesNormalizer struct {
 	logger *zap.Logger
 }
 
@@ -42,7 +41,7 @@ var attributesRenamingForMetric = map[string]string{
 	attr.AWSRemoteDbUser:                       common.MetricAttributeRemoteDbUser,
 	attr.AWSRemoteResourceCfnPrimaryIdentifier: common.MetricAttributeRemoteResourceCfnPrimaryIdentifier,
 	attr.AWSECSClusterName:                     common.MetricAttributeECSCluster,
-	attr.AWSECSTaskID:                          common.MetricAttributeECSTaskId,
+	attr.AWSECSTaskID:                          common.MetricAttributeECSTaskID,
 }
 
 var resourceAttributesRenamingForTrace = map[string]string{
@@ -83,13 +82,13 @@ const (
 	instrumentationModeManual = "Manual"
 )
 
-func NewAttributesNormalizer(logger *zap.Logger) *attributesNormalizer {
-	return &attributesNormalizer{
+func NewAttributesNormalizer(logger *zap.Logger) *AttributesNormalizer {
+	return &AttributesNormalizer{
 		logger: logger,
 	}
 }
 
-func (n *attributesNormalizer) Process(attributes, resourceAttributes pcommon.Map, isTrace bool) error {
+func (n *AttributesNormalizer) Process(attributes, resourceAttributes pcommon.Map, isTrace bool) error {
 	n.copyResourceAttributesToAttributes(attributes, resourceAttributes, isTrace)
 	truncateAttributesByLength(attributes)
 	n.renameAttributes(attributes, resourceAttributes, isTrace)
@@ -97,7 +96,7 @@ func (n *attributesNormalizer) Process(attributes, resourceAttributes pcommon.Ma
 	return nil
 }
 
-func (n *attributesNormalizer) renameAttributes(attributes, resourceAttributes pcommon.Map, isTrace bool) {
+func (n *AttributesNormalizer) renameAttributes(attributes, resourceAttributes pcommon.Map, isTrace bool) {
 	if isTrace {
 		rename(resourceAttributes, resourceAttributesRenamingForTrace)
 		rename(attributes, attributesRenamingForTrace)
@@ -106,7 +105,7 @@ func (n *attributesNormalizer) renameAttributes(attributes, resourceAttributes p
 	}
 }
 
-func (n *attributesNormalizer) copyResourceAttributesToAttributes(attributes, resourceAttributes pcommon.Map, isTrace bool) {
+func (n *AttributesNormalizer) copyResourceAttributesToAttributes(attributes, resourceAttributes pcommon.Map, isTrace bool) {
 	if isTrace {
 		return
 	}
@@ -132,7 +131,7 @@ func (n *attributesNormalizer) copyResourceAttributesToAttributes(attributes, re
 	}
 }
 
-func (n *attributesNormalizer) normalizeTelemetryAttributes(attributes, resourceAttributes pcommon.Map, isTrace bool) {
+func (n *AttributesNormalizer) normalizeTelemetryAttributes(attributes, resourceAttributes pcommon.Map, isTrace bool) {
 	if isTrace {
 		return
 	}

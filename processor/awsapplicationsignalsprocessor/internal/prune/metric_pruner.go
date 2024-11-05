@@ -7,9 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"go.opentelemetry.io/collector/pdata/pcommon"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 )
 
 type MetricPruner struct {
@@ -18,12 +17,12 @@ type MetricPruner struct {
 func (p *MetricPruner) ShouldBeDropped(attributes pcommon.Map) (bool, error) {
 	for _, attributeKey := range common.CWMetricAttributes {
 		if val, ok := attributes.Get(attributeKey); ok {
-			if !isAsciiPrintable(val.Str()) {
+			if !isASCIIPrintable(val.Str()) {
 				return true, errors.New("Metric attribute " + attributeKey + " must contain only ASCII characters.")
 			}
 		}
 		if _, ok := attributes.Get(common.MetricAttributeTelemetrySource); !ok {
-			return true, errors.New(fmt.Sprintf("Metric must contain %s.", common.MetricAttributeTelemetrySource))
+			return true, fmt.Errorf("Metric must contain %s", common.MetricAttributeTelemetrySource)
 		}
 	}
 	return false, nil
@@ -33,7 +32,7 @@ func NewPruner() *MetricPruner {
 	return &MetricPruner{}
 }
 
-func isAsciiPrintable(val string) bool {
+func isASCIIPrintable(val string) bool {
 	nonWhitespaceFound := false
 	for _, c := range val {
 		if c < 32 || c > 126 {

@@ -8,13 +8,12 @@ import (
 	"errors"
 	"fmt"
 
-	"go.opentelemetry.io/collector/pdata/pcommon"
-	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
-	"go.uber.org/zap"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
 	appsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
+	"go.opentelemetry.io/collector/pdata/pcommon"
+	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
+	"go.uber.org/zap"
 )
 
 const (
@@ -36,7 +35,7 @@ var GenericInheritedAttributes = map[string]string{
 var DefaultInheritedAttributes = map[string]string{
 	semconv.AttributeDeploymentEnvironment: attr.AWSLocalEnvironment,
 	attr.ResourceDetectionASG:              common.AttributeEC2AutoScalingGroup,
-	attr.ResourceDetectionHostId:           common.AttributeEC2InstanceId,
+	attr.ResourceDetectionHostID:           common.AttributeEC2InstanceID,
 	attr.ResourceDetectionHostName:         common.AttributeHost,
 }
 
@@ -45,12 +44,12 @@ type subResolver interface {
 	Stop(ctx context.Context) error
 }
 
-type attributesResolver struct {
+type AttributesResolver struct {
 	subResolvers []subResolver
 }
 
 // create a new attributes resolver
-func NewAttributesResolver(resolvers []appsignalsconfig.Resolver, logger *zap.Logger) *attributesResolver {
+func NewAttributesResolver(resolvers []appsignalsconfig.Resolver, logger *zap.Logger) *AttributesResolver {
 	subResolvers := []subResolver{}
 	for _, resolver := range resolvers {
 		switch resolver.Platform {
@@ -64,13 +63,13 @@ func NewAttributesResolver(resolvers []appsignalsconfig.Resolver, logger *zap.Lo
 			subResolvers = append(subResolvers, newResourceAttributesResolver(resolver.Platform, AttributePlatformGeneric, GenericInheritedAttributes))
 		}
 	}
-	return &attributesResolver{
+	return &AttributesResolver{
 		subResolvers: subResolvers,
 	}
 }
 
 // Process the attributes
-func (r *attributesResolver) Process(attributes, resourceAttributes pcommon.Map, _ bool) error {
+func (r *AttributesResolver) Process(attributes, resourceAttributes pcommon.Map, _ bool) error {
 	for _, subResolver := range r.subResolvers {
 		if err := subResolver.Process(attributes, resourceAttributes); err != nil {
 			return err
@@ -79,7 +78,7 @@ func (r *attributesResolver) Process(attributes, resourceAttributes pcommon.Map,
 	return nil
 }
 
-func (r *attributesResolver) Stop(ctx context.Context) error {
+func (r *AttributesResolver) Stop(ctx context.Context) error {
 	var errs error
 	for _, subResolver := range r.subResolvers {
 		errs = errors.Join(errs, subResolver.Stop(ctx))
@@ -130,6 +129,6 @@ func generateLocalEnvironment(platformCode, val string) string {
 	return fmt.Sprintf("%s:%s", platformCode, val)
 }
 
-func (h *resourceAttributesResolver) Stop(ctx context.Context) error {
+func (h *resourceAttributesResolver) Stop(_ context.Context) error {
 	return nil
 }

@@ -52,7 +52,7 @@ func TestWriteMultipleEntries(t *testing.T) {
 				if metricDataArray[i] == nil {
 					metricDataArray[i] = &md
 				} else {
-					metricDataArray[i].frequency = metricDataArray[i].frequency + freq
+					metricDataArray[i].frequency += freq
 				}
 
 			}
@@ -62,7 +62,7 @@ func TestWriteMultipleEntries(t *testing.T) {
 		for _, data := range metricDataArray {
 			val := cms.Get(data)
 			if data.frequency != val {
-				err += 1
+				err++
 			}
 		}
 		collisionRate := err * 100 / len(metricDataArray)
@@ -80,13 +80,13 @@ func TestAdjustUnsupportedDepth(t *testing.T) {
 	cms := NewCountMinSketch(5, 10)
 	assert.Equal(t, 3, cms.depth)
 	for i := 0; i < 2; i++ {
-		cms.RegisterHashFunc(func(hashKey string) int64 {
+		cms.RegisterHashFunc(func(_ string) int64 {
 			return int64(0)
 		})
 	}
 	assert.Equal(t, 5, cms.depth)
 	for i := 0; i < 2; i++ {
-		cms.RegisterHashFunc(func(hashKey string) int64 {
+		cms.RegisterHashFunc(func(_ string) int64 {
 			return int64(0)
 		})
 	}

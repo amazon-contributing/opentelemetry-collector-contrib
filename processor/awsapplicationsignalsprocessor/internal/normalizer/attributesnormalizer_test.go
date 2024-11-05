@@ -6,13 +6,12 @@ package normalizer
 import (
 	"testing"
 
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	deprecatedsemconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 	"go.uber.org/zap"
-
-	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 func TestRenameAttributes_for_metric(t *testing.T) {
@@ -180,7 +179,7 @@ func Test_attributesNormalizer_appendNewAttributes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := &attributesNormalizer{
+			n := &AttributesNormalizer{
 				logger: logger,
 			}
 			n.normalizeTelemetryAttributes(tt.attributes, tt.resourceAttributes, tt.isTrace)

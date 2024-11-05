@@ -10,11 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/collector/pdata/pcommon"
-	"go.uber.org/zap"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.uber.org/zap"
 )
 
 const (
@@ -104,7 +103,7 @@ func (m *MetricsLimiter) Admit(metricName string, attributes, resourceAttributes
 		m.mapLock.Lock()
 		svc = m.services[serviceName]
 		if svc == nil {
-			svc = newService(serviceName, m.DropThreshold, m.RotationInterval, m.ctx, m.logger)
+			svc = newService(m.ctx, serviceName, m.DropThreshold, m.RotationInterval, m.logger)
 			m.services[serviceName] = svc
 		}
 		m.mapLock.Unlock()
@@ -140,7 +139,7 @@ func (m *MetricsLimiter) Admit(metricName string, attributes, resourceAttributes
 	return admitted, nil
 }
 
-func (m *MetricsLimiter) filterAWSDeclaredAttributes(attributes, resourceAttributes pcommon.Map) (map[string]string, string, bool) {
+func (m *MetricsLimiter) filterAWSDeclaredAttributes(attributes, _ pcommon.Map) (map[string]string, string, bool) {
 	svcNameAttr, exists := attributes.Get(common.CWMetricAttributeLocalService)
 	if !exists {
 		return nil, "", false
@@ -173,7 +172,6 @@ func (m *MetricsLimiter) removeStaleServices() {
 			}
 		}
 	}
-
 
 	for _, name := range svcToRemove {
 		m.logger.Info("remove stale service " + name + ".")
@@ -262,7 +260,6 @@ func sortAndConcatLabels(labels map[string]string) string {
 	for _, key := range keys {
 		concatenatedLabels += labels[key]
 	}
-	keys = nil
 	return concatenatedLabels
 }
 
@@ -348,7 +345,7 @@ func (s *service) rollupMetricData(attributes pcommon.Map) {
 		if (indexAttr == common.CWMetricAttributeEnvironment) || (indexAttr == common.CWMetricAttributeLocalService) || (indexAttr == common.CWMetricAttributeRemoteService) {
 			continue
 		}
-		if indexAttr == common.CWMetricAttributeLocalOperation {
+		if indexAttr == common.CWMetricAttributeLocalOperation { //nolint: gocritic
 			attributes.PutStr(indexAttr, UnprocessedServiceOperationValue)
 		} else if indexAttr == common.CWMetricAttributeRemoteOperation {
 			attributes.PutStr(indexAttr, UnprocessedRemoteServiceOperationValue)
@@ -359,7 +356,7 @@ func (s *service) rollupMetricData(attributes pcommon.Map) {
 }
 
 // As a starting point, you can use rules of thumb, such as setting the depth to be around 4-6 times the logarithm of the expected number of distinct items and the width based on your memory constraints. However, these are rough guidelines, and the optimal size will depend on your unique application and requirements.
-func newService(name string, limit int, rotationInterval time.Duration, parentCtx context.Context, logger *zap.Logger) *service {
+func newService(parentCtx context.Context, name string, limit int, rotationInterval time.Duration, logger *zap.Logger) *service {
 	depth := defaultCMSDepth
 	width := defaultCMSWidth
 
@@ -375,7 +372,7 @@ func newService(name string, limit int, rotationInterval time.Duration, parentCt
 
 	// Create a ticker to create a new countMinSketch every 1 hour
 	rotationTicker := time.NewTicker(rotationInterval)
-	//defer rotationTicker.Stop()
+	// defer rotationTicker.Stop()
 
 	// Create a goroutine to handle rotationTicker.C
 	go func() {

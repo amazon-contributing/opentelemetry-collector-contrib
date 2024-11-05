@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -18,16 +21,12 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
-	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 // MockDeleter deletes a key immediately, useful for testing.
 type MockDeleter struct{}
 
-func (md *MockDeleter) DeleteWithDelay(m *sync.Map, key interface{}) {
+func (md *MockDeleter) DeleteWithDelay(m *sync.Map, key any) {
 	m.Delete(key)
 }
 
@@ -776,10 +775,10 @@ func TestEksResolver(t *testing.T) {
 		getStrAttr := func(attributes pcommon.Map, key string, t *testing.T) string {
 			if value, ok := attributes.Get(key); ok {
 				return value.AsString()
-			} else {
-				t.Errorf("Failed to get value for key: %s", key)
-				return ""
 			}
+
+			t.Errorf("Failed to get value for key: %s", key)
+			return ""
 		}
 
 		logger, _ := zap.NewProduction()
@@ -838,10 +837,10 @@ func TestK8sResourceAttributesResolverOnEKS(t *testing.T) {
 	getStrAttr := func(attributes pcommon.Map, key string, t *testing.T) string {
 		if value, ok := attributes.Get(key); ok {
 			return value.AsString()
-		} else {
-			t.Errorf("Failed to get value for key: %s", key)
-			return ""
 		}
+
+		t.Errorf("Failed to get value for key: %s", key)
+		return ""
 	}
 
 	resolver := newKubernetesResourceAttributesResolver(config.PlatformEKS, "test-cluster")
@@ -867,7 +866,7 @@ func TestK8sResourceAttributesResolverOnEKS(t *testing.T) {
 				attr.AWSLocalEnvironment:            "eks:test-cluster/test-namespace-3",
 				common.AttributeK8SNamespace:        "test-namespace-3",
 				common.AttributeEKSClusterName:      "test-cluster",
-				common.AttributeEC2InstanceId:       "instance-id",
+				common.AttributeEC2InstanceID:       "instance-id",
 				common.AttributeHost:                "hostname",
 				common.AttributeEC2AutoScalingGroup: "asg",
 			},
@@ -881,7 +880,7 @@ func TestK8sResourceAttributesResolverOnEKS(t *testing.T) {
 				attr.AWSLocalEnvironment:            "custom-env",
 				common.AttributeK8SNamespace:        "test-namespace-3",
 				common.AttributeEKSClusterName:      "test-cluster",
-				common.AttributeEC2InstanceId:       "instance-id",
+				common.AttributeEC2InstanceID:       "instance-id",
 				common.AttributeHost:                "hostname",
 				common.AttributeEC2AutoScalingGroup: "asg",
 			},
@@ -913,10 +912,10 @@ func TestK8sResourceAttributesResolverOnK8S(t *testing.T) {
 	getStrAttr := func(attributes pcommon.Map, key string, t *testing.T) string {
 		if value, ok := attributes.Get(key); ok {
 			return value.AsString()
-		} else {
-			t.Errorf("Failed to get value for key: %s", key)
-			return ""
 		}
+
+		t.Errorf("Failed to get value for key: %s", key)
+		return ""
 	}
 
 	resolver := newKubernetesResourceAttributesResolver(config.PlatformK8s, "test-cluster")
@@ -942,7 +941,7 @@ func TestK8sResourceAttributesResolverOnK8S(t *testing.T) {
 				attr.AWSLocalEnvironment:            "k8s:test-cluster/test-namespace-3",
 				common.AttributeK8SNamespace:        "test-namespace-3",
 				common.AttributeK8SClusterName:      "test-cluster",
-				common.AttributeEC2InstanceId:       "instance-id",
+				common.AttributeEC2InstanceID:       "instance-id",
 				common.AttributeHost:                "hostname",
 				common.AttributeEC2AutoScalingGroup: "asg",
 			},
@@ -956,7 +955,7 @@ func TestK8sResourceAttributesResolverOnK8S(t *testing.T) {
 				attr.AWSLocalEnvironment:            "custom-env",
 				common.AttributeK8SNamespace:        "test-namespace-3",
 				common.AttributeK8SClusterName:      "test-cluster",
-				common.AttributeEC2InstanceId:       "instance-id",
+				common.AttributeEC2InstanceID:       "instance-id",
 				common.AttributeHost:                "hostname",
 				common.AttributeEC2AutoScalingGroup: "asg",
 			},
@@ -988,10 +987,10 @@ func TestK8sResourceAttributesResolverOnK8SOnPrem(t *testing.T) {
 	getStrAttr := func(attributes pcommon.Map, key string, t *testing.T) string {
 		if value, ok := attributes.Get(key); ok {
 			return value.AsString()
-		} else {
-			t.Errorf("Failed to get value for key: %s", key)
-			return ""
 		}
+
+		t.Errorf("Failed to get value for key: %s", key)
+		return ""
 	}
 
 	resolver := newKubernetesResourceAttributesResolver(config.PlatformK8s, "test-cluster")
@@ -1053,7 +1052,7 @@ func TestK8sResourceAttributesResolverOnK8SOnPrem(t *testing.T) {
 			_, exists := attributes.Get(common.AttributeEC2AutoScalingGroup)
 			assert.False(t, exists)
 
-			_, exists = attributes.Get(common.AttributeEC2InstanceId)
+			_, exists = attributes.Get(common.AttributeEC2InstanceID)
 			assert.False(t, exists)
 		})
 	}

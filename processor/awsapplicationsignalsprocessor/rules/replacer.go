@@ -4,9 +4,8 @@
 package rules // import "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/rules"
 
 import (
-	"go.opentelemetry.io/collector/pdata/pcommon"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 )
 
 type ReplaceActions struct {
@@ -29,7 +28,7 @@ func (r *ReplaceActions) Process(attributes, _ pcommon.Map, isTrace bool) error 
 	// If there are more than one rule are matched, the last one will be executed(Later one has higher priority)
 	actions := r.Actions
 	finalRules := make(map[string]string)
-	for i := len(actions) - 1; i >= 0; i = i - 1 {
+	for i := len(actions) - 1; i >= 0; i-- {
 		element := actions[i]
 		isMatched := matchesSelectors(attributes, element.SelectorMatchers, isTrace)
 		if !isMatched {

@@ -80,7 +80,7 @@ func getWorkloadAndNamespace(pod *corev1.Pod) string {
 				break
 			}
 
-			if ownerRef.Kind == "ReplicaSet" {
+			if ownerRef.Kind == "ReplicaSet" { //nolint: gocritic
 				if workloadName, err := extractWorkloadNameFromRS(ownerRef.Name); err == nil {
 					// when the replicaSet is created by a deployment, use deployment name
 					workloadAndNamespace = attachNamespace(workloadName, pod.Namespace)
@@ -99,7 +99,7 @@ func getWorkloadAndNamespace(pod *corev1.Pod) string {
 	return workloadAndNamespace
 }
 
-const IP_PORT_PATTERN = `^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)$`
+const IP_PORT_PATTERN = `^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)$` //nolint: revive
 
 var ipPortRegex = regexp.MustCompile(IP_PORT_PATTERN)
 

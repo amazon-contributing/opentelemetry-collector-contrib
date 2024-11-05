@@ -24,14 +24,14 @@ const (
 	AttributeK8SWorkload         = "K8s.Workload"
 	AttributeK8SPod              = "K8s.Pod"
 	AttributeEC2AutoScalingGroup = "EC2.AutoScalingGroup"
-	AttributeEC2InstanceId       = "EC2.InstanceId"
+	AttributeEC2InstanceID       = "EC2.InstanceId"
 	AttributeHost                = "Host"
 )
 
 // Platform attribute used as CloudWatch EMF log field.
 const (
 	MetricAttributeECSCluster                = "ECS.Cluster"
-	MetricAttributeECSTaskId                 = "ECS.TaskId"
+	MetricAttributeECSTaskID                 = "ECS.TaskId"
 	MetricAttributeECSTaskDefinitionFamily   = "ECS.TaskDefinitionFamily"
 	MetricAttributeECSTaskDefinitionRevision = "ECS.TaskDefinitionRevision"
 )

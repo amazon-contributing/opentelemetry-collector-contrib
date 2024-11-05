@@ -7,13 +7,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/rules"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
-
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/rules"
 )
 
 var testRules = []rules.Rule{
@@ -67,7 +66,7 @@ func TestProcessMetrics(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ap.StartMetrics(ctx, nil)
+	_ = ap.StartMetrics(ctx, nil)
 
 	keepMetrics := generateMetrics(map[string]string{
 		"dim_action":       "reserved",
@@ -75,7 +74,7 @@ func TestProcessMetrics(t *testing.T) {
 		"dim_op":           "keep",
 		"Telemetry.Source": "UnitTest",
 	})
-	ap.processMetrics(ctx, keepMetrics)
+	_, _ = ap.processMetrics(ctx, keepMetrics)
 	assert.Equal(t, "reserved", getDimensionValue(t, keepMetrics, "dim_action"))
 	assert.Equal(t, "test", getDimensionValue(t, keepMetrics, "dim_val"))
 
@@ -84,7 +83,7 @@ func TestProcessMetrics(t *testing.T) {
 		"dim_val":          "test1",
 		"Telemetry.Source": "UnitTest",
 	})
-	ap.processMetrics(ctx, replaceMetrics)
+	_, _ = ap.processMetrics(ctx, replaceMetrics)
 	assert.Equal(t, "reserved", getDimensionValue(t, replaceMetrics, "dim_action"))
 	assert.Equal(t, "test2", getDimensionValue(t, replaceMetrics, "dim_val"))
 
@@ -93,14 +92,14 @@ func TestProcessMetrics(t *testing.T) {
 		"dim_drop":         "hc",
 		"Telemetry.Source": "UnitTest",
 	})
-	ap.processMetrics(ctx, dropMetricsByDrop)
+	_, _ = ap.processMetrics(ctx, dropMetricsByDrop)
 	assert.True(t, isMetricNil(dropMetricsByDrop))
 
 	dropMetricsByKeep := generateMetrics(map[string]string{
 		"dim_op":           "drop",
 		"Telemetry.Source": "UnitTest",
 	})
-	ap.processMetrics(ctx, dropMetricsByKeep)
+	_, _ = ap.processMetrics(ctx, dropMetricsByKeep)
 	assert.True(t, isMetricNil(dropMetricsByKeep))
 }
 
@@ -115,7 +114,7 @@ func TestProcessMetricsLowercase(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ap.StartMetrics(ctx, nil)
+	_ = ap.StartMetrics(ctx, nil)
 
 	lowercaseMetrics := pmetric.NewMetrics()
 	errorMetric := lowercaseMetrics.ResourceMetrics().AppendEmpty().ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
@@ -125,7 +124,7 @@ func TestProcessMetricsLowercase(t *testing.T) {
 	faultMetric := lowercaseMetrics.ResourceMetrics().AppendEmpty().ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
 	faultMetric.SetName("fault")
 
-	ap.processMetrics(ctx, lowercaseMetrics)
+	_, _ = ap.processMetrics(ctx, lowercaseMetrics)
 	assert.Equal(t, "Error", lowercaseMetrics.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Name())
 	assert.Equal(t, "Latency", lowercaseMetrics.ResourceMetrics().At(1).ScopeMetrics().At(0).Metrics().At(0).Name())
 	assert.Equal(t, "Fault", lowercaseMetrics.ResourceMetrics().At(2).ScopeMetrics().At(0).Metrics().At(0).Name())
@@ -142,14 +141,14 @@ func TestProcessTraces(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	ap.StartTraces(ctx, nil)
+	_ = ap.StartTraces(ctx, nil)
 
 	traces := ptrace.NewTraces()
 	span := traces.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
 	span.Attributes().PutStr("dim_action", "reserved")
 	span.Attributes().PutStr("dim_val", "test1")
 
-	ap.processTraces(ctx, traces)
+	_, _ = ap.processTraces(ctx, traces)
 
 	actualSpan := traces.ResourceSpans().At(0).ScopeSpans().At(0).Spans().At(0)
 	actualVal, _ := actualSpan.Attributes().Get("dim_val")
@@ -264,7 +263,7 @@ func isMetricNil(m pmetric.Metrics) bool {
 	}
 
 	histogram := m.ResourceMetrics().At(4).ScopeMetrics().At(0).Metrics().At(0).Histogram().DataPoints()
-	if histogram.Len() > 0 {
+	if histogram.Len() > 0 { // nolint: gosimple
 		return false
 	}
 	return true

@@ -11,6 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	mapset "github.com/deckarep/golang-set/v2"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
@@ -20,10 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
-	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 const (
@@ -86,7 +85,7 @@ func jitterSleep(seconds int) {
 
 // Deleter represents a type that can delete a key from a map after a certain delay.
 type Deleter interface {
-	DeleteWithDelay(m *sync.Map, key interface{})
+	DeleteWithDelay(m *sync.Map, key any)
 }
 
 // TimedDeleter deletes a key after a specified delay.
@@ -94,7 +93,7 @@ type TimedDeleter struct {
 	Delay time.Duration
 }
 
-func (td *TimedDeleter) DeleteWithDelay(m *sync.Map, key interface{}) {
+func (td *TimedDeleter) DeleteWithDelay(m *sync.Map, key any) {
 	go func() {
 		time.Sleep(td.Delay)
 		m.Delete(key)
@@ -199,7 +198,7 @@ func (p *podWatcher) onAddOrUpdatePod(pod, oldPod *corev1.Pod) {
 	}
 }
 
-func (p *podWatcher) onDeletePod(obj interface{}) {
+func (p *podWatcher) onDeletePod(obj any) {
 	pod := obj.(*corev1.Pod)
 	if pod.Spec.HostNetwork && pod.Status.HostIP != "" {
 		p.logger.Debug("deleting host ip from cache", zap.String("hostNetwork", pod.Status.HostIP))
@@ -246,19 +245,19 @@ func newPodWatcher(logger *zap.Logger, informer cache.SharedIndexInformer, delet
 }
 
 func (p *podWatcher) run(stopCh chan struct{}) {
-	p.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+	_, _ = p.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
 			pod := obj.(*corev1.Pod)
 			p.logger.Debug("list and watch for pod: ADD " + pod.Name)
 			p.onAddOrUpdatePod(pod, nil)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(oldObj, newObj any) {
 			pod := newObj.(*corev1.Pod)
 			oldPod := oldObj.(*corev1.Pod)
 			p.logger.Debug("list and watch for pods: UPDATE " + pod.Name)
 			p.onAddOrUpdatePod(pod, oldPod)
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			pod := obj.(*corev1.Pod)
 			p.logger.Debug("list and watch for pods: DELETE " + pod.Name)
 			p.onDeletePod(obj)
@@ -296,18 +295,18 @@ func newServiceWatcher(logger *zap.Logger, informer cache.SharedIndexInformer, d
 }
 
 func (s *serviceWatcher) Run(stopCh chan struct{}) {
-	s.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+	_, _ = s.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
 			service := obj.(*corev1.Service)
 			s.logger.Debug("list and watch for services: ADD " + service.Name)
 			s.onAddOrUpdateService(service)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(_, newObj any) {
 			service := newObj.(*corev1.Service)
 			s.logger.Debug("list and watch for services: UPDATE " + service.Name)
 			s.onAddOrUpdateService(service)
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			service := obj.(*corev1.Service)
 			s.logger.Debug("list and watch for services: DELETE " + service.Name)
 			s.onDeleteService(service, s.deleter)
@@ -345,13 +344,13 @@ func newServiceToWorkloadMapper(serviceAndNamespaceToSelectors, workloadAndNames
 func (m *serviceToWorkloadMapper) mapServiceToWorkload() {
 	m.logger.Debug("Map service to workload at:", zap.Time("time", time.Now()))
 
-	m.serviceAndNamespaceToSelectors.Range(func(key, value interface{}) bool {
+	m.serviceAndNamespaceToSelectors.Range(func(key, value any) bool {
 		var workloads []string
 		serviceAndNamespace := key.(string)
 		_, serviceNamespace := extractResourceAndNamespace(serviceAndNamespace)
 		serviceLabels := value.(mapset.Set[string])
 
-		m.workloadAndNamespaceToLabels.Range(func(workloadKey, labelsValue interface{}) bool {
+		m.workloadAndNamespaceToLabels.Range(func(workloadKey, labelsValue any) bool {
 			labels := labelsValue.(mapset.Set[string])
 			workloadAndNamespace := workloadKey.(string)
 			_, workloadNamespace := extractResourceAndNamespace(workloadAndNamespace)
@@ -363,7 +362,7 @@ func (m *serviceToWorkloadMapper) mapServiceToWorkload() {
 			return true
 		})
 
-		if len(workloads) > 1 {
+		if len(workloads) > 1 { //nolint: gocritic
 			m.logger.Info("Multiple workloads found for service. You will get unexpected results.", zap.String("service", serviceAndNamespace), zap.Strings("workloads", workloads))
 		} else if len(workloads) == 1 {
 			m.serviceToWorkload.Store(serviceAndNamespace, workloads[0])
@@ -398,7 +397,7 @@ func (m *serviceToWorkloadMapper) Start(stopCh chan struct{}) {
 // - ObjectMeta: Namespace, Name, Labels, OwnerReference
 // - Spec: HostNetwork, ContainerPorts
 // - Status: PodIP/s, HostIP/s
-func minimizePod(obj interface{}) (interface{}, error) {
+func minimizePod(obj any) (any, error) {
 	if pod, ok := obj.(*corev1.Pod); ok {
 		pod.Annotations = nil
 		pod.Finalizers = nil
@@ -438,7 +437,7 @@ func minimizePod(obj interface{}) (interface{}, error) {
 // fields needed for IP/name translation. The following fields must be kept:
 // - ObjectMeta: Namespace, Name
 // - Spec: Selectors, ClusterIP
-func minimizeService(obj interface{}) (interface{}, error) {
+func minimizeService(obj any) (any, error) {
 	if svc, ok := obj.(*corev1.Service); ok {
 		svc.Annotations = nil
 		svc.Finalizers = nil
@@ -545,7 +544,7 @@ func (e *kubernetesResolver) getWorkloadAndNamespaceByIP(ip string) (string, str
 	return "", "", errors.New("no kubernetes workload found for ip: " + ip)
 }
 
-func (e *kubernetesResolver) Process(attributes, resourceAttributes pcommon.Map) error {
+func (e *kubernetesResolver) Process(attributes, _ pcommon.Map) error {
 	var namespace string
 	if value, ok := attributes.Get(attr.AWSRemoteService); ok {
 		valueStr := value.AsString()
@@ -621,7 +620,7 @@ func (h *kubernetesResourceAttributesResolver) Process(attributes, resourceAttri
 	}
 
 	attributes.PutStr(common.AttributeK8SNamespace, namespace)
-	//The application log group in Container Insights is a fixed pattern:
+	// The application log group in Container Insights is a fixed pattern:
 	// "/aws/containerinsights/{Cluster_Name}/application"
 	// See https://github.com/aws/amazon-cloudwatch-agent-operator/blob/fe144bb02d7b1930715aa3ea32e57a5ff13406aa/helm/templates/fluent-bit-configmap.yaml#L82
 	logGroupName := "/aws/containerinsights/" + h.clusterName + "/application"
@@ -630,6 +629,6 @@ func (h *kubernetesResourceAttributesResolver) Process(attributes, resourceAttri
 	return nil
 }
 
-func (h *kubernetesResourceAttributesResolver) Stop(ctx context.Context) error {
+func (h *kubernetesResourceAttributesResolver) Stop(_ context.Context) error {
 	return nil
 }

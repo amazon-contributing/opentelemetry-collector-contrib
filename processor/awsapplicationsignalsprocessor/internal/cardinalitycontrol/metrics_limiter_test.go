@@ -11,12 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	awsapplicationsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.uber.org/zap"
-
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
-	awsapplicationsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 )
 
 var emptyResourceAttributes = pcommon.NewMap()
@@ -47,7 +46,7 @@ func TestAdmitAndRollup(t *testing.T) {
 					continue
 				}
 				attrValue, _ := attr.Get(indexedAttrKey)
-				if indexedAttrKey == common.CWMetricAttributeLocalOperation {
+				if indexedAttrKey == common.CWMetricAttributeLocalOperation { //nolint: gocritic
 					assert.Equal(t, UnprocessedServiceOperationValue, attrValue.AsString())
 				} else if indexedAttrKey == common.CWMetricAttributeRemoteOperation {
 					assert.Equal(t, UnprocessedRemoteServiceOperationValue, attrValue.AsString())
@@ -74,13 +73,13 @@ func TestAdmitByTopK(t *testing.T) {
 	// fulfill topk with high cardinality attributes
 	for i := 0; i < 110; i++ {
 		attr := newHighCardinalityAttributes()
-		limiter.Admit("latency", attr, emptyResourceAttributes)
+		_, _ = limiter.Admit("latency", attr, emptyResourceAttributes)
 	}
 
 	// sending low cardinality attributes
 	for i := 0; i < 100; i++ {
 		attr := newFixedAttributes(i % 20)
-		limiter.Admit("latency", attr, emptyResourceAttributes)
+		_, _ = limiter.Admit("latency", attr, emptyResourceAttributes)
 	}
 
 	for i := 0; i < 20; i++ {
@@ -104,7 +103,7 @@ func TestAdmitLowCardinalityAttributes(t *testing.T) {
 	rejectCount := 0
 	for i := 0; i < 100; i++ {
 		if ok, _ := limiter.Admit("latency", newLowCardinalityAttributes(10), emptyResourceAttributes); !ok {
-			rejectCount += 1
+			rejectCount++
 		}
 	}
 	assert.Equal(t, 0, rejectCount)
@@ -124,7 +123,7 @@ func TestAdmitReservedMetrics(t *testing.T) {
 	// fulfill topk with high cardinality attributes
 	for i := 0; i < 20; i++ {
 		attr := newHighCardinalityAttributes()
-		limiter.Admit("latency", attr, emptyResourceAttributes)
+		_, _ = limiter.Admit("latency", attr, emptyResourceAttributes)
 	}
 
 	for i := 0; i < 20; i++ {
@@ -157,7 +156,7 @@ func TestClearStaleService(t *testing.T) {
 		appName := "app" + strconv.Itoa(i)
 		attr := pcommon.NewMap()
 		attr.PutStr("Service", appName)
-		limiter.Admit(appName, attr, emptyResourceAttributes)
+		_, _ = limiter.Admit(appName, attr, emptyResourceAttributes)
 	}
 
 	time.Sleep(10 * time.Second)
@@ -219,7 +218,7 @@ func TestInheritanceAfterRotation(t *testing.T) {
 }
 
 func TestRotationInterval(t *testing.T) {
-	svc := newService("test", 1, 5*time.Second, context.Background(), logger)
+	svc := newService(context.Background(), "test", 1, 5*time.Second, logger)
 	// wait for secondary to be created
 	time.Sleep(7 * time.Second)
 	for i := 0; i < 5; i++ {

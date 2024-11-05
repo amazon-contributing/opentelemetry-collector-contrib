@@ -7,12 +7,11 @@ import (
 	"context"
 	"errors"
 
+	appsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processorhelper"
-
-	appsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 )
 
 const (
@@ -44,7 +43,7 @@ func createDefaultConfig() component.Config {
 
 func createTracesProcessor(
 	ctx context.Context,
-	set processor.CreateSettings,
+	set processor.CreateSettings, //nolint: staticcheck
 	cfg component.Config,
 	next consumer.Traces,
 ) (processor.Traces, error) {
@@ -66,7 +65,7 @@ func createTracesProcessor(
 
 func createMetricsProcessor(
 	ctx context.Context,
-	set processor.CreateSettings,
+	set processor.CreateSettings, //nolint: staticcheck
 	cfg component.Config,
 	nextMetricsConsumer consumer.Metrics,
 ) (processor.Metrics, error) {
@@ -87,7 +86,7 @@ func createMetricsProcessor(
 }
 
 func createProcessor(
-	params processor.CreateSettings,
+	params processor.CreateSettings, //nolint: staticcheck
 	cfg component.Config,
 ) (*awsapplicationsignalsprocessor, error) {
 	pCfg, ok := cfg.(*appsignalsconfig.Config)

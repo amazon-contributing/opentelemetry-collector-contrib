@@ -6,9 +6,8 @@ package prune
 import (
 	"testing"
 
-	"go.opentelemetry.io/collector/pdata/pcommon"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 )
 
 func TestMetricPrunerWithIndexableAttribute(t *testing.T) {
@@ -76,7 +75,7 @@ func TestMetricPrunerWithNonIndexableAttribute(t *testing.T) {
 	for _, tt := range tests {
 		attributes := pcommon.NewMap()
 		attributes.PutStr(common.MetricAttributeTelemetrySource, "UnitTest")
-		attributes.PutStr(common.AttributeEC2InstanceId, tt.val)
+		attributes.PutStr(common.AttributeEC2InstanceID, tt.val)
 		t.Run(tt.name, func(t *testing.T) {
 			got, _ := p.ShouldBeDropped(attributes)
 			if got != tt.want {
@@ -102,7 +101,7 @@ func TestMetricPrunerWithNoTelemetrySourceAttribute(t *testing.T) {
 	p := &MetricPruner{}
 	for _, tt := range tests {
 		attributes := pcommon.NewMap()
-		attributes.PutStr(common.AttributeEC2InstanceId, tt.val)
+		attributes.PutStr(common.AttributeEC2InstanceID, tt.val)
 		t.Run(tt.name, func(t *testing.T) {
 			got, _ := p.ShouldBeDropped(attributes)
 			if got != tt.want {

@@ -18,21 +18,21 @@ const (
 	defaultBackoffRetryBaseInMills = 200
 )
 
-type HttpClient struct {
+type HTTPClient struct {
 	maxRetries              int
 	backoffRetryBaseInMills int
 	client                  *http.Client
 }
 
-func New() *HttpClient {
-	return &HttpClient{
+func New() *HTTPClient {
+	return &HTTPClient{
 		maxRetries:              defaultMaxRetries,
 		backoffRetryBaseInMills: defaultBackoffRetryBaseInMills,
 		client:                  &http.Client{Timeout: defaultTimeout},
 	}
 }
 
-func (h *HttpClient) backoffSleep(currentRetryCount int) {
+func (h *HTTPClient) backoffSleep(currentRetryCount int) {
 	backoffInMillis := int64(float64(h.backoffRetryBaseInMills) * math.Pow(2, float64(currentRetryCount)))
 	sleepDuration := time.Millisecond * time.Duration(backoffInMillis)
 	if sleepDuration > 60*1000 {
@@ -41,7 +41,7 @@ func (h *HttpClient) backoffSleep(currentRetryCount int) {
 	time.Sleep(sleepDuration)
 }
 
-func (h *HttpClient) Request(endpoint string) (body []byte, err error) {
+func (h *HTTPClient) Request(endpoint string) (body []byte, err error) {
 	for i := 0; i < h.maxRetries; i++ {
 		body, err = h.request(endpoint)
 		if err != nil {
@@ -52,10 +52,10 @@ func (h *HttpClient) Request(endpoint string) (body []byte, err error) {
 	return
 }
 
-func (h *HttpClient) request(endpoint string) ([]byte, error) {
+func (h *HTTPClient) request(endpoint string) ([]byte, error) {
 	resp, err := h.client.Get(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get response from %s, error: %v", endpoint, err)
+		return nil, fmt.Errorf("unable to get response from %s, error: %w", endpoint, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -65,7 +65,7 @@ func (h *HttpClient) request(endpoint string) ([]byte, error) {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read response body from %s, error: %v", endpoint, err)
+		return nil, fmt.Errorf("unable to read response body from %s, error: %w", endpoint, err)
 	}
 
 	return body, nil

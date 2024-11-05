@@ -8,15 +8,14 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
+	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 	"go.uber.org/zap"
-
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/common"
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
-	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 )
 
 type MockSubResolver struct {
@@ -62,7 +61,7 @@ func TestResourceAttributesResolverWithNoConfiguredName(t *testing.T) {
 			attributes := pcommon.NewMap()
 			resourceAttributes := pcommon.NewMap()
 
-			resolver.Process(attributes, resourceAttributes)
+			_ = resolver.Process(attributes, resourceAttributes)
 
 			attribute, ok := attributes.Get(common.AttributePlatformType)
 			assert.True(t, ok)
@@ -84,7 +83,7 @@ func TestResourceAttributesResolverWithOnEC2WithASG(t *testing.T) {
 	resourceAttributes := pcommon.NewMap()
 	resourceAttributes.PutStr(attr.ResourceDetectionASG, "my-asg")
 
-	resolver.Process(attributes, resourceAttributes)
+	_ = resolver.Process(attributes, resourceAttributes)
 	platformAttr, ok := attributes.Get(common.AttributePlatformType)
 	assert.True(t, ok)
 	assert.Equal(t, "AWS::EC2", platformAttr.Str())
@@ -102,7 +101,7 @@ func TestResourceAttributesResolverWithHostname(t *testing.T) {
 	resourceAttributes := pcommon.NewMap()
 	resourceAttributes.PutStr(attr.ResourceDetectionHostName, "hostname")
 
-	resolver.Process(attributes, resourceAttributes)
+	_ = resolver.Process(attributes, resourceAttributes)
 	envAttr, ok := attributes.Get(common.AttributeHost)
 	assert.True(t, ok)
 	assert.Equal(t, "hostname", envAttr.AsString())
@@ -139,7 +138,7 @@ func TestResourceAttributesResolverWithCustomEnvironment(t *testing.T) {
 
 			// insert custom env
 			resourceAttributes.PutStr(attr.AWSHostedInEnvironment, "env1")
-			resolver.Process(attributes, resourceAttributes)
+			_ = resolver.Process(attributes, resourceAttributes)
 			envAttr, ok := attributes.Get(attr.AWSLocalEnvironment)
 			assert.True(t, ok)
 			assert.Equal(t, "env1", envAttr.Str())
@@ -149,7 +148,7 @@ func TestResourceAttributesResolverWithCustomEnvironment(t *testing.T) {
 
 			resourceAttributes.PutStr(attr.AWSHostedInEnvironment, "error")
 			resourceAttributes.PutStr(semconv.AttributeDeploymentEnvironment, "env2")
-			resolver.Process(attributes, resourceAttributes)
+			_ = resolver.Process(attributes, resourceAttributes)
 			envAttr, ok = attributes.Get(attr.AWSLocalEnvironment)
 			assert.True(t, ok)
 			assert.Equal(t, "env2", envAttr.Str())
@@ -158,7 +157,7 @@ func TestResourceAttributesResolverWithCustomEnvironment(t *testing.T) {
 			resourceAttributes = pcommon.NewMap()
 
 			resourceAttributes.PutStr(semconv.AttributeDeploymentEnvironment, "env3")
-			resolver.Process(attributes, resourceAttributes)
+			_ = resolver.Process(attributes, resourceAttributes)
 			envAttr, ok = attributes.Get(attr.AWSLocalEnvironment)
 			assert.True(t, ok)
 			assert.Equal(t, "env3", envAttr.Str())
@@ -176,7 +175,7 @@ func TestAttributesResolver_Process(t *testing.T) {
 	mockSubResolver2 := new(MockSubResolver)
 	mockSubResolver2.On("Process", attributes, resourceAttributes).Return(errors.New("error"))
 
-	r := &attributesResolver{
+	r := &AttributesResolver{
 		subResolvers: []subResolver{mockSubResolver1, mockSubResolver2},
 	}
 
@@ -195,7 +194,7 @@ func TestAttributesResolver_Stop(t *testing.T) {
 	mockSubResolver2 := new(MockSubResolver)
 	mockSubResolver2.On("Stop", ctx).Return(errors.New("error"))
 
-	r := &attributesResolver{
+	r := &AttributesResolver{
 		subResolvers: []subResolver{mockSubResolver1, mockSubResolver2},
 	}
 
