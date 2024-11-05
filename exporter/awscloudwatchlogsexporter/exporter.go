@@ -100,7 +100,7 @@ func newCwLogsExporter(config component.Config, params exp.CreateSettings) (exp.
 }
 
 func (e *cwlExporter) consumeLogs(_ context.Context, ld plog.Logs) error {
-	e.logger.Info(fmt.Sprintf("TESTING %v", ld.ResourceLogs().At(0)))
+	e.logger.Info(fmt.Sprintf("ATTRIBUTES %v", ld.ResourceLogs().At(0).Resource().Attributes()))
 
 	pusher := e.pusherFactory.CreateMultiStreamPusher()
 	var errs error
