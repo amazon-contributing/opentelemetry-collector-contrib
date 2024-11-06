@@ -1,13 +1,13 @@
 # Use this changelog template to create an entry for release notes.
 
 # One of 'breaking', 'deprecation', 'new_component', 'enhancement', 'bug_fix'
-change_type:  'enhancement'
+change_type:  'new_component'
 
 # The name of the component, or a single word describing the area of concern, (e.g. filelogreceiver)
-component: kueuemetricsreceiver
+component: awscontainerinsightskueuereceiver
 
 # A brief description of the change.  Surround your text with quotes ("") if it needs to start with a backtick (`).
-note:  "Adds Prometheus scraper to collect select Kueue metrics."
+note:  "Adds receiver that sets up Prometheus scraper to collect select Kueue metrics."
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
 issues: [1]  # TODO: PR number in staging is 1. Maybe this needs to be changed to something else.
