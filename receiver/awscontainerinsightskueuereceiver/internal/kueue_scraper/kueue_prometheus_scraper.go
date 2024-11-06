@@ -196,7 +196,6 @@ func GetKueueRelabelConfigs(cluster_name string) []*relabel.Config {
 func (kps *KueuePrometheusScraper) GetMetrics() []pmetric.Metrics {
 	// This method will never return metrics because the metrics are collected by the scraper.
 
-	// if we are leading, ensure we are running
 	if !kps.running {
 		kps.settings.Logger.Info("The Kueue metrics scraper is not running, starting up the scraper")
 		err := kps.prometheusReceiver.Start(kps.ctx, kps.host)
