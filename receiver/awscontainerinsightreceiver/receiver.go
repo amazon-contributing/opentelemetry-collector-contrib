@@ -58,7 +58,6 @@ type awsContainerInsightReceiver struct {
 	podResourcesStore        *stores.PodResourcesStore
 	dcgmScraper              *prometheusscraper.SimplePrometheusScraper
 	neuronMonitorScraper     *prometheusscraper.SimplePrometheusScraper
-	kueueScraper             *k8sapiserver.KueuePrometheusScraper
 	efaSysfsScraper          *efa.Scraper
 }
 
@@ -191,10 +190,10 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 			}
 		}
 
-		err = acir.initKueuePrometheusScraper(ctx, host, hostInfo, leaderElection)
-		if err != nil {
-			acir.settings.Logger.Warn("Unable to start kueue prometheus scraper", zap.Error(err))
-		}
+		// err = acir.initKueuePrometheusScraper(ctx, host, hostInfo, leaderElection)
+		// if err != nil {
+		// 	acir.settings.Logger.Warn("Unable to start kueue prometheus scraper", zap.Error(err))
+		// }
 
 		err = acir.initDcgmScraper(ctx, host, hostInfo, k8sDecorator)
 		if err != nil {
@@ -289,37 +288,6 @@ func (acir *awsContainerInsightReceiver) initPrometheusScraper(ctx context.Conte
 		ClusterNameProvider: hostInfo,
 		LeaderElection:      leaderElection,
 		BearerToken:         bearerToken,
-	})
-	return err
-}
-
-func (acir *awsContainerInsightReceiver) initKueuePrometheusScraper(
-	ctx context.Context,
-	host component.Host,
-	hostInfo *hostinfo.Info,
-	leaderElection *k8sapiserver.LeaderElection,
-) error {
-	if !acir.config.EnableKueueContainerInsights {
-		return nil
-	}
-
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return err
-	}
-	bearerToken := restConfig.BearerToken
-	if bearerToken == "" {
-		return errors.New("bearer token was empty")
-	}
-
-	acir.kueueScraper, err = k8sapiserver.NewKueuePrometheusScraper(k8sapiserver.KueuePrometheusScraperOpts{
-		Ctx:                 ctx,
-		TelemetrySettings:   acir.settings,
-		Consumer:            acir.nextConsumer,
-		Host:                host,
-		ClusterNameProvider: hostInfo,
-		BearerToken:         bearerToken,
-		LeaderElection:      leaderElection,
 	})
 	return err
 }
@@ -446,9 +414,6 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.efaSysfsScraper != nil {
 		acir.efaSysfsScraper.Shutdown()
 	}
-	if acir.kueueScraper != nil {
-		acir.kueueScraper.Shutdown()
-	}
 	if acir.decorators != nil {
 		for i := len(acir.decorators) - 1; i >= 0; i-- {
 			errs = errors.Join(errs, acir.decorators[i].Shutdown())
@@ -496,11 +461,6 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 
 	if acir.efaSysfsScraper != nil {
 		mds = append(mds, acir.efaSysfsScraper.GetMetrics()...)
-	}
-
-	if acir.kueueScraper != nil {
-		// this does not return any metrics, it just ensures scraping is running on elected leader node
-		acir.kueueScraper.GetMetrics() //nolint:errcheck
 	}
 
 	for _, md := range mds {
