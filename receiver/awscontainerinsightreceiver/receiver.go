@@ -190,11 +190,6 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 			}
 		}
 
-		// err = acir.initKueuePrometheusScraper(ctx, host, hostInfo, leaderElection)
-		// if err != nil {
-		// 	acir.settings.Logger.Warn("Unable to start kueue prometheus scraper", zap.Error(err))
-		// }
-
 		err = acir.initDcgmScraper(ctx, host, hostInfo, k8sDecorator)
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start dcgm scraper", zap.Error(err))
