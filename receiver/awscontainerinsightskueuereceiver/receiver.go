@@ -69,6 +69,7 @@ func (akr *awsContainerInsightKueueReceiver) init(ctx context.Context, host comp
 		err := akr.initKueuePrometheusScraper(ctx, host)
 		if err != nil {
 			akr.settings.Logger.Warn("Unable to start kueue prometheus scraper", zap.Error(err))
+			return err
 		}
 	}
 	return nil
