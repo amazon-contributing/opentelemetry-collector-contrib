@@ -175,7 +175,7 @@ func (n *AttributesNormalizer) normalizeTelemetryAttributes(attributes, resource
 	}
 	attributes.PutStr(common.MetricAttributeTelemetrySDK, fmt.Sprintf("%s,%s,%s,%s", sdkName, sdkVersion, sdkLang, mode))
 	// NOTE: In CWAgent, `opentelemetry-collector` is replaced by `CWAgent`
-	attributes.PutStr(common.MetricAttributeTelemetryAgent, fmt.Sprintf("opentelemetry-collector/%s", GetCollectorVersion()))
+	attributes.PutStr(common.MetricAttributeTelemetryAgent, fmt.Sprintf("aws-opentelemetry-collector/%s", GetCollectorVersion()))
 
 	var telemetrySource string
 	if val, ok := attributes.Get(attr.AWSSpanKind); ok {
