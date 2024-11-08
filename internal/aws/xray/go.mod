@@ -3,7 +3,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xr
 go 1.22.4
 
 require (
-	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-00010101000000-000000000000
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20241107200025-113eee2da3ff
 	github.com/aws/aws-sdk-go v1.53.11
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil v0.103.0
 	github.com/stretchr/testify v1.9.0

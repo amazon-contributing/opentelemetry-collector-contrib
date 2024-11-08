@@ -4,7 +4,7 @@ go 1.22.5
 
 require (
 	github.com/Microsoft/hcsshim v0.12.0-rc.3
-	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-00010101000000-000000000000
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20241107200025-113eee2da3ff
 	github.com/aws/aws-sdk-go v1.53.11
 	github.com/go-kit/log v0.2.1
 	github.com/google/cadvisor v0.49.0
