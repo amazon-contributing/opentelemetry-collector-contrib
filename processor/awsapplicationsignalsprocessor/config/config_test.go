@@ -20,7 +20,7 @@ func TestValidatePassed(t *testing.T) {
 		},
 		{
 			"testEKSWithoutName",
-			NewEKSResolverWithoutName(),
+			NewEKSResolver(""),
 		},
 		{
 			"testK8S",

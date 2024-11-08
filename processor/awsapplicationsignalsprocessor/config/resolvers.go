@@ -28,12 +28,6 @@ func NewEKSResolver(name string) Resolver {
 	}
 }
 
-func NewEKSResolverWithoutName() Resolver {
-	return Resolver{
-		Platform: PlatformEKS,
-	}
-}
-
 func NewK8sResolver(name string) Resolver {
 	return Resolver{
 		Name:     name,
