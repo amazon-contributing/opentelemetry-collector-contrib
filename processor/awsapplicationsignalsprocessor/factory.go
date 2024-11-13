@@ -43,7 +43,7 @@ func createDefaultConfig() component.Config {
 
 func createTracesProcessor(
 	ctx context.Context,
-	set processor.CreateSettings, //nolint: staticcheck
+	set processor.Settings, //nolint: staticcheck
 	cfg component.Config,
 	next consumer.Traces,
 ) (processor.Traces, error) {
@@ -52,7 +52,7 @@ func createTracesProcessor(
 		return nil, err
 	}
 
-	return processorhelper.NewTracesProcessor(
+	return processorhelper.NewTraces(
 		ctx,
 		set,
 		cfg,
@@ -65,7 +65,7 @@ func createTracesProcessor(
 
 func createMetricsProcessor(
 	ctx context.Context,
-	set processor.CreateSettings, //nolint: staticcheck
+	set processor.Settings, //nolint: staticcheck
 	cfg component.Config,
 	nextMetricsConsumer consumer.Metrics,
 ) (processor.Metrics, error) {
@@ -74,7 +74,7 @@ func createMetricsProcessor(
 		return nil, err
 	}
 
-	return processorhelper.NewMetricsProcessor(
+	return processorhelper.NewMetrics(
 		ctx,
 		set,
 		cfg,
@@ -86,7 +86,7 @@ func createMetricsProcessor(
 }
 
 func createProcessor(
-	params processor.CreateSettings, //nolint: staticcheck
+	params processor.Settings, //nolint: staticcheck
 	cfg component.Config,
 ) (*awsapplicationsignalsprocessor, error) {
 	pCfg, ok := cfg.(*appsignalsconfig.Config)
