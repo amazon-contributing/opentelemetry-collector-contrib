@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
+	// "github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/google/uuid"
@@ -23,6 +23,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awscloudwatchlogsexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 )
@@ -59,7 +60,7 @@ func newCwLogsPusher(expConfig *Config, params exp.Settings) (*cwlExporter, erro
 	}
 
 	// create CWLogs client with aws session config
-	svcStructuredLog := cwlogs.NewClient(params.Logger, awsConfig, params.BuildInfo, expConfig.LogGroupName, expConfig.LogRetention, expConfig.Tags, session)
+	svcStructuredLog := cwlogs.NewClient(params.Logger, awsConfig, params.BuildInfo, expConfig.LogGroupName, expConfig.LogRetention, expConfig.Tags, session, metadata.Type.String())
 	collectorIdentifier, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
@@ -93,7 +94,6 @@ func newCwLogsExporter(config component.Config, params exp.Settings) (exp.Logs, 
 		exporterhelper.WithQueue(expConfig.QueueSettings),
 		exporterhelper.WithRetry(expConfig.BackOffConfig),
 		exporterhelper.WithCapabilities(consumer.Capabilities{MutatesData: false}),
-		exporterhelper.WithStart(logsPusher.start),
 		exporterhelper.WithShutdown(logsPusher.shutdown),
 	)
 }
@@ -117,12 +117,17 @@ func (e *cwlExporter) consumeLogs(_ context.Context, ld plog.Logs) error {
 	return errs
 }
 
-func (e *cwlExporter) start(_ context.Context, host component.Host) error {
-	if e.Config.MiddlewareID != nil {
-		awsmiddleware.TryConfigure(e.logger, host, *e.Config.MiddlewareID, awsmiddleware.SDKv1(e.svcStructuredLog.Handlers()))
-	}
-	return nil
-}
+// In OCB branch, "aws/cwlogs" is not replaced by the forked "aws/cwlogs", and relies on upstream "aws/cwlogs".
+// However, upstream "aws/cwlogs" does not have method "Handlers" in type type *cwlogs.Client, causing conflicts
+// Upstream also does not implement "start()" in awscloudwatchlogsexporter. It is only implemented in the fork.
+// This method is removed to avoid issues with the GitHub workflows for components unrelated to OCB components
+// (such as "awscloudwatchlogsexporter")
+// func (e *cwlExporter) start(_ context.Context, host component.Host) error {
+// 	if e.Config.MiddlewareID != nil {
+// 		awsmiddleware.TryConfigure(e.logger, host, *e.Config.MiddlewareID, awsmiddleware.SDKv1(e.svcStructuredLog.Handlers()))
+// 	}
+// 	return nil
+// }
 
 func (e *cwlExporter) shutdown(_ context.Context) error {
 	return nil

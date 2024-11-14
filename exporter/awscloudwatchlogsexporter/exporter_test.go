@@ -10,13 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter/exportertest"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -467,43 +465,46 @@ func TestConsumeLogs(t *testing.T) {
 	}
 }
 
-func TestMiddleware(t *testing.T) {
-	testType, _ := component.NewType("test")
-	id := component.NewID(testType)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	factory := NewFactory()
-	expCfg := factory.CreateDefaultConfig().(*Config)
-	expCfg.Region = "us-west-2"
-	expCfg.LogGroupName = "testGroup"
-	expCfg.LogStreamName = "testStream"
-	expCfg.MaxRetries = 0
-	expCfg.MiddlewareID = &id
-	handler := new(awsmiddleware.MockHandler)
-	handler.On("ID").Return("test")
-	handler.On("Position").Return(awsmiddleware.After)
-	handler.On("HandleRequest", mock.Anything, mock.Anything)
-	handler.On("HandleResponse", mock.Anything, mock.Anything)
-	middleware := new(awsmiddleware.MockMiddlewareExtension)
-	middleware.On("Handlers").Return([]awsmiddleware.RequestHandler{handler}, []awsmiddleware.ResponseHandler{handler})
-	extensions := map[component.ID]component.Component{id: middleware}
-	exp, err := newCwLogsPusher(expCfg, exportertest.NewNopSettings())
-	assert.Nil(t, err)
-	assert.NotNil(t, exp)
-	host := new(awsmiddleware.MockExtensionsHost)
-	host.On("GetExtensions").Return(extensions)
-	assert.NoError(t, exp.start(ctx, host))
-	ld := plog.NewLogs()
-	r := ld.ResourceLogs().AppendEmpty()
-	r.Resource().Attributes().PutStr("hello", "test")
-	logRecords := r.ScopeLogs().AppendEmpty().LogRecords()
-	logRecords.EnsureCapacity(5)
-	logRecords.AppendEmpty()
-	require.Error(t, exp.consumeLogs(ctx, ld))
-	require.NoError(t, exp.shutdown(ctx))
-	handler.AssertCalled(t, "HandleRequest", mock.Anything, mock.Anything)
-	handler.AssertCalled(t, "HandleResponse", mock.Anything, mock.Anything)
-}
+// Remove the following test in OCB branch as upstream "internal/aws/cwlogs" is depended on
+// as opposed to the forked version. This means the "exp.start(ctx, host)" method that was added
+// in the fork is not available to test in the OCB branch.
+// func TestMiddleware(t *testing.T) {
+// 	testType, _ := component.NewType("test")
+// 	id := component.NewID(testType)
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
+// 	factory := NewFactory()
+// 	expCfg := factory.CreateDefaultConfig().(*Config)
+// 	expCfg.Region = "us-west-2"
+// 	expCfg.LogGroupName = "testGroup"
+// 	expCfg.LogStreamName = "testStream"
+// 	expCfg.MaxRetries = 0
+// 	expCfg.MiddlewareID = &id
+// 	handler := new(awsmiddleware.MockHandler)
+// 	handler.On("ID").Return("test")
+// 	handler.On("Position").Return(awsmiddleware.After)
+// 	handler.On("HandleRequest", mock.Anything, mock.Anything)
+// 	handler.On("HandleResponse", mock.Anything, mock.Anything)
+// 	middleware := new(awsmiddleware.MockMiddlewareExtension)
+// 	middleware.On("Handlers").Return([]awsmiddleware.RequestHandler{handler}, []awsmiddleware.ResponseHandler{handler})
+// 	extensions := map[component.ID]component.Component{id: middleware}
+// 	exp, err := newCwLogsPusher(expCfg, exportertest.NewNopSettings())
+// 	assert.Nil(t, err)
+// 	assert.NotNil(t, exp)
+// 	host := new(awsmiddleware.MockExtensionsHost)
+// 	host.On("GetExtensions").Return(extensions)
+// 	assert.NoError(t, exp.start(ctx, host))
+// 	ld := plog.NewLogs()
+// 	r := ld.ResourceLogs().AppendEmpty()
+// 	r.Resource().Attributes().PutStr("hello", "test")
+// 	logRecords := r.ScopeLogs().AppendEmpty().LogRecords()
+// 	logRecords.EnsureCapacity(5)
+// 	logRecords.AppendEmpty()
+// 	require.Error(t, exp.consumeLogs(ctx, ld))
+// 	require.NoError(t, exp.shutdown(ctx))
+// 	handler.AssertCalled(t, "HandleRequest", mock.Anything, mock.Anything)
+// 	handler.AssertCalled(t, "HandleResponse", mock.Anything, mock.Anything)
+// }
 
 func TestNewExporterWithoutRegionErr(t *testing.T) {
 	factory := NewFactory()
