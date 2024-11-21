@@ -593,13 +593,16 @@ func newKubernetesResourceAttributesResolver(platformCode, clusterName string) *
 	}
 }
 
-// Attempt to get the `k8s.cluster.name“ attribute that should be populated from resourcedetectionprocessor.
+// Attempt to get the `k8s.cluster.name` attribute that should be populated from resourcedetectionprocessor.
 // If that attribute doesn't exist (e.g. resourcedetectionprocessor is not used or fails to get the k8s attributes),
 // fallback to the processor's configured clusterName (which is "UNKNOWN" if not specified).
 func (h *kubernetesResourceAttributesResolver) getResourceDetectorClusterName(resourceAttributes pcommon.Map) string {
 	clusterName := h.clusterName
 
-	if val, ok := resourceAttributes.Get(attr.ResourceDetectionClusterName); ok {
+	// Also check for empty string from `k8s.cluster.name` attribute, since resource detection could fail
+	// and upstream will populate this attribute with an empty string
+	// https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.114.0/processor/resourcedetectionprocessor/internal/aws/eks/detector.go#L137-L176
+	if val, ok := resourceAttributes.Get(attr.ResourceDetectionClusterName); ok && val.Str() != "" {
 		clusterName = val.Str()
 	}
 
