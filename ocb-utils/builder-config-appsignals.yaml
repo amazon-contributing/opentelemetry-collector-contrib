@@ -1,0 +1,23 @@
+
+dist:
+  name: otelcol-appsignals
+  description: OTel Collector for Application Signals
+  output_path: ./otelcol-appsignals
+exporters:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter v${OCB_VERSION}
+  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v${OCB_VERSION}
+processors:
+  - gomod: github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor ${TEST_COMPONENT_GITHASH}
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v${OCB_VERSION}
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v${OCB_VERSION}
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v${OCB_VERSION}
+extensions:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/awsproxy v${OCB_VERSION}
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension v${OCB_VERSION}
+replaces:
+  - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil v${OCB_VERSION} => github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/awsutil ${TEST_COMPONENT_GITHASH}
+  - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs v${OCB_VERSION} => github.com/amazon-contributing/opentelemetry-collector-contrib/internal/aws/cwlogs ${TEST_COMPONENT_GITHASH}
+  - github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter v${OCB_VERSION} => github.com/amazon-contributing/opentelemetry-collector-contrib/exporter/awsemfexporter ${TEST_COMPONENT_GITHASH}
+  - github.com/openshift/api v3.9.0+incompatible => github.com/openshift/api v0.0.0-20180801171038-322a19404e37
+
