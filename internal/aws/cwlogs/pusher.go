@@ -259,6 +259,7 @@ func (p *logPusher) pushEventBatch(req any) error {
 	logEventBatch.sortLogEvents()
 	putLogEventsInput := logEventBatch.putLogEventsInput
 
+	p.logger.Info("TESTING", zap.Any("PLE", putLogEventsInput))
 	startTime := time.Now()
 
 	err := p.svcStructuredLog.PutLogEvents(putLogEventsInput, p.retryCnt)
