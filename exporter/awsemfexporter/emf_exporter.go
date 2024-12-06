@@ -96,6 +96,8 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 		emfExporter.processResourceLabels = userAgent.Process
 	}
 
+	config.logger.Info("HELLO THIS IS A TEST")
+
 	config.logger.Warn("the default value for DimensionRollupOption will be changing to NoDimensionRollup" +
 		"in a future release. See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/23997 for more" +
 		"information")
