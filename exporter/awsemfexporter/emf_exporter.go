@@ -142,6 +142,8 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 			return err
 		}
 
+		emf.config.logger.Info("TEST", zap.Any("putLogEvent", putLogEvent))
+
 		// Currently we only support two options for "OutputDestination".
 		if strings.EqualFold(outputDestination, outputDestinationStdout) {
 			if putLogEvent != nil &&
