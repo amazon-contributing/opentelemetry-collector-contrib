@@ -200,6 +200,9 @@ func (emf *emfExporter) start(_ context.Context, host component.Host) error {
 	if emf.config.MiddlewareID != nil {
 		awsmiddleware.TryConfigure(emf.config.logger, host, *emf.config.MiddlewareID, awsmiddleware.SDKv1(emf.svcStructuredLog.Handlers()))
 	}
+	if emf.config.AgentHealthMiddlewareID != nil {
+		awsmiddleware.TryConfigure(emf.config.logger, host, *emf.config.AgentHealthMiddlewareID, awsmiddleware.SDKv1(emf.svcStructuredLog.Handlers()))
+	}
 	return nil
 }
 

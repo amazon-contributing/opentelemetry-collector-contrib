@@ -54,6 +54,10 @@ func createDefaultConfig() component.Config {
 // createMetricsExporter creates a metrics exporter based on this config.
 func createMetricsExporter(ctx context.Context, params exporter.Settings, config component.Config) (exporter.Metrics, error) {
 	expCfg := config.(*Config)
+	TypeStr, _ := component.NewType("agenthealth")
+
+	statusCodeID := component.NewIDWithName(TypeStr, "statuscode")
+	expCfg.AgentHealthMiddlewareID = &statusCodeID
 
 	emfExp, err := newEmfExporter(expCfg, params)
 	if err != nil {

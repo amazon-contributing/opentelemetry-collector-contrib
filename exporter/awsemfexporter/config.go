@@ -98,7 +98,8 @@ type Config struct {
 	Version string `mapstructure:"version"`
 
 	// MiddlewareID is an ID for an extension that can be used to configure the AWS client.
-	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
+	MiddlewareID            *component.ID `mapstructure:"middleware,omitempty"`
+	AgentHealthMiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
 
 	// logger is the Logger used for writing error/warning logs
 	logger *zap.Logger
