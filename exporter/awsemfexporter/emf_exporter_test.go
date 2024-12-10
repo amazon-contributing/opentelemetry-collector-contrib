@@ -54,6 +54,14 @@ func (p *mockPusher) ForceFlush() error {
 	return nil
 }
 
+type mockHost struct {
+	component.Host
+}
+
+func (m *mockHost) GetExtensions() map[component.ID]component.Component {
+	return nil
+}
+
 func TestConsumeMetrics(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -64,6 +72,13 @@ func TestConsumeMetrics(t *testing.T) {
 	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
+
+	// Create a mock host
+	mockHost := &mockHost{}
+
+	// Call start
+	err = exp.start(ctx, mockHost)
+	assert.NoError(t, err)
 
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
@@ -335,9 +350,16 @@ func TestNewExporterWithoutConfig(t *testing.T) {
 	t.Setenv("AWS_STS_REGIONAL_ENDPOINTS", "fake")
 
 	exp, err := newEmfExporter(expCfg, settings)
-	assert.Error(t, err)
-	assert.Nil(t, exp)
+	assert.NoError(t, err)
+	assert.NotNil(t, exp)
 	assert.Equal(t, settings.Logger, expCfg.logger)
+
+	// Create a mock host
+	mockHost := &mockHost{}
+
+	// Check for error in start
+	err = exp.start(context.Background(), mockHost)
+	assert.Error(t, err)
 }
 
 func TestNewExporterWithMetricDeclarations(t *testing.T) {
@@ -427,9 +449,20 @@ func TestNewEmfExporterWithoutConfig(t *testing.T) {
 	t.Setenv("AWS_STS_REGIONAL_ENDPOINTS", "fake")
 
 	exp, err := newEmfExporter(expCfg, settings)
-	assert.Error(t, err)
-	assert.Nil(t, exp)
+	assert.NoError(t, err)
+	assert.NotNil(t, exp)
 	assert.Equal(t, settings.Logger, expCfg.logger)
+
+	// Create a mock host
+	mockHost := &mockHost{}
+
+	// Check for error in start
+	ctx := context.Background()
+	err = exp.start(ctx, mockHost)
+	assert.Error(t, err) // We expect an error here due to the fake AWS_STS_REGIONAL_ENDPOINTS
+
+	// Verify that svcStructuredLog is still nil after failed start
+	assert.Nil(t, exp.svcStructuredLog)
 }
 
 func TestMiddleware(t *testing.T) {
