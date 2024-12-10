@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
-
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/google/uuid"
@@ -23,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/appsignals"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 )
 
@@ -40,7 +39,6 @@ type emfExporter struct {
 	pusherMap        map[cwlogs.StreamKey]cwlogs.Pusher
 	svcStructuredLog *cwlogs.Client
 	config           *Config
-	set              exporter.Settings
 
 	metricTranslator metricTranslator
 
@@ -59,18 +57,42 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 
 	config.logger = set.Logger
 
-	// Initialize emfExporter without AWS session and structured logs
+	// create AWS session
+	awsConfig, session, err := awsutil.GetAWSConfigSession(set.Logger, &awsutil.Conn{}, &config.AWSSessionSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	// create CWLogs client with aws session config
+	svcStructuredLog := cwlogs.NewClient(set.Logger,
+		awsConfig,
+		set.BuildInfo,
+		config.LogGroupName,
+		config.LogRetention,
+		config.Tags,
+		session,
+		cwlogs.WithEnabledContainerInsights(config.IsEnhancedContainerInsights()),
+		cwlogs.WithEnabledAppSignals(config.IsAppSignalsEnabled()),
+	)
+
+	collectorIdentifier, err := uuid.NewRandom()
+	if err != nil {
+		return nil, err
+	}
+
 	emfExporter := &emfExporter{
+		svcStructuredLog:      svcStructuredLog,
 		config:                config,
 		metricTranslator:      newMetricTranslator(*config),
-		retryCnt:              config.AWSSessionSettings.MaxRetries,
-		collectorID:           uuid.New().String(),
+		retryCnt:              *awsConfig.MaxRetries,
+		collectorID:           collectorIdentifier.String(),
 		pusherMap:             map[cwlogs.StreamKey]cwlogs.Pusher{},
 		processResourceLabels: func(map[string]string) {},
 	}
 
 	if config.IsAppSignalsEnabled() {
 		userAgent := appsignals.NewUserAgent()
+		svcStructuredLog.Handlers().Build.PushBackNamed(userAgent.Handler())
 		emfExporter.processResourceLabels = userAgent.Process
 	}
 
@@ -118,6 +140,7 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 			return err
 		}
 
+		// Currently we only support two options for "OutputDestination".
 		if strings.EqualFold(outputDestination, outputDestinationStdout) {
 			if putLogEvent != nil &&
 				putLogEvent.InputLogEvent != nil &&
@@ -173,39 +196,10 @@ func (emf *emfExporter) listPushers() []cwlogs.Pusher {
 	return pushers
 }
 
-func (emf *emfExporter) start(ctx context.Context, host component.Host) error {
-	// Create AWS session here
-	awsConfig, session, err := awsutil.GetAWSConfigSession(emf.config.logger, &awsutil.Conn{}, &emf.config.AWSSessionSettings)
-	if err != nil {
-		return err
-	}
-
-	// create CWLogs client with aws session config
-	svcStructuredLog := cwlogs.NewClient(emf.config.logger,
-		awsConfig,
-		emf.set.BuildInfo,
-		emf.config.LogGroupName,
-		emf.config.LogRetention,
-		emf.config.Tags,
-		session,
-		cwlogs.WithEnabledContainerInsights(emf.config.IsEnhancedContainerInsights()),
-		cwlogs.WithEnabledAppSignals(emf.config.IsAppSignalsEnabled()),
-	)
-
-	// Assign to the struct
-	emf.svcStructuredLog = svcStructuredLog
-
-	if emf.config.IsAppSignalsEnabled() {
-		userAgent := appsignals.NewUserAgent()
-		svcStructuredLog.Handlers().Build.PushBackNamed(userAgent.Handler())
-		emf.processResourceLabels = userAgent.Process
-	}
-
-	// Optionally configure middleware
+func (emf *emfExporter) start(_ context.Context, host component.Host) error {
 	if emf.config.MiddlewareID != nil {
-		awsmiddleware.TryConfigure(emf.config.logger, host, *emf.config.MiddlewareID, awsmiddleware.SDKv1(svcStructuredLog.Handlers()))
+		awsmiddleware.TryConfigure(emf.config.logger, host, *emf.config.MiddlewareID, awsmiddleware.SDKv1(emf.svcStructuredLog.Handlers()))
 	}
-
 	return nil
 }
 
