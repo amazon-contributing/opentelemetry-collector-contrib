@@ -200,6 +200,9 @@ func TestConsumeMetricsWithLogGroupStreamConfig(t *testing.T) {
 	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
+	mockHost := &mockHost{}
+	err = exp.start(ctx, mockHost)
+	assert.NoError(t, err)
 
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
@@ -227,6 +230,9 @@ func TestConsumeMetricsWithLogGroupStreamValidPlaceholder(t *testing.T) {
 	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
+	mockHost := &mockHost{}
+	err = exp.start(ctx, mockHost)
+	assert.NoError(t, err)
 
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
@@ -258,6 +264,9 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
+	mockHost := &mockHost{}
+	err = exp.start(ctx, mockHost)
+	assert.NoError(t, err)
 
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
@@ -286,9 +295,25 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 	expCfg.MaxRetries = defaultRetryCount
 	expCfg.LogGroupName = "test-logGroupName"
 	expCfg.LogStreamName = "{WrongKey}"
-	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
+
+	// Create a logger
+	logger, _ := zap.NewProduction()
+
+	// Create exporter settings with the logger
+	settings := exportertest.NewNopCreateSettings()
+	settings.Logger = logger
+
+	exp, err := newEmfExporter(expCfg, settings)
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
+
+	exp.config.logger = logger
+	// Create a mock host
+	mockHost := &mockHost{}
+
+	// Call start
+	err = exp.start(ctx, mockHost)
+	assert.NoError(t, err)
 
 	md := generateTestMetrics(testMetric{
 		metricNames:  []string{"metric_1", "metric_2"},
@@ -298,7 +323,7 @@ func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 			"aws.ecs.task.id":      "test-task-id",
 		},
 	})
-	require.Error(t, exp.pushMetricsData(ctx, md))
+	require.NoError(t, exp.pushMetricsData(ctx, md))
 	require.NoError(t, exp.shutdown(ctx))
 	pusherMap, ok := exp.pusherMap[cwlogs.StreamKey{
 		LogGroupName:  expCfg.LogGroupName,
@@ -320,6 +345,13 @@ func TestPushMetricsDataWithErr(t *testing.T) {
 	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
+
+	// Create a mock host
+	mockHost := &mockHost{}
+
+	// Call start
+	err = exp.start(ctx, mockHost)
+	assert.NoError(t, err)
 
 	logPusher := new(mockPusher)
 	logPusher.On("AddLogEntry", nil).Return("some error").Once()

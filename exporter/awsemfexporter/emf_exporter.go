@@ -125,7 +125,10 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 				fmt.Println(*putLogEvent.InputLogEvent.Message)
 			}
 		} else if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
-			emfPusher := emf.getPusher(putLogEvent.StreamKey)
+			emfPusher, err := emf.getPusher(putLogEvent.StreamKey)
+			if err != nil {
+				return fmt.Errorf("failed to get pusher: %w", err)
+			}
 			if emfPusher != nil {
 				returnError := emfPusher.AddLogEntry(putLogEvent)
 				if returnError != nil {
@@ -154,37 +157,24 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	return nil
 }
 
-func (emf *emfExporter) getPusher(key cwlogs.StreamKey) cwlogs.Pusher {
+func (emf *emfExporter) getPusher(key cwlogs.StreamKey) (cwlogs.Pusher, error) {
 	emf.pusherMapLock.Lock()
 	defer emf.pusherMapLock.Unlock()
 
 	if emf.svcStructuredLog == nil {
-		// Initialize svcStructuredLog if it's nil
-		awsConfig, session, err := awsutil.GetAWSConfigSession(emf.config.logger, &awsutil.Conn{}, &emf.config.AWSSessionSettings)
-		if err != nil {
-			emf.set.Logger.Error("Failed to create AWS config and session", zap.Error(err))
-			return nil
-		}
-
-		// Create CWLogs client with aws session config
-		emf.svcStructuredLog = cwlogs.NewClient(emf.config.logger,
-			awsConfig,
-			emf.set.BuildInfo,
-			emf.config.LogGroupName,
-			emf.config.LogRetention,
-			emf.config.Tags,
-			session,
-			cwlogs.WithEnabledContainerInsights(emf.config.IsEnhancedContainerInsights()),
-			cwlogs.WithEnabledAppSignals(emf.config.IsAppSignalsEnabled()),
-		)
+		return nil, errors.New("CloudWatch Logs client not initialized")
 	}
 
 	pusher, exists := emf.pusherMap[key]
 	if !exists {
-		pusher = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.set.Logger)
+		if emf.set.Logger !=nil{
+			pusher = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.set.Logger)
+		} else {
+			pusher = cwlogs.NewPusher(key, emf.retryCnt, *emf.svcStructuredLog, emf.config.logger)
+		}
 		emf.pusherMap[key] = pusher
 	}
-	return pusher
+	return pusher, nil
 }
 
 func (emf *emfExporter) listPushers() []cwlogs.Pusher {

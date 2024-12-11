@@ -5,6 +5,7 @@ package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collec
 
 import (
 	"context"
+	"fmt"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"
@@ -60,12 +61,16 @@ func createMetricsExporter(ctx context.Context, params exporter.Settings, config
 		return nil, err
 	}
 
+	// Calling start right after constructor
+	if err := emfExp.start(ctx, nil); err != nil {
+		return nil, fmt.Errorf("failed to start EMF exporter: %w", err)
+	}
+
 	exporter, err := exporterhelper.NewMetricsExporter(
 		ctx,
 		params,
 		config,
 		emfExp.pushMetricsData,
-		exporterhelper.WithStart(emfExp.start),
 		exporterhelper.WithShutdown(emfExp.shutdown),
 	)
 	if err != nil {
