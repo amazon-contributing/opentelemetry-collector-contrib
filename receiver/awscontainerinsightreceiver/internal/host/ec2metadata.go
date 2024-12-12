@@ -62,8 +62,6 @@ func newEC2Metadata(ctx context.Context, session *session.Session, refreshInterv
 		err := configurer.Configure(awsmiddleware.SDKv1(&emd.client.(*awsec2metadata.EC2Metadata).Handlers))
 		if err != nil {
 			log.Println("There was a problem configuring middleware on ec2 client")
-		} else {
-			log.Println("Successfully configured sdk with middleware handlers")
 		}
 	}
 

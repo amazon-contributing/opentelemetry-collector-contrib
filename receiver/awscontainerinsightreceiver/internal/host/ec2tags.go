@@ -64,8 +64,6 @@ func newEC2Tags(ctx context.Context, session *session.Session, instanceID string
 		err := configurer.Configure(awsmiddleware.SDKv1(&et.client.(*ec2.EC2).Handlers))
 		if err != nil {
 			log.Println("There was a problem configuring middleware on ec2 client")
-		} else {
-			log.Println("Successfully configured sdk with middleware handlers")
 		}
 	}
 

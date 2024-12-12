@@ -43,6 +43,8 @@ type Config struct {
 	// Deprecated: Please use detector's resource_attributes config instead
 	Attributes []string `mapstructure:"attributes"`
 
+	// MiddlewareID is an ID for an extension that can be used to configure the
+	// AWS client.
 	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
 }
 

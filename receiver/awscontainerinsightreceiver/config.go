@@ -75,5 +75,7 @@ type Config struct {
 	// RunOnSystemd is an optional attribute to run the receiver in an EC2 environment
 	RunOnSystemd bool `mapstructure:"run_on_systemd,omitempty"`
 
+	// MiddlewareID is an ID for an extension that can be used to configure the
+	// AWS client.
 	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
 }
