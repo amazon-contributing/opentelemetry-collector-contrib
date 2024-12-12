@@ -7,11 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"strings"
 	"sync"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/collector/component"
@@ -22,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/appsignals"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 )
 
@@ -58,12 +58,17 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 
 	config.logger = set.Logger
 
+	collectorIdentifier, err := uuid.NewRandom()
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialize emfExporter without AWS session and structured logs
 	emfExporter := &emfExporter{
 		config:                config,
 		metricTranslator:      newMetricTranslator(*config),
 		retryCnt:              config.AWSSessionSettings.MaxRetries,
-		collectorID:           uuid.New().String(),
+		collectorID:           collectorIdentifier.String(),
 		pusherMap:             map[cwlogs.StreamKey]cwlogs.Pusher{},
 		processResourceLabels: func(map[string]string) {},
 	}
@@ -209,12 +214,6 @@ func (emf *emfExporter) start(_ context.Context, host component.Host) error {
 
 	// Assign to the struct
 	emf.svcStructuredLog = svcStructuredLog
-
-	if emf.config.IsAppSignalsEnabled() {
-		userAgent := appsignals.NewUserAgent()
-		svcStructuredLog.Handlers().Build.PushBackNamed(userAgent.Handler())
-		emf.processResourceLabels = userAgent.Process
-	}
 
 	// Optionally configure middleware
 	if emf.config.MiddlewareID != nil {

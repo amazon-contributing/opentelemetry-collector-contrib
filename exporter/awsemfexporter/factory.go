@@ -5,6 +5,7 @@ package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collec
 
 import (
 	"context"
+
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
@@ -58,7 +59,6 @@ func createMetricsExporter(ctx context.Context, params exporter.Settings, config
 	if err != nil {
 		return nil, err
 	}
-
 
 	exporter, err := exporterhelper.NewMetricsExporter(
 		ctx,
