@@ -124,8 +124,8 @@ func (d *Detector) Detect(ctx context.Context) (resource pcommon.Resource, schem
 	return res, conventions.SchemaURL, nil
 }
 
-func (d *Detector) ExposeHandlers(ctx context.Context) (handlers *request.Handlers) {
-	return d.metadataProvider.GetHandlers(ctx)
+func (d *Detector) ExposeHandlers() (handlers *request.Handlers) {
+	return d.metadataProvider.GetHandlers()
 }
 
 func getClientConfig(ctx context.Context, logger *zap.Logger) *http.Client {

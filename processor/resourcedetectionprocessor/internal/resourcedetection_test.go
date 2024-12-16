@@ -320,7 +320,7 @@ func TestFilterAttributes_NoAttributes(t *testing.T) {
 	assert.Equal(t, len(droppedAttributes), 0)
 }
 
-// mockDetectorWithHandler is a mock detector that implements ExposeHandlerDetector
+// mockDetectorWithHandler is a mock detector that implements HandlerProvider
 type mockDetectorWithHandler struct {
 	handlersCalled bool
 }
@@ -329,7 +329,7 @@ func (m *mockDetectorWithHandler) Detect(ctx context.Context) (resource pcommon.
 	return pcommon.NewResource(), "", nil
 }
 
-func (m *mockDetectorWithHandler) ExposeHandlers(ctx context.Context) *request.Handlers {
+func (m *mockDetectorWithHandler) ExposeHandlers() *request.Handlers {
 	m.handlersCalled = true
 	return &request.Handlers{}
 }
@@ -352,7 +352,7 @@ type mockHost struct {
 	extensions map[component.ID]component.Component
 }
 
-// mockDetector is a basic detector that doesn't implement ExposeHandlerDetector
+// mockDetector is a basic detector that doesn't implement HandlerProvider
 type mockDetector struct{}
 
 func (m *mockDetector) Detect(ctx context.Context) (resource pcommon.Resource, schemaURL string, err error) {

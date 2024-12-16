@@ -27,9 +27,8 @@ type Detector interface {
 	Detect(ctx context.Context) (resource pcommon.Resource, schemaURL string, err error)
 }
 
-type ExposeHandlerDetector interface {
-	Detector // Embed the existing Detector interface
-	ExposeHandlers(ctx context.Context) *request.Handlers
+type HandlerProvider interface {
+	ExposeHandlers() *request.Handlers
 }
 type DetectorConfig any
 
@@ -126,8 +125,8 @@ func (p *ResourceProvider) Get(ctx context.Context, client *http.Client) (resour
 
 func (p *ResourceProvider) ConfigureHandlers(ctx context.Context, host component.Host, middlewareId component.ID) {
 	for _, detector := range p.detectors {
-		if handlerDetector, ok := detector.(ExposeHandlerDetector); ok {
-			awsmiddleware.TryConfigure(p.logger, host, middlewareId, awsmiddleware.SDKv1(handlerDetector.ExposeHandlers(ctx)))
+		if handlerDetector, ok := detector.(HandlerProvider); ok {
+			awsmiddleware.TryConfigure(p.logger, host, middlewareId, awsmiddleware.SDKv1(handlerDetector.ExposeHandlers()))
 		}
 	}
 }
@@ -212,4 +211,3 @@ func MergeResource(to, from pcommon.Resource, overrideTo bool) {
 func IsEmptyResource(res pcommon.Resource) bool {
 	return res.Attributes().Len() == 0
 }
-

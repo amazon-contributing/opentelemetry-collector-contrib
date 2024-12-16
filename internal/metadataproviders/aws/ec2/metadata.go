@@ -16,7 +16,7 @@ import (
 
 type Provider interface {
 	Get(ctx context.Context) (ec2metadata.EC2InstanceIdentityDocument, error)
-	GetHandlers(ctx context.Context) *request.Handlers
+	GetHandlers() *request.Handlers
 	Hostname(ctx context.Context) (string, error)
 	InstanceID(ctx context.Context) (string, error)
 }
@@ -62,6 +62,6 @@ func (c *metadataClient) Get(_ context.Context) (ec2metadata.EC2InstanceIdentity
 	return c.metadataFallbackEnable.GetInstanceIdentityDocument()
 }
 
-func (c *metadataClient) GetHandlers(_ context.Context) *request.Handlers {
+func (c *metadataClient) GetHandlers() *request.Handlers {
 	return &c.metadata.Handlers
 }
