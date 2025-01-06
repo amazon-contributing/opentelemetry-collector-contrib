@@ -1,4 +1,4 @@
-module github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs
+module github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs
 
 go 1.22.5
 

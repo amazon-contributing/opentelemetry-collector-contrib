@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs"
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs/cloudwatchlogsiface"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs/cloudwatchlogsiface"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client/metadata"

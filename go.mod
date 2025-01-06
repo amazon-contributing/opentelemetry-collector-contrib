@@ -1253,4 +1253,4 @@ replace github.com/amazon-contributing/opentelemetry-collector-contrib/extension
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ./override/aws
 
-replace github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs => ./../../sdk/service/cloudwatchlogs
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs => ./override/sdk/service/cloudwatchlogs

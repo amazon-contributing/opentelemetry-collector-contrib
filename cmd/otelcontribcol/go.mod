@@ -372,7 +372,7 @@ require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.76 // indirect
 	github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware v0.0.0-20240419190856-2f880467f335 // indirect
 	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20240415183253-230331014d2c // indirect
-	github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs v0.0.0-00010101000000-000000000000 // indirect
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs v0.0.0-00010101000000-000000000000 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/apache/arrow/go/v15 v15.0.0 // indirect
 	github.com/apache/pulsar-client-go v0.8.1 // indirect
@@ -1272,7 +1272,7 @@ replace github.com/amazon-contributing/opentelemetry-collector-contrib/extension
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../override/aws
 
-replace github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs => ./../../sdk/service/cloudwatchlogs
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs => ../../override/sdk/service/cloudwatchlogs
 
 replace github.com/go-kit/kit => github.com/go-kit/kit v0.12.0
 

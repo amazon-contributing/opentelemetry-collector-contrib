@@ -3,7 +3,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cw
 go 1.22.5
 
 require (
-	github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs v0.0.0-00010101000000-000000000000
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go v1.53.11
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/collector/component v0.103.0
@@ -32,7 +32,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs => ./../../../sdk/service/cloudwatchlogs
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs => ../../../override/sdk/service/cloudwatchlogs
 
 retract (
 	v0.76.2

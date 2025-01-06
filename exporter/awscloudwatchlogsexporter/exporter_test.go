@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs"
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/override/sdk/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
