@@ -29,6 +29,7 @@ require (
 
 require (
 	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-00010101000000-000000000000 // indirect
+	github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs v0.0.0-00010101000000-000000000000 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.22.2 // indirect
 	github.com/aws/smithy-go v1.16.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -93,6 +94,8 @@ retract (
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../override/aws
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware => ../../extension/awsmiddleware
+
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs => ./../../sdk/service/cloudwatchlogs
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil => ../../pkg/pdatautil
 

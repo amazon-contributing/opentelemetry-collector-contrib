@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"

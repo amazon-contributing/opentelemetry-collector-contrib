@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"go.uber.org/zap"
 )
 

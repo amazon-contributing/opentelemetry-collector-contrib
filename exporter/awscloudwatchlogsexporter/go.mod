@@ -4,6 +4,7 @@ go 1.22.5
 
 require (
 	github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware v0.0.0-20240419190856-2f880467f335
+	github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go v1.53.11
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/google/uuid v1.6.0
@@ -75,6 +76,8 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/c
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../override/aws
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware => ../../extension/awsmiddleware
+
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/sdk/service/cloudwatchlogs => ./../../sdk/service/cloudwatchlogs
 
 retract (
 	v0.76.2
