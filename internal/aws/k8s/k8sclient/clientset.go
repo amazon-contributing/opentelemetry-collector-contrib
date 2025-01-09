@@ -65,7 +65,7 @@ type cacheReflector interface {
 
 type initialSyncChecker interface {
 	// check the initial sync of cache reflector and log the warnMessage if timeout
-	Check(reflector cacheReflector, warnMessage string)
+	Check(reflector cacheReflector, warnMessage string) bool
 }
 
 // reflectorSyncChecker implements initialSyncChecker interface
@@ -75,12 +75,14 @@ type reflectorSyncChecker struct {
 	logger       *zap.Logger
 }
 
-func (r *reflectorSyncChecker) Check(reflector cacheReflector, warnMessage string) {
+func (r *reflectorSyncChecker) Check(reflector cacheReflector, warnMessage string) bool {
 	if err := wait.PollUntilContextTimeout(context.Background(), r.pollInterval, r.pollTimeout, false, func(context.Context) (done bool, err error) {
 		return reflector.LastSyncResourceVersion() != "", nil
 	}); err != nil {
 		r.logger.Warn(warnMessage, zap.Error(err))
+		return false
 	}
+	return true
 }
 
 // KubeConfigPath provides the option to set the kube config which will be used if the

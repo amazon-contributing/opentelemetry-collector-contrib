@@ -12,10 +12,11 @@ import (
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-var podArray = []any{
+var podArray = []runtime.Object{
 	&v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       "bc5f5839-f62e-44b9-a79e-af250d92dcb1",
@@ -161,18 +162,11 @@ var podArray = []any{
 	},
 }
 
-// workaround to avoid "unused" lint errors which test is skipped
-var skip = func(t *testing.T, why string) {
-	t.Skip(why)
-}
-
 func TestPodClient_NamespaceToRunningPodNum(t *testing.T) {
-	skip(t, "Flaky test - See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/11078")
 	setOption := podSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewSimpleClientset(podArray...)
 	client := newPodClient(fakeClientSet, zap.NewNop(), setOption)
-	assert.NoError(t, client.store.Replace(podArray, ""))
 	client.refresh()
 
 	expectedMap := map[string]int{
@@ -196,7 +190,7 @@ func TestPodClient_PodInfos(t *testing.T) {
 	// skip(t, "Flaky test - See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/11078")
 	setOption := podSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	samplePodArray := []any{
+	samplePodArray := []runtime.Object{
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				UID:       "bc5f5839-f62e-44b9-a79e-af250d92dcb1",
@@ -213,9 +207,8 @@ func TestPodClient_PodInfos(t *testing.T) {
 		},
 	}
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewSimpleClientset(samplePodArray...)
 	client := newPodClient(fakeClientSet, zap.NewNop(), setOption)
-	assert.NoError(t, client.store.Replace(samplePodArray, ""))
 	client.refresh()
 
 	expectedArray := []*PodInfo{

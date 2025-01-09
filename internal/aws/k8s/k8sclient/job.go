@@ -4,16 +4,13 @@
 package k8sclient // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -49,13 +46,15 @@ type jobClient struct {
 	stopChan chan struct{}
 	stopped  bool
 
-	store *ObjStore
+	store    *ObjStore
+	informer cache.SharedIndexInformer
 
 	syncChecker initialSyncChecker
 
 	mu              sync.RWMutex
 	cachedJobMap    map[string]time.Time
 	jobToCronJobMap map[string]string
+	logger          *zap.Logger
 }
 
 func (c *jobClient) JobToCronJob() map[string]string {
@@ -113,20 +112,18 @@ func newJobClient(clientSet kubernetes.Interface, logger *zap.Logger, options ..
 		option(c)
 	}
 
-	ctx := context.Background()
-	if _, err := clientSet.BatchV1().Jobs(metav1.NamespaceAll).List(ctx, metav1.ListOptions{}); err != nil {
-		return nil, fmt.Errorf("cannot list Job. err: %w", err)
-	}
-
 	c.store = NewObjStore(transformFuncJob, logger)
-	lw := createJobListWatch(clientSet, metav1.NamespaceAll)
-	reflector := cache.NewReflector(lw, &batchv1.Job{}, c.store, 0)
+	c.logger = logger
 
-	go reflector.Run(c.stopChan)
+	c.informer = createSharedJobsInformer(clientSet, c.store)
+	go c.informer.Run(c.stopChan)
 
 	if c.syncChecker != nil {
-		// check the init sync for potential connection issue
-		c.syncChecker.Check(reflector, "Job initial sync timeout")
+		if c.syncChecker.Check(c.informer, "Jobs initial sync timeout") {
+			if !cache.WaitForCacheSync(c.stopChan, c.informer.HasSynced) {
+				c.logger.Warn("Jobs informer cache sync timeout")
+			}
+		}
 	}
 
 	return c, nil
@@ -151,14 +148,21 @@ func transformFuncJob(obj any) (any, error) {
 	return info, nil
 }
 
-func createJobListWatch(client kubernetes.Interface, ns string) cache.ListerWatcher {
-	ctx := context.Background()
-	return &cache.ListWatch{
-		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-			return client.BatchV1().Jobs(ns).List(ctx, opts)
+// createSharedJobsInformer creates a shared informer for jobs
+func createSharedJobsInformer(clientSet kubernetes.Interface, store *ObjStore) cache.SharedIndexInformer {
+	informerFactory := informers.NewSharedInformerFactory(clientSet, 0)
+	sharedIndexInformer := informerFactory.Batch().V1().Jobs().Informer()
+
+	sharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			store.Add(obj)
 		},
-		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-			return client.BatchV1().Jobs(ns).Watch(ctx, opts)
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			store.Update(newObj)
 		},
-	}
+		DeleteFunc: func(obj interface{}) {
+			store.Delete(obj)
+		},
+	})
+	return sharedIndexInformer
 }

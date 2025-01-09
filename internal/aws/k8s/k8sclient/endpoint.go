@@ -4,15 +4,12 @@
 package k8sclient // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -50,6 +47,7 @@ func epSyncCheckerOption(checker initialSyncChecker) epClientOption {
 type epClient struct {
 	stopChan chan struct{}
 	store    *ObjStore
+	informer cache.SharedIndexInformer
 
 	stopped bool
 
@@ -58,6 +56,7 @@ type epClient struct {
 	mu                      sync.RWMutex
 	podKeyToServiceNamesMap map[string][]string
 	serviceToPodNumMap      map[Service]int // only running pods will show behind endpoints
+	logger                  *zap.Logger
 }
 
 func (c *epClient) PodKeyToServiceNames() map[string][]string {
@@ -132,20 +131,25 @@ func newEpClient(clientSet kubernetes.Interface, logger *zap.Logger, options ...
 	}
 
 	c.store = NewObjStore(transformFuncEndpoint, logger)
-	lw := c.createEndpointListWatch(clientSet, metav1.NamespaceAll)
-	reflector := cache.NewReflector(lw, &v1.Endpoints{}, c.store, 0)
+	c.logger = logger
 
-	go reflector.Run(c.stopChan)
+	c.informer = createSharedEndpointsInformer(clientSet, c.store)
+	go c.informer.Run(c.stopChan)
 
 	if c.syncChecker != nil {
-		// check the init sync for potential connection issue
-		c.syncChecker.Check(reflector, "Endpoint initial sync timeout")
+		if c.syncChecker.Check(c.informer, "Endpoint initial sync timeout") {
+			if !cache.WaitForCacheSync(c.stopChan, c.informer.HasSynced) {
+				c.logger.Warn("Endpoint informer cache sync timeout")
+			}
+		}
 	}
 
 	return c
 }
 
 func (c *epClient) shutdown() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	close(c.stopChan)
 	c.stopped = true
 }
@@ -177,14 +181,21 @@ func transformFuncEndpoint(obj any) (any, error) {
 	return info, nil
 }
 
-func (c *epClient) createEndpointListWatch(client kubernetes.Interface, ns string) cache.ListerWatcher {
-	ctx := context.Background()
-	return &cache.ListWatch{
-		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Endpoints(ns).List(ctx, opts)
+// createSharedEndpointsInformer creates a shared informer for endpoints
+func createSharedEndpointsInformer(clientSet kubernetes.Interface, store *ObjStore) cache.SharedIndexInformer {
+	informerFactory := informers.NewSharedInformerFactory(clientSet, 0)
+	sharedIndexInformer := informerFactory.Core().V1().Endpoints().Informer()
+
+	sharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			store.Add(obj)
 		},
-		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Endpoints(ns).Watch(ctx, opts)
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			store.Update(newObj)
 		},
-	}
+		DeleteFunc: func(obj interface{}) {
+			store.Delete(obj)
+		},
+	})
+	return sharedIndexInformer
 }

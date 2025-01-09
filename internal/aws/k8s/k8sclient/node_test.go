@@ -13,12 +13,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sutil"
 )
 
-var nodeArray = []any{
+var nodeArray = []runtime.Object{
 	&v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "ip-192-168-200-63.eu-west-1.compute.internal",
@@ -394,9 +395,9 @@ func TestNodeClient(t *testing.T) {
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
-			fakeClientSet := fake.NewSimpleClientset()
+			fakeClientSet := fake.NewSimpleClientset(nodeArray...)
 			client := newNodeClient(fakeClientSet, zap.NewNop(), testCase.options...)
-			assert.NoError(t, client.store.Replace(nodeArray, ""))
+			client.refresh()
 
 			require.Equal(t, testCase.want["clusterNodeCount"], client.ClusterNodeCount())
 			require.Equal(t, testCase.want["clusterFailedNodeCount"], client.ClusterFailedNodeCount())

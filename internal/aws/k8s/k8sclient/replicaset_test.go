@@ -100,12 +100,12 @@ func TestReplicaSetClient_ReplicaSetToDeployment(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(replicaSetArray...)
 	client, _ := newReplicaSetClient(fakeClientSet, zap.NewNop(), setOption)
+	client.refresh()
 
 	replicaSets := make([]any, len(replicaSetArray))
 	for i := range replicaSetArray {
 		replicaSets[i] = replicaSetArray[i]
 	}
-	assert.NoError(t, client.store.Replace(replicaSets, ""))
 
 	expectedMap := map[string]string{
 		"cloudwatch-agent-statsd-7f8459d648": "cloudwatch-agent-statsd",

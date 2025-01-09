@@ -13,8 +13,8 @@ import (
 type mockReflectorSyncChecker struct {
 }
 
-func (m *mockReflectorSyncChecker) Check(_ cacheReflector, _ string) {
-
+func (m *mockReflectorSyncChecker) Check(_ cacheReflector, _ string) bool {
+	return true
 }
 
 var kubeConfigPath string

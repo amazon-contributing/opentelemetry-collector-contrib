@@ -4,15 +4,12 @@
 package k8sclient // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -44,12 +41,14 @@ type statefulSetClient struct {
 	stopChan chan struct{}
 	stopped  bool
 
-	store *ObjStore
+	store    *ObjStore
+	informer cache.SharedIndexInformer
 
 	syncChecker initialSyncChecker
 
 	mu               sync.RWMutex
 	statefulSetInfos []*StatefulSetInfo
+	logger           *zap.Logger
 }
 
 func (d *statefulSetClient) refresh() {
@@ -87,26 +86,26 @@ func newStatefulSetClient(clientSet kubernetes.Interface, logger *zap.Logger, op
 		option(d)
 	}
 
-	ctx := context.Background()
-	if _, err := clientSet.AppsV1().StatefulSets(metav1.NamespaceAll).List(ctx, metav1.ListOptions{}); err != nil {
-		return nil, fmt.Errorf("cannot list StatefulSets. err: %w", err)
-	}
-
 	d.store = NewObjStore(transformFuncStatefulSet, logger)
-	lw := createStatefulSetListWatch(clientSet, metav1.NamespaceAll)
-	reflector := cache.NewReflector(lw, &appsv1.StatefulSet{}, d.store, 0)
+	d.logger = logger
 
-	go reflector.Run(d.stopChan)
+	d.informer = createSharedStatefulsetsInformer(clientSet, d.store)
+	go d.informer.Run(d.stopChan)
 
 	if d.syncChecker != nil {
-		// check the init sync for potential connection issue
-		d.syncChecker.Check(reflector, "StatefulSet initial sync timeout")
+		if d.syncChecker.Check(d.informer, "StatefulSet initial sync timeout") {
+			if !cache.WaitForCacheSync(d.stopChan, d.informer.HasSynced) {
+				d.logger.Warn("StatefulSet informer cache sync timeout")
+			}
+		}
 	}
 
 	return d, nil
 }
 
 func (d *statefulSetClient) shutdown() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	close(d.stopChan)
 	d.stopped = true
 }
@@ -130,14 +129,21 @@ func transformFuncStatefulSet(obj any) (any, error) {
 	return info, nil
 }
 
-func createStatefulSetListWatch(client kubernetes.Interface, ns string) cache.ListerWatcher {
-	ctx := context.Background()
-	return &cache.ListWatch{
-		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-			return client.AppsV1().StatefulSets(ns).List(ctx, opts)
+// createSharedStatefulsetsInformer creates a shared informer for statefulsets
+func createSharedStatefulsetsInformer(clientSet kubernetes.Interface, store *ObjStore) cache.SharedIndexInformer {
+	informerFactory := informers.NewSharedInformerFactory(clientSet, 0)
+	sharedIndexInformer := informerFactory.Apps().V1().StatefulSets().Informer()
+
+	sharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			store.Add(obj)
 		},
-		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-			return client.AppsV1().StatefulSets(ns).Watch(ctx, opts)
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			store.Update(newObj)
 		},
-	}
+		DeleteFunc: func(obj interface{}) {
+			store.Delete(obj)
+		},
+	})
+	return sharedIndexInformer
 }

@@ -347,13 +347,13 @@ var endpointsArray = []runtime.Object{
 }
 
 func setUpEndpointClient() (*epClient, chan struct{}) {
-	stopChan := make(chan struct{})
+	options := epSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	client := &epClient{
-		stopChan: stopChan,
-		store:    NewObjStore(transformFuncEndpoint, zap.NewNop()),
-	}
-	return client, stopChan
+	fakeClientSet := fake.NewSimpleClientset()
+	client := newEpClient(fakeClientSet, zap.NewNop(), options)
+	client.refresh()
+
+	return client, client.stopChan
 }
 
 func TestEpClient_PodKeyToServiceNames(t *testing.T) {
@@ -415,6 +415,7 @@ func TestNewEndpointClient(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(endpointsArray...)
 	client := newEpClient(fakeClientSet, zap.NewNop(), setOption)
+	client.refresh()
 	assert.NotNil(t, client)
 	client.shutdown()
 	removeTempKubeConfig()

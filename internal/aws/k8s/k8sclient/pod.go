@@ -4,15 +4,13 @@
 package k8sclient // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -34,6 +32,7 @@ func podSyncCheckerOption(checker initialSyncChecker) podClientOption {
 type podClient struct {
 	stopChan chan struct{}
 	store    *ObjStore
+	informer cache.SharedIndexInformer
 
 	stopped     bool
 	syncChecker initialSyncChecker
@@ -41,6 +40,7 @@ type podClient struct {
 	mu                          sync.RWMutex
 	namespaceToRunningPodNumMap map[string]int
 	podInfos                    []*PodInfo
+	logger                      *zap.Logger
 }
 
 func (c *podClient) NamespaceToRunningPodNum() map[string]int {
@@ -94,15 +94,22 @@ func newPodClient(clientSet kubernetes.Interface, logger *zap.Logger, options ..
 	}
 
 	c.store = NewObjStore(transformFuncPod, logger)
+	c.logger = logger
 
-	lw := createPodListWatch(clientSet, metav1.NamespaceAll)
-	reflector := cache.NewReflector(lw, &v1.Pod{}, c.store, 0)
-
-	go reflector.Run(c.stopChan)
+	var err error
+	c.informer, err = createSharedPodsInformer(clientSet, c.store)
+	if err != nil {
+		c.logger.Warn("Failed to create Pod informer", zap.Error(err))
+		return nil
+	}
+	go c.informer.Run(c.stopChan)
 
 	if c.syncChecker != nil {
-		// check the init sync for potential connection issue
-		c.syncChecker.Check(reflector, "Pod initial sync timeout")
+		if c.syncChecker.Check(c.informer, "Pod initial sync timeout") {
+			if !cache.WaitForCacheSync(c.stopChan, c.informer.HasSynced) {
+				c.logger.Warn("Pod informer cache sync timeout")
+			}
+		}
 	}
 
 	return c
@@ -131,14 +138,58 @@ func transformFuncPod(obj any) (any, error) {
 	return info, nil
 }
 
-func createPodListWatch(client kubernetes.Interface, ns string) cache.ListerWatcher {
-	ctx := context.Background()
-	return &cache.ListWatch{
-		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Pods(ns).List(ctx, opts)
+// This function removes all data from the Pod except what is required
+func removeUnnecessaryPodData(pod *v1.Pod) *v1.Pod {
+
+	// name, namespace, uid, start time and ip are needed for identifying Pods
+	// there's room to optimize this further, it's kept this way for simplicity
+	transformedPod := v1.Pod{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:            pod.GetName(),
+			Namespace:       pod.GetNamespace(),
+			UID:             pod.GetUID(),
+			Labels:          pod.GetLabels(),
+			OwnerReferences: pod.OwnerReferences,
 		},
-		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Pods(ns).Watch(ctx, opts)
+		Status: v1.PodStatus{
+			PodIP:      pod.Status.PodIP,
+			StartTime:  pod.Status.StartTime,
+			Phase:      pod.Status.Phase,
+			Conditions: pod.Status.Conditions,
 		},
 	}
+
+	return &transformedPod
+}
+
+// createSharedPodsInformer creates a shared informer for pods
+func createSharedPodsInformer(clientSet kubernetes.Interface, store *ObjStore) (cache.SharedIndexInformer, error) {
+	informerFactory := informers.NewSharedInformerFactory(clientSet, 0)
+	sharedIndexInformer := informerFactory.Core().V1().Pods().Informer()
+	err := sharedIndexInformer.SetTransform(
+		func(object any) (any, error) {
+			originalPod, success := object.(*v1.Pod)
+			if !success { // means this is a cache.DeletedFinalStateUnknown, in which case we do nothing
+				return object, nil
+			}
+
+			return removeUnnecessaryPodData(originalPod), nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	sharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			store.Add(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			store.Update(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			store.Delete(obj)
+		},
+	})
+	return sharedIndexInformer, nil
 }

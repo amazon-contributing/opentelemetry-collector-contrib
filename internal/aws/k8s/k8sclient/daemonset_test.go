@@ -49,12 +49,12 @@ func TestDaemonSetClient(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(daemonSetObjects...)
 	client, _ := newDaemonSetClient(fakeClientSet, zap.NewNop(), options)
+	client.refresh()
 
 	daemonSets := make([]any, len(daemonSetObjects))
 	for i := range daemonSetObjects {
 		daemonSets[i] = daemonSetObjects[i]
 	}
-	assert.NoError(t, client.store.Replace(daemonSets, ""))
 
 	expected := []*DaemonSetInfo{
 		{

@@ -53,12 +53,12 @@ func TestStatefulSetClient(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(statefulSetObjects...)
 	client, _ := newStatefulSetClient(fakeClientSet, zap.NewNop(), setOption)
+	client.refresh()
 
 	statefulSets := make([]any, len(statefulSetObjects))
 	for i := range statefulSetObjects {
 		statefulSets[i] = statefulSetObjects[i]
 	}
-	assert.NoError(t, client.store.Replace(statefulSets, ""))
 
 	expected := []*StatefulSetInfo{
 		{
