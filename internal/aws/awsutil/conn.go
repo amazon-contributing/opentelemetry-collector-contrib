@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -484,9 +485,11 @@ func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *
 	return credentials.NewCredentials(&stsCredentialProvider{regional: regional, partitional: partitional})
 }
 
-var (
-	sourceAccount = os.Getenv("AMZ_SOURCE_ACCOUNT") // populates the "x-amz-source-account" header
-	sourceArn     = os.Getenv("AMZ_SOURCE_ARN")     // populates the "x-amz-source-arn" header
+const (
+	SourceArnHeaderKey     = "x-amz-source-arn"
+	SourceAccountHeaderKey = "x-amz-source-account"
+	AmzSourceAccount       = "AMZ_SOURCE_ACCOUNT"
+	AmzSourceArn           = "AMZ_SOURCE_ARN"
 )
 
 // newStsClient creates a new STS client with the provided config and options.
@@ -497,14 +500,18 @@ var (
 //
 // See https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html#cross-service-confused-deputy-prevention
 func newStsClient(p client.ConfigProvider, cfgs ...*aws.Config) *sts.STS {
+
+	sourceAccount := os.Getenv(AmzSourceAccount)
+	sourceArn := os.Getenv(AmzSourceArn)
+
 	client := sts.New(p, cfgs...)
 	if sourceAccount != "" && sourceArn != "" {
 		client.Handlers.Sign.PushFront(func(r *request.Request) {
-			r.ApplyOptions(request.WithSetRequestHeaders(map[string]string{
-				"x-amz-source-arn":     sourceArn,
-				"x-amz-source-account": sourceAccount,
-			}))
+			r.HTTPRequest.Header.Set(SourceArnHeaderKey, sourceArn)
+			r.HTTPRequest.Header.Set(SourceAccountHeaderKey, sourceAccount)
 		})
+
+		log.Printf("I! Found confused deputy header environment variables: source account: %q, source arn: %q", sourceAccount, sourceArn)
 	}
 
 	return client
