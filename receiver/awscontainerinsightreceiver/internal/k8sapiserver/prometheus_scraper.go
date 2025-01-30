@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/prometheus/discovery/kubernetes"
 	"os"
 	"strings"
 	"time"
@@ -112,19 +113,18 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 		Scheme:          "https",
 		MetricsPath:     "/metrics",
 		ServiceDiscoveryConfigs: discovery.Configs{
-			&discovery.StaticConfig{
-				{
-					Targets: []model.LabelSet{
-						{
-							model.AddressLabel: model.LabelValue(opts.Endpoint),
-							"ClusterName":      model.LabelValue(opts.ClusterNameProvider.GetClusterName()),
-							"Version":          model.LabelValue("0"),
-							"Sources":          model.LabelValue("[\"apiserver\"]"),
-							"NodeName":         model.LabelValue(os.Getenv("HOST_NAME")),
-							"Type":             model.LabelValue("ControlPlane"),
-						},
-					},
+			&kubernetes.SDConfig{
+				Role: kubernetes.RoleEndpoint,
+				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
+					Names: []string{"default"},
 				},
+			},
+		},
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"__meta_kubernetes_namespace", "__meta_kubernetes_service_name", "__meta_kubernetes_endpoint_port_name"},
+				Regex:        relabel.MustNewRegexp("default;kubernetes;https"),
+				Action:       relabel.Keep,
 			},
 		},
 		MetricRelabelConfigs: []*relabel.Config{
@@ -143,6 +143,31 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 			{
 				Regex:  relabel.MustNewRegexp("^type$"),
 				Action: relabel.LabelDrop,
+			},
+			{
+				TargetLabel: "ClusterName",
+				Action:      relabel.Replace,
+				Replacement: opts.ClusterNameProvider.GetClusterName(),
+			},
+			{
+				TargetLabel: "Version",
+				Action:      relabel.Replace,
+				Replacement: "0",
+			},
+			{
+				TargetLabel: "Sources",
+				Action:      relabel.Replace,
+				Replacement: "[\"apiserver\"]",
+			},
+			{
+				TargetLabel: "NodeName",
+				Action:      relabel.Replace,
+				Replacement: os.Getenv("HOST_NAME"),
+			},
+			{
+				TargetLabel: "Type",
+				Action:      relabel.Replace,
+				Replacement: "ControlPlane",
 			},
 		},
 	}
