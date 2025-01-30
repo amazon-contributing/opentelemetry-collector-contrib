@@ -30,7 +30,7 @@ const (
 	caFile             = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	collectionInterval = 60 * time.Second
 	// needs to start with "containerInsightsKubeAPIServerScraper" for histogram deltas in the emf exporter
-	jobName = "containerInsightsKubeAPIServerScraper"
+	jobName = "kausyasJobName"
 )
 
 var (
