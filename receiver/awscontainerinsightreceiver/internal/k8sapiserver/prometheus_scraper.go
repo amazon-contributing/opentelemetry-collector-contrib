@@ -11,10 +11,12 @@ import (
 	"strings"
 	"time"
 
+	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	configutil "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
+	"github.com/prometheus/prometheus/discovery/kubernetes"
 	"github.com/prometheus/prometheus/model/relabel"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
@@ -70,6 +72,7 @@ type PrometheusScraperOpts struct {
 	Ctx                 context.Context
 	TelemetrySettings   component.TelemetrySettings
 	Endpoint            string
+	EndpointAddresses   []string
 	Consumer            consumer.Metrics
 	Host                component.Host
 	ClusterNameProvider clusterNameProvider
@@ -107,24 +110,24 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 		ScrapeInterval:  model.Duration(collectionInterval),
 		ScrapeTimeout:   model.Duration(collectionInterval),
 		ScrapeProtocols: config.DefaultScrapeProtocols,
-		JobName:         fmt.Sprintf("%s/%s", jobName, opts.Endpoint),
+		JobName:         fmt.Sprintf("%s/%s", jobName, kubernetes.RoleEndpoint),
 		HonorTimestamps: true,
 		Scheme:          "https",
 		MetricsPath:     "/metrics",
 		ServiceDiscoveryConfigs: discovery.Configs{
-			&discovery.StaticConfig{
-				{
-					Targets: []model.LabelSet{
-						{
-							model.AddressLabel: model.LabelValue(opts.Endpoint),
-							"ClusterName":      model.LabelValue(opts.ClusterNameProvider.GetClusterName()),
-							"Version":          model.LabelValue("0"),
-							"Sources":          model.LabelValue("[\"apiserver\"]"),
-							"NodeName":         model.LabelValue(os.Getenv("HOST_NAME")),
-							"Type":             model.LabelValue("ControlPlane"),
-						},
-					},
+			&kubernetes.SDConfig{
+				Role: kubernetes.RoleEndpoint,
+				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
+					Names: []string{"default"},
 				},
+			},
+		},
+		RelabelConfigs: []*relabel.Config{
+			{
+				SourceLabels: model.LabelNames{"__meta_kubernetes_endpoints_name", "__meta_kubernetes_endpoint_port_name"},
+				Regex:        relabel.MustNewRegexp("kubernetes;https"),
+				Separator:    ";",
+				Action:       relabel.Keep,
 			},
 		},
 		MetricRelabelConfigs: []*relabel.Config{
@@ -134,7 +137,7 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 				Regex:        relabel.MustNewRegexp(controlPlaneMetricsAllowRegex),
 				Action:       relabel.Keep,
 			},
-			// type conflicts with the log Type in the container insights output format, it needs to be replaced and dropped
+			//type conflicts with the log Type in the container insights output format, it needs to be replaced and dropped
 			{
 				Regex:       relabel.MustNewRegexp("^type$"),
 				Replacement: "kubernetes_type",
@@ -143,6 +146,42 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 			{
 				Regex:  relabel.MustNewRegexp("^type$"),
 				Action: relabel.LabelDrop,
+			},
+			// default labels set
+			{
+				SourceLabels: model.LabelNames{"__meta_kubernetes_namespace"},
+				TargetLabel:  ci.ClusterNameKey,
+				Regex:        relabel.MustNewRegexp(".*"),
+				Replacement:  opts.ClusterNameProvider.GetClusterName(),
+				Action:       relabel.Replace,
+			},
+			{
+				SourceLabels: model.LabelNames{"__meta_kubernetes_namespace"},
+				TargetLabel:  ci.Version,
+				Regex:        relabel.MustNewRegexp(".*"),
+				Replacement:  "0",
+				Action:       relabel.Replace,
+			},
+			{
+				SourceLabels: model.LabelNames{"__meta_kubernetes_namespace"},
+				TargetLabel:  ci.SourcesKey,
+				Regex:        relabel.MustNewRegexp(".*"),
+				Replacement:  "[\"apiserver\"]",
+				Action:       relabel.Replace,
+			},
+			{
+				SourceLabels: model.LabelNames{"__meta_kubernetes_namespace"},
+				TargetLabel:  ci.NodeNameKey,
+				Regex:        relabel.MustNewRegexp(".*"),
+				Replacement:  os.Getenv("HOST_NAME"),
+				Action:       relabel.Replace,
+			},
+			{
+				SourceLabels: model.LabelNames{"__meta_kubernetes_namespace"},
+				TargetLabel:  "Type",
+				Regex:        relabel.MustNewRegexp(".*"),
+				Replacement:  "ControlPlane",
+				Action:       relabel.Replace,
 			},
 		},
 	}
