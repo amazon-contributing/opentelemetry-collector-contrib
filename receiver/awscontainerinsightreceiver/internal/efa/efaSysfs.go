@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -78,9 +81,16 @@ type efaStore struct {
 
 // efaDevices is a collection of every Amazon Elastic Fabric Adapter (EFA) device in
 // /sys/class/infiniband.
-type efaDevices map[efaDeviceName]*efaCounters
+type efaDevices map[efaDevice]*efaCounters
+
+type efaDevice struct {
+    Name        efaDeviceName
+    MacAddress	string
+	EniId	string
+}
 
 type efaDeviceName string
+
 
 // efaCounters contains counter values from files in
 // /sys/class/infiniband/<Name>/ports/<Port>/hw_counters
@@ -133,10 +143,15 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 	if store == nil || store.devices == nil {
 		return result
 	}
-	for deviceName, counters := range *store.devices {
+	for efaDevice, counters := range *store.devices {
 		if counters == nil {
 			continue
 		}
+		deviceName:= efaDevice.Name
+		eniId:= efaDevice.EniId
+
+		s.logger.Info("eniId", zap.String("eniId", string(eniId)))
+
 		containerInfo := s.podResourcesStore.GetContainerInfo(string(deviceName), efaK8sResourceName)
 
 		nodeMetric := stores.NewCIMetric(ci.TypeNodeEFA, s.logger)
@@ -189,6 +204,7 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 
 		for _, m := range allMetrics {
 			m.AddTag(ci.AttributeEfaDevice, string(deviceName))
+			m.AddTag(ci.AttributeEniId, string(eniId))
 			m.AddTag(ci.Timestamp, strconv.FormatInt(store.timestamp.UnixNano(), 10))
 		}
 		for _, m := range podContainerMetrics {
@@ -265,15 +281,146 @@ func (s *Scraper) parseEfaDevices() (*efaDevices, error) {
 	devices := make(efaDevices, len(deviceNames))
 	for _, name := range deviceNames {
 		counters, err := s.parseEfaDevice(name)
+
+		mac_address, err := s.getMACAddressFromDeviceName(name, 1)
+
+		eniId, err := s.getENIIDFromMACAddress(mac_address)
+
 		if err != nil {
 			return nil, err
 		}
 
-		devices[name] = counters
+		device := efaDevice{
+			Name: name,
+			MacAddress: mac_address,
+			EniId: eniId,
+		}
+
+		devices[device] = counters
 	}
 
 	return &devices, nil
 }
+
+func (s *Scraper) getMACAddressFromDeviceName(deviceName efaDeviceName, port int) (string, error) {
+
+	// Construct sysfs path for GID
+	gidPath := fmt.Sprintf("/sys/class/infiniband/%s/ports/%d/gids/0", string(deviceName), port)
+
+	// Read the GID file
+	gidBytes, err := os.ReadFile(gidPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read GID file: %v", err)
+	}
+
+	ipString := strings.TrimSpace(string(gidBytes))
+	// Parse the IPv6 address
+	ip := net.ParseIP(ipString)
+	if ip == nil || ip.To16() == nil {
+		return "", fmt.Errorf("invalid IPv6 address")
+	}
+
+	// Verify it's a link-local address (fe80::/10)
+	if !ip.IsLinkLocalUnicast() {
+		return "", fmt.Errorf("not a link-local address")
+	}
+
+	// Extract interface identifier (last 64 bits)
+	interfaceID := ip.To16()[8:]
+	if len(interfaceID) != 8 {
+		return "", fmt.Errorf("invalid interface identifier")
+	}
+
+	// Verify EUI-64 format (check for ff:fe in bytes 3-4)
+	if interfaceID[3] != 0xff || interfaceID[4] != 0xfe {
+		return "", fmt.Errorf("address does not use EUI-64 format")
+	}
+
+	// Reconstruct MAC address
+	mac := make(net.HardwareAddr, 6)
+	
+	// First octet: invert Universal/Local bit (bit 1)
+	mac[0] = interfaceID[0] ^ 0x02  // XOR with 0b00000010
+	
+	// Next two bytes remain unchanged
+	mac[1] = interfaceID[1]
+	mac[2] = interfaceID[2]
+	
+	// Last three bytes from the end of the interface ID
+	mac[3] = interfaceID[5]
+	mac[4] = interfaceID[6]
+	mac[5] = interfaceID[7]
+
+	return mac.String(), nil
+}
+
+
+// getENIIDFromMACAddress retrieves the ENI ID from the EC2 instance metadata service using the MAC address.
+func (s *Scraper) getENIIDFromMACAddress(macAddress string) (string, error) {
+
+	// Step 1: Request a metadata token
+	tokenURL := "http://169.254.169.254/latest/api/token"
+	tokenRequest, err := http.NewRequest("PUT", tokenURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create PUT request for token: %v", err)
+	}
+
+	// Set the required header for token TTL (time to live in seconds)
+	tokenRequest.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600") // 6 hours TTL
+
+	// Perform the token request
+	client := &http.Client{Timeout: 5 * time.Second} // Set a timeout for the request
+	tokenResponse, err := client.Do(tokenRequest)
+	if err != nil {
+		return "", fmt.Errorf("failed to get metadata token: %v", err)
+	}
+	defer tokenResponse.Body.Close()
+
+	// Read the token response body using io.ReadAll (instead of ioutil.ReadAll)
+	tokenBytes, err := io.ReadAll(tokenResponse.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read token response body: %v", err)
+	}
+
+	// Extract token from the response
+	token := string(tokenBytes)
+	if strings.TrimSpace(token) == "" {
+		return "", fmt.Errorf("received empty metadata token")
+	}
+
+	// Step 2: Request the ENI ID using the MAC address
+	eniURL := fmt.Sprintf("http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/interface-id", macAddress)
+	eniRequest, err := http.NewRequest("GET", eniURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GET request for ENI ID: %v", err)
+	}
+
+	// Add the metadata token to the request header
+	eniRequest.Header.Set("X-aws-ec2-metadata-token", token)
+
+	// Perform the request to get the ENI ID
+	eniResponse, err := client.Do(eniRequest)
+	if err != nil {
+		return "", fmt.Errorf("failed to get ENI ID: %v", err)
+	}
+	defer eniResponse.Body.Close()
+
+	// Read the ENI ID response body using io.ReadAll (instead of ioutil.ReadAll)
+	eniBytes, err := io.ReadAll(eniResponse.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read ENI ID response body: %v", err)
+	}
+
+	// Convert the response to a string
+	eniId := string(eniBytes)
+	if strings.TrimSpace(eniId) == "" {
+		return "", fmt.Errorf("received empty ENI ID for MAC address %s", macAddress)
+	}
+
+	// Return the ENI ID
+	return eniId, nil
+}
+
 
 func (s *Scraper) parseEfaDevice(deviceName efaDeviceName) (*efaCounters, error) {
 	ports, err := s.sysFsReader.ListPorts(deviceName)
