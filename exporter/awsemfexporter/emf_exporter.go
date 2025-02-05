@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/entity"
 	"strings"
 	"sync"
 
@@ -91,6 +92,7 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	for i := 0; i < rms.Len(); i++ {
 		rm := rms.At(i)
 		am := rm.Resource().Attributes()
+		entity.AddEntity(am)
 		if am.Len() > 0 {
 			am.Range(func(k string, v pcommon.Value) bool {
 				labels[k] = v.Str()

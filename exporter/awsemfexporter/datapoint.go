@@ -15,12 +15,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/entity"
 	aws "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 )
 
 const (
-	AWSEntityPrefix = "com.amazonaws.cloudwatch.entity.internal."
-
 	summaryCountSuffix = "_count"
 	summarySumSuffix   = "_sum"
 )
@@ -535,7 +534,7 @@ func createLabels(attributes pcommon.Map) map[string]string {
 	labels := make(map[string]string, attributes.Len()+1)
 	attributes.Range(func(k string, v pcommon.Value) bool {
 		// we don't want to export entity related attributes as dimensions, so we skip these
-		if strings.HasPrefix(k, AWSEntityPrefix) {
+		if strings.HasPrefix(k, entity.AWSEntityPrefix) {
 			return true
 		}
 
