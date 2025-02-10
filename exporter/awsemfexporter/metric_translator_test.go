@@ -1553,21 +1553,21 @@ func TestGroupedMetricToCWMeasurementsWithFilters(t *testing.T) {
 					MetricNameSelectors: []string{"metric(1|3)"},
 				},
 			}, []cWMeasurement{
-			{
-				Namespace:  namespace,
-				Dimensions: [][]string{{}},
-				Metrics: []map[string]string{
-					{
-						"Name": "metric1",
-						"Unit": "Count",
-					},
-					{
-						"Name": "metric3",
-						"Unit": "Seconds",
+				{
+					Namespace:  namespace,
+					Dimensions: [][]string{{}},
+					Metrics: []map[string]string{
+						{
+							"Name": "metric1",
+							"Unit": "Count",
+						},
+						{
+							"Name": "metric3",
+							"Unit": "Seconds",
+						},
 					},
 				},
 			},
-		},
 		},
 		{
 			"label matchers",
@@ -2595,18 +2595,16 @@ func TestEntityAttributesToFields(t *testing.T) {
 	namespace := "TestNamespace"
 
 	labels := map[string]string{
-		"normal_label":                                           "normal_value",
-		entity.AttributeEntityPlatformType:                       entity.AttributeEntityEKSPlatform,
-		entity.AttributeEntityK8sClusterName:                     "myEksCluster",
-		entity.AttributeEntityK8sNamespaceName:                   "myNamespace",
-		entity.AttributeEntityInstanceID:                         "i-0123456789",
-		"com.amazonaws.cloudwatch.entity.internal.unknown_field": "should_not_appear",
+		"normal_label":                           "normal_value",
+		entity.AttributeEntityPlatformType:       entity.AttributeEntityEKSPlatform,
+		entity.AttributeEntityK8sClusterName:     "myEksCluster",
+		entity.AttributeEntityK8sNamespaceName:   "myNamespace",
+		entity.AttributeEntityInstanceID:         "i-0123456789",
+		entity.AWSEntityPrefix + "unknown_field": "should_not_appear",
 	}
-
 	metrics := map[string]*metricInfo{
 		"metric1": {value: 1, unit: "Count"},
 	}
-
 	groupedMetric := &groupedMetric{
 		labels:  labels,
 		metrics: metrics,
@@ -2618,47 +2616,69 @@ func TestEntityAttributesToFields(t *testing.T) {
 		},
 	}
 
-	config := &Config{
-		DimensionRollupOption: "",
-		logger:                zap.NewNop(),
-	}
+	t.Run("AddEntity true", func(t *testing.T) {
+		config := &Config{
+			DimensionRollupOption: "",
+			logger:                zap.NewNop(),
+			AddEntity:             true,
+		}
+		cw := translateGroupedMetricToCWMetric(groupedMetric, config)
 
-	cw := translateGroupedMetricToCWMetric(groupedMetric, config)
+		require.Len(t, cw.measurements, 1)
+		dims := cw.measurements[0].Dimensions
+		assert.Equal(t, [][]string{{"normal_label"}}, dims)
 
-	require.Len(t, cw.measurements, 1)
-	dims := cw.measurements[0].Dimensions
+		assert.Equal(t, timestamp, cw.timestampMs)
+		assert.Equal(t, namespace, cw.measurements[0].Namespace)
 
-	assert.Equal(t, [][]string{{"normal_label"}}, dims)
+		expectedFields := map[string]any{
+			"normal_label":   "normal_value",
+			"metric1":        1,
+			"EKS.Cluster":    "myEksCluster",
+			"K8s.Namespace":  "myNamespace",
+			"PlatformType":   entity.AttributeEntityEKSPlatform,
+			"EC2.InstanceId": "i-0123456789",
+		}
+		assert.Equal(t, expectedFields, cw.fields)
 
-	assert.Equal(t, timestamp, cw.timestampMs)
-	assert.Equal(t, namespace, cw.measurements[0].Namespace)
+		expectedMeasurement := []cWMeasurement{{
+			Namespace:  namespace,
+			Dimensions: [][]string{{"normal_label"}},
+			Metrics: []map[string]string{{
+				"Name": "metric1",
+				"Unit": "Count",
+			}},
+		}}
+		assertCWMeasurementSliceEqual(t, expectedMeasurement, cw.measurements)
+	})
 
-	expectedFields := map[string]any{
-		"normal_label":   "normal_value",
-		"metric1":        1,
-		"EKS.Cluster":    "myEksCluster",
-		"K8s.Namespace":  "myNamespace",
-		"PlatformType":   entity.AttributeEntityEKSPlatform,
-		"EC2.InstanceId": "i-0123456789",
-	}
-	assert.Equal(t, expectedFields, cw.fields)
+	t.Run("AddEntity false", func(t *testing.T) {
+		config := &Config{
+			DimensionRollupOption: "",
+			logger:                zap.NewNop(),
+			AddEntity:             false,
+		}
+		cw := translateGroupedMetricToCWMetric(groupedMetric, config)
 
-	expectedMeasurement := []cWMeasurement{{
-		Namespace:  namespace,
-		Dimensions: [][]string{{"normal_label"}},
-		Metrics: []map[string]string{{
-			"Name": "metric1",
-			"Unit": "Count",
-		}},
-	}}
-	assertCWMeasurementSliceEqual(t, expectedMeasurement, cw.measurements)
+		require.Len(t, cw.measurements, 1)
+		dims := cw.measurements[0].Dimensions
+		assert.Equal(t, [][]string{{"normal_label"}}, dims)
+
+		assert.Equal(t, timestamp, cw.timestampMs)
+		assert.Equal(t, namespace, cw.measurements[0].Namespace)
+
+		expectedFields := map[string]any{
+			"normal_label": "normal_value",
+			"metric1":      1,
+		}
+		assert.Equal(t, expectedFields, cw.fields)
+	})
 }
 
 func TestEntityK8sClusterWithMissingPlatformType(t *testing.T) {
 	labels := map[string]string{
 		entity.AttributeEntityK8sClusterName: "myEksCluster",
 	}
-
 	groupedMetric := &groupedMetric{
 		labels: labels,
 		metrics: map[string]*metricInfo{
@@ -2671,28 +2691,50 @@ func TestEntityK8sClusterWithMissingPlatformType(t *testing.T) {
 			},
 		},
 	}
-	config := &Config{
-		logger: zap.NewNop(),
-	}
-	cw := translateGroupedMetricToCWMetric(groupedMetric, config)
 
-	require.Len(t, cw.measurements, 1)
-	assert.Empty(t, cw.measurements[0].Dimensions[0], "should have no dimension since no normal labels")
+	t.Run("AddEntity true", func(t *testing.T) {
+		config := &Config{
+			logger:    zap.NewNop(),
+			AddEntity: true,
+		}
+		cw := translateGroupedMetricToCWMetric(groupedMetric, config)
 
-	assert.Empty(t, cw.fields["K8s.Cluster"])
-	assert.Empty(t, cw.fields["EKS.Cluster"])
+		require.Len(t, cw.measurements, 1)
+		assert.Empty(t, cw.measurements[0].Dimensions[0], "should have no dimension since no normal labels")
 
-	expectedFields := map[string]any{
-		"metric1": 1,
-	}
-	assert.Equal(t, expectedFields, cw.fields)
+		assert.Empty(t, cw.fields["K8s.Cluster"])
+		assert.Empty(t, cw.fields["EKS.Cluster"])
+
+		expectedFields := map[string]any{
+			"metric1": 1,
+		}
+		assert.Equal(t, expectedFields, cw.fields)
+	})
+
+	t.Run("AddEntity false", func(t *testing.T) {
+		config := &Config{
+			logger:    zap.NewNop(),
+			AddEntity: false,
+		}
+		cw := translateGroupedMetricToCWMetric(groupedMetric, config)
+
+		require.Len(t, cw.measurements, 1)
+		assert.Empty(t, cw.measurements[0].Dimensions[0], "should have no dimension since no normal labels")
+
+		assert.Empty(t, cw.fields["K8s.Cluster"])
+		assert.Empty(t, cw.fields["EKS.Cluster"])
+
+		expectedFields := map[string]any{
+			"metric1": 1,
+		}
+		assert.Equal(t, expectedFields, cw.fields)
+	})
 }
 
 func TestUnknownEntityAttributeIsDropped(t *testing.T) {
 	labels := map[string]string{
 		entity.AWSEntityPrefix + "unknown_field": "some_value",
 	}
-
 	groupedMetric := &groupedMetric{
 		labels: labels,
 		metrics: map[string]*metricInfo{
@@ -2705,10 +2747,28 @@ func TestUnknownEntityAttributeIsDropped(t *testing.T) {
 			},
 		},
 	}
-	cw := translateGroupedMetricToCWMetric(groupedMetric, &Config{})
 
-	assert.NotContains(t, cw.fields, "unknown_field")
-	assert.Equal(t, 1, cw.fields["metric1"])
+	t.Run("AddEntity true", func(t *testing.T) {
+		config := &Config{
+			AddEntity: true,
+			logger:    zap.NewNop(),
+		}
+		cw := translateGroupedMetricToCWMetric(groupedMetric, config)
+
+		assert.NotContains(t, cw.fields, "unknown_field")
+		assert.Equal(t, 1, cw.fields["metric1"])
+	})
+
+	t.Run("AddEntity false", func(t *testing.T) {
+		config := &Config{
+			AddEntity: false,
+			logger:    zap.NewNop(),
+		}
+		cw := translateGroupedMetricToCWMetric(groupedMetric, config)
+
+		assert.NotContains(t, cw.fields, "unknown_field")
+		assert.Equal(t, 1, cw.fields["metric1"])
+	})
 }
 
 func generateTestMetrics(tm testMetric) pmetric.Metrics {

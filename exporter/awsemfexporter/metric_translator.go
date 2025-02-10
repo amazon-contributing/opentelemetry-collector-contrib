@@ -192,6 +192,7 @@ func translateGroupedMetricToCWMetric(groupedMetric *groupedMetric, config *Conf
 		}
 
 		if config.AddEntity == true {
+			// This check is needed to determine whether to use EKS.Cluster or K8s.Cluster
 			if k == entity.AttributeEntityK8sClusterName {
 				if entityField := entity.GetEntityField(k, labels[entity.AttributeEntityPlatformType]); entityField != "" {
 					fields[entityField] = v
