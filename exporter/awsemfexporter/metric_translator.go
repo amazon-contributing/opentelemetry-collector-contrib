@@ -191,15 +191,17 @@ func translateGroupedMetricToCWMetric(groupedMetric *groupedMetric, config *Conf
 			continue
 		}
 
-		if k == entity.AttributeEntityK8sClusterName {
-			if entityField := entity.GetEntityField(k, labels[entity.AttributeEntityPlatformType]); entityField != "" {
+		if config.AddEntity == true {
+			if k == entity.AttributeEntityK8sClusterName {
+				if entityField := entity.GetEntityField(k, labels[entity.AttributeEntityPlatformType]); entityField != "" {
+					fields[entityField] = v
+				}
+				continue
+			}
+
+			if entityField := entity.GetEntityField(k); entityField != "" {
 				fields[entityField] = v
 			}
-			continue
-		}
-
-		if entityField := entity.GetEntityField(k); entityField != "" {
-			fields[entityField] = v
 		}
 	}
 	// Add metrics to fields
