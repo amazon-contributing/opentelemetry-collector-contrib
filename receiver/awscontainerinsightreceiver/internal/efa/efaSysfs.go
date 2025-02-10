@@ -20,6 +20,9 @@ import (
 	"go.uber.org/zap"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
+	"github.com/aws/aws-sdk-go/aws/session"
+	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
+
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 )
@@ -238,7 +241,7 @@ func (s *Scraper) startScrape(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			err := s.scrape()
+			err := s.scrape(ctx)
 			if err != nil {
 				s.logger.Warn("Failed to scrape EFA metrics from filesystem", zap.Error(err))
 			}
@@ -248,7 +251,7 @@ func (s *Scraper) startScrape(ctx context.Context) {
 	}
 }
 
-func (s *Scraper) scrape() error {
+func (s *Scraper) scrape(ctx context.Context) error {
 	exists, err := s.sysFsReader.EfaDataExists()
 	if err != nil {
 		return err
@@ -259,7 +262,7 @@ func (s *Scraper) scrape() error {
 
 	timestamp := time.Now()
 
-	devices, err := s.parseEfaDevices()
+	devices, err := s.parseEfaDevices(ctx)
 	if err != nil {
 		return err
 	}
@@ -272,7 +275,7 @@ func (s *Scraper) scrape() error {
 	return nil
 }
 
-func (s *Scraper) parseEfaDevices() (*efaDevices, error) {
+func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 	deviceNames, err := s.sysFsReader.ListDevices()
 	if err != nil {
 		return nil, err
@@ -282,9 +285,16 @@ func (s *Scraper) parseEfaDevices() (*efaDevices, error) {
 	for _, name := range deviceNames {
 		counters, err := s.parseEfaDevice(name)
 
-		mac_address, err := s.getMACAddressFromDeviceName(name, 1)
+		macAddress, err := s.getMACAddressFromDeviceName(name, 1)
 
-		eniId, err := s.getENIIDFromMACAddress(mac_address)
+		sess, err := session.NewSession()
+	
+		eniId, err := ec2provider.NewProvider(sess).NetworkInterfaceID(ctx, macAddress)
+
+	
+		s.logger.Info("TOM TOM eni_lol", zap.String("eni_lol", string(eniId)))
+	
+	
 
 		if err != nil {
 			return nil, err
@@ -292,7 +302,7 @@ func (s *Scraper) parseEfaDevices() (*efaDevices, error) {
 
 		device := efaDevice{
 			Name: name,
-			MacAddress: mac_address,
+			MacAddress: macAddress,
 			EniId: eniId,
 		}
 
@@ -352,73 +362,6 @@ func (s *Scraper) getMACAddressFromDeviceName(deviceName efaDeviceName, port int
 	mac[5] = interfaceID[7]
 
 	return mac.String(), nil
-}
-
-
-// getENIIDFromMACAddress retrieves the ENI ID from the EC2 instance metadata service using the MAC address.
-func (s *Scraper) getENIIDFromMACAddress(macAddress string) (string, error) {
-
-	// Step 1: Request a metadata token
-	tokenURL := "http://169.254.169.254/latest/api/token"
-	tokenRequest, err := http.NewRequest("PUT", tokenURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create PUT request for token: %v", err)
-	}
-
-	// Set the required header for token TTL (time to live in seconds)
-	tokenRequest.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "21600") // 6 hours TTL
-
-	// Perform the token request
-	client := &http.Client{Timeout: 5 * time.Second} // Set a timeout for the request
-	tokenResponse, err := client.Do(tokenRequest)
-	if err != nil {
-		return "", fmt.Errorf("failed to get metadata token: %v", err)
-	}
-	defer tokenResponse.Body.Close()
-
-	// Read the token response body using io.ReadAll (instead of ioutil.ReadAll)
-	tokenBytes, err := io.ReadAll(tokenResponse.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read token response body: %v", err)
-	}
-
-	// Extract token from the response
-	token := string(tokenBytes)
-	if strings.TrimSpace(token) == "" {
-		return "", fmt.Errorf("received empty metadata token")
-	}
-
-	// Step 2: Request the ENI ID using the MAC address
-	eniURL := fmt.Sprintf("http://169.254.169.254/latest/meta-data/network/interfaces/macs/%s/interface-id", macAddress)
-	eniRequest, err := http.NewRequest("GET", eniURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create GET request for ENI ID: %v", err)
-	}
-
-	// Add the metadata token to the request header
-	eniRequest.Header.Set("X-aws-ec2-metadata-token", token)
-
-	// Perform the request to get the ENI ID
-	eniResponse, err := client.Do(eniRequest)
-	if err != nil {
-		return "", fmt.Errorf("failed to get ENI ID: %v", err)
-	}
-	defer eniResponse.Body.Close()
-
-	// Read the ENI ID response body using io.ReadAll (instead of ioutil.ReadAll)
-	eniBytes, err := io.ReadAll(eniResponse.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read ENI ID response body: %v", err)
-	}
-
-	// Convert the response to a string
-	eniId := string(eniBytes)
-	if strings.TrimSpace(eniId) == "" {
-		return "", fmt.Errorf("received empty ENI ID for MAC address %s", macAddress)
-	}
-
-	// Return the ENI ID
-	return eniId, nil
 }
 
 
