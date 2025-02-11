@@ -7,8 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -22,7 +20,6 @@ import (
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/aws/aws-sdk-go/aws/session"
 	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
-
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 )
@@ -63,6 +60,7 @@ type Scraper struct {
 	podResourcesStore podResourcesStore
 	store             *efaStore
 	logger            *zap.Logger
+	ec2Provider       ec2MetadataProvider
 }
 
 type sysFsReader interface {
@@ -70,6 +68,11 @@ type sysFsReader interface {
 	ListDevices() ([]efaDeviceName, error)
 	ListPorts(deviceName efaDeviceName) ([]string, error)
 	ReadCounter(deviceName efaDeviceName, port string, counter string) (uint64, error)
+	GetMACAddressFromDeviceName(deviceName efaDeviceName, port int) (string, error)
+}
+
+type ec2MetadataProvider interface {
+	NetworkInterfaceID(ctx context.Context, macAddress string) (string, error)
 }
 
 type podResourcesStore interface {
@@ -119,6 +122,7 @@ func NewEfaSyfsScraper(logger *zap.Logger, decorator stores.Decorator, podResour
 		podResourcesStore:  podResourcesStore,
 		store:              new(efaStore),
 		logger:             logger,
+		ec2Provider:        ec2provider.NewProvider(session.Must(session.NewSession())),
 	}
 
 	go e.startScrape(ctx)
@@ -152,8 +156,6 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 		}
 		deviceName:= efaDevice.Name
 		eniId:= efaDevice.EniId
-
-		s.logger.Info("eniId", zap.String("eniId", string(eniId)))
 
 		containerInfo := s.podResourcesStore.GetContainerInfo(string(deviceName), efaK8sResourceName)
 
@@ -285,16 +287,9 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 	for _, name := range deviceNames {
 		counters, err := s.parseEfaDevice(name)
 
-		macAddress, err := s.getMACAddressFromDeviceName(name, 1)
+		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name, 1)
 
-		sess, err := session.NewSession()
-	
-		eniId, err := ec2provider.NewProvider(sess).NetworkInterfaceID(ctx, macAddress)
-
-	
-		s.logger.Info("TOM TOM eni_lol", zap.String("eni_lol", string(eniId)))
-	
-	
+		eniId, err := s.ec2Provider.NetworkInterfaceID(ctx, macAddress)	
 
 		if err != nil {
 			return nil, err
@@ -311,59 +306,6 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 
 	return &devices, nil
 }
-
-func (s *Scraper) getMACAddressFromDeviceName(deviceName efaDeviceName, port int) (string, error) {
-
-	// Construct sysfs path for GID
-	gidPath := fmt.Sprintf("/sys/class/infiniband/%s/ports/%d/gids/0", string(deviceName), port)
-
-	// Read the GID file
-	gidBytes, err := os.ReadFile(gidPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read GID file: %v", err)
-	}
-
-	ipString := strings.TrimSpace(string(gidBytes))
-	// Parse the IPv6 address
-	ip := net.ParseIP(ipString)
-	if ip == nil || ip.To16() == nil {
-		return "", fmt.Errorf("invalid IPv6 address")
-	}
-
-	// Verify it's a link-local address (fe80::/10)
-	if !ip.IsLinkLocalUnicast() {
-		return "", fmt.Errorf("not a link-local address")
-	}
-
-	// Extract interface identifier (last 64 bits)
-	interfaceID := ip.To16()[8:]
-	if len(interfaceID) != 8 {
-		return "", fmt.Errorf("invalid interface identifier")
-	}
-
-	// Verify EUI-64 format (check for ff:fe in bytes 3-4)
-	if interfaceID[3] != 0xff || interfaceID[4] != 0xfe {
-		return "", fmt.Errorf("address does not use EUI-64 format")
-	}
-
-	// Reconstruct MAC address
-	mac := make(net.HardwareAddr, 6)
-	
-	// First octet: invert Universal/Local bit (bit 1)
-	mac[0] = interfaceID[0] ^ 0x02  // XOR with 0b00000010
-	
-	// Next two bytes remain unchanged
-	mac[1] = interfaceID[1]
-	mac[2] = interfaceID[2]
-	
-	// Last three bytes from the end of the interface ID
-	mac[3] = interfaceID[5]
-	mac[4] = interfaceID[6]
-	mac[5] = interfaceID[7]
-
-	return mac.String(), nil
-}
-
 
 func (s *Scraper) parseEfaDevice(deviceName efaDeviceName) (*efaCounters, error) {
 	ports, err := s.sysFsReader.ListPorts(deviceName)
@@ -481,6 +423,60 @@ func (r *sysfsReaderImpl) ReadCounter(deviceName efaDeviceName, port string, cou
 	path := filepath.Join(efaPath, string(deviceName), "ports", port, "hw_counters", counter)
 	return readUint64ValueFromFile(path)
 }
+
+func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName, port int) (string, error) {
+
+	// Construct sysfs path for GID
+	gidPath := fmt.Sprintf("/sys/class/infiniband/%s/ports/%d/gids/0", string(deviceName), port)
+
+	// Read the GID file
+	gidBytes, err := os.ReadFile(gidPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read GID file: %v", err)
+	}
+
+	ipString := strings.TrimSpace(string(gidBytes))
+
+	// Parse the IPv6 address
+	ip := net.ParseIP(ipString)
+	if ip == nil || ip.To16() == nil {
+		return "", fmt.Errorf("invalid IPv6 address")
+	}
+
+	// Verify it's a link-local address (fe80::/10)
+	if !ip.IsLinkLocalUnicast() {
+		return "", fmt.Errorf("not a link-local address")
+	}
+
+	// Extract interface identifier (last 64 bits)
+	interfaceID := ip.To16()[8:]
+	if len(interfaceID) != 8 {
+		return "", fmt.Errorf("invalid interface identifier")
+	}
+
+	// Verify EUI-64 format (check for ff:fe in bytes 3-4)
+	if interfaceID[3] != 0xff || interfaceID[4] != 0xfe {
+		return "", fmt.Errorf("address does not use EUI-64 format")
+	}
+
+	// Reconstruct MAC address
+	mac := make(net.HardwareAddr, 6)
+	
+	// First octet: invert Universal/Local bit (bit 1)
+	mac[0] = interfaceID[0] ^ 0x02  // XOR with 0b00000010
+	
+	// Next two bytes remain unchanged
+	mac[1] = interfaceID[1]
+	mac[2] = interfaceID[2]
+	
+	// Last three bytes from the end of the interface ID
+	mac[3] = interfaceID[5]
+	mac[4] = interfaceID[6]
+	mac[5] = interfaceID[7]
+
+	return mac.String(), nil
+}
+
 
 func readUint64ValueFromFile(path string) (uint64, error) {
 	bytes, err := os.ReadFile(path)
