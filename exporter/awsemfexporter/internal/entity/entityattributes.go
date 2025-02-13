@@ -15,7 +15,7 @@ const (
 	AttributeEntityInstanceID            = AWSEntityPrefix + "instance.id"
 
 	// Entity fields in EMF log
-	Name                 = "Name"
+	Service                 = "Service"
 	Environment          = "Environment"
 	EntityType           = "Entity.Type"
 	EksCluster           = "EKS.Cluster"
@@ -35,7 +35,7 @@ const (
 // attributeEntityToFieldMap maps attribute entity resource attributes to entity fields
 var attributeEntityToFieldMap = map[string]string{
 	AttributeEntityType:                  EntityType,
-	AttributeEntityServiceName:           Name,
+	AttributeEntityServiceName:           Service,
 	AttributeEntityDeploymentEnvironment: Environment,
 	AttributeEntityK8sNamespaceName:      K8sNamespace,
 	AttributeEntityK8sWorkloadName:       K8sWorkload,
