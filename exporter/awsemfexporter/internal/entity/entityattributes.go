@@ -15,7 +15,7 @@ const (
 	AttributeEntityInstanceID            = AWSEntityPrefix + "instance.id"
 
 	// Entity fields in EMF log
-	Service                 = "Service"
+	Service              = "Service"
 	Environment          = "Environment"
 	EntityType           = "Entity.Type"
 	EksCluster           = "EKS.Cluster"
