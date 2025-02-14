@@ -336,11 +336,11 @@ func checkExpectations(t *testing.T, expected []expectation, actual []pmetric.Me
 	}
 
 	slices.SortFunc(expected, func(a, b expectation) int {
-		return compareStrings(a.tags[ci.AttributeEfaDevice], b.tags[ci.AttributeEfaDevice])
+		return compareStrings(a.tags[ci.EfaDevice], b.tags[ci.EfaDevice])
 	})
 	slices.SortFunc(actual, func(a, b pmetric.Metrics) int {
-		aVal, _ := a.ResourceMetrics().At(0).Resource().Attributes().Get(ci.AttributeEfaDevice)
-		bVal, _ := b.ResourceMetrics().At(0).Resource().Attributes().Get(ci.AttributeEfaDevice)
+		aVal, _ := a.ResourceMetrics().At(0).Resource().Attributes().Get(ci.EfaDevice)
+		bVal, _ := b.ResourceMetrics().At(0).Resource().Attributes().Get(ci.EfaDevice)
 		return compareStrings(aVal.Str(), bVal.Str())
 	})
 
