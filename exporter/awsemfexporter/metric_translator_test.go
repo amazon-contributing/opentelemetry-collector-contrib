@@ -2676,9 +2676,10 @@ func TestEntityAttributesToFields(t *testing.T) {
 		expectedMeasurement := []cWMeasurement{{
 			Namespace:  namespace,
 			Dimensions: [][]string{{"normal_label"}},
-			Metrics: []map[string]string{{
-				"Name": "metric1",
-				"Unit": "Count",
+			Metrics: []cWMetricInfo{{
+				Name:              "metric1",
+				Unit:              "Count",
+				StorageResolution: 60,
 			}},
 		}}
 		assertCWMeasurementSliceEqual(t, expectedMeasurement, cw.measurements)

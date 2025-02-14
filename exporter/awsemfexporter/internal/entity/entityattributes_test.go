@@ -23,7 +23,7 @@ func TestGetEntityField(t *testing.T) {
 			name:      "AttributeEntityServiceName from map",
 			attribute: AttributeEntityServiceName,
 			values:    nil,
-			want:      Name,
+			want:      Service,
 		},
 		{
 			name:      "AttributeEntityDeploymentEnvironment from map",
