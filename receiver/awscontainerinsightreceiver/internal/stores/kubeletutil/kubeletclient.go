@@ -5,12 +5,14 @@ package kubeletutil // import "github.com/open-telemetry/opentelemetry-collector
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-
+	"go.opentelemetry.io/collector/config/configtls"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 	"k8s.io/utils/net"
+	"os"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet"
@@ -18,10 +20,18 @@ import (
 
 var kubeletNewClientProvider = kubelet.NewClientProvider
 
+const KubetletCAPath = "/etc/kubernetes/kubelet-ca.crt"
+
 type KubeletClient struct {
 	KubeIP     string
 	Port       string
 	restClient kubelet.Client
+}
+
+func isFileExist(filePath string) bool {
+	_, error := os.Stat(filePath)
+	//return !os.IsNotExist(err)
+	return !errors.Is(error, os.ErrNotExist)
 }
 
 func NewKubeletClient(kubeIP string, port string, clientConfig *kubelet.ClientConfig, logger *zap.Logger) (*KubeletClient, error) {
@@ -53,6 +63,7 @@ func NewKubeletClient(kubeIP string, port string, clientConfig *kubelet.ClientCo
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Kubelet client is using the following ca-bundle %v and auth %v\n", clientConfig.CAFile, clientConfig.AuthType)
 	kubeClient.restClient = client
 	return kubeClient, nil
 }
@@ -61,7 +72,7 @@ func (k *KubeletClient) ListPods() ([]corev1.Pod, error) {
 	var result []corev1.Pod
 	b, err := k.restClient.Get("/pods")
 	if err != nil {
-		return result, fmt.Errorf("call to /pods endpoint failed: %w", err)
+		return result, fmt.Errorf("call to /pods endpoint failed: %w %v", err, k.restClient)
 	}
 
 	pods := corev1.PodList{}
@@ -93,13 +104,6 @@ func (k *KubeletClient) Summary(logger *zap.Logger) (*stats.Summary, error) {
 }
 
 func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
-	if !isSystemd {
-		return &kubelet.ClientConfig{
-			APIConfig: k8sconfig.APIConfig{
-				AuthType: k8sconfig.AuthTypeServiceAccount,
-			},
-		}
-	}
 	if kubeConfigPath != "" {
 		// use kube-config for authentication
 		return &kubelet.ClientConfig{
@@ -109,6 +113,22 @@ func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
 			},
 		}
 	}
+	if isFileExist(KubetletCAPath) {
+		return &kubelet.ClientConfig{
+			APIConfig: k8sconfig.APIConfig{
+				AuthType: k8sconfig.AuthTypeServiceAccount,
+			},
+			Config: configtls.Config{CAFile: KubetletCAPath},
+		}
+	}
+	if !isSystemd {
+		return &kubelet.ClientConfig{
+			APIConfig: k8sconfig.APIConfig{
+				AuthType: k8sconfig.AuthTypeServiceAccount,
+			},
+		}
+	}
+	fmt.Println("Client config is using tls")
 	// insecure TLS if not provided
 	return &kubelet.ClientConfig{
 		APIConfig: k8sconfig.APIConfig{
