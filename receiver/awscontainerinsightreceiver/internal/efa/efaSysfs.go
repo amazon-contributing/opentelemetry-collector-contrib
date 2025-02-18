@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -68,7 +67,7 @@ type sysFsReader interface {
 	ListDevices() ([]efaDeviceName, error)
 	ListPorts(deviceName efaDeviceName) ([]string, error)
 	ReadCounter(deviceName efaDeviceName, port string, counter string) (uint64, error)
-	GetMACAddressFromDeviceName(deviceName efaDeviceName, port int) (string, error)
+	GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error)
 }
 
 type ec2MetadataProvider interface {
@@ -287,7 +286,7 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 	for _, name := range deviceNames {
 		counters, err := s.parseEfaDevice(name)
 
-		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name, 1)
+		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name)
 
 		eniId, err := s.ec2Provider.NetworkInterfaceID(ctx, macAddress)	
 
@@ -424,10 +423,10 @@ func (r *sysfsReaderImpl) ReadCounter(deviceName efaDeviceName, port string, cou
 	return readUint64ValueFromFile(path)
 }
 
-func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName, port int) (string, error) {
+func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
 
 	// Construct sysfs path for GID
-	gidPath := fmt.Sprintf("/sys/class/infiniband/%s/ports/%d/gids/0", string(deviceName), port)
+	gidPath := fmt.Sprintf("/sys/class/infiniband/%s/ports/1/gids/0", string(deviceName))
 
 	// Read the GID file
 	gidBytes, err := os.ReadFile(gidPath)
@@ -437,44 +436,7 @@ func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName, 
 
 	ipString := strings.TrimSpace(string(gidBytes))
 
-	// Parse the IPv6 address
-	ip := net.ParseIP(ipString)
-	if ip == nil || ip.To16() == nil {
-		return "", fmt.Errorf("invalid IPv6 address")
-	}
-
-	// Verify it's a link-local address (fe80::/10)
-	if !ip.IsLinkLocalUnicast() {
-		return "", fmt.Errorf("not a link-local address")
-	}
-
-	// Extract interface identifier (last 64 bits)
-	interfaceID := ip.To16()[8:]
-	if len(interfaceID) != 8 {
-		return "", fmt.Errorf("invalid interface identifier")
-	}
-
-	// Verify EUI-64 format (check for ff:fe in bytes 3-4)
-	if interfaceID[3] != 0xff || interfaceID[4] != 0xfe {
-		return "", fmt.Errorf("address does not use EUI-64 format")
-	}
-
-	// Reconstruct MAC address
-	mac := make(net.HardwareAddr, 6)
-	
-	// First octet: invert Universal/Local bit (bit 1)
-	mac[0] = interfaceID[0] ^ 0x02  // XOR with 0b00000010
-	
-	// Next two bytes remain unchanged
-	mac[1] = interfaceID[1]
-	mac[2] = interfaceID[2]
-	
-	// Last three bytes from the end of the interface ID
-	mac[3] = interfaceID[5]
-	mac[4] = interfaceID[6]
-	mac[5] = interfaceID[7]
-
-	return mac.String(), nil
+	return IPv6LinkLocalToMAC(ipString);
 }
 
 
