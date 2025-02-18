@@ -58,7 +58,7 @@ func (r mockSysfsReader) ListPorts(_ efaDeviceName) ([]string, error) {
 	return []string{"1", "2"}, nil
 }
 
-func (r mockSysfsReader) GetMACAddressFromDeviceName(deviceName efaDeviceName, _ int) (string, error) {
+func (r mockSysfsReader) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
     switch deviceName {
     case "efa0":
         return "00:00:00:00:00:01", nil
@@ -467,7 +467,7 @@ func (r mockSysfsReaderError1) ReadCounter(_ efaDeviceName, _ string, _ string) 
 	return 0, nil
 }
 
-func (r mockSysfsReaderError1) GetMACAddressFromDeviceName(_ efaDeviceName, _ int) (string, error) {
+func (r mockSysfsReaderError1) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "00:00:00:00:00:01", nil
 }
 
@@ -489,7 +489,7 @@ func (r mockSysfsReaderError2) ReadCounter(_ efaDeviceName, _ string, _ string) 
 	return 0, nil
 }
 
-func (r mockSysfsReaderError2) GetMACAddressFromDeviceName(_ efaDeviceName, _ int) (string, error) {
+func (r mockSysfsReaderError2) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "", errors.New("mocked error")
 }
 
@@ -512,7 +512,7 @@ func (r mockSysfsReaderError3) ReadCounter(_ efaDeviceName, _ string, _ string) 
 	return 0, nil
 }
 
-func (r mockSysfsReaderError3) GetMACAddressFromDeviceName(_ efaDeviceName, _ int) (string, error) {
+func (r mockSysfsReaderError3) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "00:00:00:00:00:01", nil
 }
 
@@ -534,7 +534,7 @@ func (r mockSysfsReaderError4) ReadCounter(_ efaDeviceName, _ string, _ string) 
 	return 1, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderError4) GetMACAddressFromDeviceName(_ efaDeviceName, _ int) (string, error) {
+func (r mockSysfsReaderError4) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "00:00:00:00:00:01", nil
 }
 
@@ -568,7 +568,7 @@ func (r mockSysfsReaderNoEfaData) ReadCounter(_ efaDeviceName, _ string, _ strin
 	return 0, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderNoEfaData) GetMACAddressFromDeviceName(_ efaDeviceName, _ int) (string, error) {
+func (r mockSysfsReaderNoEfaData) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "", errors.New("mocked error")
 }
 
