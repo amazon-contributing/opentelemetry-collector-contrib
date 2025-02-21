@@ -185,7 +185,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 
 // translateGroupedMetricToCWMetric converts Grouped Metric format to CloudWatch Metric format.
 func translateGroupedMetricToCWMetric(groupedMetric *groupedMetric, config *Config) *cWMetrics {
-	labels := filterAWSEMFAttributes(groupedMetric.labels)
+	labels := filterAWSEMFAttributes(groupedMetric.labels, false)
 	fieldsLength := len(labels) + len(groupedMetric.metrics)
 
 	isPrometheusMetric := groupedMetric.metadata.receiver == prometheusReceiver
@@ -210,7 +210,7 @@ func translateGroupedMetricToCWMetric(groupedMetric *groupedMetric, config *Conf
 				continue
 			}
 
-			if entityField := entity.GetEntityField(k); entityField != "" {
+			if entityField := entity.GetEntityField(k, ""); entityField != "" {
 				fields[entityField] = v
 			}
 		}
@@ -246,21 +246,14 @@ func translateGroupedMetricToCWMetric(groupedMetric *groupedMetric, config *Conf
 
 // groupedMetricToCWMeasurement creates a single CW Measurement from a grouped metric.
 func groupedMetricToCWMeasurement(groupedMetric *groupedMetric, config *Config) cWMeasurement {
-	labels := filterAWSEMFAttributes(groupedMetric.labels)
+	labels := filterAWSEMFAttributes(groupedMetric.labels, true)
 
-	filteredLabels := make(map[string]string)
-	for k, v := range labels {
-		if !strings.HasPrefix(k, entity.AWSEntityPrefix) {
-			filteredLabels[k] = v
-		}
-	}
-  
 	dimensionRollupOption := config.DimensionRollupOption
 
 	// Create a dimension set containing list of label names
-	dimSet := make([]string, len(filteredLabels))
+	dimSet := make([]string, len(labels))
 	idx := 0
-	for labelName := range filteredLabels {
+	for labelName := range labels {
 		dimSet[idx] = labelName
 		idx++
 	}
@@ -268,11 +261,11 @@ func groupedMetricToCWMeasurement(groupedMetric *groupedMetric, config *Config) 
 	dimensions := [][]string{dimSet}
 
 	// Apply single/zero dimension rollup to labels
-	rollupDimensionArray := dimensionRollup(dimensionRollupOption, filteredLabels)
+	rollupDimensionArray := dimensionRollup(dimensionRollupOption, labels)
 
 	if len(rollupDimensionArray) > 0 {
 		// Perform duplication check for edge case with a single label and single dimension roll-up
-		_, hasOTelLibKey := filteredLabels[oTellibDimensionKey]
+		_, hasOTelLibKey := labels[oTellibDimensionKey]
 		isSingleLabel := len(dimSet) <= 1 || (len(dimSet) == 2 && hasOTelLibKey)
 		singleDimRollup := dimensionRollupOption == singleDimensionRollupOnly ||
 			dimensionRollupOption == zeroAndSingleDimensionRollup
@@ -313,26 +306,19 @@ func groupedMetricToCWMeasurement(groupedMetric *groupedMetric, config *Config) 
 // groupedMetricToCWMeasurementsWithFilters filters the grouped metric using the given list of metric
 // declarations and returns the corresponding list of CW Measurements.
 func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, config *Config) (cWMeasurements []cWMeasurement) {
-	labels := filterAWSEMFAttributes(groupedMetric.labels)
-
-	filteredLabels := make(map[string]string)
-	for k, v := range labels {
-		if !strings.HasPrefix(k, entity.AWSEntityPrefix) {
-			filteredLabels[k] = v
-		}
-	}
+	labels := filterAWSEMFAttributes(groupedMetric.labels, true)
 
 	// Filter metric declarations by labels
 	metricDeclarations := make([]*MetricDeclaration, 0, len(config.MetricDeclarations))
 	for _, metricDeclaration := range config.MetricDeclarations {
-		if metricDeclaration.MatchesLabels(filteredLabels) {
+		if metricDeclaration.MatchesLabels(labels) {
 			metricDeclarations = append(metricDeclarations, metricDeclaration)
 		}
 	}
 
 	// If the whole batch of metrics don't match any metric declarations, drop them
 	if len(metricDeclarations) == 0 {
-		labelsStr, _ := json.Marshal(filteredLabels)
+		labelsStr, _ := json.Marshal(labels)
 		var metricNames []string
 		for metricName := range groupedMetric.metrics {
 			metricNames = append(metricNames, metricName)
@@ -397,7 +383,7 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 	}
 
 	// Apply single/zero dimension rollup to labels
-	rollupDimensionArray := dimensionRollup(config.DimensionRollupOption, filteredLabels)
+	rollupDimensionArray := dimensionRollup(config.DimensionRollupOption, labels)
 
 	// Translate each group into a CW Measurement
 	cWMeasurements = make([]cWMeasurement, 0, len(metricDeclGroups))
@@ -405,7 +391,7 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 		var dimensions [][]string
 		// Extract dimensions from matched metric declarations
 		for _, metricDeclIdx := range group.metricDeclIdxList {
-			dims := metricDeclarations[metricDeclIdx].ExtractDimensions(filteredLabels)
+			dims := metricDeclarations[metricDeclIdx].ExtractDimensions(labels)
 			dimensions = append(dimensions, dims...)
 		}
 		dimensions = append(dimensions, rollupDimensionArray...)
@@ -577,11 +563,12 @@ func translateGroupedMetricToEmf(groupedMetric *groupedMetric, config *Config, d
 	return event, nil
 }
 
-func filterAWSEMFAttributes(labels map[string]string) map[string]string {
+func filterAWSEMFAttributes(labels map[string]string, removeEntity bool) map[string]string {
 	// remove any labels that are attributes specific to AWS EMF Exporter
 	filteredLabels := make(map[string]string)
 	for labelName := range labels {
-		if labelName != emfStorageResolutionAttribute {
+		if labelName != emfStorageResolutionAttribute &&
+			(!removeEntity || !strings.HasPrefix(labelName, entity.AWSEntityPrefix)) {
 			filteredLabels[labelName] = labels[labelName]
 		}
 	}

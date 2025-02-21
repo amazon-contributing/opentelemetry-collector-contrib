@@ -2627,12 +2627,18 @@ func TestEntityAttributesToFields(t *testing.T) {
 	namespace := "TestNamespace"
 
 	labels := map[string]string{
-		"normal_label":                           "normal_value",
-		entity.AttributeEntityPlatformType:       entity.AttributeEntityEKSPlatform,
-		entity.AttributeEntityK8sClusterName:     "myEksCluster",
-		entity.AttributeEntityK8sNamespaceName:   "myNamespace",
-		entity.AttributeEntityInstanceID:         "i-0123456789",
-		entity.AWSEntityPrefix + "unknown_field": "should_not_appear",
+		"normal_label":                              "normal_value",
+		entity.AttributeEntityType:                  "Service",
+		entity.AttributeEntityServiceName:           "sampleApp",
+		entity.AttributeEntityDeploymentEnvironment: "eks:myEksCluster/myNamespace",
+		entity.AttributeEntityPlatformType:          entity.AttributeEntityEKSPlatform,
+		entity.AttributeEntityK8sWorkloadName:       "sampleApp",
+		entity.AttributeEntityK8sClusterName:        "myEksCluster",
+		entity.AttributeEntityK8sNamespaceName:      "myNamespace",
+		entity.AttributeEntityK8sNodeName:           "ip-012-345-67-890.ec2.internal",
+		entity.AttributeEntityInstanceID:            "i-0123456789",
+		entity.AttributeEntityServiceNameSource:     "K8sWorkload",
+		entity.AWSEntityPrefix + "unknown_field":    "should_not_appear",
 	}
 	metrics := map[string]*metricInfo{
 		"metric1": {value: 1, unit: "Count"},
@@ -2664,12 +2670,18 @@ func TestEntityAttributesToFields(t *testing.T) {
 		assert.Equal(t, namespace, cw.measurements[0].Namespace)
 
 		expectedFields := map[string]any{
-			"normal_label":   "normal_value",
-			"metric1":        1,
-			"EKS.Cluster":    "myEksCluster",
-			"K8s.Namespace":  "myNamespace",
-			"PlatformType":   entity.AttributeEntityEKSPlatform,
-			"EC2.InstanceId": "i-0123456789",
+			"normal_label":          "normal_value",
+			"metric1":               1,
+			"AWS.ServiceNameSource": "K8sWorkload",
+			"EKS.Cluster":           "myEksCluster",
+			"Entity.Type":           "Service",
+			"Environment":           "eks:myEksCluster/myNamespace",
+			"K8s.Namespace":         "myNamespace",
+			"K8s.Node":              "ip-012-345-67-890.ec2.internal",
+			"K8s.Workload":          "sampleApp",
+			"PlatformType":          entity.AttributeEntityEKSPlatform,
+			"Service":               "sampleApp",
+			"EC2.InstanceId":        "i-0123456789",
 		}
 		assert.Equal(t, expectedFields, cw.fields)
 

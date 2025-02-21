@@ -10,101 +10,101 @@ func TestGetEntityField(t *testing.T) {
 	tests := []struct {
 		name      string
 		attribute string
-		values    []string
+		value     string
 		want      string
 	}{
 		{
 			name:      "AttributeEntityType from map",
 			attribute: AttributeEntityType,
-			values:    nil,
+			value:     "",
 			want:      EntityType,
 		},
 		{
 			name:      "AttributeEntityServiceName from map",
 			attribute: AttributeEntityServiceName,
-			values:    nil,
+			value:     "",
 			want:      Service,
 		},
 		{
 			name:      "AttributeEntityDeploymentEnvironment from map",
 			attribute: AttributeEntityDeploymentEnvironment,
-			values:    nil,
+			value:     "",
 			want:      Environment,
 		},
 		{
 			name:      "AttributeEntityK8sNamespaceName from map",
 			attribute: AttributeEntityK8sNamespaceName,
-			values:    nil,
+			value:     "",
 			want:      K8sNamespace,
 		},
 		{
 			name:      "AttributeEntityK8sWorkloadName from map",
 			attribute: AttributeEntityK8sWorkloadName,
-			values:    nil,
+			value:     "",
 			want:      K8sWorkload,
 		},
 		{
 			name:      "AttributeEntityK8sNodeName from map",
 			attribute: AttributeEntityK8sNodeName,
-			values:    nil,
+			value:     "",
 			want:      K8sNode,
 		},
 		{
 			name:      "AttributeEntityPlatformType from map",
 			attribute: AttributeEntityPlatformType,
-			values:    nil,
+			value:     "",
 			want:      PlatformType,
 		},
 		{
 			name:      "AttributeEntityInstanceID from map",
 			attribute: AttributeEntityInstanceID,
-			values:    nil,
+			value:     "",
 			want:      InstanceID,
 		},
 		{
 			name:      "AttributeEntityServiceNameSource from map",
 			attribute: AttributeEntityServiceNameSource,
-			values:    nil,
+			value:     "",
 			want:      AWSServiceNameSource,
 		},
 		{
 			name:      "K8sClusterName with EKSPlatform",
 			attribute: AttributeEntityK8sClusterName,
-			values:    []string{AttributeEntityEKSPlatform},
+			value:     AttributeEntityEKSPlatform,
 			want:      EksCluster,
 		},
 		{
 			name:      "K8sClusterName with K8sPlatform",
 			attribute: AttributeEntityK8sClusterName,
-			values:    []string{AttributeEntityK8sPlatform},
+			value:     AttributeEntityK8sPlatform,
 			want:      K8sCluster,
 		},
 		{
 			name:      "K8sClusterName with unknown platform",
 			attribute: AttributeEntityK8sClusterName,
-			values:    []string{"unknown"},
+			value:     "unknown",
 			want:      "",
 		},
 		{
 			name:      "Unknown attribute",
 			attribute: "unknown",
-			values:    nil,
+			value:     "",
 			want:      "",
 		},
 		{
 			name:      "K8sClusterName with no values provided",
 			attribute: AttributeEntityK8sClusterName,
-			values:    nil,
+			value:     "",
 			want:      "",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := GetEntityField(tc.attribute, tc.values...)
+			got := GetEntityField(tc.attribute, tc.value)
 			assert.Equalf(t, tc.want, got,
 				"GetEntityField(%q, %v) = %q; want %q",
-				tc.attribute, tc.values, got, tc.want)
+				tc.attribute, tc.value, got, tc.want)
 		})
 	}
 }
