@@ -1,4 +1,4 @@
-package entity
+package entity // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/entity"
 
 const (
 	// Entity resource attributes in OTLP payload
