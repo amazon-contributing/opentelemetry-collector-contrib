@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	conventions "go.opentelemetry.io/collector/semconv/v1.6.1"
+	conventions "go.opentelemetry.io/collector/semconv/v1.12.0"
 
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 )
@@ -25,6 +25,7 @@ const (
 	AttributeURLScheme              = "url.scheme"
 	AttributeURLFull                = "url.full"
 	AttributeURLPath                = "url.path"
+	AttributeURLQuery               = "url.query"
 	AttributeUserAgentOriginal      = "user_agent.original"
 )
 
@@ -72,7 +73,7 @@ func makeHTTP(span ptrace.Span) (map[string]pcommon.Value, *awsxray.HTTPData) {
 			hasHTTP = true
 			hasHTTPRequestURLAttributes = true
 		case conventions.AttributeHTTPTarget:
-			urlParts[key] = value.Str()
+			urlParts[conventions.AttributeHTTPTarget] = value.Str()
 			hasHTTP = true
 		case conventions.AttributeHTTPServerName:
 			urlParts[key] = value.Str()

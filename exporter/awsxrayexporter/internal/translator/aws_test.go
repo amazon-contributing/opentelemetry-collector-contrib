@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
-	conventions "go.opentelemetry.io/collector/semconv/v1.6.1"
+	conventions "go.opentelemetry.io/collector/semconv/v1.12.0"
 
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 )
@@ -360,6 +360,23 @@ func TestJavaAutoInstrumentation(t *testing.T) {
 	assert.True(t, *awsData.XRay.AutoInstrumentation)
 }
 
+func TestJavaAutoInstrumentationStable(t *testing.T) {
+	attributes := make(map[string]pcommon.Value)
+	resource := pcommon.NewResource()
+	resource.Attributes().PutStr(conventions.AttributeTelemetrySDKName, "opentelemetry")
+	resource.Attributes().PutStr(conventions.AttributeTelemetrySDKLanguage, "java")
+	resource.Attributes().PutStr(conventions.AttributeTelemetrySDKVersion, "1.2.3")
+	resource.Attributes().PutStr(AttributeTelemetryDistroVersion, "3.4.5")
+
+	filtered, awsData := makeAws(attributes, resource, nil)
+
+	assert.NotNil(t, filtered)
+	assert.NotNil(t, awsData)
+	assert.Equal(t, "opentelemetry for java", *awsData.XRay.SDK)
+	assert.Equal(t, "1.2.3", *awsData.XRay.SDKVersion)
+	assert.True(t, *awsData.XRay.AutoInstrumentation)
+}
+
 func TestGoSDK(t *testing.T) {
 	attributes := make(map[string]pcommon.Value)
 	resource := pcommon.NewResource()
@@ -424,7 +441,7 @@ func TestLogGroups(t *testing.T) {
 
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 }
@@ -452,7 +469,7 @@ func TestLogGroupsFromArns(t *testing.T) {
 
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 }
@@ -471,7 +488,7 @@ func TestLogGroupsFromStringResourceAttribute(t *testing.T) {
 
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 1, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 1)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 }
 
@@ -491,7 +508,7 @@ func TestLogGroupsWithAmpersandFromStringResourceAttribute(t *testing.T) {
 	filtered, awsData := makeAws(attributes, resource, nil)
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 
@@ -500,7 +517,7 @@ func TestLogGroupsWithAmpersandFromStringResourceAttribute(t *testing.T) {
 	filtered, awsData = makeAws(attributes, resource, nil)
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 
@@ -509,7 +526,7 @@ func TestLogGroupsWithAmpersandFromStringResourceAttribute(t *testing.T) {
 	filtered, awsData = makeAws(attributes, resource, nil)
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 
@@ -518,7 +535,7 @@ func TestLogGroupsWithAmpersandFromStringResourceAttribute(t *testing.T) {
 	filtered, awsData = makeAws(attributes, resource, nil)
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 
@@ -527,7 +544,7 @@ func TestLogGroupsWithAmpersandFromStringResourceAttribute(t *testing.T) {
 	filtered, awsData = makeAws(attributes, resource, nil)
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 0, len(awsData.CWLogs))
+	assert.Empty(t, awsData.CWLogs)
 }
 
 func TestLogGroupsInvalidType(t *testing.T) {
@@ -539,7 +556,7 @@ func TestLogGroupsInvalidType(t *testing.T) {
 
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 0, len(awsData.CWLogs))
+	assert.Empty(t, awsData.CWLogs)
 }
 
 // Simulate Log groups arns being set using OTEL_RESOURCE_ATTRIBUTES
@@ -559,7 +576,7 @@ func TestLogGroupsArnsFromStringResourceAttributes(t *testing.T) {
 
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 1, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 1)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 }
 
@@ -584,7 +601,7 @@ func TestLogGroupsArnsWithAmpersandFromStringResourceAttributes(t *testing.T) {
 
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 }
@@ -604,7 +621,7 @@ func TestLogGroupsFromConfig(t *testing.T) {
 
 	assert.NotNil(t, filtered)
 	assert.NotNil(t, awsData)
-	assert.Equal(t, 2, len(awsData.CWLogs))
+	assert.Len(t, awsData.CWLogs, 2)
 	assert.Contains(t, awsData.CWLogs, cwl1)
 	assert.Contains(t, awsData.CWLogs, cwl2)
 }

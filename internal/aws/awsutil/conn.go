@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"go.uber.org/zap"
@@ -53,7 +55,6 @@ func (s *stsCredentialProvider) Retrieve() (credentials.Value, error) {
 	}
 
 	v, err := s.regional.Retrieve()
-
 	if err != nil {
 		var aerr awserr.Error
 		if errors.As(err, &aerr) && aerr.Code() == sts.ErrCodeRegionDisabledException {
@@ -94,7 +95,8 @@ const (
 
 // newHTTPClient returns new HTTP client instance with provided configuration.
 func newHTTPClient(logger *zap.Logger, maxIdle int, requestTimeout int, noVerify bool,
-	proxyAddress string, certificateFilePath string) (*http.Client, error) {
+	proxyAddress string, certificateFilePath string,
+) (*http.Client, error) {
 	logger.Debug("Using proxy address: ",
 		zap.String("proxyAddr", proxyAddress),
 	)
@@ -205,7 +207,6 @@ func GetAWSConfigSession(logger *zap.Logger, cn ConnAttr, cfg *AWSSessionSetting
 				logger.Debug("Fetch region from ec2 metadata", zap.String("region", awsRegion))
 			}
 		}
-
 	}
 
 	if awsRegion == "" {
@@ -281,7 +282,6 @@ func (c *Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region
 		s, err = session.NewSession(&aws.Config{
 			Credentials: stsCreds,
 		})
-
 		if err != nil {
 			logger.Error("Error in creating session object : ", zap.Error(err))
 			return s, err
@@ -320,7 +320,8 @@ func getSTSCreds(logger *zap.Logger, region string, cfg *AWSSessionSettings) (*c
 // AWS STS recommends that you provide both the Region and endpoint when you make calls to a Regional endpoint.
 // Reference: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html#id_credentials_temp_enable-regions_writing_code
 func getSTSCredsFromRegionEndpoint(logger *zap.Logger, sess *session.Session, region string,
-	roleArn string) *credentials.Credentials {
+	roleArn string,
+) *credentials.Credentials {
 	regionalEndpoint := getSTSRegionalEndpoint(region)
 	// if regionalEndpoint is "", the STS endpoint is Global endpoint for classic regions except ap-east-1 - (HKG)
 	// for other opt-in regions, region value will create STS regional endpoint.
@@ -334,7 +335,8 @@ func getSTSCredsFromRegionEndpoint(logger *zap.Logger, sess *session.Session, re
 // getSTSCredsFromPrimaryRegionEndpoint fetches STS credentials for provided roleARN from primary region endpoint in
 // the respective partition.
 func getSTSCredsFromPrimaryRegionEndpoint(logger *zap.Logger, t *session.Session, roleArn string,
-	region string) *credentials.Credentials {
+	region string,
+) *credentials.Credentials {
 	logger.Info("Credentials for provided RoleARN being fetched from STS primary region endpoint.")
 	partitionID := getPartition(region)
 	switch partitionID {
@@ -458,7 +460,7 @@ func getCredentialProviderChain(cfg *AWSSessionSettings) []credentials.Provider 
 
 func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *credentials.Credentials {
 	regional := &stscreds.AssumeRoleProvider{
-		Client: sts.New(c, &aws.Config{
+		Client: newStsClient(c, &aws.Config{
 			Region:              aws.String(region),
 			STSRegionalEndpoint: endpoints.RegionalSTSEndpoint,
 			HTTPClient:          &http.Client{Timeout: 1 * time.Minute},
@@ -470,7 +472,7 @@ func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *
 	fallbackRegion := getFallbackRegion(region)
 
 	partitional := &stscreds.AssumeRoleProvider{
-		Client: sts.New(c, &aws.Config{
+		Client: newStsClient(c, &aws.Config{
 			Region:              aws.String(fallbackRegion),
 			Endpoint:            aws.String(getFallbackEndpoint(fallbackRegion)),
 			STSRegionalEndpoint: endpoints.RegionalSTSEndpoint,
@@ -481,6 +483,37 @@ func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *
 	}
 
 	return credentials.NewCredentials(&stsCredentialProvider{regional: regional, partitional: partitional})
+}
+
+const (
+	SourceArnHeaderKey     = "x-amz-source-arn"
+	SourceAccountHeaderKey = "x-amz-source-account"
+	AmzSourceAccount       = "AMZ_SOURCE_ACCOUNT"
+	AmzSourceArn           = "AMZ_SOURCE_ARN"
+)
+
+// newStsClient creates a new STS client with the provided config and options.
+// Additionally, if specific environment variables are set, it also appends the confused deputy headers to requests
+// made by the client. These headers allow resource-based policies to limit the permissions that a service has to
+// a specific resource. Note that BOTH environment variables need to contain non-empty values in order for the headers
+// to be set.
+//
+// See https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html#cross-service-confused-deputy-prevention
+func newStsClient(p client.ConfigProvider, cfgs ...*aws.Config) *sts.STS {
+	sourceAccount := os.Getenv(AmzSourceAccount)
+	sourceArn := os.Getenv(AmzSourceArn)
+
+	client := sts.New(p, cfgs...)
+	if sourceAccount != "" && sourceArn != "" {
+		client.Handlers.Sign.PushFront(func(r *request.Request) {
+			r.HTTPRequest.Header.Set(SourceArnHeaderKey, sourceArn)
+			r.HTTPRequest.Header.Set(SourceAccountHeaderKey, sourceAccount)
+		})
+
+		log.Printf("I! Found confused deputy header environment variables: source account: %q, source arn: %q", sourceAccount, sourceArn)
+	}
+
+	return client
 }
 
 func getFallbackRegion(region string) string {

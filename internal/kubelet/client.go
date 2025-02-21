@@ -140,7 +140,6 @@ func (p *kubeConfigClientProvider) BuildClient() (Client, error) {
 		tok:        nil,
 		logger:     p.logger,
 	}, nil
-
 }
 
 type readOnlyClientProvider struct {
@@ -160,7 +159,6 @@ func (p *readOnlyClientProvider) BuildClient() (Client, error) {
 		tok:        nil,
 		logger:     p.logger,
 	}, nil
-
 }
 
 type tlsClientProvider struct {
@@ -341,7 +339,7 @@ func (c *clientImpl) buildReq(p string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}

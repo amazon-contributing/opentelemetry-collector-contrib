@@ -9,9 +9,13 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"go.opentelemetry.io/collector/pdata/pcommon"
-	conventions "go.opentelemetry.io/collector/semconv/v1.6.1"
+	conventions "go.opentelemetry.io/collector/semconv/v1.12.0"
 
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
+)
+
+const (
+	AttributeTelemetryDistroVersion = "telemetry.distro.version"
 )
 
 func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, logGroupNames []string) (map[string]pcommon.Value, *awsxray.AWSData) {
@@ -90,7 +94,7 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 			sdkLanguage = value.Str()
 		case conventions.AttributeTelemetrySDKVersion:
 			sdkVersion = value.Str()
-		case conventions.AttributeTelemetryAutoVersion:
+		case conventions.AttributeTelemetryAutoVersion, AttributeTelemetryDistroVersion:
 			autoVersion = value.Str()
 		case conventions.AttributeContainerID:
 			containerID = value.Str()
@@ -230,7 +234,7 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 	case logGroups != (pcommon.Slice{}) && logGroups.Len() > 0:
 		cwl = getLogGroupMetadata(logGroups, false)
 	case logGroupNames != nil:
-		var configSlice = pcommon.NewSlice()
+		configSlice := pcommon.NewSlice()
 		configSlice.EnsureCapacity(len(logGroupNames))
 
 		for _, s := range logGroupNames {
