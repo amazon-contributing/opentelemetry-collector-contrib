@@ -16,10 +16,10 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
 
-	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/aws/aws-sdk-go/aws/session"
-	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
+	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
+	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 )
 
@@ -89,13 +89,12 @@ type efaStore struct {
 type efaDevices map[efaDevice]*efaCounters
 
 type efaDevice struct {
-    Name        efaDeviceName
-    MacAddress	string
-	EniId	string
+	Name       efaDeviceName
+	MacAddress string
+	EniId      string
 }
 
 type efaDeviceName string
-
 
 // efaCounters contains counter values from files in
 // /sys/class/infiniband/<Name>/ports/<Port>/hw_counters
@@ -153,8 +152,8 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 		if counters == nil {
 			continue
 		}
-		deviceName:= efaDevice.Name
-		eniId:= efaDevice.EniId
+		deviceName := efaDevice.Name
+		eniId := efaDevice.EniId
 
 		containerInfo := s.podResourcesStore.GetContainerInfo(string(deviceName), efaK8sResourceName)
 
@@ -288,16 +287,16 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 
 		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name)
 
-		eniId, err := s.ec2Provider.NetworkInterfaceID(ctx, macAddress)	
+		eniId, err := s.ec2Provider.NetworkInterfaceID(ctx, macAddress)
 
 		if err != nil {
 			return nil, err
 		}
 
 		device := efaDevice{
-			Name: name,
+			Name:       name,
 			MacAddress: macAddress,
-			EniId: eniId,
+			EniId:      eniId,
 		}
 
 		devices[device] = counters
@@ -436,9 +435,8 @@ func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName) 
 
 	ipString := strings.TrimSpace(string(gidBytes))
 
-	return IPv6LinkLocalToMAC(ipString);
+	return IPv6LinkLocalToMAC(ipString)
 }
-
 
 func readUint64ValueFromFile(path string) (uint64, error) {
 	bytes, err := os.ReadFile(path)
