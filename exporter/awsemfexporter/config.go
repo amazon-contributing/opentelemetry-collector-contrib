@@ -37,11 +37,16 @@ type Config struct {
 	// the delta to the next occurrence. With this flag set to true the exporter will instead use this first value as the
 	// initial delta value. This is especially useful when handling low frequency metrics.
 	RetainInitialValueOfDeltaMetric bool `mapstructure:"retain_initial_value_of_delta_metric"`
+
 	// DimensionRollupOption is the option for metrics dimension rollup. Three options are available, default option is "ZeroAndSingleDimensionRollup".
 	// "ZeroAndSingleDimensionRollup" - Enable both zero dimension rollup and single dimension rollup
 	// "SingleDimensionRollupOnly" - Enable single dimension rollup
 	// "NoDimensionRollup" - No dimension rollup (only keep original metrics which contain all dimensions)
 	DimensionRollupOption string `mapstructure:"dimension_rollup_option"`
+
+	// UseAllLabelsAsDimensions is a boolean flag indicating all labels should be used as dimensions.  This option is only used if the dimensions array is empty.
+	// This flag defaults to "false".  Only set to true for Prometheus
+	UseAllLabelsAsDimensions bool `mapstructure:"use_all_labels_as_dimensions"`
 
 	// LogRetention is the option to set the log retention policy for the CloudWatch Log Group. Defaults to Never Expire if not specified or set to 0
 	// Possible values are 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 2192, 2557, 2922, 3288, or 3653

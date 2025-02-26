@@ -399,6 +399,14 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 		// De-duplicate dimensions
 		dimensions = dedupDimensions(dimensions)
 
+		if config.UseAllLabelsAsDimensions && dimensions == nil && len(labels) > 0 {
+			var dims []string
+			for key := range labels {
+				dims = append(dims, key)
+			}
+			dimensions = [][]string{dims}
+		}
+
 		// Export metrics only with non-empty dimensions list
 		if len(dimensions) > 0 {
 			cwm := cWMeasurement{
