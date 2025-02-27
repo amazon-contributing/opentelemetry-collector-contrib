@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
-	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
+	ec2Metadata "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 )
 
@@ -59,7 +59,7 @@ type Scraper struct {
 	podResourcesStore podResourcesStore
 	store             *efaStore
 	logger            *zap.Logger
-	ec2Provider       ec2MetadataProvider
+	ec2Metadata       ec2MetadataProvider
 }
 
 type sysFsReader interface {
@@ -120,7 +120,7 @@ func NewEfaSyfsScraper(logger *zap.Logger, decorator stores.Decorator, podResour
 		podResourcesStore:  podResourcesStore,
 		store:              new(efaStore),
 		logger:             logger,
-		ec2Provider:        ec2provider.NewProvider(session.Must(session.NewSession())),
+		ec2Metadata:        ec2Metadata.NewProvider(session.Must(session.NewSession())),
 	}
 
 	go e.startScrape(ctx)
@@ -287,7 +287,11 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 
 		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name)
 
-		eniId, err := s.ec2Provider.NetworkInterfaceID(ctx, macAddress)
+		if err != nil {
+			return nil, err
+		}
+
+		eniId, err := s.ec2Metadata.NetworkInterfaceID(ctx, macAddress)
 
 		if err != nil {
 			return nil, err

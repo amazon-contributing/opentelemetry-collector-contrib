@@ -260,7 +260,7 @@ func TestGetMetrics(t *testing.T) {
 			"00:00:00:00:00:02": "eni-002",
 		},
 	}
-	s.ec2Provider = mockEC2
+	s.ec2Metadata = mockEC2
 
 	var expectedMetrics []expectation
 	expectedMetrics = append(expectedMetrics, efa0Metrics...)
@@ -315,7 +315,7 @@ func TestGetMetricsMissingDeviceFromPodResources(t *testing.T) {
 			"00:00:00:00:00:02": "eni-002",
 		},
 	}
-	s.ec2Provider = mockEC2
+	s.ec2Metadata = mockEC2
 
 	assert.NoError(t, s.scrape(ctx))
 	assert.Empty(t, s.GetMetrics())
@@ -421,7 +421,7 @@ func TestScrape(t *testing.T) {
 			"00:00:00:00:00:02": "eni-002",
 		},
 	}
-	s.ec2Provider = mockEC2
+	s.ec2Metadata = mockEC2
 
 	expectedCounters := efaCounters{
 		// All values multiplied by 2 because we mock 2 ports
