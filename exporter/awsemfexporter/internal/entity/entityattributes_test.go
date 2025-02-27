@@ -17,12 +17,6 @@ func TestGetEntityField(t *testing.T) {
 		want      string
 	}{
 		{
-			name:      "AttributeEntityType from map",
-			attribute: AttributeEntityType,
-			value:     "",
-			want:      EntityType,
-		},
-		{
 			name:      "AttributeEntityServiceName from map",
 			attribute: AttributeEntityServiceName,
 			value:     "",

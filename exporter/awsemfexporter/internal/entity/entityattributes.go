@@ -6,7 +6,6 @@ package entity // import "github.com/open-telemetry/opentelemetry-collector-cont
 const (
 	// Entity resource attributes in OTLP payload
 	AWSEntityPrefix                      = "com.amazonaws.cloudwatch.entity.internal."
-	AttributeEntityType                  = AWSEntityPrefix + "type"
 	AttributeEntityServiceName           = AWSEntityPrefix + "service.name"
 	AttributeEntityDeploymentEnvironment = AWSEntityPrefix + "deployment.environment"
 	AttributeEntityK8sClusterName        = AWSEntityPrefix + "k8s.cluster.name"
@@ -20,7 +19,6 @@ const (
 	// Entity fields in EMF log
 	Service              = "Service"
 	Environment          = "Environment"
-	EntityType           = "Entity.Type"
 	EksCluster           = "EKS.Cluster"
 	K8sCluster           = "K8s.Cluster"
 	K8sNamespace         = "K8s.Namespace"
@@ -37,7 +35,6 @@ const (
 
 // attributeEntityToFieldMap maps attribute entity resource attributes to entity fields
 var attributeEntityToFieldMap = map[string]string{
-	AttributeEntityType:                  EntityType,
 	AttributeEntityServiceName:           Service,
 	AttributeEntityDeploymentEnvironment: Environment,
 	AttributeEntityK8sNamespaceName:      K8sNamespace,

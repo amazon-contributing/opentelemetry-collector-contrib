@@ -2628,7 +2628,6 @@ func TestEntityAttributesToFields(t *testing.T) {
 
 	labels := map[string]string{
 		"normal_label":                              "normal_value",
-		entity.AttributeEntityType:                  "Service",
 		entity.AttributeEntityServiceName:           "sampleApp",
 		entity.AttributeEntityDeploymentEnvironment: "eks:myEksCluster/myNamespace",
 		entity.AttributeEntityPlatformType:          entity.AttributeEntityEKSPlatform,
@@ -2674,7 +2673,6 @@ func TestEntityAttributesToFields(t *testing.T) {
 			"metric1":               1,
 			"AWS.ServiceNameSource": "K8sWorkload",
 			"EKS.Cluster":           "myEksCluster",
-			"Entity.Type":           "Service",
 			"Environment":           "eks:myEksCluster/myNamespace",
 			"K8s.Namespace":         "myNamespace",
 			"K8s.Node":              "ip-012-345-67-890.ec2.internal",
