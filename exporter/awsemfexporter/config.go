@@ -82,7 +82,7 @@ type Config struct {
 	DisableMetricExtraction bool `mapstructure:"disable_metric_extraction"`
 
 	// AddEntity is an option to add entity to the EMF log to correlate related telemetry.
-	// Setting this to true adds fields such as Name, Environment, Entity.Type, etc.
+	// Setting this to true adds fields such as Service, Environment, etc.
 	AddEntity bool `mapstructure:"add_entity"`
 
 	// ResourceToTelemetrySettings is an option for converting resource attrihutes to telemetry attributes.
