@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/session"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
-
-	"github.com/aws/aws-sdk-go/aws/session"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
@@ -92,7 +91,7 @@ type efaDevices map[efaDevice]*efaCounters
 type efaDevice struct {
 	Name       efaDeviceName
 	MacAddress string
-	EniId      string
+	EniID      string
 }
 
 type efaDeviceName string
@@ -154,7 +153,7 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 			continue
 		}
 		deviceName := efaDevice.Name
-		eniId := efaDevice.EniId
+		eniID := efaDevice.EniID
 
 		containerInfo := s.podResourcesStore.GetContainerInfo(string(deviceName), efaK8sResourceName)
 
@@ -208,7 +207,7 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 
 		for _, m := range allMetrics {
 			m.AddTag(ci.EfaDevice, string(deviceName))
-			m.AddTag(ci.EniId, string(eniId))
+			m.AddTag(ci.EniID, eniID)
 			m.AddTag(ci.Timestamp, strconv.FormatInt(store.timestamp.UnixNano(), 10))
 		}
 		for _, m := range podContainerMetrics {
@@ -291,7 +290,7 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 			return nil, err
 		}
 
-		eniId, err := s.ec2Metadata.NetworkInterfaceID(ctx, macAddress)
+		eniID, err := s.ec2Metadata.NetworkInterfaceID(ctx, macAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -299,7 +298,7 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 		device := efaDevice{
 			Name:       name,
 			MacAddress: macAddress,
-			EniId:      eniId,
+			EniID:      eniID,
 		}
 
 		devices[device] = counters
@@ -432,7 +431,7 @@ func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName) 
 	// Read the GID file
 	gidBytes, err := os.ReadFile(gidPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read GID file: %v", err)
+		return "", fmt.Errorf("failed to read GID file: %w", err)
 	}
 
 	ipString := strings.TrimSpace(string(gidBytes))
