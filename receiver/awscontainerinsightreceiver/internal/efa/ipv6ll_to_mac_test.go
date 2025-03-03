@@ -1,14 +1,14 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
- 
+
 package efa
- 
+
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
- 
+
 func TestIPv6LinkLocalToMAC(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -41,7 +41,7 @@ func TestIPv6LinkLocalToMAC(t *testing.T) {
 			wantErr: true,
 		},
 	}
- 
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotMAC, err := IPv6LinkLocalToMAC(tt.ipv6)

@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 	ec2Metadata "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
@@ -286,13 +287,11 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 		counters, err := s.parseEfaDevice(name)
 
 		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name)
-
 		if err != nil {
 			return nil, err
 		}
 
 		eniId, err := s.ec2Metadata.NetworkInterfaceID(ctx, macAddress)
-
 		if err != nil {
 			return nil, err
 		}
@@ -427,7 +426,6 @@ func (r *sysfsReaderImpl) ReadCounter(deviceName efaDeviceName, port string, cou
 }
 
 func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
-
 	// Construct sysfs path for GID
 	gidPath := fmt.Sprintf("/sys/class/infiniband/%s/ports/1/gids/0", string(deviceName))
 

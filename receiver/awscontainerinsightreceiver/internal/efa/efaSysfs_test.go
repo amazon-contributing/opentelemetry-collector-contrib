@@ -37,7 +37,7 @@ type mockEC2Provider struct {
 	macToENI map[string]string
 	err      error
 }
- 
+
 func (m *mockEC2Provider) NetworkInterfaceID(_ context.Context, macAddress string) (string, error) {
 	if m.err != nil {
 		return "", m.err
@@ -59,15 +59,14 @@ func (r mockSysfsReader) ListPorts(_ efaDeviceName) ([]string, error) {
 }
 
 func (r mockSysfsReader) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
-    switch deviceName {
-    case "efa0":
-        return "00:00:00:00:00:01", nil
-    case "efa1":
-        return "00:00:00:00:00:02", nil
-    }
-    return "", fmt.Errorf("unknown device")
+	switch deviceName {
+	case "efa0":
+		return "00:00:00:00:00:01", nil
+	case "efa1":
+		return "00:00:00:00:00:02", nil
+	}
+	return "", fmt.Errorf("unknown device")
 }
- 
 
 var mockCounterValues = map[string]uint64{
 	counterRdmaReadBytes:      1,
@@ -436,12 +435,12 @@ func TestScrape(t *testing.T) {
 		efaDevice{
 			Name:       "efa0",
 			MacAddress: "00:00:00:00:00:01",
-			EniId:     "eni-001", // Mock ENI ID
+			EniId:      "eni-001", // Mock ENI ID
 		}: &expectedCounters,
 		efaDevice{
 			Name:       "efa1",
 			MacAddress: "00:00:00:00:00:02",
-			EniId:     "eni-002", // Mock ENI ID
+			EniId:      "eni-002", // Mock ENI ID
 		}: &expectedCounters,
 	}
 
@@ -492,7 +491,6 @@ func (r mockSysfsReaderError2) ReadCounter(_ efaDeviceName, _ string, _ string) 
 func (r mockSysfsReaderError2) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "", errors.New("mocked error")
 }
-
 
 type mockSysfsReaderError3 struct{}
 

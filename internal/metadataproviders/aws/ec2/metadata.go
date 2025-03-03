@@ -46,7 +46,6 @@ func (c *metadataClient) InstanceID(_ context.Context) (string, error) {
 	return c.metadataFallbackEnable.GetMetadata("instance-id")
 }
 
-
 func (c *metadataClient) NetworkInterfaceID(_ context.Context, macAddress string) (string, error) {
 	eniID, err := c.metadata.GetMetadata("network/interfaces/macs/" + macAddress + "/interface-id")
 	if err == nil {
