@@ -59,6 +59,13 @@ func (mm mockMetadata) InstanceID(_ context.Context) (string, error) {
 	return "", nil
 }
 
+func (mm mockMetadata) NetworkInterfaceID(_ context.Context) (string, error) {
+	if !mm.isAvailable {
+		return "", errUnavailable
+	}
+	return "", nil
+}
+
 func (mm mockMetadata) Get(_ context.Context) (ec2metadata.EC2InstanceIdentityDocument, error) {
 	if mm.retErrIDDoc != nil {
 		return ec2metadata.EC2InstanceIdentityDocument{}, mm.retErrIDDoc
