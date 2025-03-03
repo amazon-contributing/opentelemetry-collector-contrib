@@ -284,6 +284,9 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 	devices := make(efaDevices, len(deviceNames))
 	for _, name := range deviceNames {
 		counters, err := s.parseEfaDevice(name)
+		if err != nil {
+			return nil, err
+		}
 
 		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name)
 		if err != nil {

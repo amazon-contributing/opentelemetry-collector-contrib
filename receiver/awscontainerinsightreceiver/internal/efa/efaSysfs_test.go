@@ -42,7 +42,7 @@ func (m *mockEC2Provider) NetworkInterfaceID(_ context.Context, macAddress strin
 	if m.err != nil {
 		return "", m.err
 	}
-	eniID, _ := m.macToENI[macAddress]
+	eniID := m.macToENI[macAddress]
 	return eniID, nil
 }
 
