@@ -139,7 +139,7 @@ var efa0Metrics = []expectation{
 		map[string]string{
 			ci.MetricType: ci.TypeNodeEFA,
 			ci.EfaDevice:  "efa0",
-			ci.EniId:      "eni-001",
+			ci.EniID:      "eni-001",
 			ci.Timestamp:  "to-be-replaced",
 			"decorated":   "true",
 		},
@@ -156,7 +156,7 @@ var efa0Metrics = []expectation{
 		map[string]string{
 			ci.MetricType:       ci.TypePodEFA,
 			ci.EfaDevice:        "efa0",
-			ci.EniId:            "eni-001",
+			ci.EniID:            "eni-001",
 			ci.K8sNamespace:     "namespace0",
 			ci.K8sPodNameKey:    "pod0",
 			ci.ContainerNamekey: "container0",
@@ -176,7 +176,7 @@ var efa0Metrics = []expectation{
 		map[string]string{
 			ci.MetricType:       ci.TypeContainerEFA,
 			ci.EfaDevice:        "efa0",
-			ci.EniId:            "eni-001",
+			ci.EniID:            "eni-001",
 			ci.K8sNamespace:     "namespace0",
 			ci.K8sPodNameKey:    "pod0",
 			ci.ContainerNamekey: "container0",
@@ -198,7 +198,7 @@ var efa1NodeMetric = expectation{
 	map[string]string{
 		ci.MetricType: ci.TypeNodeEFA,
 		ci.EfaDevice:  "efa1",
-		ci.EniId:      "eni-002",
+		ci.EniID:      "eni-002",
 		ci.Timestamp:  "to-be-replaced",
 		"decorated":   "true",
 	},
@@ -217,7 +217,7 @@ var efa1PodContainerMetrics = []expectation{
 		map[string]string{
 			ci.MetricType:       ci.TypePodEFA,
 			ci.EfaDevice:        "efa1",
-			ci.EniId:            "eni-002",
+			ci.EniID:            "eni-002",
 			ci.K8sNamespace:     "namespace1",
 			ci.K8sPodNameKey:    "pod1",
 			ci.ContainerNamekey: "container1",
@@ -237,7 +237,7 @@ var efa1PodContainerMetrics = []expectation{
 		map[string]string{
 			ci.MetricType:       ci.TypeContainerEFA,
 			ci.EfaDevice:        "efa1",
-			ci.EniId:            "eni-002",
+			ci.EniID:            "eni-002",
 			ci.K8sNamespace:     "namespace1",
 			ci.K8sPodNameKey:    "pod1",
 			ci.ContainerNamekey: "container1",
@@ -435,12 +435,12 @@ func TestScrape(t *testing.T) {
 		efaDevice{
 			Name:       "efa0",
 			MacAddress: "00:00:00:00:00:01",
-			EniId:      "eni-001", // Mock ENI ID
+			EniID:      "eni-001", // Mock ENI ID
 		}: &expectedCounters,
 		efaDevice{
 			Name:       "efa1",
 			MacAddress: "00:00:00:00:00:02",
-			EniId:      "eni-002", // Mock ENI ID
+			EniID:      "eni-002", // Mock ENI ID
 		}: &expectedCounters,
 	}
 

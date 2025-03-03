@@ -59,7 +59,7 @@ func (mm mockMetadata) InstanceID(_ context.Context) (string, error) {
 	return "", nil
 }
 
-func (mm mockMetadata) NetworkInterfaceID(_ context.Context) (string, error) {
+func (mm mockMetadata) NetworkInterfaceID(_ context.Context, _ string) (string, error) {
 	if !mm.isAvailable {
 		return "", errUnavailable
 	}
