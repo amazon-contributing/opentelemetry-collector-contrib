@@ -4,7 +4,6 @@
 package efa
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -33,12 +32,12 @@ func newMockSysfsReader() mockSysfsReader {
 	}
 }
 
-type mockEC2Provider struct {
+type mockHostInfo struct {
 	macToENI map[string]string
 	err      error
 }
 
-func (m *mockEC2Provider) NetworkInterfaceID(_ context.Context, macAddress string) (string, error) {
+func (m *mockHostInfo) GetNetworkInterfaceID(macAddress string) (string, error) {
 	if m.err != nil {
 		return "", m.err
 	}
@@ -124,6 +123,13 @@ func (p mockPodResourcesStore) GetContainerInfo(deviceID string, _ string) *stor
 type expectation struct {
 	fields map[string]uint64
 	tags   map[string]string
+}
+
+var mockHost = &mockHostInfo{
+	macToENI: map[string]string{
+		"00:00:00:00:00:01": "eni-001",
+		"00:00:00:00:00:02": "eni-002",
+	},
 }
 
 var efa0Metrics = []expectation{
@@ -250,16 +256,8 @@ var efa1PodContainerMetrics = []expectation{
 var efa1Metrics = []expectation{efa1NodeMetric, efa1PodContainerMetrics[0], efa1PodContainerMetrics[1]}
 
 func TestGetMetrics(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{})
+	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{}, mockHost)
 	s.sysFsReader = newMockSysfsReader()
-	ctx := context.Background()
-	mockEC2 := &mockEC2Provider{
-		macToENI: map[string]string{
-			"00:00:00:00:00:01": "eni-001",
-			"00:00:00:00:00:02": "eni-002",
-		},
-	}
-	s.ec2Metadata = mockEC2
 
 	var expectedMetrics []expectation
 	expectedMetrics = append(expectedMetrics, efa0Metrics...)
@@ -267,17 +265,17 @@ func TestGetMetrics(t *testing.T) {
 
 	// first metric collection should return no metrics because we haven't established a baseline for the delta
 	// calculation yet
-	assert.NoError(t, s.scrape(ctx))
+	assert.NoError(t, s.scrape())
 	result := s.GetMetrics()
 	assert.Empty(t, result)
 
-	assert.NoError(t, s.scrape(ctx))
+	assert.NoError(t, s.scrape())
 	result = s.GetMetrics()
 	checkExpectations(t, expectedMetrics, result)
 }
 
 func TestGetMetricsBeforeSuccessfulScrape(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{})
+	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{}, mockHost)
 
 	result := s.GetMetrics()
 	assert.Empty(t, result)
@@ -304,26 +302,17 @@ func (p mockPodResourcesStoreMissingOneDevice) GetContainerInfo(deviceID string,
 }
 
 func TestGetMetricsMissingDeviceFromPodResources(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStoreMissingOneDevice{})
+	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStoreMissingOneDevice{}, mockHost)
 	s.sysFsReader = newMockSysfsReader()
-	ctx := context.Background()
 
-	mockEC2 := &mockEC2Provider{
-		macToENI: map[string]string{
-			"00:00:00:00:00:01": "eni-001",
-			"00:00:00:00:00:02": "eni-002",
-		},
-	}
-	s.ec2Metadata = mockEC2
-
-	assert.NoError(t, s.scrape(ctx))
+	assert.NoError(t, s.scrape())
 	assert.Empty(t, s.GetMetrics())
 
 	var expectedMetrics []expectation
 	expectedMetrics = append(expectedMetrics, efa0Metrics...)
 	expectedMetrics = append(expectedMetrics, efa1NodeMetric)
 
-	assert.NoError(t, s.scrape(ctx))
+	assert.NoError(t, s.scrape())
 	result := s.GetMetrics()
 	checkExpectations(t, expectedMetrics, result)
 }
@@ -411,16 +400,10 @@ func findTimestamp(t *testing.T, attrs pcommon.Map) (string, time.Time) {
 }
 
 func TestScrape(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{})
+	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost)
 	s.sysFsReader = newMockSysfsReader()
-	ctx := context.Background()
-	mockEC2 := &mockEC2Provider{
-		macToENI: map[string]string{
-			"00:00:00:00:00:01": "eni-001",
-			"00:00:00:00:00:02": "eni-002",
-		},
-	}
-	s.ec2Metadata = mockEC2
+
+	s.hostInfo = mockHost
 
 	expectedCounters := efaCounters{
 		// All values multiplied by 2 because we mock 2 ports
@@ -444,7 +427,7 @@ func TestScrape(t *testing.T) {
 		}: &expectedCounters,
 	}
 
-	assert.NoError(t, s.scrape(ctx))
+	assert.NoError(t, s.scrape())
 	assert.Equal(t, expected, *s.store.devices)
 }
 
@@ -538,12 +521,11 @@ func (r mockSysfsReaderError4) GetMACAddressFromDeviceName(_ efaDeviceName) (str
 
 func TestScrapeErrors(t *testing.T) {
 	for _, reader := range []sysFsReader{mockSysfsReaderError1{}, mockSysfsReaderError2{}, mockSysfsReaderError3{}, mockSysfsReaderError4{}} {
-		s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{})
-		ctx := context.Background()
+		s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost)
 
 		s.sysFsReader = reader
 
-		assert.Error(t, s.scrape(ctx))
+		assert.Error(t, s.scrape())
 		assert.Nil(t, s.store.devices)
 	}
 }
@@ -571,11 +553,10 @@ func (r mockSysfsReaderNoEfaData) GetMACAddressFromDeviceName(_ efaDeviceName) (
 }
 
 func TestScrapeNoEfaData(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{})
-	ctx := context.Background()
+	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost)
 
 	s.sysFsReader = mockSysfsReaderNoEfaData{}
 
-	assert.NoError(t, s.scrape(ctx))
+	assert.NoError(t, s.scrape())
 	assert.Nil(t, s.store.devices)
 }

@@ -18,7 +18,6 @@ type Provider interface {
 	GetHandlers() *request.Handlers
 	Hostname(ctx context.Context) (string, error)
 	InstanceID(ctx context.Context) (string, error)
-	NetworkInterfaceID(ctx context.Context, macAddress string) (string, error)
 }
 
 type metadataClient struct {
@@ -44,14 +43,6 @@ func (c *metadataClient) InstanceID(_ context.Context) (string, error) {
 		return instanceID, err
 	}
 	return c.metadataFallbackEnable.GetMetadata("instance-id")
-}
-
-func (c *metadataClient) NetworkInterfaceID(_ context.Context, macAddress string) (string, error) {
-	eniID, err := c.metadata.GetMetadata("network/interfaces/macs/" + macAddress + "/interface-id")
-	if err == nil {
-		return eniID, err
-	}
-	return c.metadataFallbackEnable.GetMetadata("network/interfaces/macs/" + macAddress + "/interface-id")
 }
 
 func (c *metadataClient) Hostname(_ context.Context) (string, error) {

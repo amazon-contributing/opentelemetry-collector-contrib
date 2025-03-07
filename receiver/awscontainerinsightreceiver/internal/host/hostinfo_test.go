@@ -46,6 +46,10 @@ func (m *mockEC2Metadata) getRegion() string {
 	return "region"
 }
 
+func (m *mockEC2Metadata) getNetworkInterfaceID(macAddress string) (string, error) {
+	return "eni-001", nil
+}
+
 type mockEBSVolume struct{}
 
 func (m *mockEBSVolume) getEBSVolumeID(_ string) string {
@@ -65,6 +69,7 @@ func (m *mockEC2Tags) getClusterName() string {
 func (m *mockEC2Tags) getAutoScalingGroupName() string {
 	return "asg"
 }
+
 
 func TestInfo(t *testing.T) {
 	// test the case when nodeCapacity fails to initialize

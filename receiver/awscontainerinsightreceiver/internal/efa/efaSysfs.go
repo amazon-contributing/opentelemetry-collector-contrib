@@ -12,14 +12,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/aws/aws-sdk-go/aws/session"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
+
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
-	ec2Metadata "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 )
 
@@ -59,7 +57,11 @@ type Scraper struct {
 	podResourcesStore podResourcesStore
 	store             *efaStore
 	logger            *zap.Logger
-	ec2Metadata       ec2MetadataProvider
+	hostInfo          hostInfoProvider
+}
+
+type hostInfoProvider interface {
+	GetNetworkInterfaceID(macAddress string) (string, error)
 }
 
 type sysFsReader interface {
@@ -68,10 +70,6 @@ type sysFsReader interface {
 	ListPorts(deviceName efaDeviceName) ([]string, error)
 	ReadCounter(deviceName efaDeviceName, port string, counter string) (uint64, error)
 	GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error)
-}
-
-type ec2MetadataProvider interface {
-	NetworkInterfaceID(ctx context.Context, macAddress string) (string, error)
 }
 
 type podResourcesStore interface {
@@ -108,7 +106,7 @@ type efaCounters struct {
 	txBytes            uint64 // hw_counters/tx_bytes
 }
 
-func NewEfaSyfsScraper(logger *zap.Logger, decorator stores.Decorator, podResourcesStore podResourcesStore) *Scraper {
+func NewEfaSyfsScraper(logger *zap.Logger, decorator stores.Decorator, podResourcesStore podResourcesStore, hostInfo hostInfoProvider) *Scraper {
 	ctx, cancel := context.WithCancel(context.Background())
 	podResourcesStore.AddResourceName(efaK8sResourceName)
 	e := &Scraper{
@@ -120,7 +118,7 @@ func NewEfaSyfsScraper(logger *zap.Logger, decorator stores.Decorator, podResour
 		podResourcesStore:  podResourcesStore,
 		store:              new(efaStore),
 		logger:             logger,
-		ec2Metadata:        ec2Metadata.NewProvider(session.Must(session.NewSession())),
+		hostInfo:           hostInfo,
 	}
 
 	go e.startScrape(ctx)
@@ -241,7 +239,7 @@ func (s *Scraper) startScrape(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			err := s.scrape(ctx)
+			err := s.scrape()
 			if err != nil {
 				s.logger.Warn("Failed to scrape EFA metrics from filesystem", zap.Error(err))
 			}
@@ -251,7 +249,7 @@ func (s *Scraper) startScrape(ctx context.Context) {
 	}
 }
 
-func (s *Scraper) scrape(ctx context.Context) error {
+func (s *Scraper) scrape() error {
 	exists, err := s.sysFsReader.EfaDataExists()
 	if err != nil {
 		return err
@@ -262,7 +260,7 @@ func (s *Scraper) scrape(ctx context.Context) error {
 
 	timestamp := time.Now()
 
-	devices, err := s.parseEfaDevices(ctx)
+	devices, err := s.parseEfaDevices()
 	if err != nil {
 		return err
 	}
@@ -275,7 +273,7 @@ func (s *Scraper) scrape(ctx context.Context) error {
 	return nil
 }
 
-func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
+func (s *Scraper) parseEfaDevices() (*efaDevices, error) {
 	deviceNames, err := s.sysFsReader.ListDevices()
 	if err != nil {
 		return nil, err
@@ -293,7 +291,7 @@ func (s *Scraper) parseEfaDevices(ctx context.Context) (*efaDevices, error) {
 			return nil, err
 		}
 
-		eniID, err := s.ec2Metadata.NetworkInterfaceID(ctx, macAddress)
+		eniID, err := s.hostInfo.GetNetworkInterfaceID(macAddress)
 		if err != nil {
 			return nil, err
 		}
