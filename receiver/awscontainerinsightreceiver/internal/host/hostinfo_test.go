@@ -70,7 +70,6 @@ func (m *mockEC2Tags) getAutoScalingGroupName() string {
 	return "asg"
 }
 
-
 func TestInfo(t *testing.T) {
 	// test the case when nodeCapacity fails to initialize
 	nodeCapacityCreatorOpt := func(m any) {

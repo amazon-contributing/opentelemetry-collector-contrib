@@ -12,8 +12,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"

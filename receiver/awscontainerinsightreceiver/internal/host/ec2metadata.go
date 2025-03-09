@@ -139,18 +139,18 @@ func (emd *ec2Metadata) getNetworkInterfaceID(macAddress string) (string, error)
 	if eniID, exists := emd.networkInterfaceIDs[macAddress]; exists {
 		return eniID, nil
 	}
- 
+
 	// Load the ENI ID from metadata service
 	eniID, err := emd.LoadNetworkInterfaceID(macAddress)
 	if err != nil {
 		return "", err
 	}
- 
+
 	// Cache the result
 	emd.networkInterfaceIDs[macAddress] = eniID
 	return eniID, nil
 }
- 
+
 func (emd *ec2Metadata) LoadNetworkInterfaceID(macAddress string) (string, error) {
 	eniID, err := emd.client.GetMetadata("network/interfaces/macs/" + macAddress + "/interface-id")
 	if err == nil {
