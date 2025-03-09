@@ -33,7 +33,7 @@ func (m *mockMetadataClient) GetInstanceIdentityDocument() (awsec2metadata.EC2In
 	}, nil
 }
 
-func (m *mockMetadataClient) GetMetadata(path string) (string, error) {
+func (m *mockMetadataClient) GetMetadata(_ string) (string, error) {
 	return "eni-001", nil
 }
 

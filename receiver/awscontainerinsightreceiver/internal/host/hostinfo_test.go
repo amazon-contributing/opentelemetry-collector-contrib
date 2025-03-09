@@ -46,7 +46,7 @@ func (m *mockEC2Metadata) getRegion() string {
 	return "region"
 }
 
-func (m *mockEC2Metadata) getNetworkInterfaceID(macAddress string) (string, error) {
+func (m *mockEC2Metadata) getNetworkInterfaceID(_ string) (string, error) {
 	return "eni-001", nil
 }
 
