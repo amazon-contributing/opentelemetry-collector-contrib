@@ -60,6 +60,7 @@ type KueuePrometheusScraper struct {
 	host               component.Host
 	clusterName        string
 	prometheusReceiver receiver.Metrics
+	scrapeConfig       *config.ScrapeConfig
 	running            bool
 }
 
@@ -83,6 +84,31 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 		return nil, errors.New("cluster name cannot be empty")
 	}
 
+	scrapeConfig := GetScrapeConfig(
+		opts.ClusterName,
+		opts.BearerToken,
+		opts.TelemetrySettings.Logger,
+	)
+
+	scraper := &KueuePrometheusScraper{
+		ctx:          opts.Ctx,
+		settings:     opts.TelemetrySettings,
+		host:         opts.Host,
+		clusterName:  opts.ClusterName,
+		scrapeConfig: scrapeConfig,
+	}
+
+	promReceiver, err := scraper.createPrometheusReceiver(opts.Consumer)
+	if err != nil {
+		return nil, err
+	}
+
+	scraper.prometheusReceiver = promReceiver
+
+	return scraper, nil
+}
+
+func GetScrapeConfig(clusterName string, bearerToken string, logger *zap.Logger) *config.ScrapeConfig {
 	scrapeConfig := &config.ScrapeConfig{
 		HTTPClientConfig: configutil.HTTPClientConfig{
 			TLSConfig: configutil.TLSConfig{
@@ -111,39 +137,16 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 				},
 			},
 		},
-		MetricRelabelConfigs: GetKueueRelabelConfigs(opts.ClusterName),
+		MetricRelabelConfigs: GetKueueRelabelConfigs(clusterName),
 	}
 
-	if opts.BearerToken != "" {
-		scrapeConfig.HTTPClientConfig.BearerToken = configutil.Secret(opts.BearerToken)
+	if bearerToken != "" {
+		scrapeConfig.HTTPClientConfig.BearerToken = configutil.Secret(bearerToken)
 	} else {
-		opts.TelemetrySettings.Logger.Warn("bearer token is not set, kueue metrics will not be published")
+		logger.Warn("bearer token is not set, kueue metrics will not be published")
 	}
 
-	promConfig := prometheusreceiver.Config{
-		PrometheusConfig: &prometheusreceiver.PromConfig{
-			ScrapeConfigs: []*config.ScrapeConfig{scrapeConfig},
-		},
-	}
-
-	params := receiver.Settings{
-		ID:                component.MustNewID(kmJobName),
-		TelemetrySettings: opts.TelemetrySettings,
-	}
-
-	promFactory := prometheusreceiver.NewFactory()
-	promReceiver, err := promFactory.CreateMetrics(opts.Ctx, params, &promConfig, opts.Consumer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create prometheus receiver for kueue metrics: %w", err)
-	}
-
-	return &KueuePrometheusScraper{
-		ctx:                opts.Ctx,
-		settings:           opts.TelemetrySettings,
-		host:               opts.Host,
-		clusterName:        opts.ClusterName,
-		prometheusReceiver: promReceiver,
-	}, nil
+	return scrapeConfig
 }
 
 func GetKueueRelabelConfigs(clusterName string) []*relabel.Config {
@@ -193,6 +196,27 @@ func GetKueueRelabelConfigs(clusterName string) []*relabel.Config {
 	return relabelConfigs
 }
 
+func (kps *KueuePrometheusScraper) createPrometheusReceiver(consumer consumer.Metrics) (receiver.Metrics, error) {
+	promConfig := prometheusreceiver.Config{
+		PrometheusConfig: &prometheusreceiver.PromConfig{
+			ScrapeConfigs: []*config.ScrapeConfig{kps.scrapeConfig},
+		},
+	}
+
+	params := receiver.Settings{
+		ID:                component.MustNewID(kmJobName),
+		TelemetrySettings: kps.settings,
+	}
+
+	promFactory := prometheusreceiver.NewFactory()
+	promReceiver, err := promFactory.CreateMetrics(kps.ctx, params, &promConfig, consumer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create prometheus receiver for kueue metrics: %w", err)
+	}
+
+	return promReceiver, nil
+}
+
 func (kps *KueuePrometheusScraper) GetMetrics() []pmetric.Metrics {
 	// This method will never return metrics because the metrics are collected by the scraper.
 
@@ -209,6 +233,7 @@ func (kps *KueuePrometheusScraper) GetMetrics() []pmetric.Metrics {
 
 func (kps *KueuePrometheusScraper) Shutdown() {
 	if kps.running {
+		kps.settings.Logger.Info("Shutting down the Kueue metrics scraper")
 		err := kps.prometheusReceiver.Shutdown(kps.ctx)
 		if err != nil {
 			kps.settings.Logger.Error("Unable to shutdown Kueue PrometheusReceiver", zap.Error(err))

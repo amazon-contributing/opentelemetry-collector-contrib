@@ -5,7 +5,6 @@ package awscontainerinsightskueuereceiver // import "github.com/open-telemetry/o
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"runtime"
 	"time"
@@ -14,38 +13,41 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightskueuereceiver/internal/kueuescraper"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightskueuereceiver/internal/tokenprovider"
 )
 
 var _ receiver.Metrics = (*awsContainerInsightKueueReceiver)(nil)
 
 // awsContainerInsightKueueReceiver implements the receiver.Metrics
 type awsContainerInsightKueueReceiver struct {
-	settings     component.TelemetrySettings
-	nextConsumer consumer.Metrics
-	config       *Config
-	cancel       context.CancelFunc
-	kueueScraper *kueuescraper.KueuePrometheusScraper
+	settings        component.TelemetrySettings
+	nextConsumer    consumer.Metrics
+	config          *Config
+	cancel          context.CancelFunc
+	tokenProvider   *tokenprovider.BearerTokenProvider
+	tokenGeneration int
+	kueueScraper    *kueuescraper.KueuePrometheusScraper
 }
 
-// newAWSContainerInsightReceiver creates the aws container insight receiver with the given parameters.
-func newAWSContainerInsightReceiver(
+// newAWSContainerInsightsKueueReceiver creates the AWS Container Insights Kueue receiver with the given parameters.
+func newAWSContainerInsightsKueueReceiver(
 	settings component.TelemetrySettings,
 	config *Config,
 	nextConsumer consumer.Metrics,
 ) (receiver.Metrics, error) {
 	r := &awsContainerInsightKueueReceiver{
-		settings:     settings,
-		nextConsumer: nextConsumer,
-		config:       config,
+		settings:      settings,
+		nextConsumer:  nextConsumer,
+		config:        config,
+		tokenProvider: tokenprovider.NewBearerTokenProvider(),
 	}
 	return r, nil
 }
 
-// Start collecting metrics from cadvisor and k8s api server (if it is an elected leader)
+// Start collecting metrics from Kueue metrics prometheusendpoint
 func (akr *awsContainerInsightKueueReceiver) Start(ctx context.Context, host component.Host) error {
 	ctx, akr.cancel = context.WithCancel(ctx)
 
@@ -55,7 +57,7 @@ func (akr *awsContainerInsightKueueReceiver) Start(ctx context.Context, host com
 			akr.settings.Logger.Error("Unable to initialize receiver for Kueue metrics", zap.Error(err))
 			return
 		}
-		akr.start(ctx)
+		akr.start(ctx, host)
 	}()
 
 	return nil
@@ -66,7 +68,16 @@ func (akr *awsContainerInsightKueueReceiver) init(ctx context.Context, host comp
 		return fmt.Errorf("unsupported operating system: %s", ci.OperatingSystemWindows)
 	}
 
-	err := akr.initKueuePrometheusScraper(ctx, host)
+	bearerToken, tokenErr := akr.tokenProvider.GetToken()
+
+	if tokenErr != nil {
+		akr.settings.Logger.Warn("Unable to retrieve bearer token", zap.Error(tokenErr))
+		return tokenErr
+	}
+
+	akr.tokenGeneration = akr.tokenProvider.TokenGeneration()
+
+	err := akr.initKueuePrometheusScraper(ctx, host, bearerToken)
 	if err != nil {
 		akr.settings.Logger.Warn("Unable to start kueue prometheus scraper", zap.Error(err))
 		return err
@@ -74,7 +85,7 @@ func (akr *awsContainerInsightKueueReceiver) init(ctx context.Context, host comp
 	return nil
 }
 
-func (akr *awsContainerInsightKueueReceiver) start(ctx context.Context) {
+func (akr *awsContainerInsightKueueReceiver) start(ctx context.Context, host component.Host) {
 	ticker := time.NewTicker(akr.config.CollectionInterval)
 	defer ticker.Stop()
 
@@ -82,6 +93,17 @@ func (akr *awsContainerInsightKueueReceiver) start(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			akr.collectData()
+			// perform a token load to check if generation has changed
+			_, err := akr.tokenProvider.GetToken()
+			if err != nil {
+				akr.settings.Logger.Warn("Unable to retrieve bearer token, receiver will continue without refreshing", zap.Error(err))
+			} else {
+				if akr.tokenGeneration != akr.tokenProvider.TokenGeneration() {
+					akr.settings.Logger.Info("Token generation has changed, restarting receiver")
+					akr.shutdownScraper()
+					akr.init(ctx, host)
+				}
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -91,16 +113,9 @@ func (akr *awsContainerInsightKueueReceiver) start(ctx context.Context) {
 func (akr *awsContainerInsightKueueReceiver) initKueuePrometheusScraper(
 	ctx context.Context,
 	host component.Host,
+	bearerToken string,
 ) error {
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return err
-	}
-	bearerToken := restConfig.BearerToken
-	if bearerToken == "" {
-		return errors.New("bearer token was empty")
-	}
-
+	var err error
 	akr.kueueScraper, err = kueuescraper.NewKueuePrometheusScraper(kueuescraper.KueuePrometheusScraperOpts{
 		Ctx:               ctx,
 		TelemetrySettings: akr.settings,
@@ -119,11 +134,15 @@ func (akr *awsContainerInsightKueueReceiver) Shutdown(context.Context) error {
 	}
 	akr.cancel()
 
+	akr.shutdownScraper()
+
+	return nil
+}
+
+func (akr *awsContainerInsightKueueReceiver) shutdownScraper() {
 	if akr.kueueScraper != nil {
 		akr.kueueScraper.Shutdown()
 	}
-
-	return nil
 }
 
 func (akr *awsContainerInsightKueueReceiver) collectData() {

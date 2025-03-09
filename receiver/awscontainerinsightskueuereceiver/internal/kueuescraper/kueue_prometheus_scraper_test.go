@@ -123,7 +123,6 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 			Consumer:          mConsumer,
 			Host:              componenttest.NewNopHost(),
 			ClusterName:       "DummyCluster",
-			BearerToken:       "",
 		},
 	)
 	assert.NoError(t, err)
