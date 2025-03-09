@@ -141,7 +141,7 @@ func (emd *ec2Metadata) getNetworkInterfaceID(macAddress string) (string, error)
 	}
 
 	// Load the ENI ID from metadata service
-	eniID, err := emd.LoadNetworkInterfaceID(macAddress)
+	eniID, err := emd.loadNetworkInterfaceID(macAddress)
 	if err != nil {
 		return "", err
 	}
@@ -151,7 +151,7 @@ func (emd *ec2Metadata) getNetworkInterfaceID(macAddress string) (string, error)
 	return eniID, nil
 }
 
-func (emd *ec2Metadata) LoadNetworkInterfaceID(macAddress string) (string, error) {
+func (emd *ec2Metadata) loadNetworkInterfaceID(macAddress string) (string, error) {
 	eniID, err := emd.client.GetMetadata("network/interfaces/macs/" + macAddress + "/interface-id")
 	if err == nil {
 		return eniID, nil
