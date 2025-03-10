@@ -35,7 +35,7 @@ const (
 	kueueServiceFieldSelector   = "metadata.name=kueue-controller-manager-metrics-service"
 	kueueMetricsLogStream       = "kubernetes-kueue"
 
-	serviceAccountTokenDefaultPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	serviceAccountTokenDefaultPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec
 )
 
 var ( // list of regular expressions for the kueue metrics this scraper is intended to capture
