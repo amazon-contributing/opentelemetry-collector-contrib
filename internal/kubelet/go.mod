@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet
 
-go 1.22.0
+go 1.23.0
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.115.0

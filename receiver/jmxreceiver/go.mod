@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jmxreceiver
 
-go 1.22.0
+go 1.23.0
 
 require (
 	github.com/magiconair/properties v1.8.7
