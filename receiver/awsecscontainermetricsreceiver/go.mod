@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsecscontainermetricsreceiver
 
-go 1.23.0
+go 1.23.6
 
 require (
 	github.com/aws/aws-sdk-go v1.55.5

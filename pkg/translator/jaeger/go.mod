@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/jaeger
 
-go 1.23.0
+go 1.23.6
 
 require (
 	github.com/jaegertracing/jaeger v1.62.0
