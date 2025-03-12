@@ -1,6 +1,8 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding/jaegerencodingextension
 
-go 1.22.7
+go 1.23.6
+
+toolchain go1.23.7
 
 require (
 	github.com/gogo/protobuf v1.3.2
