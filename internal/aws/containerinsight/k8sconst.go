@@ -19,7 +19,7 @@ const (
 	ContainerIDkey   = "ContainerId"
 	GpuDevice        = "GpuDevice"
 	EfaDevice        = "EfaDevice"
-	EniID            = "ElasticNetworkInterfaceId"
+	EniID            = "NetworkInterfaceId"
 
 	PodStatus       = "pod_status"
 	ContainerStatus = "container_status"
