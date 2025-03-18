@@ -12,13 +12,6 @@ import (
 	"time"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/consumer"
-	"go.opentelemetry.io/collector/pdata/pmetric"
-	"go.opentelemetry.io/collector/receiver"
-	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
-
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor"
@@ -33,6 +26,11 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/prometheusscraper/decoratorconsumer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
+	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/receiver"
+	"go.uber.org/zap"
 )
 
 const (
@@ -270,16 +268,6 @@ func (acir *awsContainerInsightReceiver) initPrometheusScraper(ctx context.Conte
 	}
 
 	acir.settings.Logger.Debug("kube apiserver endpoint found", zap.String("endpoint", endpoint))
-	// use the same leader
-
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return err
-	}
-	bearerToken := restConfig.BearerToken
-	if bearerToken == "" {
-		return errors.New("bearer token was empty")
-	}
 
 	acir.prometheusScraper, err = k8sapiserver.NewPrometheusScraper(k8sapiserver.PrometheusScraperOpts{
 		Ctx:                 ctx,
@@ -289,7 +277,6 @@ func (acir *awsContainerInsightReceiver) initPrometheusScraper(ctx context.Conte
 		Host:                host,
 		ClusterNameProvider: hostInfo,
 		LeaderElection:      leaderElection,
-		BearerToken:         bearerToken,
 	})
 	return err
 }
