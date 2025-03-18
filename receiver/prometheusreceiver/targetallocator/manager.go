@@ -101,8 +101,10 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 
 func (m *Manager) Shutdown() {
 	close(m.shutdown)
-	if err := m.watcher.Close(); err != nil {
-		m.settings.Logger.Warn("Error closing fsnotify watcher", zap.Error(err))
+	if m.watcher != nil {
+		if err := m.watcher.Close(); err != nil {
+			m.settings.Logger.Warn("Error closing fsnotify watcher", zap.Error(err))
+		}
 	}
 }
 
