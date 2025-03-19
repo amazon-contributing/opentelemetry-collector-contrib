@@ -121,16 +121,15 @@ func (p *kubeConfigClientProvider) BuildClient() (Client, error) {
 		authConf.TLSClientConfig.CAData = nil
 		authConf.TLSClientConfig.Insecure = true
 	}
-
+	if p.cfg.CAFile != "" {
+		p.logger.Debug("Kubeconfig Client Provider will use custom CA cert", zap.String("CAfile Path", p.cfg.CAFile))
+	}
 	client, err := rest.HTTPClientFor(authConf)
 	if err != nil {
 		return nil, err
 	}
 
 	joinPath, err := url.JoinPath(authConf.Host, "/api/v1/nodes/", p.endpoint, "/proxy/")
-	if p.cfg.CAFile != "" {
-		p.logger.Debug("Kubeconfig Client Provider will use custom CA cert", zap.String("CAfile Path", p.cfg.CAFile))
-	}
 
 	if err != nil {
 		return nil, err
