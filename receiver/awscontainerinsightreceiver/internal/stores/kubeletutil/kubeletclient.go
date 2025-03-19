@@ -5,7 +5,6 @@ package kubeletutil // import "github.com/open-telemetry/opentelemetry-collector
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
@@ -30,18 +29,9 @@ type KubeletClient struct {
 }
 
 func isFileExist(filePath string) bool {
+	// assumes file does not exist on ANY kind of error
 	_, err := os.Stat(filePath)
-	if err == nil {
-		// path exists
-		return true
-
-	} else if errors.Is(err, os.ErrNotExist) {
-		// path does *not* exist
-		return false
-	} else {
-		// Schrodinger: file may or may not exist.
-		return false
-	}
+	return err == nil
 }
 
 func NewKubeletClient(kubeIP string, port string, clientConfig *kubelet.ClientConfig, logger *zap.Logger) (*KubeletClient, error) {
