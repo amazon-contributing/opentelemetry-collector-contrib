@@ -129,8 +129,9 @@ func (p *kubeConfigClientProvider) BuildClient() (Client, error) {
 
 	joinPath, err := url.JoinPath(authConf.Host, "/api/v1/nodes/", p.endpoint, "/proxy/")
 	if p.cfg.CAFile != "" {
-		fmt.Printf("Kubeconfig Client Provider will use custom CA cert: %v\n", p.cfg.CAFile)
+		p.logger.Debug("Kubeconfig Client Provider will use custom CA cert", zap.String("CAfile Path", p.cfg.CAFile))
 	}
+
 	if err != nil {
 		return nil, err
 	}
