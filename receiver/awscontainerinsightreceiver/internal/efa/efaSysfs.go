@@ -205,7 +205,9 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 
 		for _, m := range allMetrics {
 			m.AddTag(ci.EfaDevice, string(deviceName))
-			if (eniID != nil) m.AddTag(ci.EniID, eniID)
+			if (eniID != nil) {
+				m.AddTag(ci.EniID, eniID)
+			}
 			m.AddTag(ci.Timestamp, strconv.FormatInt(store.timestamp.UnixNano(), 10))
 		}
 		for _, m := range podContainerMetrics {
