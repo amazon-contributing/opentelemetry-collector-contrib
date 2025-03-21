@@ -205,7 +205,7 @@ func (s *Scraper) GetMetrics() []pmetric.Metrics {
 
 		for _, m := range allMetrics {
 			m.AddTag(ci.EfaDevice, string(deviceName))
-			m.AddTag(ci.EniID, eniID)
+			if (eniID != nil) m.AddTag(ci.EniID, eniID)
 			m.AddTag(ci.Timestamp, strconv.FormatInt(store.timestamp.UnixNano(), 10))
 		}
 		for _, m := range podContainerMetrics {
@@ -288,12 +288,14 @@ func (s *Scraper) parseEfaDevices() (*efaDevices, error) {
 
 		macAddress, err := s.sysFsReader.GetMACAddressFromDeviceName(name)
 		if err != nil {
-			return nil, err
+			macAddress = nil
+			s.logger.Warn("Failed to scrape macAddress from filesystem", zap.Error(err))
 		}
 
 		eniID, err := s.hostInfo.GetNetworkInterfaceID(macAddress)
 		if err != nil {
-			return nil, err
+			eniID = nil
+			s.logger.Warn("Failed to scrape networkInterfaceId from IMDS", zap.Error(err))
 		}
 
 		device := efaDevice{
