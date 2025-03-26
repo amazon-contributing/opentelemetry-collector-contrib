@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	caFile                    = "/etc/amazon-cloudwatch-observability-agent-cert/tls-ca.crt"
 	collectionInterval        = 60 * time.Second
 	jobName                   = "containerInsightsNVMeExporterScraper"
 	scraperMetricsPath        = "/metrics"
