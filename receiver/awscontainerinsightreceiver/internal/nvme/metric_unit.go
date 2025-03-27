@@ -19,31 +19,18 @@ const (
 	ebsExceededEC2IOPSTime = "aws_ebs_csi_ec2_exceeded_iops_seconds_total"
 	ebsExceededEC2TPTime   = "aws_ebs_csi_ec2_exceeded_tp_seconds_total"
 	ebsVolumeQueueLength   = "aws_ebs_csi_volume_queue_length"
-
-	// Converted Names
-	nodeReadOpsTotal        = "node_diskio_ebs_total_read_ops"
-	nodeWriteOpsTotal       = "node_diskio_ebs_total_write_ops"
-	nodeReadBytesTotal      = "node_diskio_ebs_total_read_bytes"
-	nodeWriteBytesTotal     = "node_diskio_ebs_total_write_bytes"
-	nodeReadTime            = "node_diskio_ebs_total_read_time"
-	nodeWriteTime           = "node_diskio_ebs_total_write_time"
-	nodeExceededIOPSTime    = "node_diskio_ebs_volume_performance_exceeded_iops"
-	nodeExceededTPTime      = "node_diskio_ebs_volume_performance_exceeded_tp"
-	nodeExceededEC2IOPSTime = "node_diskio_ebs_ec2_instance_performance_exceeded_iops"
-	nodeExceededEC2TPTime   = "node_diskio_ebs_ec2_instance_performance_exceeded_tp"
-	nodeVolumeQueueLength   = "node_diskio_ebs_volume_queue_length"
 )
 
 var MetricToUnit = map[string]string{
-	nodeReadOpsTotal:        containerinsight.UnitCount,
-	nodeWriteOpsTotal:       containerinsight.UnitCount,
-	nodeReadBytesTotal:      containerinsight.UnitBytes,
-	nodeWriteBytesTotal:     containerinsight.UnitBytes,
-	nodeReadTime:            containerinsight.UnitSecond,
-	nodeWriteTime:           containerinsight.UnitSecond,
-	nodeExceededIOPSTime:    containerinsight.UnitSecond,
-	nodeExceededTPTime:      containerinsight.UnitSecond,
-	nodeExceededEC2IOPSTime: containerinsight.UnitSecond,
-	nodeExceededEC2TPTime:   containerinsight.UnitSecond,
-	nodeVolumeQueueLength:   containerinsight.UnitCount,
+	ebsReadOpsTotal:        containerinsight.UnitCount,
+	ebsWriteOpsTotal:       containerinsight.UnitCount,
+	ebsReadBytesTotal:      containerinsight.UnitBytes,
+	ebsWriteBytesTotal:     containerinsight.UnitBytes,
+	ebsReadTime:            containerinsight.UnitSecond,
+	ebsWriteTime:           containerinsight.UnitSecond,
+	ebsExceededIOPSTime:    containerinsight.UnitSecond,
+	ebsExceededTPTime:      containerinsight.UnitSecond,
+	ebsExceededEC2IOPSTime: containerinsight.UnitSecond,
+	ebsExceededEC2TPTime:   containerinsight.UnitSecond,
+	ebsVolumeQueueLength:   containerinsight.UnitCount,
 }
