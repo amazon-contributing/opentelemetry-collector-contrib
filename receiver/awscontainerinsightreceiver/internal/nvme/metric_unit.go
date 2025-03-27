@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package nvme // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/gpu"
+import (
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
+)
 
 const (
 	// Original Metric Names
@@ -32,15 +35,15 @@ const (
 )
 
 var MetricToUnit = map[string]string{
-	nodeReadOpsTotal:        "Count",
-	nodeWriteOpsTotal:       "Count",
-	nodeReadBytesTotal:      "Bytes",
-	nodeWriteBytesTotal:     "Bytes",
-	nodeReadTime:            "Seconds",
-	nodeWriteTime:           "Seconds",
-	nodeExceededIOPSTime:    "Seconds",
-	nodeExceededTPTime:      "Seconds",
-	nodeExceededEC2IOPSTime: "Seconds",
-	nodeExceededEC2TPTime:   "Seconds",
-	nodeVolumeQueueLength:   "Count",
+	nodeReadOpsTotal:        containerinsight.UnitCount,
+	nodeWriteOpsTotal:       containerinsight.UnitCount,
+	nodeReadBytesTotal:      containerinsight.UnitBytes,
+	nodeWriteBytesTotal:     containerinsight.UnitBytes,
+	nodeReadTime:            containerinsight.UnitSecond,
+	nodeWriteTime:           containerinsight.UnitSecond,
+	nodeExceededIOPSTime:    containerinsight.UnitSecond,
+	nodeExceededTPTime:      containerinsight.UnitSecond,
+	nodeExceededEC2IOPSTime: containerinsight.UnitSecond,
+	nodeExceededEC2TPTime:   containerinsight.UnitSecond,
+	nodeVolumeQueueLength:   containerinsight.UnitCount,
 }

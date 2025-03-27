@@ -59,99 +59,16 @@ func getMetricRelabelConfig(hostInfoProvider hostInfoProvider) []*relabel.Config
 	return []*relabel.Config{
 		{
 			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsReadOpsTotal),
-			Replacement:  nodeReadOpsTotal,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsWriteOpsTotal),
-			Replacement:  nodeWriteOpsTotal,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsReadBytesTotal),
-			Replacement:  nodeReadBytesTotal,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsWriteBytesTotal),
-			Replacement:  nodeWriteBytesTotal,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsReadTime),
-			Replacement:  nodeReadTime,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsWriteTime),
-			Replacement:  nodeWriteTime,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsExceededIOPSTime),
-			Replacement:  nodeExceededIOPSTime,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsExceededTPTime),
-			Replacement:  nodeExceededTPTime,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsExceededEC2IOPSTime),
-			Replacement:  nodeExceededEC2IOPSTime,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsExceededEC2TPTime),
-			Replacement:  nodeExceededEC2TPTime,
-			Action:       relabel.Replace,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			TargetLabel:  "__name__",
-			Regex:        relabel.MustNewRegexp(ebsVolumeQueueLength),
-			Replacement:  nodeVolumeQueueLength,
-			Action:       relabel.Replace,
+			Regex:        relabel.MustNewRegexp("aws_ebs_csi_.*"),
+			Action:       relabel.Keep,
 		},
 
-		// Below metrics are historgram which are not supported for container insights yet
+		// Below metrics are histogram type which are not supported for container insights yet
 		{
 			SourceLabels: model.LabelNames{"__name__"},
-			Regex:        relabel.MustNewRegexp("aws_ebs_csi_write_io_latency_seconds_.*"),
+			Regex:        relabel.MustNewRegexp(".*_bucket|.*_sum|.*_count.*"),
 			Action:       relabel.Drop,
 		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			Regex:        relabel.MustNewRegexp("aws_ebs_csi_read_io_latency_seconds_.*"),
-			Action:       relabel.Drop,
-		},
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			Regex:        relabel.MustNewRegexp("aws_ebs_csi_nvme_collector_duration_seconds.*"),
-			Action:       relabel.Drop,
-		},
-
 		// Hacky way to inject static values (clusterName/instanceId/nodeName/volumeID)
 		{
 			SourceLabels: model.LabelNames{"instance_id"},

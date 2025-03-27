@@ -333,7 +333,7 @@ func (acir *awsContainerInsightReceiver) initNVMEScraper(ctx context.Context, ho
 	decoConsumer := decoratorconsumer.DecorateConsumer{
 		ContainerOrchestrator: ci.EKS,
 		NextConsumer:          acir.nextConsumer,
-		MetricType:            ci.TypeNVME,
+		MetricType:            ci.TypeNodeNVME,
 		MetricToUnitMap:       nvme.MetricToUnit,
 		K8sDecorator:          localNodeDecorator,
 		Logger:                acir.settings.Logger,
