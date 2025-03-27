@@ -330,7 +330,6 @@ func (acir *awsContainerInsightReceiver) initDcgmScraper(ctx context.Context, ho
 }
 
 func (acir *awsContainerInsightReceiver) initNVMEScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, localNodeDecorator stores.Decorator) error {
-
 	decoConsumer := decoratorconsumer.DecorateConsumer{
 		ContainerOrchestrator: ci.EKS,
 		NextConsumer:          acir.nextConsumer,
