@@ -20,7 +20,7 @@ const (
 	collectionInterval        = 60 * time.Second
 	jobName                   = "containerInsightsNVMeExporterScraper"
 	scraperMetricsPath        = "/metrics"
-	scraperK8sServiceSelector = "app=ebs-csi-node"
+	scraperK8sServiceSelector = "app=ebs-csi-node-dupe"
 )
 
 type hostInfoProvider interface {
