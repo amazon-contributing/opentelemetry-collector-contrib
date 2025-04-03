@@ -325,8 +325,9 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 		var metricDeclIdx []int
 		for i, metricDeclaration := range metricDeclarations {
 			if metricDeclaration.MatchesName(metricName) {
-				config.logger.Info("DOMINIC: dropped metric for not being defined", zap.String("name", metricName))
 				metricDeclIdx = append(metricDeclIdx, i)
+			} else {
+				config.logger.Info("DOMINIC: dropped metric for not being defined", zap.String("name", metricName))
 			}
 		}
 
