@@ -5,6 +5,7 @@ package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collec
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -213,6 +214,8 @@ func (dps histogramDataPointSlice) CalculateDeltaDatapoints(i int, _ string, _ b
 		sum = summaryMetricDelta.sum
 		count = summaryMetricDelta.count
 	}
+
+	log.Printf("DOMINIC: labels: %v, sum: %f, count: %d", labels, sum, count)
 
 	return []dataPoint{{
 		name: dps.metricName,

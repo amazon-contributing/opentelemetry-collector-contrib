@@ -281,6 +281,8 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 	containerInsightMetric.Resource().Attributes().PutStr(conventions.AttributeServiceName, "containerInsightsKubeAPIServerScraper")
 	gpuMetric := createTestResourceMetricsHelper(defaultNumberOfTestMetrics + 1)
 	gpuMetric.Resource().Attributes().PutStr(conventions.AttributeServiceName, "containerInsightsDCGMExporterScraper")
+	nvmeMetric := createTestResourceMetricsHelper(defaultNumberOfTestMetrics + 1)
+	nvmeMetric.Resource().Attributes().PutStr(conventions.AttributeServiceName, "containerInsightsNVMeExporterScraper")
 	neuronMetric := createTestResourceMetricsHelper(defaultNumberOfTestMetrics + 1)
 	neuronMetric.Resource().Attributes().PutStr(conventions.AttributeServiceName, "containerInsightsNeuronMonitorScraper")
 	kueueMetric := createTestResourceMetricsHelper(defaultNumberOfTestMetrics + 1)
@@ -374,6 +376,19 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 				"spanName": "testSpan",
 			},
 			"myServiceNS/containerInsightsDCGMExporterScraper",
+			containerInsightsReceiver,
+		},
+		{
+			"nvme receiver",
+			nvmeMetric,
+			map[string]string{
+				"isItAnError": "false",
+				"spanName":    "testSpan",
+			},
+			map[string]string{
+				"spanName": "testSpan",
+			},
+			"myServiceNS/containerInsightsNVMeExporterScraper",
 			containerInsightsReceiver,
 		},
 		{

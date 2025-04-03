@@ -144,6 +144,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	if serviceName, ok := rm.Resource().Attributes().Get("service.name"); ok {
 		if strings.HasPrefix(serviceName.Str(), "containerInsightsKubeAPIServerScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsDCGMExporterScraper") ||
+			strings.HasPrefix(serviceName.Str(), "containerInsightsNVMeExporterScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsNeuronMonitorScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsKueueMetricsScraper") {
 			// the prometheus metrics that come from the container insight receiver need to be clearly tagged as coming from container insights
@@ -324,6 +325,7 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 		var metricDeclIdx []int
 		for i, metricDeclaration := range metricDeclarations {
 			if metricDeclaration.MatchesName(metricName) {
+				config.logger.Info("DOMINIC: dropped metric for not being defined", zap.String("name", metricName))
 				metricDeclIdx = append(metricDeclIdx, i)
 			}
 		}
