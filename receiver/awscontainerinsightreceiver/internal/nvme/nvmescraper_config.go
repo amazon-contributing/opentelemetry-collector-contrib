@@ -64,11 +64,11 @@ func getMetricRelabelConfig(hostInfoProvider hostInfoProvider) []*relabel.Config
 		},
 
 		// Below metrics are histogram type which are not supported for container insights yet
-		{
-			SourceLabels: model.LabelNames{"__name__"},
-			Regex:        relabel.MustNewRegexp(".*_bucket|.*_sum|.*_count.*"),
-			Action:       relabel.Drop,
-		},
+		// {
+		// 	SourceLabels: model.LabelNames{"__name__"},
+		// 	Regex:        relabel.MustNewRegexp(".*_bucket|.*_sum|.*_count.*"),
+		// 	Action:       relabel.Drop,
+		// },
 		// Hacky way to inject static values (clusterName/instanceId/nodeName/volumeID)
 		{
 			SourceLabels: model.LabelNames{"instance_id"},
