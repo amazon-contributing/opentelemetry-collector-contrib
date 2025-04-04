@@ -209,11 +209,14 @@ func ConvertToFieldsAndTags(m pmetric.Metric, logger *zap.Logger) []FieldsAndTag
 	}
 
 	var dps pmetric.NumberDataPointSlice
+	var hdps pmetric.HistogramDataPointSlice
 	switch m.Type() {
 	case pmetric.MetricTypeGauge:
 		dps = m.Gauge().DataPoints()
 	case pmetric.MetricTypeSum:
 		dps = m.Sum().DataPoints()
+	case pmetric.MetricTypeHistogram:
+		hdps = m.Histogram().DataPoints()
 	default:
 		logger.Warn("Unsupported metric type", zap.String("metric", m.Name()), zap.String("type", m.Type().String()))
 	}
@@ -225,6 +228,21 @@ func ConvertToFieldsAndTags(m pmetric.Metric, logger *zap.Logger) []FieldsAndTag
 	for i := 0; i < dps.Len(); i++ {
 		tags := make(map[string]string)
 		attrs := dps.At(i).Attributes()
+		attrs.Range(func(k string, v pcommon.Value) bool {
+			tags[k] = v.AsString()
+			return true
+		})
+		converted = append(converted, FieldsAndTagsPair{
+			Fields: map[string]any{
+				m.Name(): nil, // metric value not needed for attribute decoration
+			},
+			Tags: tags,
+		})
+	}
+
+	for i := 0; i < hdps.Len(); i++ {
+		tags := make(map[string]string)
+		attrs := hdps.At(i).Attributes()
 		attrs.Range(func(k string, v pcommon.Value) bool {
 			tags[k] = v.AsString()
 			return true
