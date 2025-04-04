@@ -52,6 +52,7 @@ func GetScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig {
 			},
 		},
 		MetricRelabelConfigs: getMetricRelabelConfig(hostInfoProvider),
+		ScrapeClassicHistograms: true,
 	}
 }
 
