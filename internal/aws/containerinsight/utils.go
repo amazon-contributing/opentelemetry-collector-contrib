@@ -221,6 +221,8 @@ func ConvertToFieldsAndTags(m pmetric.Metric, logger *zap.Logger) []FieldsAndTag
 		logger.Warn("Unsupported metric type", zap.String("metric", m.Name()), zap.String("type", m.Type().String()))
 	}
 
+	// DOMINIC: this is the problem
+	// get the hdps but skip this and the for loop if dps isnt be used
 	if dps.Len() == 0 {
 		logger.Warn("Metric has no datapoint", zap.String("metric", m.Name()))
 	}
