@@ -78,16 +78,16 @@ func (m mockConsumer) ConsumeMetrics(_ context.Context, md pmetric.Metrics) erro
 	for i := 0; i < scopeMetrics.Len(); i++ {
 		metric := scopeMetrics.At(i)
 		// skip prometheus metadata metrics including "up"
-		if !strings.HasPrefix(metric.Name(), "node_") {
+		if !strings.HasPrefix(metric.Name(), "aws_ebs") {
 			continue
 		}
 		metadata, ok := m.expected[metric.Name()]
 		assert.True(m.t, ok)
-		assert.Equal(m.t, metadata.value, metric.Gauge().DataPoints().At(0).DoubleValue())
+		assert.Equal(m.t, metadata.value, metric.Sum().DataPoints().At(0).DoubleValue())
 		for k, v := range metadata.labels {
-			gauge := metric.Gauge().DataPoints().At(0)
+			gauge := metric.Sum().DataPoints().At(0)
 			m.t.Logf("%v", gauge)
-			lv, found := metric.Gauge().DataPoints().At(0).Attributes().Get(k)
+			lv, found := metric.Sum().DataPoints().At(0).Attributes().Get(k)
 			assert.True(m.t, found)
 			assert.Equal(m.t, v, lv.AsString())
 		}
@@ -104,7 +104,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 		value  float64
 		labels map[string]string
 	}{
-		"node_diskio_ebs_total_read_time": {
+		"aws_ebs_csi_read_seconds_total": {
 			value: 34.52,
 			labels: map[string]string{
 				ci.NodeNameKey:    "hostname",
@@ -113,7 +113,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 				ci.VolumeID:       "vol-0281cf921f3dbb69b",
 			},
 		},
-		"node_diskio_ebs_total_read_ops": {
+		"aws_ebs_csi_read_ops_total": {
 			value: 55592,
 			labels: map[string]string{
 				ci.NodeNameKey:    "hostname",
@@ -214,7 +214,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 	assert.True(t, consumerCalled)
 }
 
-func TestDcgmScraperJobName(t *testing.T) {
+func TestNvmeScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
 	assert.True(t, strings.HasPrefix(jobName, "containerInsightsNVMeExporterScraper"))
 }
