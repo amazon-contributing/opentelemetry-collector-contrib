@@ -45,6 +45,8 @@ func (si *signingRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 		return nil, err
 	}
 
+	si.logger.Info("incoming request", zap.Any("request", req2))
+
 	// Send the request
 	return si.transport.RoundTrip(req2)
 }
