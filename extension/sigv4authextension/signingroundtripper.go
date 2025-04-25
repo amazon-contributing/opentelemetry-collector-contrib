@@ -4,6 +4,7 @@
 package sigv4authextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension"
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -45,7 +46,22 @@ func (si *signingRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 		return nil, err
 	}
 
-	si.logger.Info("incoming request", zap.Any("request", req2))
+	var body string
+	if req2.Body != nil {
+		bodyBytes, err := io.ReadAll(req2.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
+		body = string(bodyBytes)
+		req2.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	}
+
+	si.logger.Info("incoming request",
+		zap.String("method", req2.Method),
+		zap.Any("headers", req2.Header),
+		zap.String("url", req2.URL.String()),
+		zap.String("body", body),
+	)
 
 	// Send the request
 	return si.transport.RoundTrip(req2)
