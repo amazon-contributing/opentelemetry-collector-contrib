@@ -10,6 +10,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
 
+//hi
+
 // SplitTraces returns one ptrace.Traces for each trace in the given ptrace.Traces input. Each of the resulting ptrace.Traces contains exactly one trace.
 func SplitTraces(batch ptrace.Traces) []ptrace.Traces {
 	// for each span in the resource spans, we group them into batches of rs/ils/traceID.
