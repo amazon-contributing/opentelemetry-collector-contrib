@@ -25,6 +25,7 @@ config/confighttp
 ## DEPRECATED components
 
 ## UNMAINTAINED components
+exporter/kineticaexporter/
 exporter/opensearchexporter/
 extension/observer/ecstaskobserver/
 receiver/jmxreceiver/
