@@ -129,13 +129,6 @@ func stringSlicesEqual(expected, actual []string) bool {
 	return true
 }
 
-func min(i, j int) int {
-	if i < j {
-		return i
-	}
-	return j
-}
-
 type dimensionality [][]string
 
 func (d dimensionality) Len() int {
@@ -186,7 +179,7 @@ func hashMetricSlice(metricSlice []cWMetricInfo) []string {
 // assertDimsEqual asserts whether dimension sets are equal
 // (i.e. has same sets of dimensions), regardless of order.
 func assertDimsEqual(t *testing.T, expected, actual [][]string) {
-	assert.Equal(t, len(expected), len(actual))
+	assert.Len(t, len(expected), len(actual))
 	expectedDimensions := normalizeDimensionality(expected)
 	actualDimensions := normalizeDimensionality(actual)
 	assert.Equal(t, expectedDimensions, actualDimensions)
@@ -224,7 +217,7 @@ func assertCWMeasurementEqual(t *testing.T, expected, actual cWMeasurement) {
 	assert.Equal(t, expected.Namespace, actual.Namespace)
 
 	// Check metrics
-	assert.Equal(t, len(expected.Metrics), len(actual.Metrics))
+	assert.Len(t, len(expected.Metrics), len(actual.Metrics))
 	expectedHashSlice := hashMetricSlice(expected.Metrics)
 	actualHashSlice := hashMetricSlice(actual.Metrics)
 	assert.Equal(t, expectedHashSlice, actualHashSlice)
@@ -235,7 +228,7 @@ func assertCWMeasurementEqual(t *testing.T, expected, actual cWMeasurement) {
 
 // assertCWMeasurementSliceEqual asserts whether CW Measurements are equal, regardless of order.
 func assertCWMeasurementSliceEqual(t *testing.T, expected, actual []cWMeasurement) {
-	assert.Equal(t, len(expected), len(actual))
+	assert.Len(t, len(expected), len(actual))
 	seen := make([]bool, len(expected))
 	for _, actualMeasurement := range actual {
 		hasMatch := false
@@ -255,7 +248,7 @@ func assertCWMeasurementSliceEqual(t *testing.T, expected, actual []cWMeasuremen
 func assertCWMetricsEqual(t *testing.T, expected, actual *cWMetrics) {
 	assert.Equal(t, expected.timestampMs, actual.timestampMs)
 	assert.Equal(t, expected.fields, actual.fields)
-	assert.Equal(t, len(expected.measurements), len(actual.measurements))
+	assert.Len(t, len(expected.measurements), len(actual.measurements))
 	assertCWMeasurementSliceEqual(t, expected.measurements, actual.measurements)
 }
 

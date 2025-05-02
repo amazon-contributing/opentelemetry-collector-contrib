@@ -153,7 +153,7 @@ func TestHandlerSignerErrorsOut(t *testing.T) {
 	t.Setenv(regionEnvVarName, regionEnvVar)
 
 	cfg := DefaultConfig()
-	cfg.TCPAddrConfig.Endpoint = "0.0.0.0:2000"
+	cfg.Endpoint = "0.0.0.0:2000"
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	srv, err := NewServer(cfg, logger)

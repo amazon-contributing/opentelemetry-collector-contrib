@@ -169,7 +169,7 @@ func getRegionFromECSMetadata() (string, error) {
 	return "", errors.New("ECS metadata endpoint is inaccessible")
 }
 
-// proxyServerTransport configures HTTP transport for TCP Proxy Server.
+//nolint:unparam // This function will be used in future implementations
 func proxyServerTransport(config *Config) (*http.Transport, error) {
 	tls := &tls.Config{
 		InsecureSkipVerify: config.TLSSetting.Insecure,

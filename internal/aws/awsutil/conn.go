@@ -381,13 +381,14 @@ func getSTSCredsFromPrimaryRegionEndpoint(logger *zap.Logger, t *session.Session
 func getSTSRegionalEndpoint(r string) string {
 	p := getPartition(r)
 
-	var e string
-	if p == endpoints.AwsPartitionID || p == endpoints.AwsUsGovPartitionID {
-		e = STSEndpointPrefix + r + STSEndpointSuffix
-	} else if p == endpoints.AwsCnPartitionID {
-		e = STSEndpointPrefix + r + STSAwsCnPartitionIDSuffix
+	switch p {
+	case endpoints.AwsPartitionID, endpoints.AwsUsGovPartitionID:
+		return STSEndpointPrefix + r + STSEndpointSuffix
+	case endpoints.AwsCnPartitionID:
+		return STSEndpointPrefix + r + STSAwsCnPartitionIDSuffix
+	default:
+		return ""
 	}
-	return e
 }
 
 func GetDefaultSession(logger *zap.Logger, cfg *AWSSessionSettings) (*session.Session, error) {

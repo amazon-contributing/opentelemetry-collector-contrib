@@ -284,6 +284,7 @@ func TestConsumeMetricsWithOnlyLogStreamPlaceholder(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, pusherMap)
 }
+
 func TestConsumeMetricsWithWrongPlaceholder(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -497,7 +498,7 @@ func TestMiddleware(t *testing.T) {
 	middleware := new(awsmiddleware.MockMiddlewareExtension)
 	middleware.On("Handlers").Return([]awsmiddleware.RequestHandler{handler}, []awsmiddleware.ResponseHandler{handler})
 	extensions := map[component.ID]component.Component{id: middleware}
-	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings())
+	exp, err := newEmfExporter(expCfg, exportertest.NewNopSettings(metadata.Type))
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
 	host := new(awsmiddleware.MockExtensionsHost)

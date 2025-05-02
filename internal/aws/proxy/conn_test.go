@@ -35,7 +35,6 @@ func (m *mock) newAWSSession(_ string, _ string, _ *zap.Logger) (*session.Sessio
 	return m.sn, nil
 }
 
-
 func setupMock(sess *session.Session) (f1 func(s *session.Session) (string, error),
 	f2 func(roleArn string, region string, logger *zap.Logger) (*session.Session, error),
 ) {

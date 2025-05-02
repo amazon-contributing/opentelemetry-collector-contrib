@@ -44,7 +44,6 @@ func newNodeCapacity(logger *zap.Logger, options ...Option) (nodeCapacityProvide
 	for _, opt := range options {
 		opt(nc)
 	}
-
 	ctx := context.Background()
 	if runtime.GOOS != ci.OperatingSystemWindows {
 		procPath := hostProc

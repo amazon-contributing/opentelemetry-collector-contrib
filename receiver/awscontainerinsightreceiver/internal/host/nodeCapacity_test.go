@@ -20,33 +20,43 @@ import (
 )
 
 func TestNodeCapacity(t *testing.T) {
-	// no proc directory
-	lstatOption := func(nc any) {
-		nc.(*nodeCapacity).osLstat = func(string) (os.FileInfo, error) {
-			return nil, os.ErrNotExist
+	lstatOption := Option(func(h any) {
+		if nc, ok := h.(*nodeCapacity); ok {
+			nc.osLstat = func(string) (os.FileInfo, error) {
+				return nil, os.ErrNotExist
+			}
 		}
-	}
+	})
+
 	nc, err := newNodeCapacity(zap.NewNop(), lstatOption)
 	assert.Nil(t, nc)
 	assert.Error(t, err)
 
 	// can't set environment variables
-	lstatOption = func(nc any) {
-		nc.(*nodeCapacity).osLstat = func(string) (os.FileInfo, error) {
-			return nil, nil
+	lstatOption = Option(func(h any) {
+		if nc, ok := h.(*nodeCapacity); ok {
+			nc.osLstat = func(string) (os.FileInfo, error) {
+				return nil, nil
+			}
 		}
-	}
+	})
 
-	virtualMemOption := func(nc any) {
-		nc.(*nodeCapacity).virtualMemory = func(context.Context) (*mem.VirtualMemoryStat, error) {
-			return nil, errors.New("error")
+	virtualMemOption := Option(func(h any) {
+		if nc, ok := h.(*nodeCapacity); ok {
+			nc.virtualMemory = func(context.Context) (*mem.VirtualMemoryStat, error) {
+				return nil, errors.New("error")
+			}
 		}
-	}
-	cpuInfoOption := func(nc any) {
-		nc.(*nodeCapacity).cpuInfo = func(context.Context) ([]cpu.InfoStat, error) {
-			return nil, errors.New("error")
+	})
+
+	cpuInfoOption := Option(func(h any) {
+		if nc, ok := h.(*nodeCapacity); ok {
+			nc.cpuInfo = func(context.Context) ([]cpu.InfoStat, error) {
+				return nil, errors.New("error")
+			}
 		}
-	}
+	})
+
 	nc, err = newNodeCapacity(zap.NewNop(), lstatOption, virtualMemOption, cpuInfoOption)
 	assert.NotNil(t, nc)
 	assert.NoError(t, err)
@@ -54,21 +64,27 @@ func TestNodeCapacity(t *testing.T) {
 	assert.Equal(t, int64(0), nc.getNumCores())
 
 	// normal case where everything is working
-	virtualMemOption = func(nc any) {
-		nc.(*nodeCapacity).virtualMemory = func(context.Context) (*mem.VirtualMemoryStat, error) {
-			return &mem.VirtualMemoryStat{
-				Total: 1024,
-			}, nil
+	virtualMemOption = Option(func(h any) {
+		if nc, ok := h.(*nodeCapacity); ok {
+			nc.virtualMemory = func(context.Context) (*mem.VirtualMemoryStat, error) {
+				return &mem.VirtualMemoryStat{
+					Total: 1024,
+				}, nil
+			}
 		}
-	}
-	cpuInfoOption = func(nc any) {
-		nc.(*nodeCapacity).cpuInfo = func(context.Context) ([]cpu.InfoStat, error) {
-			return []cpu.InfoStat{
-				{},
-				{},
-			}, nil
+	})
+
+	cpuInfoOption = Option(func(h any) {
+		if nc, ok := h.(*nodeCapacity); ok {
+			nc.cpuInfo = func(context.Context) ([]cpu.InfoStat, error) {
+				return []cpu.InfoStat{
+					{},
+					{},
+				}, nil
+			}
 		}
-	}
+	})
+
 	nc, err = newNodeCapacity(zap.NewNop(), lstatOption, virtualMemOption, cpuInfoOption)
 	assert.NotNil(t, nc)
 	assert.NoError(t, err)
@@ -80,12 +96,14 @@ func TestNodeCapacity_ReadsHostProcEnvVar(t *testing.T) {
 	const customHostProc = "/custom/host/proc"
 	t.Setenv(string(common.HostProcEnvKey), customHostProc)
 
-	lstatOption := func(nc *nodeCapacity) {
-		nc.osLstat = func(name string) (os.FileInfo, error) {
-			assert.Equal(t, customHostProc, name)
-			return nil, nil
+	lstatOption := Option(func(h any) {
+		if nc, ok := h.(*nodeCapacity); ok {
+			nc.osLstat = func(name string) (os.FileInfo, error) {
+				assert.Equal(t, customHostProc, name)
+				return nil, nil
+			}
 		}
-	}
+	})
 
 	nc, err := newNodeCapacity(zap.NewNop(), lstatOption)
 	assert.NoError(t, err)
