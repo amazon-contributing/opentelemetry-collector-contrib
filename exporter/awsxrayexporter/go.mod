@@ -11,11 +11,11 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray v0.124.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.124.1
 	github.com/stretchr/testify v1.10.0
-	go.opentelemetry.io/collector/component v1.31.0
+	go.opentelemetry.io/collector/component v1.30.0
 	go.opentelemetry.io/collector/component/componenttest v0.124.0
 	go.opentelemetry.io/collector/confmap v1.30.0
 	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
-	go.opentelemetry.io/collector/consumer/consumererror v0.125.0
+	go.opentelemetry.io/collector/consumer/consumererror v0.124.0
 	go.opentelemetry.io/collector/exporter v0.124.0
 	go.opentelemetry.io/collector/exporter/exportertest v0.124.0
 	go.opentelemetry.io/collector/featuregate v1.31.0

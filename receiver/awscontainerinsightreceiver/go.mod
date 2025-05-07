@@ -29,7 +29,7 @@ require (
 	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
 	go.opentelemetry.io/collector/consumer v1.30.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.124.0
-	go.opentelemetry.io/collector/pdata v1.31.0
+	go.opentelemetry.io/collector/pdata v1.30.0
 	go.opentelemetry.io/collector/receiver v1.30.0
 	go.opentelemetry.io/collector/receiver/receivertest v0.124.0
 	go.uber.org/goleak v1.3.0

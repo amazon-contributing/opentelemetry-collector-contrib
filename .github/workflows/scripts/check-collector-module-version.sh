@@ -4,99 +4,65 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# verifies:
-# 1. That vendor components are assigned to owner(s)
-# 2. That list of vendor components (in $CODEOWNERS) still exists
-# in the project
+# verifies if the collector components are using the main core collector version
+# as a dependency.
 #
+
+source ./internal/buildscripts/modules
+
 set -eu -o pipefail
 
-CODEOWNERS=".github/CODEOWNERS"
-ALLOWLIST=".github/ALLOWLIST"
+mod_files=$(find . -type f -name "go.mod")
 
-# Get component folders from the project and checks that they have
-# an owner in $CODEOWNERS
-check_code_owner_existence() {
-  MODULES=$(find . -type f -name "go.mod" -exec dirname {} \; | sort | grep -E '^./' | cut -c 3-)
-  MISSING_COMPONENTS=0
-  ALLOW_LIST_COMPONENTS=0
-  for module in ${MODULES}
-  do
-    # For a component path exact match, need to add '/ ' to end of module as
-    # each line in the CODEOWNERS file is of the format:
-    # <component_path_relative_from_project_root>/<min_1_space><owner_1><space><owner_2><space>..<owner_n>
-    # This is because the path separator at end is dropped while searching for
-    # modules and there is at least 1 space separating the path from the owners.
-    if ! grep -q "^$module/ " "$CODEOWNERS"; then
-      # If there is not an exact match to component path, there might be a parent folder
-      # which has an owner and would therefore implicitly include the component
-      # path as a sub folder e.g. 'internal/aws' is listed in $CODEOWNERS
-      # which accounts for internal/aws/awsutil, internal/aws/k8s etc.
-      PREFIX_MODULE_PATH=$(echo $module | cut -d/ -f 1-2)
-      if ! grep -wq "^$PREFIX_MODULE_PATH/ " "$CODEOWNERS"; then
-        # Check if it is a known component that is waiting on an owner
-        if grep -wq "$module" "$ALLOWLIST"; then
-          ((ALLOW_LIST_COMPONENTS=ALLOW_LIST_COMPONENTS+1))
-          echo "pass: \"$module\" not included in CODEOWNERS but in the ALLOWLIST"
-        else
-          ((MISSING_COMPONENTS=MISSING_COMPONENTS+1))
-          echo "FAIL: \"$module\" not included in CODEOWNERS"
-        fi
-      fi
-    fi
-  done
-  if [ "$ALLOW_LIST_COMPONENTS" -gt 0 ]; then
-    echo "---"
-    echo "pass: there are $ALLOW_LIST_COMPONENTS components not included in CODEOWNERS but known in the ALLOWLIST"
-  fi
-  if [ "$MISSING_COMPONENTS" -gt 0 ]; then
-    echo "---"
-    echo "FAIL: there are $MISSING_COMPONENTS components not included in CODEOWNERS and not known in the ALLOWLIST"
-    exit 1
-  fi
+# Return the collector main core version
+get_collector_version() {
+   collector_module="$1"
+   main_mod_file="$2"
+
+   if grep -q "$collector_module" "$main_mod_file"; then
+      grep "$collector_module" "$main_mod_file" | (read -r mod version rest;
+         echo "$version")
+   else
+      echo "Error: failed to retrieve the \"$collector_module\" version from \"$main_mod_file\"."
+      exit 1
+   fi
 }
 
-# Checks that components specified in $CODEOWNERS still exist in the project
-check_component_existence() {
-  NOT_EXIST_COMPONENTS=0
-  while IFS= read -r line
-  do
-    if [[ $line =~ ^[^#\*] ]]; then
-      COMPONENT_PATH=$(echo "$line" | cut -d" " -f1)
-      if [ ! -e "$COMPONENT_PATH" ]; then
-        echo "\"$COMPONENT_PATH\" does not exist as specified in CODEOWNERS"
-        ((NOT_EXIST_COMPONENTS=NOT_EXIST_COMPONENTS+1))
+# Compare the collector main core version against all the collector component
+# modules to verify that they are using this version as its dependency
+check_collector_versions_correct() {
+   collector_module="$1"
+   collector_mod_version="$2"
+   echo "Checking $collector_module is used with $collector_mod_version"
+
+   # Loop through all the module files, checking the collector version
+   for mod_file in $mod_files; do
+      if [ "$(uname)" == "Darwin" ]; then
+         sed -i '' "s|$collector_module [^ ]*$|$collector_module $collector_mod_version|g" $mod_file
+      else
+         sed -i'' "s|$collector_module [^ ]*$|$collector_module $collector_mod_version|g" $mod_file
       fi
-    fi
-  done <"$CODEOWNERS"
-  echo "there are $NOT_EXIST_COMPONENTS component(s) that do not exist as specified in CODEOWNERS"
-  if [ "$NOT_EXIST_COMPONENTS" -gt 0 ]; then
-    exit 1
-  fi
+   done
 }
 
-check_entries_in_allowlist() {
-  NOT_ORPHANED=0
-  while IFS= read -r line
-  do
-    if [[ $line =~ ^[^#] ]]; then
-      COMPONENT_PATH=$(echo "$line" | cut -d" " -f1)
-      if grep -wq "^$COMPONENT_PATH/ " "$CODEOWNERS"; then
-        echo "\"$COMPONENT_PATH\" has an entry in CODEOWNERS file"
-        ((NOT_ORPHANED=NOT_ORPHANED+1))
-      fi
-    fi
-  done <"$ALLOWLIST"
-  echo "There are $NOT_ORPHANED component(s) that have owners but are present in ALLOWLIST file"
-  if [ "$NOT_ORPHANED" -gt 0 ]; then
-    exit 1
-  fi
-}
+MAIN_MOD_FILE="./cmd/otelcontribcol/go.mod"
 
-if [[ "$1" == "check_code_owner_existence" ]];  then
-  check_code_owner_existence
-elif [[ "$1" == "check_component_existence" ]]; then
-  check_component_existence
-elif [[ "$1" == "check_entries_in_allowlist" ]]; then
-  check_entries_in_allowlist
-fi
+
+BETA_MODULE="go.opentelemetry.io/collector"
+# Note space at end of string. This is so it filters for the exact string
+# only and does not return string which contains this string as a substring.
+BETA_MOD_VERSION=$(get_collector_version "$BETA_MODULE " "$MAIN_MOD_FILE")
+check_collector_versions_correct "$BETA_MODULE" "$BETA_MOD_VERSION"
+for mod in "${beta_modules[@]}"; do
+   check_collector_versions_correct "$mod" "$BETA_MOD_VERSION"
+done
+
+# Check stable modules, none currently exist, uncomment when pdata is 1.0.0
+STABLE_MODULE="go.opentelemetry.io/collector/pdata"
+STABLE_MOD_VERSION=$(get_collector_version "$STABLE_MODULE" "$MAIN_MOD_FILE")
+check_collector_versions_correct "$STABLE_MODULE" "$STABLE_MOD_VERSION"
+for mod in "${stable_modules[@]}"; do
+   check_collector_versions_correct "$mod" "$STABLE_MOD_VERSION"
+done
+
+git diff --exit-code
