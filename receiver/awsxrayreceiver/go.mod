@@ -1,6 +1,8 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsxrayreceiver
 
-go 1.23.0
+go 1.23.8
+
+toolchain go1.24.2
 
 require (
 	github.com/aws/aws-sdk-go v1.55.6

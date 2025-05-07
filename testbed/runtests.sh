@@ -25,6 +25,4 @@ testStatus=${PIPESTATUS[0]}
 
 ${GOJUNITREPORTCMD} < results/testoutput.log > results/junit/results.xml
 
-bash -c "cat results/TESTRESULTS.md | ${TEST_COLORIZE}"
-
 exit ${testStatus}
