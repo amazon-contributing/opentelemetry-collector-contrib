@@ -64,7 +64,7 @@ func (r mockSysfsReader) GetMACAddressFromDeviceName(deviceName efaDeviceName) (
 	case "efa1":
 		return "00:00:00:00:00:02", nil
 	}
-	return "", fmt.Errorf("unknown device")
+	return "", errors.New("unknown device")
 }
 
 var mockCounterValues = map[string]uint64{
@@ -318,6 +318,7 @@ func TestGetMetricsMissingDeviceFromPodResources(t *testing.T) {
 }
 
 func checkExpectations(t *testing.T, expected []expectation, actual []pmetric.Metrics) {
+	//nolint:testifylint
 	assert.Equal(t, len(expected), len(actual))
 	if len(expected) == 0 {
 		return

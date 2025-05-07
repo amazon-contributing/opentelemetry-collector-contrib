@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -154,7 +155,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 	assert.Equal(t, mockHostInfoProvider{}, scraper.HostInfoProvider)
 
 	// build up a new PR
-	promFactory := prometheusreceiver.NewFactory()
+	promFactory := prometheusreceiver.NewFactory("containerInsightsDCGMExporterScraper")
 
 	targets := []*mocks.TestData{
 		{
@@ -200,6 +201,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 	// replace the prom receiver
 	params := receiver.Settings{
 		TelemetrySettings: scraper.Settings,
+		ID:                component.NewIDWithName(component.MustNewType(jobName), ""),
 	}
 	scraper.PrometheusReceiver, err = promFactory.CreateMetrics(scraper.Ctx, params, &promConfig, mConsumer)
 

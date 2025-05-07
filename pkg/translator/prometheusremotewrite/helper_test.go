@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/timestamp"
 	"github.com/prometheus/prometheus/prompb"
-	writev2 "github.com/prometheus/prometheus/prompb/io/prometheus/write/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -351,14 +350,6 @@ func Test_createLabelSet(t *testing.T) {
 			getPromLabels(collidingSanitized, value11+";"+value12, label31, value31, label32, value32),
 		},
 		{
-			"existing_attribute_value_is_the_same_as_the_new_label_value",
-			pcommon.NewResource(),
-			lbsCollidingSameValue,
-			nil,
-			[]string{label31, value31, label32, value32},
-			getPromLabels(collidingSanitized, value11, label31, value31, label32, value32),
-		},
-		{
 			"sanitize_labels_starts_with_underscore",
 			pcommon.NewResource(),
 			lbs3,
@@ -489,17 +480,6 @@ func Test_getPromExemplars(t *testing.T) {
 			},
 		},
 		{
-			"with_exemplars_int_value",
-			getHistogramDataPointWithExemplars(t, tnow, intVal2, traceIDValue1, spanIDValue1, label11, value11),
-			[]prompb.Exemplar{
-				{
-					Value:     float64(intVal2),
-					Timestamp: timestamp.FromTime(tnow),
-					Labels:    []prompb.Label{getLabel(prometheustranslator.ExemplarTraceIDKey, traceIDValue1), getLabel(prometheustranslator.ExemplarSpanIDKey, spanIDValue1), getLabel(label11, value11)},
-				},
-			},
-		},
-		{
 			"too_many_runes_drops_labels",
 			getHistogramDataPointWithExemplars(t, tnow, floatVal1, "", "", keyWith129Runes, ""),
 			[]prompb.Exemplar{
@@ -541,46 +521,6 @@ func Test_getPromExemplars(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			requests := getPromExemplars(tt.histogram)
-			assert.Exactly(t, tt.expected, requests)
-		})
-	}
-}
-
-func Test_getPromExemplarsV2(t *testing.T) {
-	tnow := time.Now()
-	tests := []struct {
-		name      string
-		histogram pmetric.HistogramDataPoint
-		expected  []writev2.Exemplar
-	}{
-		{
-			name:      "with_exemplars_double_value",
-			histogram: getHistogramDataPointWithExemplars(t, tnow, floatVal1, traceIDValue1, spanIDValue1, label11, value11),
-			expected: []writev2.Exemplar{
-				{
-					Value:     floatVal1,
-					Timestamp: timestamp.FromTime(tnow),
-					// TODO: after deal with examplar labels on getPromExemplarsV2, add the labels here
-					// LabelsRefs: []uint32{},
-				},
-			},
-		},
-		{
-			name:      "with_exemplars_int_value",
-			histogram: getHistogramDataPointWithExemplars(t, tnow, intVal2, traceIDValue1, spanIDValue1, label11, value11),
-			expected: []writev2.Exemplar{
-				{
-					Value:     float64(intVal2),
-					Timestamp: timestamp.FromTime(tnow),
-					// TODO: after deal with examplar labels on getPromExemplarsV2, add the labels here
-					// LabelsRefs: []uint32{},
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			requests := getPromExemplarsV2(tt.histogram)
 			assert.Exactly(t, tt.expected, requests)
 		})
 	}
@@ -738,12 +678,14 @@ func TestMostRecentTimestampInMetric(t *testing.T) {
 func TestPrometheusConverter_AddSummaryDataPoints(t *testing.T) {
 	ts := pcommon.Timestamp(time.Now().UnixNano())
 	tests := []struct {
-		name   string
-		metric func() pmetric.Metric
-		want   func() map[uint64]*prompb.TimeSeries
+		name          string
+		isGateEnabled bool
+		metric        func() pmetric.Metric
+		want          func() map[uint64]*prompb.TimeSeries
 	}{
 		{
-			name: "summary with start time",
+			name:          "summary with start time",
+			isGateEnabled: false,
 			metric: func() pmetric.Metric {
 				metric := pmetric.NewMetric()
 				metric.SetName("test_summary")
@@ -759,6 +701,9 @@ func TestPrometheusConverter_AddSummaryDataPoints(t *testing.T) {
 				labels := []prompb.Label{
 					{Name: model.MetricNameLabel, Value: "test_summary" + countStr},
 				}
+				createdLabels := []prompb.Label{
+					{Name: model.MetricNameLabel, Value: "test_summary" + createdSuffix},
+				}
 				sumLabels := []prompb.Label{
 					{Name: model.MetricNameLabel, Value: "test_summary" + sumStr},
 				}
@@ -775,11 +720,18 @@ func TestPrometheusConverter_AddSummaryDataPoints(t *testing.T) {
 							{Value: 0, Timestamp: convertTimeStamp(ts)},
 						},
 					},
+					timeSeriesSignature(createdLabels): {
+						Labels: createdLabels,
+						Samples: []prompb.Sample{
+							{Value: float64(convertTimeStamp(ts)), Timestamp: convertTimeStamp(ts)},
+						},
+					},
 				}
 			},
 		},
 		{
-			name: "summary without start time",
+			name:          "summary without start time",
+			isGateEnabled: false,
 			metric: func() pmetric.Metric {
 				metric := pmetric.NewMetric()
 				metric.SetName("test_summary")
@@ -814,7 +766,8 @@ func TestPrometheusConverter_AddSummaryDataPoints(t *testing.T) {
 			},
 		},
 		{
-			name: "summary with exportCreatedMetricGate enabled",
+			name:          "summary with exportCreatedMetricGate enabled",
+			isGateEnabled: true,
 			metric: func() pmetric.Metric {
 				metric := pmetric.NewMetric()
 				metric.SetName("test_summary")
@@ -853,7 +806,7 @@ func TestPrometheusConverter_AddSummaryDataPoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			oldValue := exportCreatedMetricGate.IsEnabled()
-			testutil.SetFeatureGateForTest(t, exportCreatedMetricGate, true)
+			testutil.SetFeatureGateForTest(t, exportCreatedMetricGate, tt.isGateEnabled)
 			defer testutil.SetFeatureGateForTest(t, exportCreatedMetricGate, oldValue)
 
 			metric := tt.metric()
@@ -862,7 +815,9 @@ func TestPrometheusConverter_AddSummaryDataPoints(t *testing.T) {
 			converter.addSummaryDataPoints(
 				metric.Summary().DataPoints(),
 				pcommon.NewResource(),
-				Settings{},
+				Settings{
+					ExportCreatedMetric: true,
+				},
 				metric.Name(),
 			)
 
@@ -875,12 +830,14 @@ func TestPrometheusConverter_AddSummaryDataPoints(t *testing.T) {
 func TestPrometheusConverter_AddHistogramDataPoints(t *testing.T) {
 	ts := pcommon.Timestamp(time.Now().UnixNano())
 	tests := []struct {
-		name   string
-		metric func() pmetric.Metric
-		want   func() map[uint64]*prompb.TimeSeries
+		name          string
+		isGateEnabled bool
+		metric        func() pmetric.Metric
+		want          func() map[uint64]*prompb.TimeSeries
 	}{
 		{
-			name: "histogram with start time",
+			name:          "histogram with start time",
+			isGateEnabled: false,
 			metric: func() pmetric.Metric {
 				metric := pmetric.NewMetric()
 				metric.SetName("test_hist")
@@ -896,6 +853,9 @@ func TestPrometheusConverter_AddHistogramDataPoints(t *testing.T) {
 				labels := []prompb.Label{
 					{Name: model.MetricNameLabel, Value: "test_hist" + countStr},
 				}
+				createdLabels := []prompb.Label{
+					{Name: model.MetricNameLabel, Value: "test_hist" + createdSuffix},
+				}
 				infLabels := []prompb.Label{
 					{Name: model.MetricNameLabel, Value: "test_hist_bucket"},
 					{Name: model.BucketLabel, Value: "+Inf"},
@@ -913,11 +873,18 @@ func TestPrometheusConverter_AddHistogramDataPoints(t *testing.T) {
 							{Value: 0, Timestamp: convertTimeStamp(ts)},
 						},
 					},
+					timeSeriesSignature(createdLabels): {
+						Labels: createdLabels,
+						Samples: []prompb.Sample{
+							{Value: float64(convertTimeStamp(ts)), Timestamp: convertTimeStamp(ts)},
+						},
+					},
 				}
 			},
 		},
 		{
-			name: "histogram without start time",
+			name:          "histogram without start time",
+			isGateEnabled: false,
 			metric: func() pmetric.Metric {
 				metric := pmetric.NewMetric()
 				metric.SetName("test_hist")
@@ -953,7 +920,8 @@ func TestPrometheusConverter_AddHistogramDataPoints(t *testing.T) {
 			},
 		},
 		{
-			name: "histogram with exportCreatedMetricGate enabled",
+			name:          "histogram with exportCreatedMetricGate enabled",
+			isGateEnabled: true,
 			metric: func() pmetric.Metric {
 				metric := pmetric.NewMetric()
 				metric.SetName("test_hist")
@@ -993,7 +961,7 @@ func TestPrometheusConverter_AddHistogramDataPoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			oldValue := exportCreatedMetricGate.IsEnabled()
-			testutil.SetFeatureGateForTest(t, exportCreatedMetricGate, true)
+			testutil.SetFeatureGateForTest(t, exportCreatedMetricGate, tt.isGateEnabled)
 			defer testutil.SetFeatureGateForTest(t, exportCreatedMetricGate, oldValue)
 
 			metric := tt.metric()
@@ -1002,7 +970,9 @@ func TestPrometheusConverter_AddHistogramDataPoints(t *testing.T) {
 			converter.addHistogramDataPoints(
 				metric.Histogram().DataPoints(),
 				pcommon.NewResource(),
-				Settings{},
+				Settings{
+					ExportCreatedMetric: true,
+				},
 				metric.Name(),
 			)
 

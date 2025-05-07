@@ -35,17 +35,21 @@ var enableNativeHistogramsGate = featuregate.GlobalRegistry().MustRegister(
 )
 
 // NewFactory creates a new Prometheus receiver factory.
-func NewFactory() receiver.Factory {
-	// Since Prometheus 3.0, the default validation scheme for metric names is UTF8.
-	// This includes ScrapeManager lib that is used by the Promethes receiver.
-	// We need to set the validation scheme to _something_ to avoid panics, and
-	// UTF8 is the default in Prometheus.
+func NewFactory(typeOverride ...string) receiver.Factory {
+	var compType component.Type
+	if len(typeOverride) > 0 && typeOverride[0] != "" {
+		compType = component.MustNewType(typeOverride[0])
+	} else {
+		compType = metadata.Type // fallback to default
+	}
+
 	model.NameValidationScheme = model.UTF8Validation
 
 	return receiver.NewFactory(
-		metadata.Type,
+		compType,
 		createDefaultConfig,
-		receiver.WithMetrics(createMetricsReceiver, metadata.MetricsStability))
+		receiver.WithMetrics(createMetricsReceiver, metadata.MetricsStability),
+	)
 }
 
 func createDefaultConfig() component.Config {

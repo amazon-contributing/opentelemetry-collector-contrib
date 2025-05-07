@@ -410,7 +410,7 @@ func (acir *awsContainerInsightReceiver) initEfaSysfsScraper(localNodeDecorator 
 // Shutdown stops the awsContainerInsightReceiver receiver.
 func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.prometheusScraper != nil {
-		acir.prometheusScraper.Shutdown() //nolint:errcheck
+		acir.prometheusScraper.Shutdown()
 	}
 
 	if acir.cancel == nil {
@@ -471,19 +471,19 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 
 	if acir.prometheusScraper != nil {
 		// this does not return any metrics, it just indirectly ensures scraping is running on a leader
-		acir.prometheusScraper.GetMetrics() //nolint:errcheck
+		acir.prometheusScraper.GetMetrics()
 	}
 
 	if acir.dcgmScraper != nil {
-		acir.dcgmScraper.GetMetrics() //nolint:errcheck
+		acir.dcgmScraper.GetMetrics()
 	}
 
 	if acir.neuronMonitorScraper != nil {
-		acir.neuronMonitorScraper.GetMetrics() //nolint:errcheck
+		acir.neuronMonitorScraper.GetMetrics()
 	}
 
 	if acir.nvmeScraper != nil {
-		acir.nvmeScraper.GetMetrics() //nolint:errcheck
+		acir.nvmeScraper.GetMetrics()
 	}
 
 	if acir.efaSysfsScraper != nil {
