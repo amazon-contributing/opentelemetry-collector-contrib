@@ -39,35 +39,33 @@ import (
 func TestNewExporter(t *testing.T) {
 	if !isMetricExportV2Enabled() {
 		require.NoError(t, enableNativeMetricExport())
-		defer require.NoError(t, enableMetricExportSerializer())
+		defer require.NoError(t, enableZorkianMetricExport())
 	}
 	server := testutil.DatadogServerMock()
 	defer server.Close()
 
-	cfg := &datadogconfig.Config{
-		API: datadogconfig.APIConfig{
-			Key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	cfg := &Config{
+		API: APIConfig{
+			Key: "ddog_32_characters_long_api_key1",
 		},
-		Metrics: datadogconfig.MetricsConfig{
+		Metrics: MetricsConfig{
 			TCPAddrConfig: confignet.TCPAddrConfig{
 				Endpoint: server.URL,
 			},
 			DeltaTTL: 3600,
-			HistConfig: datadogconfig.HistogramConfig{
-				Mode:             datadogconfig.HistogramModeDistributions,
+			HistConfig: HistogramConfig{
+				Mode:             HistogramModeDistributions,
 				SendAggregations: false,
 			},
-			SumConfig: datadogconfig.SumConfig{
-				CumulativeMonotonicMode: datadogconfig.CumulativeMonotonicSumModeToDelta,
+			SumConfig: SumConfig{
+				CumulativeMonotonicMode: CumulativeMonotonicSumModeToDelta,
 			},
 		},
-		HostMetadata: datadogconfig.HostMetadataConfig{
-			Enabled:        true,
+		HostMetadata: HostMetadataConfig{
 			ReporterPeriod: 30 * time.Minute,
 		},
 	}
 	cfg.HostMetadata.SetSourceTimeout(50 * time.Millisecond)
-
 	params := exportertest.NewNopSettings(metadata.Type)
 	f := NewFactory()
 
@@ -81,12 +79,14 @@ func TestNewExporter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, server.MetadataChan)
 
+	cfg.HostMetadata.Enabled = true
+	cfg.HostMetadata.HostnameSource = HostnameSourceFirstResource
 	testMetrics = pmetric.NewMetrics()
 	testutil.TestMetrics.CopyTo(testMetrics)
 	err = exp.ConsumeMetrics(context.Background(), testMetrics)
 	require.NoError(t, err)
 	recvMetadata := <-server.MetadataChan
-	assert.NotEmpty(t, recvMetadata.InternalHostname)
+	assert.Equal(t, "custom-hostname", recvMetadata.InternalHostname)
 }
 
 func TestNewExporter_Serializer(t *testing.T) {

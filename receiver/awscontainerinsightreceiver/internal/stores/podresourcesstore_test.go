@@ -5,7 +5,7 @@ package stores // import "github.com/open-telemetry/opentelemetry-collector-cont
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -175,7 +175,9 @@ func TestUpdateMaps(t *testing.T) {
 
 	assert.NotNil(t, store.containerInfoToResourcesMap)
 	assert.NotNil(t, store.resourceToPodContainerMap)
+	//nolint:testifylint
 	assert.Equal(t, len(expectedContainerInfoToResourcesMap), len(store.containerInfoToResourcesMap))
+	//nolint:testifylint
 	assert.Equal(t, len(expectedResourceToPodContainerMap), len(store.resourceToPodContainerMap))
 	assert.Equal(t, expectedContainerInfoToResourcesMap, store.containerInfoToResourcesMap)
 	assert.Equal(t, expectedResourceToPodContainerMap, store.resourceToPodContainerMap)
@@ -203,7 +205,7 @@ func TestGetsWhenPodResourcesResponseIsEmpty(t *testing.T) {
 }
 
 func TestGetsWhenPodResourcesThrowsError(t *testing.T) {
-	store := constructPodResourcesStore(make(map[ContainerInfo][]ResourceInfo), make(map[ResourceInfo]ContainerInfo), listPodResourcesResponseWithEmptyResponse, fmt.Errorf("mocked behavior"))
+	store := constructPodResourcesStore(make(map[ContainerInfo][]ResourceInfo), make(map[ResourceInfo]ContainerInfo), listPodResourcesResponseWithEmptyResponse, errors.New("mocked behavior"))
 	store.updateMaps()
 
 	assertMapsDontContainData(t, store)
@@ -237,7 +239,9 @@ func constructPodResourcesStore(containerToDevices map[ContainerInfo][]ResourceI
 }
 
 func assertMapsContainData(t *testing.T, store *PodResourcesStore) {
+	//nolint:testifylint
 	assert.Equal(t, len(expectedContainerInfoToResourcesMap), len(store.containerInfoToResourcesMap))
+	//nolint:testifylint
 	assert.Equal(t, len(expectedResourceToPodContainerMap), len(store.resourceToPodContainerMap))
 
 	assert.Equal(t, expectedContainerInfo, *store.GetContainerInfo(defaultDeviceID1, defaultResourceName))

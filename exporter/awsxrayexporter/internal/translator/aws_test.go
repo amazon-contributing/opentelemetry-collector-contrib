@@ -411,7 +411,7 @@ func TestCustomSDK(t *testing.T) {
 func TestCustomSDKForLanguage(t *testing.T) {
 	attributes := make(map[string]pcommon.Value)
 	resource := pcommon.NewResource()
-	resource.Attributes().PutStr(conventions.AttributeTelemetrySDKName, "test for java")
+	resource.Attributes().PutStr(conventions.AttributeTelemetrySDKName, "test")
 	resource.Attributes().PutStr(conventions.AttributeTelemetrySDKLanguage, "java")
 	resource.Attributes().PutStr(conventions.AttributeTelemetrySDKVersion, "2.0.3")
 

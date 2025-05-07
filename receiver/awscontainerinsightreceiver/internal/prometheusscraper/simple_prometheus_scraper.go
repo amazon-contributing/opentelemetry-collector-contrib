@@ -66,7 +66,7 @@ func NewSimplePrometheusScraper(opts SimplePrometheusScraperOpts) (*SimplePromet
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 
-	promFactory := prometheusreceiver.NewFactory()
+	promFactory := prometheusreceiver.NewFactory(opts.ScraperConfigs.JobName)
 	promReceiver, err := promFactory.CreateMetrics(opts.Ctx, params, &promConfig, opts.Consumer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create prometheus receiver: %w", err)
