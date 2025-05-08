@@ -57,3 +57,19 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding/otlpencodingextension => ../../../../open-telemetry/opentelemetry-collector-contrib/extension/encoding/otlpencodingextension
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter => ../../../../open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding => ../../../../open-telemetry/opentelemetry-collector-contrib/extension/encoding
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent => ../../../../open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal => ../../../../open-telemetry/opentelemetry-collector-contrib/internal/coreinternal
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil => ../../../../open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest => ../../../../open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => ../../../../open-telemetry/opentelemetry-collector-contrib/pkg/golden

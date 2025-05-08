@@ -569,5 +569,3 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/experiment
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/datadog => ../../pkg/datadog
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog => ../../internal/datadog
-
-replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata => ../../internal/datadog/hostmetadata
