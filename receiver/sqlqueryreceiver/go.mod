@@ -12,12 +12,12 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
 	go.opentelemetry.io/collector/component v1.31.0
-	go.opentelemetry.io/collector/confmap v1.31.0
+	go.opentelemetry.io/collector/confmap v1.30.0
 	go.opentelemetry.io/collector/consumer v1.31.0
-	go.opentelemetry.io/collector/extension v1.31.0 // indirect
+	go.opentelemetry.io/collector/extension v1.30.0 // indirect
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/receiver v1.31.0
-	go.opentelemetry.io/collector/semconv v0.125.0 // indirect
+	go.opentelemetry.io/collector/semconv v0.124.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/goleak v1.3.0
@@ -33,9 +33,9 @@ require (
 	github.com/snowflakedb/gosnowflake v1.13.3
 	github.com/thda/tds v0.1.7
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
+	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
-	go.opentelemetry.io/collector/extension/xextension v0.125.0
+	go.opentelemetry.io/collector/extension/xextension v0.124.0
 	go.opentelemetry.io/collector/receiver/receiverhelper v0.125.0
 	go.opentelemetry.io/collector/receiver/receivertest v0.125.0
 	go.opentelemetry.io/collector/scraper/scraperhelper v0.125.0
@@ -178,7 +178,6 @@ require (
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 retract (

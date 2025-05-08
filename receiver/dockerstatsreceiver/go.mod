@@ -11,10 +11,10 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.36.0
 	go.opentelemetry.io/collector/component v1.31.0
-	go.opentelemetry.io/collector/component/componentstatus v0.125.0
+	go.opentelemetry.io/collector/component/componentstatus v0.124.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
 	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
+	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
 	go.opentelemetry.io/collector/consumer v1.31.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
 	go.opentelemetry.io/collector/filter v0.125.0
@@ -24,7 +24,7 @@ require (
 	go.opentelemetry.io/collector/receiver/receivertest v0.125.0
 	go.opentelemetry.io/collector/scraper v0.125.0
 	go.opentelemetry.io/collector/scraper/scraperhelper v0.125.0
-	go.opentelemetry.io/collector/semconv v0.125.0
+	go.opentelemetry.io/collector/semconv v0.124.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0

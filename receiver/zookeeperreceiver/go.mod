@@ -73,7 +73,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/collector/config/confignet v1.31.0 // indirect
+	go.opentelemetry.io/collector/config/confignet v1.30.0 // indirect
 	go.opentelemetry.io/collector/consumer/consumererror v0.125.0 // indirect
 	go.opentelemetry.io/collector/consumer/xconsumer v0.125.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.31.0 // indirect

@@ -6,7 +6,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/confmap v1.31.0
+	go.opentelemetry.io/collector/confmap v1.30.0
 	go.opentelemetry.io/collector/consumer v1.31.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
@@ -41,7 +41,6 @@ require (
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 require (

@@ -19,7 +19,7 @@ require (
 	go.opentelemetry.io/collector/otelcol/otelcoltest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/receiver v1.31.0
-	go.opentelemetry.io/collector/receiver/receiverhelper v0.125.0
+	go.opentelemetry.io/collector/receiver/receiverhelper v0.124.0
 	go.opentelemetry.io/collector/receiver/receivertest v0.125.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0

@@ -7,12 +7,12 @@ require (
 	go.opentelemetry.io/collector/client v1.31.0
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/config/configopaque v1.31.0
-	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
-	go.opentelemetry.io/collector/extension v1.31.0
-	go.opentelemetry.io/collector/extension/extensionauth v1.31.0
-	go.opentelemetry.io/collector/extension/extensiontest v0.125.0
+	go.opentelemetry.io/collector/config/configopaque v1.30.0
+	go.opentelemetry.io/collector/confmap v1.30.0
+	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
+	go.opentelemetry.io/collector/extension v1.30.0
+	go.opentelemetry.io/collector/extension/extensionauth v1.30.0
+	go.opentelemetry.io/collector/extension/extensiontest v0.124.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.72.0
@@ -50,7 +50,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 retract (

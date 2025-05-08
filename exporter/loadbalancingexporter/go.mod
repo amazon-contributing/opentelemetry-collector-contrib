@@ -20,7 +20,7 @@ require (
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
 	go.opentelemetry.io/collector/exporter v0.125.0
 	go.opentelemetry.io/collector/exporter/exportertest v0.125.0
-	go.opentelemetry.io/collector/exporter/otlpexporter v0.125.0
+	go.opentelemetry.io/collector/exporter/otlpexporter v0.124.0
 	go.opentelemetry.io/collector/otelcol/otelcoltest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/semconv v0.125.0
@@ -112,9 +112,8 @@ require (
 	go.opentelemetry.io/collector/component/componentstatus v0.125.0 // indirect
 	go.opentelemetry.io/collector/config/configauth v0.125.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v1.31.0 // indirect
-	go.opentelemetry.io/collector/config/configgrpc v0.125.0 // indirect
-	go.opentelemetry.io/collector/config/configmiddleware v0.125.0 // indirect
-	go.opentelemetry.io/collector/config/confignet v1.31.0 // indirect
+	go.opentelemetry.io/collector/config/configgrpc v0.124.0 // indirect
+	go.opentelemetry.io/collector/config/confignet v1.30.0 // indirect
 	go.opentelemetry.io/collector/config/configopaque v1.31.0 // indirect
 	go.opentelemetry.io/collector/config/configtelemetry v0.125.0 // indirect
 	go.opentelemetry.io/collector/config/configtls v1.31.0 // indirect
@@ -127,14 +126,13 @@ require (
 	go.opentelemetry.io/collector/connector/connectortest v0.125.0 // indirect
 	go.opentelemetry.io/collector/connector/xconnector v0.125.0 // indirect
 	go.opentelemetry.io/collector/consumer/consumererror v0.125.0 // indirect
-	go.opentelemetry.io/collector/consumer/consumererror/xconsumererror v0.125.0 // indirect
+	go.opentelemetry.io/collector/consumer/consumererror/xconsumererror v0.124.0 // indirect
 	go.opentelemetry.io/collector/consumer/xconsumer v0.125.0 // indirect
-	go.opentelemetry.io/collector/exporter/exporterhelper/xexporterhelper v0.125.0 // indirect
+	go.opentelemetry.io/collector/exporter/exporterhelper/xexporterhelper v0.124.0 // indirect
 	go.opentelemetry.io/collector/exporter/xexporter v0.125.0 // indirect
 	go.opentelemetry.io/collector/extension v1.31.0 // indirect
 	go.opentelemetry.io/collector/extension/extensionauth v1.31.0 // indirect
 	go.opentelemetry.io/collector/extension/extensioncapabilities v0.125.0 // indirect
-	go.opentelemetry.io/collector/extension/extensionmiddleware v0.125.0 // indirect
 	go.opentelemetry.io/collector/extension/extensiontest v0.125.0 // indirect
 	go.opentelemetry.io/collector/extension/xextension v0.125.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.31.0 // indirect

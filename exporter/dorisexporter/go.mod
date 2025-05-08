@@ -9,10 +9,10 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.124.1
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
-	go.opentelemetry.io/collector/config/configopaque v1.31.0
-	go.opentelemetry.io/collector/config/configretry v1.31.0
-	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/exporter v0.125.0
+	go.opentelemetry.io/collector/config/configopaque v1.30.0
+	go.opentelemetry.io/collector/config/configretry v1.30.0
+	go.opentelemetry.io/collector/confmap v1.30.0
+	go.opentelemetry.io/collector/exporter v0.124.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
@@ -21,10 +21,10 @@ require (
 require (
 	github.com/google/uuid v1.6.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/config/confighttp v0.125.0
-	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
-	go.opentelemetry.io/collector/exporter/exportertest v0.125.0
-	go.opentelemetry.io/collector/semconv v0.125.0
+	go.opentelemetry.io/collector/config/confighttp v0.124.0
+	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
+	go.opentelemetry.io/collector/exporter/exportertest v0.124.0
+	go.opentelemetry.io/collector/semconv v0.124.0
 )
 
 require (
@@ -53,25 +53,23 @@ require (
 	github.com/rs/cors v1.11.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/collector/client v1.31.0 // indirect
-	go.opentelemetry.io/collector/config/configauth v0.125.0 // indirect
+	go.opentelemetry.io/collector/config/configauth v0.124.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v1.31.0 // indirect
-	go.opentelemetry.io/collector/config/configmiddleware v0.125.0 // indirect
-	go.opentelemetry.io/collector/config/configtls v1.31.0 // indirect
+	go.opentelemetry.io/collector/config/configtls v1.30.0 // indirect
 	go.opentelemetry.io/collector/consumer v1.31.0 // indirect
-	go.opentelemetry.io/collector/consumer/consumererror v0.125.0 // indirect
+	go.opentelemetry.io/collector/consumer/consumererror v0.124.0 // indirect
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0 // indirect
 	go.opentelemetry.io/collector/consumer/xconsumer v0.125.0 // indirect
-	go.opentelemetry.io/collector/exporter/xexporter v0.125.0 // indirect
+	go.opentelemetry.io/collector/exporter/xexporter v0.124.0 // indirect
 	go.opentelemetry.io/collector/extension v1.31.0 // indirect
-	go.opentelemetry.io/collector/extension/extensionauth v1.31.0 // indirect
-	go.opentelemetry.io/collector/extension/extensionmiddleware v0.125.0 // indirect
-	go.opentelemetry.io/collector/extension/xextension v0.125.0 // indirect
+	go.opentelemetry.io/collector/extension/extensionauth v1.30.0 // indirect
+	go.opentelemetry.io/collector/extension/xextension v0.124.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.31.0 // indirect
 	go.opentelemetry.io/collector/internal/telemetry v0.125.0 // indirect
 	go.opentelemetry.io/collector/pdata/pprofile v0.125.0 // indirect
 	go.opentelemetry.io/collector/pipeline v0.125.0 // indirect
 	go.opentelemetry.io/collector/receiver v1.31.0 // indirect
-	go.opentelemetry.io/collector/receiver/receivertest v0.125.0 // indirect
+	go.opentelemetry.io/collector/receiver/receivertest v0.124.0 // indirect
 	go.opentelemetry.io/collector/receiver/xreceiver v0.125.0 // indirect
 	go.opentelemetry.io/contrib/bridges/otelzap v0.10.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
@@ -89,7 +87,6 @@ require (
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal => ../../internal/coreinternal

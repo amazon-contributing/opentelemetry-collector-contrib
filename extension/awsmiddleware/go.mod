@@ -10,7 +10,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.40.0
 	github.com/aws/smithy-go v1.16.0
 	github.com/google/uuid v1.6.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter v0.125.0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/extension v1.31.0
@@ -71,5 +70,3 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest => ../../../../open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => ../../../../open-telemetry/opentelemetry-collector-contrib/pkg/golden
-
-replace github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter => ../../../../open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter

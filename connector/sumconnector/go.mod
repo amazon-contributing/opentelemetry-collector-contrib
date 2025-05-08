@@ -11,10 +11,10 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
-	go.opentelemetry.io/collector/connector v0.125.0
-	go.opentelemetry.io/collector/connector/connectortest v0.125.0
+	go.opentelemetry.io/collector/confmap v1.30.0
+	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
+	go.opentelemetry.io/collector/connector v0.124.0
+	go.opentelemetry.io/collector/connector/connectortest v0.124.0
 	go.opentelemetry.io/collector/consumer v1.31.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
@@ -57,14 +57,14 @@ require (
 	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/ua-parser/uap-go v0.0.0-20240611065828-3a4781585db6 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/collector/connector/xconnector v0.125.0 // indirect
+	go.opentelemetry.io/collector/connector/xconnector v0.124.0 // indirect
 	go.opentelemetry.io/collector/consumer/xconsumer v0.125.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.31.0 // indirect
-	go.opentelemetry.io/collector/internal/fanoutconsumer v0.125.0 // indirect
+	go.opentelemetry.io/collector/internal/fanoutconsumer v0.124.0 // indirect
 	go.opentelemetry.io/collector/internal/telemetry v0.125.0 // indirect
 	go.opentelemetry.io/collector/pdata/pprofile v0.125.0 // indirect
-	go.opentelemetry.io/collector/pipeline/xpipeline v0.125.0 // indirect
-	go.opentelemetry.io/collector/semconv v0.125.0 // indirect
+	go.opentelemetry.io/collector/pipeline/xpipeline v0.124.0 // indirect
+	go.opentelemetry.io/collector/semconv v0.124.0 // indirect
 	go.opentelemetry.io/contrib/bridges/otelzap v0.10.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/log v0.11.0 // indirect
@@ -82,7 +82,6 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal => ../../internal/coreinternal

@@ -7,12 +7,12 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
-	go.opentelemetry.io/collector/component/componentstatus v0.125.0
+	go.opentelemetry.io/collector/component/componentstatus v0.124.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
-	go.opentelemetry.io/collector/extension v1.31.0
-	go.opentelemetry.io/collector/extension/extensiontest v0.125.0
+	go.opentelemetry.io/collector/confmap v1.30.0
+	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
+	go.opentelemetry.io/collector/extension v1.30.0
+	go.opentelemetry.io/collector/extension/extensiontest v0.124.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
@@ -53,7 +53,6 @@ require (
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 retract (

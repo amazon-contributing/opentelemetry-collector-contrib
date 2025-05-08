@@ -9,11 +9,11 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/config/confighttp v0.125.0
-	go.opentelemetry.io/collector/config/configopaque v1.31.0
-	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
+	go.opentelemetry.io/collector/config/confighttp v0.124.0
+	go.opentelemetry.io/collector/config/configopaque v1.30.0
+	go.opentelemetry.io/collector/confmap/xconfmap v0.124.0
 	go.opentelemetry.io/collector/extension v1.31.0
-	go.opentelemetry.io/collector/extension/extensionauth v1.31.0
+	go.opentelemetry.io/collector/extension/extensionauth v1.30.0
 	go.opentelemetry.io/collector/featuregate v1.31.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
@@ -48,12 +48,10 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/collector/client v1.31.0 // indirect
-	go.opentelemetry.io/collector/config/configauth v0.125.0 // indirect
+	go.opentelemetry.io/collector/config/configauth v0.124.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v1.31.0 // indirect
-	go.opentelemetry.io/collector/config/configmiddleware v0.125.0 // indirect
-	go.opentelemetry.io/collector/config/configtls v1.31.0 // indirect
-	go.opentelemetry.io/collector/confmap v1.31.0 // indirect
-	go.opentelemetry.io/collector/extension/extensionmiddleware v0.125.0 // indirect
+	go.opentelemetry.io/collector/config/configtls v1.30.0 // indirect
+	go.opentelemetry.io/collector/confmap v1.30.0 // indirect
 	go.opentelemetry.io/collector/internal/telemetry v0.125.0 // indirect
 	go.opentelemetry.io/collector/pdata v1.31.0 // indirect
 	go.opentelemetry.io/contrib/bridges/otelzap v0.10.0 // indirect
@@ -72,5 +70,4 @@ require (
 	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
