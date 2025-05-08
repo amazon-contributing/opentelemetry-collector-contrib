@@ -1,3 +1,5 @@
+github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
+github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -61,6 +63,8 @@ go.opentelemetry.io/collector/component/componenttest v0.125.0 h1:E2mpnMQbkMpYoZ
 go.opentelemetry.io/collector/component/componenttest v0.125.0/go.mod h1:pQtsE1u/SPZdTphP5BZP64XbjXSq6wc+mDut5Ws/JDI=
 go.opentelemetry.io/collector/confmap v1.31.0 h1:+AW5VJc1rCtgEyGd+1J5uSNw/kVZ98+lKO/pqXEwVvU=
 go.opentelemetry.io/collector/confmap v1.31.0/go.mod h1:TdutQlIoHDPXcZ2xZ0QWGRkSFC8oTKO61zTx569dvrY=
+go.opentelemetry.io/collector/confmap/xconfmap v0.125.0 h1:Y0LPtz+xgtRYVAk2gZmvnBROEJj8C3YDiFPj5URbsX8=
+go.opentelemetry.io/collector/confmap/xconfmap v0.125.0/go.mod h1:8hNqCMs9Gzahh4W1h5XWOrQ+bE6NfP13WAggNyExJJs=
 go.opentelemetry.io/collector/consumer v1.31.0 h1:L+y66ywxLHnAxnUxv0JDwUf5bFj53kMxCCyEfRKlM7s=
 go.opentelemetry.io/collector/consumer v1.31.0/go.mod h1:rPsqy5ni+c6xNMUkOChleZYO/nInVY6eaBNZ1FmWJVk=
 go.opentelemetry.io/collector/consumer/consumererror v0.125.0 h1:Qq9SgbxlJoRn0952dj4lPJhcuBiqKzD1aNxCfa+Bz00=
@@ -130,8 +134,8 @@ golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.32.0 h1:s77OFDvIQeibCmezSnk/q6iAfkdiQaJi4VzroCFrN20=
-golang.org/x/sys v0.32.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
+golang.org/x/sys v0.33.0 h1:q3i8TbbEz+JRD9ywIRlyRAQbM0qF7hu24q3teo2hbuw=
+golang.org/x/sys v0.33.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
 golang.org/x/text v0.24.0 h1:dd5Bzh4yt5KYA8f9CJHCP4FB4D51c2c6JvN37xJJkJ0=

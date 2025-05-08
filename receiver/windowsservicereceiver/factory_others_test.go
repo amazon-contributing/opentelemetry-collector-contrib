@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//go:build windows
+//go:build !windows
 
 package windowsperfcountersreceiver
 
@@ -30,9 +30,8 @@ func TestCreateMetrics(t *testing.T) {
 			Gauge:       GaugeMetric{},
 		},
 	}
-
 	mReceiver, err := factory.CreateMetrics(context.Background(), creationParams, cfg, consumertest.NewNop())
 
-	assert.NoError(t, err)
-	assert.NotNil(t, mReceiver)
+	assert.EqualError(t, err, "the windows perf counters receiver is only supported on Windows")
+	assert.Nil(t, mReceiver)
 }
