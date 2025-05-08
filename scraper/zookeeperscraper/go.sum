@@ -77,8 +77,8 @@ go.opentelemetry.io/collector/pipeline v0.125.0 h1:oitBgcAFqntDB4ihQJUHJSQ8IHqKF
 go.opentelemetry.io/collector/pipeline v0.125.0/go.mod h1:TO02zju/K6E+oFIOdi372Wk0MXd+Szy72zcTsFQwXl4=
 go.opentelemetry.io/collector/scraper v0.125.0 h1:UvJTKa5/druToaUVoFQLqNTuuYMI5EzqIVjJgB3beNg=
 go.opentelemetry.io/collector/scraper v0.125.0/go.mod h1:2aiK4BzqYTP2OB2A4/RhIh4jz4MN82zoX3vFBqT+rrU=
-go.opentelemetry.io/collector/scraper/scrapertest v0.124.0 h1:ZaA7vDnFQOboNJPBtUF716izHACHJX25zfnHvyLhphY=
-go.opentelemetry.io/collector/scraper/scrapertest v0.124.0/go.mod h1:cii9PveCCRao5+hsObc8F60e4A22qEwsjZd4Umy6siQ=
+go.opentelemetry.io/collector/scraper/scrapertest v0.125.0 h1:iXW3aVPLMW8ZlHbMM/b9MoEBbVobM2LiN7qZ0cMAk/Q=
+go.opentelemetry.io/collector/scraper/scrapertest v0.125.0/go.mod h1:kmXPdhsmGwQgGuJ9BN3NGEkxpqIs9IYx3uR7hqEDHUI=
 go.opentelemetry.io/contrib/bridges/otelzap v0.10.0 h1:ojdSRDvjrnm30beHOmwsSvLpoRF40MlwNCA+Oo93kXU=
 go.opentelemetry.io/contrib/bridges/otelzap v0.10.0/go.mod h1:oTTm4g7NEtHSV2i/0FeVdPaPgUIZPfQkFbq0vbzqnv0=
 go.opentelemetry.io/otel v1.35.0 h1:xKWKPxrxB6OtMCbmMY021CqC45J+3Onta9MqjhnusiQ=
