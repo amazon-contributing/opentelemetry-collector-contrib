@@ -60,8 +60,6 @@ require (
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding/otlpencodingextension => ../../../../open-telemetry/opentelemetry-collector-contrib/extension/encoding/otlpencodingextension
 
-replace github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter => ../../../../open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter
-
 replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding => ../../../../open-telemetry/opentelemetry-collector-contrib/extension/encoding
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent => ../../../../open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent
