@@ -16,19 +16,19 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/tj/assert v0.0.3
-	go.opentelemetry.io/collector/component v1.31.1-0.20250505152726-56c7da210783
+	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.1-0.20250505155216-829157cef7bb
-	go.opentelemetry.io/collector/config/confignet v1.31.1-0.20250505152726-56c7da210783
-	go.opentelemetry.io/collector/config/configopaque v1.31.1-0.20250505152726-56c7da210783
-	go.opentelemetry.io/collector/config/configtls v1.31.1-0.20250505152726-56c7da210783
-	go.opentelemetry.io/collector/confmap v1.31.1-0.20250505152726-56c7da210783
+	go.opentelemetry.io/collector/config/confignet v1.31.0
+	go.opentelemetry.io/collector/config/configopaque v1.31.0
+	go.opentelemetry.io/collector/config/configtls v1.31.0
+	go.opentelemetry.io/collector/confmap v1.31.0
 	go.opentelemetry.io/collector/confmap/xconfmap v0.125.1-0.20250505155216-829157cef7bb
-	go.opentelemetry.io/collector/consumer v1.31.1-0.20250505152726-56c7da210783
+	go.opentelemetry.io/collector/consumer v1.31.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.1-0.20250505155216-829157cef7bb
-	go.opentelemetry.io/collector/featuregate v1.31.1-0.20250505152726-56c7da210783
+	go.opentelemetry.io/collector/featuregate v1.31.0
 	go.opentelemetry.io/collector/filter v0.125.1-0.20250505155216-829157cef7bb
-	go.opentelemetry.io/collector/pdata v1.31.1-0.20250505152726-56c7da210783
-	go.opentelemetry.io/collector/receiver v1.31.1-0.20250505152726-56c7da210783
+	go.opentelemetry.io/collector/pdata v1.31.0
+	go.opentelemetry.io/collector/receiver v1.31.0
 	go.opentelemetry.io/collector/receiver/receivertest v0.125.1-0.20250505155216-829157cef7bb
 	go.opentelemetry.io/collector/scraper v0.125.1-0.20250505155216-829157cef7bb
 	go.opentelemetry.io/collector/scraper/scraperhelper v0.125.1-0.20250505155216-829157cef7bb
@@ -81,7 +81,6 @@ require (
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/foxboron/go-tpm-keyfiles v0.0.0-20250323135004-b31fac66206e // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.7 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -89,7 +88,6 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
-	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -97,7 +95,6 @@ require (
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/google/flatbuffers v24.12.23+incompatible // indirect
-	github.com/google/go-tpm v0.9.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
