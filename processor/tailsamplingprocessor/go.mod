@@ -28,7 +28,7 @@ require (
 require (
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
-	go.opentelemetry.io/collector/processor/processortest v0.124.0
+	go.opentelemetry.io/collector/processor/processortest v0.125.0
 )
 
 require (

@@ -15,14 +15,14 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/config/configopaque v1.31.0
-	go.opentelemetry.io/collector/config/configtelemetry v0.124.0
+	go.opentelemetry.io/collector/config/configtelemetry v0.125.0
 	go.opentelemetry.io/collector/config/configtls v1.31.0
 	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/confmap/provider/envprovider v1.30.0
+	go.opentelemetry.io/collector/confmap/provider/envprovider v1.31.0
 	go.opentelemetry.io/collector/confmap/provider/fileprovider v1.31.0
 	go.opentelemetry.io/collector/pdata v1.31.0
-	go.opentelemetry.io/collector/semconv v0.124.0
-	go.opentelemetry.io/collector/service v0.124.0
+	go.opentelemetry.io/collector/semconv v0.125.0
+	go.opentelemetry.io/collector/service v0.125.0
 	go.opentelemetry.io/contrib/bridges/otelzap v0.10.0
 	go.opentelemetry.io/contrib/otelconf v0.15.0
 	go.opentelemetry.io/otel v1.35.0
@@ -129,7 +129,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/collector v0.124.0 // indirect
+	go.opentelemetry.io/collector v0.125.0 // indirect
 	go.opentelemetry.io/collector/client v1.31.0 // indirect
 	go.opentelemetry.io/collector/component/componentstatus v0.125.0 // indirect
 	go.opentelemetry.io/collector/component/componenttest v0.125.0 // indirect

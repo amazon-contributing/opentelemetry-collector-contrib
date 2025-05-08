@@ -17,18 +17,18 @@ require (
 	github.com/tinylib/msgp v1.2.5
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/confmap/provider/envprovider v1.30.0
+	go.opentelemetry.io/collector/confmap/provider/envprovider v1.31.0
 	go.opentelemetry.io/collector/confmap/provider/fileprovider v1.31.0
-	go.opentelemetry.io/collector/connector v0.124.0
-	go.opentelemetry.io/collector/exporter v0.124.0
-	go.opentelemetry.io/collector/exporter/debugexporter v0.124.0
+	go.opentelemetry.io/collector/connector v0.125.0
+	go.opentelemetry.io/collector/exporter v0.125.0
+	go.opentelemetry.io/collector/exporter/debugexporter v0.125.0
 	go.opentelemetry.io/collector/featuregate v1.31.0
-	go.opentelemetry.io/collector/otelcol v0.124.0
-	go.opentelemetry.io/collector/otelcol/otelcoltest v0.124.0
+	go.opentelemetry.io/collector/otelcol v0.125.0
+	go.opentelemetry.io/collector/otelcol/otelcoltest v0.125.0
 	go.opentelemetry.io/collector/processor v1.31.0
-	go.opentelemetry.io/collector/processor/batchprocessor v0.124.0
+	go.opentelemetry.io/collector/processor/batchprocessor v0.125.0
 	go.opentelemetry.io/collector/receiver v1.31.0
-	go.opentelemetry.io/collector/receiver/otlpreceiver v0.124.0
+	go.opentelemetry.io/collector/receiver/otlpreceiver v0.125.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.11.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.35.0
@@ -359,7 +359,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/collector v0.124.0 // indirect
+	go.opentelemetry.io/collector v0.125.0 // indirect
 	go.opentelemetry.io/collector/client v1.31.0 // indirect
 	go.opentelemetry.io/collector/component/componentstatus v0.125.0 // indirect
 	go.opentelemetry.io/collector/component/componenttest v0.125.0 // indirect

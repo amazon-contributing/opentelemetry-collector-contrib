@@ -15,11 +15,11 @@ require (
 	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
 	go.opentelemetry.io/collector/consumer v1.31.0
 	go.opentelemetry.io/collector/consumer/consumererror v0.125.0
-	go.opentelemetry.io/collector/exporter v0.124.0
-	go.opentelemetry.io/collector/exporter/exporterhelper/xexporterhelper v0.124.0
-	go.opentelemetry.io/collector/exporter/exportertest v0.124.0
-	go.opentelemetry.io/collector/exporter/xexporter v0.124.0
-	go.opentelemetry.io/collector/extension/extensiontest v0.124.0
+	go.opentelemetry.io/collector/exporter v0.125.0
+	go.opentelemetry.io/collector/exporter/exporterhelper/xexporterhelper v0.125.0
+	go.opentelemetry.io/collector/exporter/exportertest v0.125.0
+	go.opentelemetry.io/collector/exporter/xexporter v0.125.0
+	go.opentelemetry.io/collector/extension/extensiontest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/pdata/pprofile v0.125.0
 	go.uber.org/goleak v1.3.0

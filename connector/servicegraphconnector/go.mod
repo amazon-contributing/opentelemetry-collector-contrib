@@ -10,17 +10,17 @@ require (
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
 	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/connector v0.124.0
-	go.opentelemetry.io/collector/connector/connectortest v0.124.0
+	go.opentelemetry.io/collector/connector v0.125.0
+	go.opentelemetry.io/collector/connector/connectortest v0.125.0
 	go.opentelemetry.io/collector/consumer v1.31.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
-	go.opentelemetry.io/collector/exporter v0.124.0
+	go.opentelemetry.io/collector/exporter v0.125.0
 	go.opentelemetry.io/collector/featuregate v1.31.0
-	go.opentelemetry.io/collector/otelcol/otelcoltest v0.124.0
+	go.opentelemetry.io/collector/otelcol/otelcoltest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/pipeline v0.125.0
 	go.opentelemetry.io/collector/processor v1.31.0
-	go.opentelemetry.io/collector/semconv v0.124.0
+	go.opentelemetry.io/collector/semconv v0.125.0
 	go.opentelemetry.io/otel/metric v1.35.0
 	go.opentelemetry.io/otel/sdk/metric v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0

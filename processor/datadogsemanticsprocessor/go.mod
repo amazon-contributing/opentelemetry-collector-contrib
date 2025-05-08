@@ -14,9 +14,9 @@ require (
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/processor v1.31.0
-	go.opentelemetry.io/collector/processor/processorhelper v0.124.0
-	go.opentelemetry.io/collector/processor/processortest v0.124.0
-	go.opentelemetry.io/collector/semconv v0.124.0
+	go.opentelemetry.io/collector/processor/processorhelper v0.125.0
+	go.opentelemetry.io/collector/processor/processortest v0.125.0
+	go.opentelemetry.io/collector/semconv v0.125.0
 )
 
 require (

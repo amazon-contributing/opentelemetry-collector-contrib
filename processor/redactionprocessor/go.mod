@@ -12,8 +12,8 @@ require (
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/processor v1.31.0
-	go.opentelemetry.io/collector/processor/processorhelper v0.124.0
-	go.opentelemetry.io/collector/processor/processortest v0.124.0
+	go.opentelemetry.io/collector/processor/processorhelper v0.125.0
+	go.opentelemetry.io/collector/processor/processortest v0.125.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.37.0

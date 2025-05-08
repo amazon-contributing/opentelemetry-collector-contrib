@@ -25,7 +25,7 @@ func TestNewMetricsExporter(t *testing.T) {
 	require.NotNil(t, got)
 
 	// This will put trace data to send buffer and return success.
-	err = got.ConsumeMetrics(context.Background(), testdata.GenerateMetrics(1))
+	err = got.ConsumeMetrics(context.Background(), testdata.GenerateMetrics(1)) //nolint:usetesting
 	assert.NoError(t, err)
 }
 

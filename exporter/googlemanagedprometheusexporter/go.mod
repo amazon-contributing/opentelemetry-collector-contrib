@@ -11,9 +11,9 @@ require (
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
 	go.opentelemetry.io/collector/confmap v1.31.0
 	go.opentelemetry.io/collector/consumer v1.31.0
-	go.opentelemetry.io/collector/exporter v0.124.0
-	go.opentelemetry.io/collector/exporter/exportertest v0.124.0
-	go.opentelemetry.io/collector/otelcol/otelcoltest v0.124.0
+	go.opentelemetry.io/collector/exporter v0.125.0
+	go.opentelemetry.io/collector/exporter/exportertest v0.125.0
+	go.opentelemetry.io/collector/otelcol/otelcoltest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.uber.org/goleak v1.3.0
 )

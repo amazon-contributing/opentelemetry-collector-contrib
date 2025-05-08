@@ -11,7 +11,7 @@ require (
 	go.opentelemetry.io/collector/config/configopaque v1.31.0
 	go.opentelemetry.io/collector/config/configretry v1.31.0
 	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/exporter v0.124.0
+	go.opentelemetry.io/collector/exporter v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	go.opentelemetry.io/collector/semconv v0.124.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
@@ -23,7 +23,7 @@ require (
 require (
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
 	go.opentelemetry.io/collector/confmap/xconfmap v0.125.0
-	go.opentelemetry.io/collector/exporter/exportertest v0.124.0
+	go.opentelemetry.io/collector/exporter/exportertest v0.125.0
 )
 
 require (
@@ -69,7 +69,6 @@ require (
 	go.opentelemetry.io/collector/client v1.31.0 // indirect
 	go.opentelemetry.io/collector/config/configauth v0.125.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v1.31.0 // indirect
-	go.opentelemetry.io/collector/config/configmiddleware v0.125.0 // indirect
 	go.opentelemetry.io/collector/config/configtls v1.31.0 // indirect
 	go.opentelemetry.io/collector/consumer v1.31.0 // indirect
 	go.opentelemetry.io/collector/consumer/consumererror v0.125.0 // indirect
@@ -78,7 +77,6 @@ require (
 	go.opentelemetry.io/collector/exporter/xexporter v0.124.0 // indirect
 	go.opentelemetry.io/collector/extension v1.31.0 // indirect
 	go.opentelemetry.io/collector/extension/extensionauth v1.31.0 // indirect
-	go.opentelemetry.io/collector/extension/extensionmiddleware v0.125.0 // indirect
 	go.opentelemetry.io/collector/extension/xextension v0.124.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.31.0 // indirect
 	go.opentelemetry.io/collector/internal/telemetry v0.125.0 // indirect

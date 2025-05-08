@@ -9,8 +9,8 @@ require (
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
 	go.opentelemetry.io/collector/confmap v1.31.0
-	go.opentelemetry.io/collector/connector v0.124.0
-	go.opentelemetry.io/collector/connector/connectortest v0.124.0
+	go.opentelemetry.io/collector/connector v0.125.0
+	go.opentelemetry.io/collector/connector/connectortest v0.125.0
 	go.opentelemetry.io/collector/consumer v1.31.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0

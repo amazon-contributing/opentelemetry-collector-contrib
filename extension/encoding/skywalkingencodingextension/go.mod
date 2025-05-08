@@ -7,8 +7,8 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.31.0
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
-	go.opentelemetry.io/collector/extension v1.30.0
-	go.opentelemetry.io/collector/extension/extensiontest v0.124.0
+	go.opentelemetry.io/collector/extension v1.31.0
+	go.opentelemetry.io/collector/extension/extensiontest v0.125.0
 	go.opentelemetry.io/collector/pdata v1.31.0
 	google.golang.org/protobuf v1.36.6
 	skywalking.apache.org/repo/goapi v0.0.0-20240104145220-ba7202308dd4

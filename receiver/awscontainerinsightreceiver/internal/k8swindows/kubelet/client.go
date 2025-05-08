@@ -15,7 +15,7 @@ import (
 )
 
 // KubeletProvider Represents interface to kubelet.
-type KubeletProvider interface {
+type KubeletProvider interface { //nolint:revive
 	GetSummary() (*stats.Summary, error)
 	GetPods() ([]corev1.Pod, error)
 }

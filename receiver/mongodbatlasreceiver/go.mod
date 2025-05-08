@@ -34,7 +34,7 @@ require (
 require (
 	go.opentelemetry.io/collector/component/componenttest v0.125.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.125.0
-	go.opentelemetry.io/collector/extension/xextension v0.124.0
+	go.opentelemetry.io/collector/extension/xextension v0.125.0
 	go.opentelemetry.io/collector/receiver/receivertest v0.125.0
 	go.opentelemetry.io/collector/scraper v0.125.0
 	go.opentelemetry.io/collector/scraper/scraperhelper v0.125.0
