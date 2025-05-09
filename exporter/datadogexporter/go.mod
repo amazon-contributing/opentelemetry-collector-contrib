@@ -2,8 +2,6 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datado
 
 go 1.23.6
 
-toolchain go1.24.2
-
 require (
 	github.com/DataDog/agent-payload/v5 v5.0.146
 	github.com/DataDog/datadog-agent/comp/core/config v0.66.0-devel.0.20250407180930-ebfcfa2817ce

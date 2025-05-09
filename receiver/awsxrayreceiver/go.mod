@@ -2,8 +2,6 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsxra
 
 go 1.23.8
 
-toolchain go1.24.2
-
 require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/google/go-cmp v0.7.0
