@@ -73,7 +73,7 @@ func TestUserAgent(t *testing.T) {
 		},
 		"WithEBSMetrics": {
 			metrics: []string{"node_diskio_ebs_something"},
-			want:    "EBS",
+			want:    "feature:(ci_ebs)",
 		},
 		"WithBothTelemetryAndEBS": {
 			labelSets: []map[string]string{
@@ -83,11 +83,15 @@ func TestUserAgent(t *testing.T) {
 				},
 			},
 			metrics: []string{"node_diskio_ebs_something"},
-			want:    "telemetry-sdk (test/1.0) EBS",
+			want:    "telemetry-sdk (test/1.0) feature:(ci_ebs)",
 		},
 		"WithNonEBSMetrics": {
 			metrics: []string{"some_other_metric"},
 			want:    "",
+		},
+		"WithMultipleFeatures": {
+			metrics: []string{"node_diskio_ebs_something", "node_diskio_ebs_something_else"},
+			want:    "feature:(ci_ebs)",
 		},
 	}
 	for name, testCase := range testCases {
