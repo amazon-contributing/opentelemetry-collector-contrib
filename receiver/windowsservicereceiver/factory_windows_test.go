@@ -3,7 +3,7 @@
 
 //go:build windows
 
-package windowsperfcountersreceiver
+package windowsservicereceiver
 
 import (
 	"context"

@@ -8,7 +8,7 @@ import (
 
 var (
 	Type      = component.MustNewType("windowsperfcounters")
-	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/windowsperfcountersreceiver"
+	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/windowsservicereceiver"
 )
 
 const (

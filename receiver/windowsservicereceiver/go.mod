@@ -1,4 +1,4 @@
-module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/windowsperfcountersreceiver
+module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/windowsservicereceiver
 
 go 1.23.0
 
