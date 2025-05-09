@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package appsignals // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/appsignals"
+package useragent // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/appsignals"
 
 import (
 	"context"
@@ -29,7 +29,8 @@ const (
 	// TODO: Available in semconv/v1.21.0+. Replace after collector dependency is v0.91.0+.
 	attributeTelemetryDistroVersion = "telemetry.distro.version"
 
-	attributeEBS = "EBS"
+	attributeEBS    = "EBS"
+	ebsMetricPrefix = "node_diskio_ebs"
 )
 
 type UserAgent struct {
@@ -106,7 +107,7 @@ func (ua *UserAgent) ProcessMetrics(metrics pmetric.Metrics) {
 			ms := ilms.At(j).Metrics()
 			for k := 0; k < ms.Len(); k++ {
 				metric := ms.At(k)
-				if strings.HasPrefix(metric.Name(), "node_diskio_ebs") {
+				if strings.HasPrefix(metric.Name(), ebsMetricPrefix) {
 					ua.metrics[attributeEBS] = struct{}{}
 					ua.build()
 					return

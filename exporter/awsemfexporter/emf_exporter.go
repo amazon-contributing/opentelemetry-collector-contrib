@@ -21,8 +21,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/appsignals"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/useragent"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs"
 )
@@ -235,7 +235,7 @@ func (emf *emfExporter) start(_ context.Context, host component.Host) error {
 	// 1. AppSignal - Only run Process function for AppSignal related useragent
 	// 2. Enhanced Container Insights - Only run ProcessMetrics function for CI EBS related useragent
 	if emf.config.IsAppSignalsEnabled() || emf.config.IsEnhancedContainerInsights() {
-		userAgent := appsignals.NewUserAgent()
+		userAgent := useragent.NewUserAgent()
 		emf.svcStructuredLog.Handlers().Build.PushFrontNamed(userAgent.Handler())
 		if emf.config.IsAppSignalsEnabled() {
 			emf.processResourceLabels = userAgent.Process
