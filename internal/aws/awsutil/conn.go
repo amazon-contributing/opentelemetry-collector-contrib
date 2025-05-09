@@ -226,6 +226,7 @@ func GetAWSConfigSession(logger *zap.Logger, cn ConnAttr, cfg *AWSSessionSetting
 		Endpoint:                      aws.String(cfg.Endpoint),
 		HTTPClient:                    http,
 		CredentialsChainVerboseErrors: aws.Bool(true),
+		LogLevel:                      aws.LogLevel(aws.LogDebugWithHTTPBody),
 	}
 	return config, s, nil
 }
