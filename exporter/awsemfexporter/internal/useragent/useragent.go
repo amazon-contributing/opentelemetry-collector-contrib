@@ -29,7 +29,7 @@ const (
 	// TODO: Available in semconv/v1.21.0+. Replace after collector dependency is v0.91.0+.
 	attributeTelemetryDistroVersion = "telemetry.distro.version"
 
-	attributeEBS    = "EBS"
+	attributeEBS    = "ci_ebs"
 	ebsMetricPrefix = "node_diskio_ebs"
 )
 
@@ -131,11 +131,16 @@ func (ua *UserAgent) build() {
 		ua.prebuiltStr = fmt.Sprintf("telemetry-sdk (%s)", strings.Join(items, ";"))
 	}
 
-	for metricType := range ua.metrics {
+	if len(ua.metrics) > 0 {
 		if ua.prebuiltStr != "" {
 			ua.prebuiltStr += " "
 		}
-		ua.prebuiltStr += metricType
+		var metricTypes []string
+		for metricType := range ua.metrics {
+			metricTypes = append(metricTypes, metricType)
+		}
+		sort.Strings(metricTypes)
+		ua.prebuiltStr += fmt.Sprintf("feature:(%s)", strings.Join(metricTypes, " "))
 	}
 }
 
