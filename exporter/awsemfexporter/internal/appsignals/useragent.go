@@ -13,6 +13,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/jellydator/ttlcache/v3"
+	"go.opentelemetry.io/collector/pdata/pmetric"
 	semconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 )
 
@@ -27,12 +28,15 @@ const (
 
 	// TODO: Available in semconv/v1.21.0+. Replace after collector dependency is v0.91.0+.
 	attributeTelemetryDistroVersion = "telemetry.distro.version"
+
+	attributeEBS = "EBS"
 )
 
 type UserAgent struct {
 	mu          sync.RWMutex
 	prebuiltStr string
 	cache       *ttlcache.Cache[string, string]
+	metrics     map[string]struct{}
 }
 
 func NewUserAgent() *UserAgent {
@@ -45,6 +49,7 @@ func newUserAgent(ttl time.Duration) *UserAgent {
 			ttlcache.WithTTL[string, string](ttl),
 			ttlcache.WithCapacity[string, string](cacheSize),
 		),
+		metrics: make(map[string]struct{}),
 	}
 	ua.cache.OnEviction(func(context.Context, ttlcache.EvictionReason, *ttlcache.Item[string, string]) {
 		ua.build()
@@ -87,6 +92,30 @@ func (ua *UserAgent) Process(labels map[string]string) {
 	}
 }
 
+// ProcessMetrics checks metric names for specific patterns and updates user agent accordingly
+func (ua *UserAgent) ProcessMetrics(metrics pmetric.Metrics) {
+	// Check if we've already detected NVME
+	if _, exists := ua.metrics[attributeEBS]; exists {
+		return
+	}
+
+	rms := metrics.ResourceMetrics()
+	for i := 0; i < rms.Len(); i++ {
+		ilms := rms.At(i).ScopeMetrics()
+		for j := 0; j < ilms.Len(); j++ {
+			ms := ilms.At(j).Metrics()
+			for k := 0; k < ms.Len(); k++ {
+				metric := ms.At(k)
+				if strings.HasPrefix(metric.Name(), "node_diskio_ebs") {
+					ua.metrics[attributeEBS] = struct{}{}
+					ua.build()
+					return
+				}
+			}
+		}
+	}
+}
+
 // build the user agent string from the items in the cache. Format is telemetry-sdk (<lang1>/<ver1>;<lang2>/<ver2>).
 func (ua *UserAgent) build() {
 	ua.mu.Lock()
@@ -99,6 +128,13 @@ func (ua *UserAgent) build() {
 	if len(items) > 0 {
 		sort.Strings(items)
 		ua.prebuiltStr = fmt.Sprintf("telemetry-sdk (%s)", strings.Join(items, ";"))
+	}
+
+	for metricType := range ua.metrics {
+		if ua.prebuiltStr != "" {
+			ua.prebuiltStr += " "
+		}
+		ua.prebuiltStr += metricType
 	}
 }
 

@@ -10,12 +10,14 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/collector/pdata/pmetric"
 	semconv "go.opentelemetry.io/collector/semconv/v1.18.0"
 )
 
 func TestUserAgent(t *testing.T) {
 	testCases := map[string]struct {
 		labelSets []map[string]string
+		metrics   []string // Add metric names to test
 		want      string
 	}{
 		"WithEmpty": {},
@@ -69,6 +71,24 @@ func TestUserAgent(t *testing.T) {
 			},
 			want: "telemetry-sdk (incrediblyverboselan/notsemanticversionin)",
 		},
+		"WithEBSMetrics": {
+			metrics: []string{"node_diskio_ebs_something"},
+			want:    "EBS",
+		},
+		"WithBothTelemetryAndEBS": {
+			labelSets: []map[string]string{
+				{
+					semconv.AttributeTelemetrySDKLanguage: "test",
+					attributeTelemetryDistroVersion:       "1.0",
+				},
+			},
+			metrics: []string{"node_diskio_ebs_something"},
+			want:    "telemetry-sdk (test/1.0) EBS",
+		},
+		"WithNonEBSMetrics": {
+			metrics: []string{"some_other_metric"},
+			want:    "",
+		},
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -76,6 +96,12 @@ func TestUserAgent(t *testing.T) {
 			for _, labelSet := range testCase.labelSets {
 				userAgent.Process(labelSet)
 			}
+
+			if len(testCase.metrics) > 0 {
+				metrics := createTestMetrics(testCase.metrics)
+				userAgent.ProcessMetrics(metrics)
+			}
+
 			req := &request.Request{
 				HTTPRequest: &http.Request{
 					Header: http.Header{},
@@ -108,4 +134,17 @@ func TestUserAgentExpiration(t *testing.T) {
 	req.HTTPRequest.Header.Del("User-Agent")
 	userAgent.handle(req)
 	assert.Empty(t, req.HTTPRequest.Header.Get("User-Agent"))
+}
+
+func createTestMetrics(metricNames []string) pmetric.Metrics {
+	metrics := pmetric.NewMetrics()
+	rm := metrics.ResourceMetrics().AppendEmpty()
+	ilm := rm.ScopeMetrics().AppendEmpty()
+
+	for _, name := range metricNames {
+		metric := ilm.Metrics().AppendEmpty()
+		metric.SetName(name)
+	}
+
+	return metrics
 }
