@@ -37,7 +37,7 @@ type UserAgent struct {
 	mu          sync.RWMutex
 	prebuiltStr string
 	cache       *ttlcache.Cache[string, string]
-	metrics     map[string]struct{}
+	featureList map[string]struct{}
 }
 
 func NewUserAgent() *UserAgent {
@@ -50,7 +50,7 @@ func newUserAgent(ttl time.Duration) *UserAgent {
 			ttlcache.WithTTL[string, string](ttl),
 			ttlcache.WithCapacity[string, string](cacheSize),
 		),
-		metrics: make(map[string]struct{}),
+		featureList: make(map[string]struct{}),
 	}
 	ua.cache.OnEviction(func(context.Context, ttlcache.EvictionReason, *ttlcache.Item[string, string]) {
 		ua.build()
@@ -96,7 +96,7 @@ func (ua *UserAgent) Process(labels map[string]string) {
 // ProcessMetrics checks metric names for specific patterns and updates user agent accordingly
 func (ua *UserAgent) ProcessMetrics(metrics pmetric.Metrics) {
 	// Check if we've already detected NVME
-	if _, exists := ua.metrics[attributeEBS]; exists {
+	if _, exists := ua.featureList[attributeEBS]; exists {
 		return
 	}
 
@@ -108,7 +108,7 @@ func (ua *UserAgent) ProcessMetrics(metrics pmetric.Metrics) {
 			for k := 0; k < ms.Len(); k++ {
 				metric := ms.At(k)
 				if strings.HasPrefix(metric.Name(), ebsMetricPrefix) {
-					ua.metrics[attributeEBS] = struct{}{}
+					ua.featureList[attributeEBS] = struct{}{}
 					ua.build()
 					return
 				}
@@ -131,12 +131,12 @@ func (ua *UserAgent) build() {
 		ua.prebuiltStr = fmt.Sprintf("telemetry-sdk (%s)", strings.Join(items, ";"))
 	}
 
-	if len(ua.metrics) > 0 {
+	if len(ua.featureList) > 0 {
 		if ua.prebuiltStr != "" {
 			ua.prebuiltStr += " "
 		}
 		var metricTypes []string
-		for metricType := range ua.metrics {
+		for metricType := range ua.featureList {
 			metricTypes = append(metricTypes, metricType)
 		}
 		sort.Strings(metricTypes)
