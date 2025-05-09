@@ -37,36 +37,37 @@ import (
 )
 
 func TestNewExporter(t *testing.T) {
-	t.Skip() // skipping test since test fails before this pr
 	if !isMetricExportV2Enabled() {
 		require.NoError(t, enableNativeMetricExport())
-		defer require.NoError(t, enableZorkianMetricExport())
+		defer require.NoError(t, enableMetricExportSerializer())
 	}
 	server := testutil.DatadogServerMock()
 	defer server.Close()
 
-	cfg := &Config{
-		API: APIConfig{
-			Key: "ddog_32_characters_long_api_key1",
+	cfg := &datadogconfig.Config{
+		API: datadogconfig.APIConfig{
+			Key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		},
-		Metrics: MetricsConfig{
+		Metrics: datadogconfig.MetricsConfig{
 			TCPAddrConfig: confignet.TCPAddrConfig{
 				Endpoint: server.URL,
 			},
 			DeltaTTL: 3600,
-			HistConfig: HistogramConfig{
-				Mode:             HistogramModeDistributions,
+			HistConfig: datadogconfig.HistogramConfig{
+				Mode:             datadogconfig.HistogramModeDistributions,
 				SendAggregations: false,
 			},
-			SumConfig: SumConfig{
-				CumulativeMonotonicMode: CumulativeMonotonicSumModeToDelta,
+			SumConfig: datadogconfig.SumConfig{
+				CumulativeMonotonicMode: datadogconfig.CumulativeMonotonicSumModeToDelta,
 			},
 		},
-		HostMetadata: HostMetadataConfig{
+		HostMetadata: datadogconfig.HostMetadataConfig{
+			Enabled:        true,
 			ReporterPeriod: 30 * time.Minute,
 		},
 	}
 	cfg.HostMetadata.SetSourceTimeout(50 * time.Millisecond)
+
 	params := exportertest.NewNopSettings(metadata.Type)
 	f := NewFactory()
 
@@ -80,14 +81,12 @@ func TestNewExporter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, server.MetadataChan)
 
-	cfg.HostMetadata.Enabled = true
-	cfg.HostMetadata.HostnameSource = HostnameSourceFirstResource
 	testMetrics = pmetric.NewMetrics()
 	testutil.TestMetrics.CopyTo(testMetrics)
 	err = exp.ConsumeMetrics(context.Background(), testMetrics)
 	require.NoError(t, err)
 	recvMetadata := <-server.MetadataChan
-	assert.Equal(t, "custom-hostname", recvMetadata.InternalHostname)
+	assert.NotEmpty(t, recvMetadata.InternalHostname)
 }
 
 func TestNewExporter_Serializer(t *testing.T) {

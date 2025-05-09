@@ -68,7 +68,6 @@ func TestLoadWebIdentityConfig(t *testing.T) {
 }
 
 func TestLoadConfigError(t *testing.T) {
-	t.Skip() // skipping test since test fails before this pr
 	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()

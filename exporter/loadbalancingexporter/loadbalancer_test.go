@@ -130,7 +130,6 @@ func TestWithDNSResolver(t *testing.T) {
 }
 
 func TestWithDNSResolverNoEndpoints(t *testing.T) {
-	t.Skip() // skipping test since test fails before this pr
 	// prepare
 	ts, tb := getTelemetryAssets(t)
 	cfg := &Config{
