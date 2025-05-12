@@ -5,7 +5,7 @@ go 1.23.0
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.103.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver v0.0.0-00010101000000-000000000000
-	github.com/prometheus/common v0.63.0
+	github.com/prometheus/common v0.62.0
 	github.com/prometheus/prometheus v0.300.1
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.30.0
@@ -254,5 +254,3 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/corei
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest => ../../pkg/pdatatest
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => ../../pkg/golden
-
-replace github.com/prometheus/common => github.com/prometheus/common v0.62.0
