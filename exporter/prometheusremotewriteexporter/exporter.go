@@ -38,21 +38,11 @@ import (
 type prwTelemetry interface {
 	recordTranslationFailure(ctx context.Context)
 	recordTranslatedTimeSeries(ctx context.Context, numTS int)
-	recordRemoteWriteSentBatch(ctx context.Context)
-	setNumberConsumer(ctx context.Context, n int64)
 }
 
 type prwTelemetryOtel struct {
 	telemetryBuilder *metadata.TelemetryBuilder
 	otelAttrs        []attribute.KeyValue
-}
-
-func (p *prwTelemetryOtel) setNumberConsumer(ctx context.Context, n int64) {
-	p.telemetryBuilder.ExporterPrometheusremotewriteConsumers.Add(ctx, n, metric.WithAttributes(p.otelAttrs...))
-}
-
-func (p *prwTelemetryOtel) recordRemoteWriteSentBatch(ctx context.Context) {
-	p.telemetryBuilder.ExporterPrometheusremotewriteSentBatches.Add(ctx, 1, metric.WithAttributes(p.otelAttrs...))
 }
 
 func (p *prwTelemetryOtel) recordTranslationFailure(ctx context.Context) {
@@ -80,28 +70,24 @@ var bufferPool = sync.Pool{
 
 // prwExporter converts OTLP metrics to Prometheus remote write TimeSeries and sends them to a remote endpoint.
 type prwExporter struct {
-	endpointURL       *url.URL
-	client            *http.Client
-	wg                *sync.WaitGroup
-	closeChan         chan struct{}
-	concurrency       int
-	userAgentHeader   string
-	maxBatchSizeBytes int
-	clientSettings    *confighttp.ClientConfig
-	settings          component.TelemetrySettings
-	retrySettings     configretry.BackOffConfig
-	retryOnHTTP429    bool
-	wal               *prweWAL
-	exporterSettings  prometheusremotewrite.Settings
-	telemetry         prwTelemetry
-
-	// When concurrency is enabled, concurrent goroutines would potentially
-	// fight over the same batchState object. To avoid this, we use a pool
-	// to provide each goroutine with its own state.
-	batchStatePool sync.Pool
+	endpointURL          *url.URL
+	client               *http.Client
+	wg                   *sync.WaitGroup
+	closeChan            chan struct{}
+	concurrency          int
+	userAgentHeader      string
+	maxBatchSizeBytes    int
+	clientSettings       *confighttp.ClientConfig
+	settings             component.TelemetrySettings
+	retrySettings        configretry.BackOffConfig
+	retryOnHTTP429       bool
+	wal                  *prweWAL
+	exporterSettings     prometheusremotewrite.Settings
+	telemetry            prwTelemetry
+	batchTimeSeriesState batchTimeSeriesState
 }
 
-func newPRWTelemetry(set exporter.Settings, endpointURL *url.URL) (prwTelemetry, error) {
+func newPRWTelemetry(set exporter.Settings) (prwTelemetry, error) {
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(set.TelemetrySettings)
 	if err != nil {
 		return nil, err
@@ -111,7 +97,6 @@ func newPRWTelemetry(set exporter.Settings, endpointURL *url.URL) (prwTelemetry,
 		telemetryBuilder: telemetryBuilder,
 		otelAttrs: []attribute.KeyValue{
 			attribute.String("exporter", set.ID.String()),
-			attribute.String("endpoint", endpointURL.String()),
 		},
 	}, nil
 }
@@ -128,23 +113,12 @@ func newPRWExporter(cfg *Config, set exporter.Settings) (*prwExporter, error) {
 		return nil, errors.New("invalid endpoint")
 	}
 
-	telemetry, err := newPRWTelemetry(set, endpointURL)
+	prwTelemetry, err := newPRWTelemetry(set)
 	if err != nil {
 		return nil, err
 	}
 
 	userAgentHeader := fmt.Sprintf("%s/%s", strings.ReplaceAll(strings.ToLower(set.BuildInfo.Description), " ", "-"), set.BuildInfo.Version)
-
-	concurrency := 5
-	if !enableMultipleWorkersFeatureGate.IsEnabled() {
-		concurrency = cfg.RemoteWriteQueue.NumConsumers
-	}
-	if cfg.MaxBatchRequestParallelism != nil {
-		concurrency = *cfg.MaxBatchRequestParallelism
-	}
-
-	// Set the desired number of consumers as a metric for the exporter.
-	telemetry.setNumberConsumer(context.Background(), int64(concurrency))
 
 	prwe := &prwExporter{
 		endpointURL:       endpointURL,
@@ -152,20 +126,25 @@ func newPRWExporter(cfg *Config, set exporter.Settings) (*prwExporter, error) {
 		closeChan:         make(chan struct{}),
 		userAgentHeader:   userAgentHeader,
 		maxBatchSizeBytes: cfg.MaxBatchSizeBytes,
-		concurrency:       concurrency,
+		concurrency:       cfg.RemoteWriteQueue.NumConsumers,
 		clientSettings:    &cfg.ClientConfig,
 		settings:          set.TelemetrySettings,
 		retrySettings:     cfg.BackOffConfig,
 		retryOnHTTP429:    retryOn429FeatureGate.IsEnabled(),
 		exporterSettings: prometheusremotewrite.Settings{
-			Namespace:         cfg.Namespace,
-			ExternalLabels:    sanitizedLabels,
-			DisableTargetInfo: !cfg.TargetInfo.Enabled,
-			AddMetricSuffixes: cfg.AddMetricSuffixes,
-			SendMetadata:      cfg.SendMetadata,
+			Namespace:           cfg.Namespace,
+			ExternalLabels:      sanitizedLabels,
+			DisableTargetInfo:   !cfg.TargetInfo.Enabled,
+			ExportCreatedMetric: cfg.CreatedMetric.Enabled,
+			AddMetricSuffixes:   cfg.AddMetricSuffixes,
+			SendMetadata:        cfg.SendMetadata,
 		},
-		telemetry:      telemetry,
-		batchStatePool: sync.Pool{New: func() any { return newBatchTimeServicesState() }},
+		telemetry:            prwTelemetry,
+		batchTimeSeriesState: newBatchTimeSericesState(),
+	}
+
+	if prwe.exporterSettings.ExportCreatedMetric {
+		prwe.settings.Logger.Warn("export_created_metric is deprecated and will be removed in a future release")
 	}
 
 	prwe.wal = newWAL(cfg.WAL, prwe.export)
@@ -249,10 +228,8 @@ func (prwe *prwExporter) handleExport(ctx context.Context, tsMap map[string]*pro
 		return nil
 	}
 
-	state := prwe.batchStatePool.Get().(*batchTimeSeriesState)
-	defer prwe.batchStatePool.Put(state)
 	// Calls the helper function to convert and batch the TsMap to the desired format
-	requests, err := batchTimeSeries(tsMap, prwe.maxBatchSizeBytes, m, state)
+	requests, err := batchTimeSeries(tsMap, prwe.maxBatchSizeBytes, m, &prwe.batchTimeSeriesState)
 	if err != nil {
 		return err
 	}
@@ -359,14 +336,10 @@ func (prwe *prwExporter) execute(ctx context.Context, writeReq *prompb.WriteRequ
 		req.Header.Set("User-Agent", prwe.userAgentHeader)
 
 		resp, err := prwe.client.Do(req)
-		prwe.telemetry.recordRemoteWriteSentBatch(ctx)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}()
+		defer resp.Body.Close()
 
 		// 2xx status code is considered a success
 		// 5xx errors are recoverable and the exporter should retry

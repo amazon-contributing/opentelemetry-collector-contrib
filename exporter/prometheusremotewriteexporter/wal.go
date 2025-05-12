@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/tidwall/wal"
@@ -20,8 +21,7 @@ import (
 )
 
 type prweWAL struct {
-	wg        sync.WaitGroup // wg waits for the go routines to finish.
-	mu        sync.Mutex     // mu protects the fields below.
+	mu        sync.Mutex // mu protects the fields below.
 	wal       *wal.Log
 	walConfig *WALConfig
 	walPath   string
@@ -30,7 +30,6 @@ type prweWAL struct {
 
 	stopOnce  sync.Once
 	stopChan  chan struct{}
-	rNotify   chan struct{}
 	rWALIndex *atomic.Uint64
 	wWALIndex *atomic.Uint64
 }
@@ -71,7 +70,6 @@ func newWAL(walConfig *WALConfig, exportSink func(context.Context, []*prompb.Wri
 		exportSink: exportSink,
 		walConfig:  walConfig,
 		stopChan:   make(chan struct{}),
-		rNotify:    make(chan struct{}),
 		rWALIndex:  &atomic.Uint64{},
 		wWALIndex:  &atomic.Uint64{},
 	}
@@ -95,56 +93,58 @@ var (
 )
 
 // retrieveWALIndices queries the WriteAheadLog for its current first and last indices.
-func (prweWAL *prweWAL) retrieveWALIndices() (err error) {
-	prweWAL.mu.Lock()
-	defer prweWAL.mu.Unlock()
+func (prwe *prweWAL) retrieveWALIndices() (err error) {
+	prwe.mu.Lock()
+	defer prwe.mu.Unlock()
 
-	err = prweWAL.closeWAL()
+	err = prwe.closeWAL()
 	if err != nil {
 		return err
 	}
 
-	log, walPath, err := prweWAL.walConfig.createWAL()
+	log, walPath, err := prwe.walConfig.createWAL()
 	if err != nil {
 		return err
 	}
 
-	prweWAL.wal = log
-	prweWAL.walPath = walPath
+	prwe.wal = log
+	prwe.walPath = walPath
 
-	rIndex, err := prweWAL.wal.FirstIndex()
+	rIndex, err := prwe.wal.FirstIndex()
 	if err != nil {
 		return fmt.Errorf("prometheusremotewriteexporter: failed to retrieve the first WAL index: %w", err)
 	}
-	prweWAL.rWALIndex.Store(rIndex)
+	prwe.rWALIndex.Store(rIndex)
 
-	wIndex, err := prweWAL.wal.LastIndex()
+	wIndex, err := prwe.wal.LastIndex()
 	if err != nil {
 		return fmt.Errorf("prometheusremotewriteexporter: failed to retrieve the last WAL index: %w", err)
 	}
-	prweWAL.wWALIndex.Store(wIndex)
+	prwe.wWALIndex.Store(wIndex)
 	return nil
 }
 
-func (prweWAL *prweWAL) stop() error {
+func (prwe *prweWAL) stop() error {
 	err := errAlreadyClosed
-	prweWAL.stopOnce.Do(func() {
-		close(prweWAL.stopChan)
-		prweWAL.wg.Wait()
-		err = prweWAL.closeWAL()
+	prwe.stopOnce.Do(func() {
+		prwe.mu.Lock()
+		defer prwe.mu.Unlock()
+
+		close(prwe.stopChan)
+		err = prwe.closeWAL()
 	})
 	return err
 }
 
 // run begins reading from the WAL until prwe.stopChan is closed.
-func (prweWAL *prweWAL) run(ctx context.Context) (err error) {
+func (prwe *prweWAL) run(ctx context.Context) (err error) {
 	var logger *zap.Logger
 	logger, err = loggerFromContext(ctx)
 	if err != nil {
 		return
 	}
 
-	if err = prweWAL.retrieveWALIndices(); err != nil {
+	if err = prwe.retrieveWALIndices(); err != nil {
 		logger.Error("unable to start write-ahead log", zap.Error(err))
 		return
 	}
@@ -153,26 +153,23 @@ func (prweWAL *prweWAL) run(ctx context.Context) (err error) {
 
 	// Start the process of exporting but wait until the exporting has started.
 	waitUntilStartedCh := make(chan bool)
-	prweWAL.wg.Add(1)
 	go func() {
-		defer prweWAL.wg.Done()
-		defer cancel()
-
 		signalStart := func() { close(waitUntilStartedCh) }
+		defer cancel()
 		for {
 			select {
 			case <-runCtx.Done():
 				return
-			case <-prweWAL.stopChan:
+			case <-prwe.stopChan:
 				return
 			default:
-				err := prweWAL.continuallyPopWALThenExport(runCtx, signalStart)
+				err := prwe.continuallyPopWALThenExport(runCtx, signalStart)
 				signalStart = func() {}
 				if err != nil {
 					// log err
 					logger.Error("error processing WAL entries", zap.Error(err))
 					// Restart WAL
-					if errS := prweWAL.retrieveWALIndices(); errS != nil {
+					if errS := prwe.retrieveWALIndices(); errS != nil {
 						logger.Error("unable to re-start write-ahead log after error", zap.Error(errS))
 						return
 					}
@@ -189,18 +186,18 @@ func (prweWAL *prweWAL) run(ctx context.Context) (err error) {
 // buffer size is exceeded. When either of the two conditions are matched, it then exports
 // the requests to the Remote-Write endpoint, and then truncates the head of the WAL to where
 // it last read from.
-func (prweWAL *prweWAL) continuallyPopWALThenExport(ctx context.Context, signalStart func()) (err error) {
+func (prwe *prweWAL) continuallyPopWALThenExport(ctx context.Context, signalStart func()) (err error) {
 	var reqL []*prompb.WriteRequest
 	defer func() {
 		// Keeping it within a closure to ensure that the later
 		// updated value of reqL is always flushed to disk.
-		if errL := prweWAL.exportSink(ctx, reqL); errL != nil {
+		if errL := prwe.exportSink(ctx, reqL); errL != nil {
 			err = multierr.Append(err, errL)
 		}
 	}()
 
 	freshTimer := func() *time.Timer {
-		return time.NewTimer(prweWAL.walConfig.truncateFrequency())
+		return time.NewTimer(prwe.walConfig.truncateFrequency())
 	}
 
 	timer := freshTimer()
@@ -212,18 +209,18 @@ func (prweWAL *prweWAL) continuallyPopWALThenExport(ctx context.Context, signalS
 
 	signalStart()
 
-	maxCountPerUpload := prweWAL.walConfig.bufferSize()
+	maxCountPerUpload := prwe.walConfig.bufferSize()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-prweWAL.stopChan:
+		case <-prwe.stopChan:
 			return nil
 		default:
 		}
 
 		var req *prompb.WriteRequest
-		req, err = prweWAL.readPrompbFromWAL(ctx, prweWAL.rWALIndex.Load())
+		req, err = prwe.readPrompbFromWAL(ctx, prwe.rWALIndex.Load())
 		if err != nil {
 			return err
 		}
@@ -245,7 +242,7 @@ func (prweWAL *prweWAL) continuallyPopWALThenExport(ctx context.Context, signalS
 		timer.Stop()
 		timer = freshTimer()
 
-		if err = prweWAL.exportThenFrontTruncateWAL(ctx, reqL); err != nil {
+		if err = prwe.exportThenFrontTruncateWAL(ctx, reqL); err != nil {
 			return err
 		}
 		// Reset but reuse the write requests slice.
@@ -253,36 +250,36 @@ func (prweWAL *prweWAL) continuallyPopWALThenExport(ctx context.Context, signalS
 	}
 }
 
-func (prweWAL *prweWAL) closeWAL() error {
-	if prweWAL.wal != nil {
-		err := prweWAL.wal.Close()
-		prweWAL.wal = nil
+func (prwe *prweWAL) closeWAL() error {
+	if prwe.wal != nil {
+		err := prwe.wal.Close()
+		prwe.wal = nil
 		return err
 	}
 	return nil
 }
 
-func (prweWAL *prweWAL) syncAndTruncateFront() error {
-	prweWAL.mu.Lock()
-	defer prweWAL.mu.Unlock()
+func (prwe *prweWAL) syncAndTruncateFront() error {
+	prwe.mu.Lock()
+	defer prwe.mu.Unlock()
 
-	if prweWAL.wal == nil {
+	if prwe.wal == nil {
 		return errNilWAL
 	}
 
 	// Save all the entries that aren't yet committed, to the tail of the WAL.
-	if err := prweWAL.wal.Sync(); err != nil {
+	if err := prwe.wal.Sync(); err != nil {
 		return err
 	}
 	// Truncate the WAL from the front for the entries that we already
 	// read from the WAL and had already exported.
-	if err := prweWAL.wal.TruncateFront(prweWAL.rWALIndex.Load()); err != nil && !errors.Is(err, wal.ErrOutOfRange) {
+	if err := prwe.wal.TruncateFront(prwe.rWALIndex.Load()); err != nil && !errors.Is(err, wal.ErrOutOfRange) {
 		return err
 	}
 	return nil
 }
 
-func (prweWAL *prweWAL) exportThenFrontTruncateWAL(ctx context.Context, reqL []*prompb.WriteRequest) error {
+func (prwe *prweWAL) exportThenFrontTruncateWAL(ctx context.Context, reqL []*prompb.WriteRequest) error {
 	if len(reqL) == 0 {
 		return nil
 	}
@@ -290,22 +287,22 @@ func (prweWAL *prweWAL) exportThenFrontTruncateWAL(ctx context.Context, reqL []*
 		return nil
 	}
 
-	if errL := prweWAL.exportSink(ctx, reqL); errL != nil {
+	if errL := prwe.exportSink(ctx, reqL); errL != nil {
 		return errL
 	}
-	if err := prweWAL.syncAndTruncateFront(); err != nil {
+	if err := prwe.syncAndTruncateFront(); err != nil {
 		return err
 	}
 	// Reset by retrieving the respective read and write WAL indices.
-	return prweWAL.retrieveWALIndices()
+	return prwe.retrieveWALIndices()
 }
 
 // persistToWAL is the routine that'll be hooked into the exporter's receiving side and it'll
 // write them to the Write-Ahead-Log so that shutdowns won't lose data, and that the routine that
 // reads from the WAL can then process the previously serialized requests.
-func (prweWAL *prweWAL) persistToWAL(requests []*prompb.WriteRequest) error {
-	prweWAL.mu.Lock()
-	defer prweWAL.mu.Unlock()
+func (prwe *prweWAL) persistToWAL(requests []*prompb.WriteRequest) error {
+	prwe.mu.Lock()
+	defer prwe.mu.Unlock()
 
 	// Write all the requests to the WAL in a batch.
 	batch := new(wal.Batch)
@@ -314,26 +311,24 @@ func (prweWAL *prweWAL) persistToWAL(requests []*prompb.WriteRequest) error {
 		if err != nil {
 			return err
 		}
-		wIndex := prweWAL.wWALIndex.Add(1)
+		wIndex := prwe.wWALIndex.Add(1)
 		batch.Write(wIndex, protoBlob)
 	}
 
-	// Notify reader go routine that is possibly waiting for writes.
-	select {
-	case prweWAL.rNotify <- struct{}{}:
-	default:
-	}
-	return prweWAL.wal.WriteBatch(batch)
+	return prwe.wal.WriteBatch(batch)
 }
 
-func (prweWAL *prweWAL) readPrompbFromWAL(ctx context.Context, index uint64) (wreq *prompb.WriteRequest, err error) {
+func (prwe *prweWAL) readPrompbFromWAL(ctx context.Context, index uint64) (wreq *prompb.WriteRequest, err error) {
+	prwe.mu.Lock()
+	defer prwe.mu.Unlock()
+
 	var protoBlob []byte
 	for i := 0; i < 12; i++ {
 		// Firstly check if we've been terminated, then exit if so.
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-prweWAL.stopChan:
+		case <-prwe.stopChan:
 			return nil, errors.New("attempt to read from WAL after stopped")
 		default:
 		}
@@ -342,11 +337,11 @@ func (prweWAL *prweWAL) readPrompbFromWAL(ctx context.Context, index uint64) (wr
 			index = 1
 		}
 
-		prweWAL.mu.Lock()
-		if prweWAL.wal == nil {
+		if prwe.wal == nil {
 			return nil, errors.New("attempt to read from closed WAL")
 		}
-		protoBlob, err = prweWAL.wal.Read(index)
+
+		protoBlob, err = prwe.wal.Read(index)
 		if err == nil { // The read succeeded.
 			req := new(prompb.WriteRequest)
 			if err = proto.Unmarshal(protoBlob, req); err != nil {
@@ -354,28 +349,76 @@ func (prweWAL *prweWAL) readPrompbFromWAL(ctx context.Context, index uint64) (wr
 			}
 
 			// Now increment the WAL's read index.
-			prweWAL.rWALIndex.Add(1)
+			prwe.rWALIndex.Add(1)
 
-			prweWAL.mu.Unlock()
 			return req, nil
-		}
-		prweWAL.mu.Unlock()
-
-		// If WAL was empty, let's wait for a notification from
-		// the writer go routine.
-		if errors.Is(err, wal.ErrNotFound) {
-			select {
-			case <-prweWAL.rNotify:
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-prweWAL.stopChan:
-				return nil, errors.New("attempt to read from WAL after stopped")
-			}
 		}
 
 		if !errors.Is(err, wal.ErrNotFound) {
 			return nil, err
 		}
+
+		if index <= 1 {
+			// This could be the very first attempted read, so try again, after a small sleep.
+			time.Sleep(time.Duration(1<<i) * time.Millisecond)
+			continue
+		}
+
+		// Otherwise, we couldn't find the record, let's try watching
+		// the WAL file until perhaps there is a write to it.
+		walWatcher, werr := fsnotify.NewWatcher()
+		if werr != nil {
+			return nil, werr
+		}
+		if werr = walWatcher.Add(prwe.walPath); werr != nil {
+			return nil, werr
+		}
+
+		// Watch until perhaps there is a write to the WAL file.
+		watchCh := make(chan error)
+		wErr := err
+		go func() {
+			defer func() {
+				watchCh <- wErr
+				close(watchCh)
+				// Close the file watcher.
+				walWatcher.Close()
+			}()
+
+			select {
+			case <-ctx.Done(): // If the context was cancelled, bail out ASAP.
+				wErr = ctx.Err()
+				return
+
+			case event, ok := <-walWatcher.Events:
+				if !ok {
+					return
+				}
+				switch event.Op {
+				case fsnotify.Remove:
+					// The file got deleted.
+					// TODO: Add capabilities to search for the updated file.
+				case fsnotify.Rename:
+					// Renamed, we don't have information about the renamed file's new name.
+				case fsnotify.Write:
+					// Finally a write, let's try reading again, but after some watch.
+					wErr = nil
+				}
+
+			case eerr, ok := <-walWatcher.Errors:
+				if ok {
+					wErr = eerr
+				}
+			}
+		}()
+
+		if gerr := <-watchCh; gerr != nil {
+			return nil, gerr
+		}
+
+		// Otherwise a write occurred might have occurred,
+		// and we can sleep for a little bit then try again.
+		time.Sleep(time.Duration(1<<i) * time.Millisecond)
 	}
 	return nil, err
 }

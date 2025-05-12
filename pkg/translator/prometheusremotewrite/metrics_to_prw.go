@@ -18,11 +18,12 @@ import (
 )
 
 type Settings struct {
-	Namespace         string
-	ExternalLabels    map[string]string
-	DisableTargetInfo bool
-	AddMetricSuffixes bool
-	SendMetadata      bool
+	Namespace           string
+	ExternalLabels      map[string]string
+	DisableTargetInfo   bool
+	ExportCreatedMetric bool
+	AddMetricSuffixes   bool
+	SendMetadata        bool
 }
 
 // FromMetrics converts pmetric.Metrics to Prometheus remote write format.
@@ -67,7 +68,7 @@ func (c *prometheusConverter) fromMetrics(md pmetric.Metrics, settings Settings)
 			// TODO: decide if instrumentation library information should be exported as labels
 			for k := 0; k < metricSlice.Len(); k++ {
 				metric := metricSlice.At(k)
-				mostRecentTimestamp = max(mostRecentTimestamp, mostRecentTimestampInMetric(metric))
+				mostRecentTimestamp = maxTimestamp(mostRecentTimestamp, mostRecentTimestampInMetric(metric))
 
 				if !isValidAggregationTemporality(metric) {
 					errs = multierr.Append(errs, fmt.Errorf("invalid temporality and type combination for metric %q", metric.Name()))
