@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -415,30 +416,30 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 
 // translateCWMetricToEMF converts CloudWatch Metric format to EMF.
 func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event, error) {
-	fmt.Println("\n=== START: translateCWMetricToEMF ===")
-	fmt.Printf("Initial CWMetric fields: %+v\n", cWMetric.fields)
-	fmt.Printf("Initial measurements count: %d\n", len(cWMetric.measurements))
+	log.Println("\n=== START: translateCWMetricToEMF ===")
+	log.Printf("Initial CWMetric fields: %+v\n", cWMetric.fields)
+	log.Printf("Initial measurements count: %d\n", len(cWMetric.measurements))
 
 	// convert CWMetric into map format for compatible with PLE input
 	fieldMap := cWMetric.fields
-	fmt.Printf("Field map initialized: %+v\n", fieldMap)
+	log.Printf("Field map initialized: %+v\n", fieldMap)
 
 	// restore the json objects that are stored as string in attributes
-	fmt.Println("\n=== Processing JSON Encoded Attributes ===")
+	log.Println("\n=== Processing JSON Encoded Attributes ===")
 	for _, key := range config.ParseJSONEncodedAttributeValues {
-		fmt.Printf("Processing key: %s\n", key)
+		log.Printf("Processing key: %s\n", key)
 
 		if fieldMap[key] == nil {
-			fmt.Printf("Key %s not found in fieldMap\n", key)
+			log.Printf("Key %s not found in fieldMap\n", key)
 			continue
 		}
 
 		if val, ok := fieldMap[key].(string); ok {
-			fmt.Printf("Found string value for key %s: %s\n", key, val)
+			log.Printf("Found string value for key %s: %s\n", key, val)
 			var f any
 			err := json.Unmarshal([]byte(val), &f)
 			if err != nil {
-				fmt.Printf("ERROR unmarshaling JSON for key %s: %v\n", key, err)
+				log.Printf("ERROR unmarshaling JSON for key %s: %v\n", key, err)
 				config.logger.Debug(
 					"Failed to parse json-encoded string",
 					zap.String("label key", key),
@@ -448,9 +449,9 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 				continue
 			}
 			fieldMap[key] = f
-			fmt.Printf("Successfully parsed JSON for key %s: %+v\n", key, f)
+			log.Printf("Successfully parsed JSON for key %s: %+v\n", key, f)
 		} else {
-			fmt.Printf("Invalid type for key %s: expected string, got %T\n", key, fieldMap[key])
+			log.Printf("Invalid type for key %s: expected string, got %T\n", key, fieldMap[key])
 			config.logger.Debug(
 				"Invalid json-encoded data. A string is expected",
 				zap.Any("type", reflect.TypeOf(fieldMap[key])),
@@ -459,78 +460,78 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 		}
 	}
 
-	fmt.Println("\n=== Processing Version and Timestamp ===")
-	fmt.Printf("Config Version: %s\n", config.Version)
+	log.Println("\n=== Processing Version and Timestamp ===")
+	log.Printf("Config Version: %s\n", config.Version)
 	// For backwards compatibility, if EMF v0, always include version & timestamp
 	if config.Version == "0" {
 		fieldMap["Version"] = "0"
 		fieldMap["Timestamp"] = fmt.Sprint(cWMetric.timestampMs)
-		fmt.Println("Added Version 0 and Timestamp to fieldMap")
+		log.Println("Added Version 0 and Timestamp to fieldMap")
 	}
 
-	fmt.Printf("\n=== Processing Measurements (count: %d) ===\n", len(cWMetric.measurements))
-	fmt.Printf("DisableMetricExtraction: %v\n", config.DisableMetricExtraction)
+	log.Printf("\n=== Processing Measurements (count: %d) ===\n", len(cWMetric.measurements))
+	log.Printf("DisableMetricExtraction: %v\n", config.DisableMetricExtraction)
 
 	// Create EMF metrics if there are measurements
 	if len(cWMetric.measurements) > 0 && !config.DisableMetricExtraction {
 		if config.Version == "1" {
-			fmt.Println("Processing EMF V1 format")
+			log.Println("Processing EMF V1 format")
 			fieldMap["Version"] = "1"
 			fieldMap["_aws"] = map[string]any{
 				"CloudWatchMetrics": cWMetric.measurements,
 				"Timestamp":         cWMetric.timestampMs,
 			}
-			fmt.Printf("Added EMF V1 structure: %+v\n", fieldMap["_aws"])
+			log.Printf("Added EMF V1 structure: %+v\n", fieldMap["_aws"])
 		} else {
-			fmt.Println("Processing EMF V0 format")
+			log.Println("Processing EMF V0 format")
 			fieldMap["CloudWatchMetrics"] = cWMetric.measurements
-			fmt.Printf("Added CloudWatchMetrics: %+v\n", fieldMap["CloudWatchMetrics"])
+			log.Printf("Added CloudWatchMetrics: %+v\n", fieldMap["CloudWatchMetrics"])
 		}
 	} else if len(cWMetric.measurements) < 1 && config.EnhancedContainerInsights {
-		fmt.Println("No metrics found with EnhancedContainerInsights enabled, returning nil")
+		log.Println("No metrics found with EnhancedContainerInsights enabled, returning nil")
 		return nil, nil
 	}
 
-	fmt.Println("\n=== Processing Metrics Map ===")
+	log.Println("\n=== Processing Metrics Map ===")
 	// remove metrics from fieldMap
 	metricsMap := make(map[string]any)
 	for _, measurement := range cWMetric.measurements {
 		for _, metric := range measurement.Metrics {
 			metricName := metric.Name
-			fmt.Printf("Processing metric: %s\n", metricName)
+			log.Printf("Processing metric: %s\n", metricName)
 			v, ok := fieldMap[metricName]
 			if ok {
 				metricsMap[metricName] = v
 				delete(fieldMap, metricName)
-				fmt.Printf("Moved metric %s to metricsMap\n", metricName)
+				log.Printf("Moved metric %s to metricsMap\n", metricName)
 			}
 		}
 	}
 
-	fmt.Println("\n=== Marshaling Data ===")
+	log.Println("\n=== Marshaling Data ===")
 	pleMsg, err := json.Marshal(fieldMap)
 	if err != nil {
-		fmt.Printf("ERROR marshaling fieldMap: %v\n", err)
+		log.Printf("ERROR marshaling fieldMap: %v\n", err)
 		return nil, err
 	}
-	fmt.Printf("Marshaled fieldMap length: %d\n", len(pleMsg))
+	log.Printf("Marshaled fieldMap length: %d\n", len(pleMsg))
 
 	// append metrics json to pleMsg
 	if len(metricsMap) > 0 {
-		fmt.Printf("Processing metricsMap with %d entries\n", len(metricsMap))
+		log.Printf("Processing metricsMap with %d entries\n", len(metricsMap))
 		metricsMsg, err := json.Marshal(metricsMap)
 		if err != nil {
-			fmt.Printf("ERROR marshaling metricsMap: %v\n", err)
+			log.Printf("ERROR marshaling metricsMap: %v\n", err)
 			return nil, err
 		}
 		metricsMsg[0] = ','
 		pleMsg = append(pleMsg[:len(pleMsg)-1], metricsMsg...)
-		fmt.Printf("Final message length after adding metrics: %d\n", len(pleMsg))
+		log.Printf("Final message length after adding metrics: %d\n", len(pleMsg))
 	}
 
-	fmt.Println("\n=== Creating Log Event ===")
+	log.Println("\n=== Creating Log Event ===")
 	metricCreationTime := cWMetric.timestampMs
-	fmt.Printf("Metric creation time: %d\n", metricCreationTime)
+	log.Printf("Metric creation time: %d\n", metricCreationTime)
 
 	logEvent := cwlogs.NewEvent(
 		metricCreationTime,
@@ -538,8 +539,8 @@ func translateCWMetricToEMF(cWMetric *cWMetrics, config *Config) (*cwlogs.Event,
 	)
 	logEvent.GeneratedTime = time.Unix(0, metricCreationTime*int64(time.Millisecond))
 
-	fmt.Printf("Created log event with timestamp: %v\n", logEvent.GeneratedTime)
-	fmt.Println("=== END: translateCWMetricToEMF ===\n")
+	log.Printf("Created log event with timestamp: %v\n", logEvent.GeneratedTime)
+	log.Println("=== END: translateCWMetricToEMF ===\n")
 
 	return logEvent, nil
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -105,62 +106,62 @@ func newPrometheusReceiver(set receiver.Settings, cfg *Config, next consumer.Met
 // is controlled by having previously defined a Configuration using perhaps New.
 // In Start method
 func (r *pReceiver) Start(ctx context.Context, host component.Host) error {
-	fmt.Println("\n=== START: Prometheus Receiver Start ===")
-	fmt.Printf("Starting receiver with config: %+v\n", r.cfg)
+	log.Println("\n=== START: Prometheus Receiver Start ===")
+	log.Printf("Starting receiver with config: %+v\n", r.cfg)
 
 	discoveryCtx, cancel := context.WithCancel(context.Background())
 	r.cancelFunc = cancel
 
 	logger := slog.New(zapslog.NewHandler(r.settings.Logger.Core()))
-	fmt.Println("Initialized logger")
+	log.Println("Initialized logger")
 
 	err := r.initPrometheusComponents(discoveryCtx, logger, host)
 	if err != nil {
-		fmt.Printf("ERROR initializing Prometheus components: %v\n", err)
+		log.Printf("ERROR initializing Prometheus components: %v\n", err)
 		r.settings.Logger.Error("Failed to initPrometheusComponents Prometheus components", zap.Error(err))
 		return err
 	}
-	fmt.Println("Successfully initialized Prometheus components")
+	log.Println("Successfully initialized Prometheus components")
 
 	err = r.targetAllocatorManager.Start(ctx, host, r.scrapeManager, r.discoveryManager)
 	if err != nil {
-		fmt.Printf("ERROR starting target allocator: %v\n", err)
+		log.Printf("ERROR starting target allocator: %v\n", err)
 		return err
 	}
-	fmt.Println("Successfully started target allocator")
+	log.Println("Successfully started target allocator")
 
 	if r.cfg.APIServer != nil && r.cfg.APIServer.Enabled {
-		fmt.Println("Initializing API Server...")
+		log.Println("Initializing API Server...")
 		err = r.initAPIServer(discoveryCtx, host)
 		if err != nil {
-			fmt.Printf("ERROR initializing API server: %v\n", err)
+			log.Printf("ERROR initializing API server: %v\n", err)
 			r.settings.Logger.Error("Failed to initAPIServer", zap.Error(err))
 		}
-		fmt.Println("Successfully initialized API Server")
+		log.Println("Successfully initialized API Server")
 	}
 
 	r.loadConfigOnce.Do(func() {
-		fmt.Println("Closing configLoaded channel")
+		log.Println("Closing configLoaded channel")
 		close(r.configLoaded)
 	})
 
-	fmt.Println("=== END: Prometheus Receiver Start ===\n")
+	log.Println("=== END: Prometheus Receiver Start ===\n")
 	return nil
 }
 
 func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger *slog.Logger, host component.Host) error {
 	// Some SD mechanisms use the "refresh" package, which has its own metrics.
 	refreshSdMetrics := discovery.NewRefreshMetrics(r.registerer)
-	fmt.Println("\n=== START: Initialize Prometheus Components ===")
+	log.Println("\n=== START: Initialize Prometheus Components ===")
 
 	// Register the metrics specific for each SD mechanism, and the ones for the refresh package.
 	sdMetrics, err := discovery.RegisterSDMetrics(r.registerer, refreshSdMetrics)
 	if err != nil {
 		return fmt.Errorf("failed to register service discovery metrics: %w", err)
 	}
-	fmt.Println("Successfully registered SD metrics")
+	log.Println("Successfully registered SD metrics")
 
-	fmt.Println("Creating discovery manager...")
+	log.Println("Creating discovery manager...")
 	r.discoveryManager = discovery.NewManager(ctx, logger, r.registerer, sdMetrics)
 	if r.discoveryManager == nil {
 		// NewManager can sometimes return nil if it encountered an error, but
@@ -226,7 +227,7 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger *slog.L
 		return err
 	}
 	r.scrapeManager = scrapeManager
-	fmt.Println("Successfully created scrape manager")
+	log.Println("Successfully created scrape manager")
 
 	r.unregisterMetrics = func() {
 		refreshSdMetrics.Unregister()
@@ -431,7 +432,7 @@ func gcInterval(cfg *PromConfig) time.Duration {
 
 // Shutdown stops and cancels the underlying Prometheus scrapers.
 func (r *pReceiver) Shutdown(ctx context.Context) error {
-	fmt.Println("\n=== START: Prometheus Receiver Shutdown ===")
+	log.Println("\n=== START: Prometheus Receiver Shutdown ===")
 
 	if r.cancelFunc != nil {
 		r.cancelFunc()
