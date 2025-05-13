@@ -89,6 +89,15 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 }
 
 func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) error {
+	fmt.Println("\n=== START: pushMetricsData ===")
+	fmt.Println("Initial metrics count:", md.ResourceMetrics().Len())
+
+	if emf.config.logger != nil {
+		fmt.Println("Logger is configured")
+	} else {
+		fmt.Println("WARNING: Logger is nil")
+	}
+
 	rms := md.ResourceMetrics()
 	labels := map[string]string{}
 	for i := 0; i < rms.Len(); i++ {
@@ -100,67 +109,101 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 			}
 		}
 	}
-	emf.config.logger.Debug("Start processing resource metrics", zap.Any("labels", labels))
+
+	fmt.Println("\n=== Resource Labels ===")
+	fmt.Printf("Labels found: %+v\n", labels)
 	emf.processResourceLabels(labels)
+	fmt.Println("After processing labels:", labels)
 
 	groupedMetrics := make(map[any]*groupedMetric)
 	defaultLogStream := fmt.Sprintf("otel-stream-%s", emf.collectorID)
 	outputDestination := emf.config.OutputDestination
 
+	fmt.Println("\n=== Configuration ===")
+	fmt.Println("Output Destination:", outputDestination)
+	fmt.Println("Default Log Stream:", defaultLogStream)
+	fmt.Println("Initial Grouped Metrics length:", len(groupedMetrics))
+
+	fmt.Println("\n=== Starting Metric Translation ===")
 	for i := 0; i < rms.Len(); i++ {
+		fmt.Printf("Processing resource metric %d of %d\n", i+1, rms.Len())
 		err := emf.metricTranslator.translateOTelToGroupedMetric(rms.At(i), groupedMetrics, emf.config)
 		if err != nil {
+			fmt.Printf("ERROR during translation: %v\n", err)
 			return err
 		}
 	}
 
+	fmt.Println("\n=== After Translation ===")
+	fmt.Printf("Grouped Metrics count: %d\n", len(groupedMetrics))
+	for key, metric := range groupedMetrics {
+		fmt.Printf("Metric Key: %v\n", key)
+		fmt.Printf("Metric Value: %+v\n", metric)
+	}
+
+	fmt.Println("\n=== Processing Grouped Metrics ===")
 	for _, groupedMetric := range groupedMetrics {
+		fmt.Println("Processing new grouped metric")
+
 		putLogEvent, err := translateGroupedMetricToEmf(groupedMetric, emf.config, defaultLogStream)
 		if err != nil {
 			if errors.Is(err, errMissingMetricsForEnhancedContainerInsights) {
-				emf.config.logger.Debug("Dropping empty putLogEvents for enhanced container insights", zap.Error(err))
+				fmt.Println("Dropping empty putLogEvents for enhanced container insights:", err)
 				continue
 			}
+			fmt.Printf("ERROR translating to EMF: %v\n", err)
 			return err
 		}
 
-		// Currently we only support two options for "OutputDestination".
+		fmt.Println("Successfully translated to EMF format")
+
 		if strings.EqualFold(outputDestination, outputDestinationStdout) {
-			if putLogEvent != nil &&
-				putLogEvent.InputLogEvent != nil &&
-				putLogEvent.InputLogEvent.Message != nil {
-				fmt.Println(*putLogEvent.InputLogEvent.Message)
+			fmt.Println("\n=== Writing to Stdout ===")
+			if putLogEvent != nil && putLogEvent.InputLogEvent != nil && putLogEvent.InputLogEvent.Message != nil {
+				fmt.Printf("Log Event Message: %s\n", *putLogEvent.InputLogEvent.Message)
 			}
 		} else if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
+			fmt.Println("\n=== Writing to CloudWatch ===")
+			fmt.Printf("Stream Key: %+v\n", putLogEvent.StreamKey)
+
 			emfPusher, err := emf.getPusher(putLogEvent.StreamKey)
 			if err != nil {
+				fmt.Printf("ERROR getting pusher: %v\n", err)
 				return fmt.Errorf("failed to get pusher: %w", err)
 			}
+
 			if emfPusher != nil {
+				fmt.Println("Got pusher, adding log entry")
 				returnError := emfPusher.AddLogEntry(putLogEvent)
 				if returnError != nil {
+					fmt.Printf("ERROR adding log entry: %v\n", returnError)
 					return wrapErrorIfBadRequest(returnError)
 				}
+				fmt.Println("Successfully added log entry")
 			}
 		}
 	}
 
 	if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
-		for _, emfPusher := range emf.listPushers() {
+		fmt.Println("\n=== Force Flushing Pushers ===")
+		pushers := emf.listPushers()
+		fmt.Printf("Number of pushers to flush: %d\n", len(pushers))
+
+		for i, emfPusher := range pushers {
+			fmt.Printf("Flushing pusher %d\n", i+1)
 			returnError := emfPusher.ForceFlush()
 			if returnError != nil {
-				// TODO now we only have one logPusher, so it's ok to return after first error occurred
 				err := wrapErrorIfBadRequest(returnError)
 				if err != nil {
-					emf.config.logger.Error("Error force flushing logs. Skipping to next logPusher.", zap.Error(err))
+					fmt.Printf("ERROR flushing pusher %d: %v\n", i+1, err)
 				}
 				return err
 			}
+			fmt.Printf("Successfully flushed pusher %d\n", i+1)
 		}
 	}
 
-	emf.config.logger.Debug("Finish processing resource metrics", zap.Any("labels", labels))
-
+	fmt.Println("\n=== END: pushMetricsData ===")
 	return nil
 }
 
