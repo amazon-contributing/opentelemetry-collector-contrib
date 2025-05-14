@@ -20,6 +20,7 @@ require (
 	github.com/valyala/fastjson v1.6.4
 	go.opentelemetry.io/collector/component v1.30.0
 	go.opentelemetry.io/collector/component/componenttest v0.124.0
+	go.opentelemetry.io/collector/config/configtelemetry v0.126.0
 	go.opentelemetry.io/collector/config/configtls v1.30.0
 	go.opentelemetry.io/collector/confmap v1.30.0
 	go.opentelemetry.io/collector/consumer v1.30.0

@@ -6,6 +6,7 @@ package prometheusreceiver // import "github.com/open-telemetry/opentelemetry-co
 import (
 	"context"
 
+	"github.com/prometheus/common/model"
 	promconfig "github.com/prometheus/prometheus/config"
 	_ "github.com/prometheus/prometheus/discovery/install" // init() of this package registers service discovery impl.
 	"go.opentelemetry.io/collector/component"
@@ -34,11 +35,21 @@ var enableNativeHistogramsGate = featuregate.GlobalRegistry().MustRegister(
 )
 
 // NewFactory creates a new Prometheus receiver factory.
-func NewFactory() receiver.Factory {
+func NewFactory(typeOverride ...string) receiver.Factory {
+	var compType component.Type
+	if len(typeOverride) > 0 && typeOverride[0] != "" {
+		compType = component.MustNewType(typeOverride[0])
+	} else {
+		compType = metadata.Type // fallback to default
+	}
+
+	model.NameValidationScheme = model.UTF8Validation
+
 	return receiver.NewFactory(
-		metadata.Type,
+		compType,
 		createDefaultConfig,
-		receiver.WithMetrics(createMetricsReceiver, metadata.MetricsStability))
+		receiver.WithMetrics(createMetricsReceiver, metadata.MetricsStability),
+	)
 }
 
 func createDefaultConfig() component.Config {
