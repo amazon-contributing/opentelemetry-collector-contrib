@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -185,63 +186,93 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 
 // translateGroupedMetricToCWMetric converts Grouped Metric format to CloudWatch Metric format.
 func translateGroupedMetricToCWMetric(groupedMetric *groupedMetric, config *Config) *cWMetrics {
-	labels := filterAWSEMFAttributes(groupedMetric.labels, false)
-	fieldsLength := len(labels) + len(groupedMetric.metrics)
+	log.Println("=== START: translateGroupedMetricToCWMetric ===")
+	log.Printf("Initial labels count: %d, metrics count: %d", len(groupedMetric.labels), len(groupedMetric.metrics))
 
+	labels := filterAWSEMFAttributes(groupedMetric.labels, false)
+	log.Printf("Filtered labels count: %d", len(labels))
+
+	fieldsLength := len(labels) + len(groupedMetric.metrics)
 	isPrometheusMetric := groupedMetric.metadata.receiver == prometheusReceiver
+
 	if isPrometheusMetric {
 		fieldsLength++
+		log.Println("Processing Prometheus metric, increased fields length")
 	}
+
 	fields := make(map[string]any, fieldsLength)
+	log.Printf("Initialized fields map with capacity: %d", fieldsLength)
 
 	// Add labels to fields
+	log.Println("Processing labels...")
 	for k, v := range labels {
 		if !strings.HasPrefix(k, entity.AWSEntityPrefix) {
 			fields[k] = v
+			log.Printf("Added non-AWS label: %s", k)
 			continue
 		}
 
 		if config.AddEntity {
+			log.Printf("Processing AWS entity label: %s", k)
 			// This check is needed to determine whether to use EKS.Cluster or K8s.Cluster
 			if k == entity.AttributeEntityK8sClusterName {
 				if entityField := entity.GetEntityField(k, labels[entity.AttributeEntityPlatformType]); entityField != "" {
 					fields[entityField] = v
+					log.Printf("Added cluster entity field: %s", entityField)
 				}
 				continue
 			}
 
 			if entityField := entity.GetEntityField(k, ""); entityField != "" {
 				fields[entityField] = v
+				log.Printf("Added entity field: %s", entityField)
 			}
 		}
 	}
+
 	// Add metrics to fields
+	log.Println("Adding metrics to fields...")
 	for metricName, metricInfo := range groupedMetric.metrics {
 		fields[metricName] = metricInfo.value
+		log.Printf("Added metric: %s = %v", metricName, metricInfo.value)
 	}
+
 	if isPrometheusMetric {
 		fields[fieldPrometheusMetricType] = fieldPrometheusTypes[groupedMetric.metadata.metricDataType]
+		log.Printf("Added Prometheus metric type: %s", fieldPrometheusTypes[groupedMetric.metadata.metricDataType])
 	}
 
 	var cWMeasurements []cWMeasurement
-	if !config.DisableMetricExtraction { // If metric extraction is disabled, there is no need to compute & set the measurements
+	if !config.DisableMetricExtraction {
+		log.Println("Processing metric extraction...")
 		if len(config.MetricDeclarations) == 0 {
+			log.Println("No metric declarations defined, using default translation")
 			// If there are no metric declarations defined, translate grouped metric
 			// into the corresponding CW Measurement
 			cwm := groupedMetricToCWMeasurement(groupedMetric, config)
 			cWMeasurements = []cWMeasurement{cwm}
 		} else {
+			log.Printf("Processing %d metric declarations", len(config.MetricDeclarations))
 			// If metric declarations are defined, filter grouped metric's metrics using
 			// metric declarations and translate into the corresponding list of CW Measurements
 			cWMeasurements = groupedMetricToCWMeasurementsWithFilters(groupedMetric, config)
 		}
+		log.Printf("Generated %d CloudWatch measurements", len(cWMeasurements))
+	} else {
+		log.Println("Metric extraction is disabled")
 	}
 
-	return &cWMetrics{
+	result := &cWMetrics{
 		measurements: cWMeasurements,
 		timestampMs:  groupedMetric.metadata.timestampMs,
 		fields:       fields,
 	}
+
+	log.Printf("Final result - Measurements: %d, Fields: %d, Timestamp: %d",
+		len(result.measurements), len(result.fields), result.timestampMs)
+	log.Println("=== END: translateGroupedMetricToCWMetric ===")
+
+	return result
 }
 
 // groupedMetricToCWMeasurement creates a single CW Measurement from a grouped metric.

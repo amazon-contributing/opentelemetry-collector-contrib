@@ -7,13 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"regexp"
 	"sync"
 	"time"
 	"unsafe"
 
-	"github.com/go-kit/log"
+	log2 "github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	commonconfig "github.com/prometheus/common/config"
 	promconfig "github.com/prometheus/prometheus/config"
@@ -75,30 +76,42 @@ func newPrometheusReceiver(set receiver.Settings, cfg *Config, next consumer.Met
 // Start is the method that starts Prometheus scraping. It
 // is controlled by having previously defined a Configuration using perhaps New.
 func (r *pReceiver) Start(ctx context.Context, host component.Host) error {
+	log.Println("=== START: Prometheus Receiver Start ===")
+	log.Printf("Starting receiver with config: %+v", r.cfg)
+
 	discoveryCtx, cancel := context.WithCancel(context.Background())
 	r.cancelFunc = cancel
 
 	logger := internal.NewZapToGokitLogAdapter(r.settings.Logger)
+	log.Println("Initialized logger")
 
 	err := r.initPrometheusComponents(discoveryCtx, logger, host)
 	if err != nil {
+		log.Printf("ERROR initializing Prometheus components: %v", err)
 		r.settings.Logger.Error("Failed to initPrometheusComponents Prometheus components", zap.Error(err))
 		return err
 	}
+	log.Println("Successfully initialized Prometheus components")
 
 	err = r.targetAllocatorManager.Start(ctx, host, r.scrapeManager, r.discoveryManager)
 	if err != nil {
+		log.Printf("ERROR starting target allocator: %v", err)
 		return err
 	}
+	log.Println("Successfully started target allocator")
 
 	r.loadConfigOnce.Do(func() {
+		log.Println("Closing configLoaded channel")
 		close(r.configLoaded)
 	})
 
+	log.Println("=== END: Prometheus Receiver Start ===")
 	return nil
 }
 
-func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger log.Logger, host component.Host) error {
+func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger log2.Logger, host component.Host) error {
+	log.Println("=== START: Initialize Prometheus Components ===")
+
 	// Some SD mechanisms use the "refresh" package, which has its own metrics.
 	refreshSdMetrics := discovery.NewRefreshMetrics(r.registerer)
 
@@ -115,6 +128,7 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger log.Log
 	}
 
 	go func() {
+		log.Println("Starting discovery manager")
 		r.settings.Logger.Info("Starting discovery manager")
 		if err = r.discoveryManager.Run(); err != nil && !errors.Is(err, context.Canceled) {
 			r.settings.Logger.Error("Discovery manager failed", zap.Error(err))
@@ -124,12 +138,13 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger log.Log
 
 	var startTimeMetricRegex *regexp.Regexp
 	if r.cfg.StartTimeMetricRegex != "" {
+		log.Printf("Compiling start time metric regex: %s", r.cfg.StartTimeMetricRegex)
 		startTimeMetricRegex, err = regexp.Compile(r.cfg.StartTimeMetricRegex)
 		if err != nil {
 			return err
 		}
 	}
-
+	log.Println("Creating store...")
 	store, err := internal.NewAppendable(
 		r.consumer,
 		r.settings,
@@ -144,6 +159,7 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger log.Log
 	if err != nil {
 		return err
 	}
+	log.Println("Successfully created store")
 
 	opts := &scrape.Options{
 		PassMetadataInContext: true,
@@ -165,12 +181,15 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger log.Log
 			Elem().
 			Set(reflect.ValueOf(true))
 	}
+	log.Println("Creating scrape manager...")
 
 	scrapeManager, err := scrape.NewManager(opts, logger, store, r.registerer)
 	if err != nil {
 		return err
 	}
+
 	r.scrapeManager = scrapeManager
+	log.Println("Successfully created scrape manager")
 
 	r.unregisterMetrics = func() {
 		refreshSdMetrics.Unregister()
@@ -182,14 +201,21 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger log.Log
 	}
 
 	go func() {
+		log.Println("Waiting for configuration to be loaded...")
+
 		// The scrape manager needs to wait for the configuration to be loaded before beginning
 		<-r.configLoaded
+		log.Println("Starting scrape manager")
+
 		r.settings.Logger.Info("Starting scrape manager")
 		if err := r.scrapeManager.Run(r.discoveryManager.SyncCh()); err != nil {
+			log.Printf("ERROR: Scrape manager failed: %v", err)
 			r.settings.Logger.Error("Scrape manager failed", zap.Error(err))
 			componentstatus.ReportStatus(host, componentstatus.NewFatalErrorEvent(err))
 		}
 	}()
+	log.Println("=== END: Initialize Prometheus Components ===")
+
 	return nil
 }
 

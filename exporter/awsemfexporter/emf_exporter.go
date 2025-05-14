@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -90,12 +91,16 @@ func newEmfExporter(config *Config, set exporter.Settings) (*emfExporter, error)
 }
 
 func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) error {
+	log.Println("=== START: pushMetricsData ===")
+	log.Printf("Initial ResourceMetrics length: %d", md.ResourceMetrics().Len())
+
 	rms := md.ResourceMetrics()
 	labels := map[string]string{}
 	for i := 0; i < rms.Len(); i++ {
 		rm := rms.At(i)
 		am := rm.Resource().Attributes()
 		if am.Len() > 0 {
+			log.Printf("Processing attributes for ResourceMetric %d", i)
 			am.Range(func(k string, v pcommon.Value) bool {
 				labels[k] = v.Str()
 				return true
@@ -103,44 +108,56 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 		}
 	}
 	emf.config.logger.Debug("Start processing resource metrics", zap.Any("labels", labels))
+	log.Printf("Collected labels: %v", labels)
 	emf.processResourceLabels(labels)
 
 	groupedMetrics := make(map[any]*groupedMetric)
 	defaultLogStream := fmt.Sprintf("otel-stream-%s", emf.collectorID)
 	outputDestination := emf.config.OutputDestination
+	log.Printf("Output destination: %s, Default log stream: %s", outputDestination, defaultLogStream)
 
+	log.Println("Starting metric translation...")
 	for i := 0; i < rms.Len(); i++ {
 		err := emf.metricTranslator.translateOTelToGroupedMetric(rms.At(i), groupedMetrics, emf.config)
 		if err != nil {
+			log.Printf("Error translating metrics: %v", err)
 			return err
 		}
 	}
+	log.Printf("Grouped metrics count after translation: %d", len(groupedMetrics))
 
+	log.Println("Processing grouped metrics...")
 	for _, groupedMetric := range groupedMetrics {
 		putLogEvent, err := translateGroupedMetricToEmf(groupedMetric, emf.config, defaultLogStream)
 		if err != nil {
 			if errors.Is(err, errMissingMetricsForEnhancedContainerInsights) {
+				log.Println("Dropping empty putLogEvents for enhanced container insights")
 				emf.config.logger.Debug("Dropping empty putLogEvents for enhanced container insights", zap.Error(err))
 				continue
 			}
+			log.Printf("Error translating to EMF: %v", err)
 			return err
 		}
 
-		// Currently we only support two options for "OutputDestination".
 		if strings.EqualFold(outputDestination, outputDestinationStdout) {
 			if putLogEvent != nil &&
 				putLogEvent.InputLogEvent != nil &&
 				putLogEvent.InputLogEvent.Message != nil {
+				log.Println("Writing to stdout")
 				fmt.Println(*putLogEvent.InputLogEvent.Message)
 			}
 		} else if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
+			log.Println("Getting EMF pusher for CloudWatch")
 			emfPusher, err := emf.getPusher(putLogEvent.StreamKey)
 			if err != nil {
+				log.Printf("Failed to get pusher: %v", err)
 				return fmt.Errorf("failed to get pusher: %w", err)
 			}
 			if emfPusher != nil {
+				log.Println("Adding log entry to pusher")
 				returnError := emfPusher.AddLogEntry(putLogEvent)
 				if returnError != nil {
+					log.Printf("Error adding log entry: %v", returnError)
 					return wrapErrorIfBadRequest(returnError)
 				}
 			}
@@ -148,12 +165,13 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	}
 
 	if strings.EqualFold(outputDestination, outputDestinationCloudWatch) {
+		log.Println("Force flushing all pushers")
 		for _, emfPusher := range emf.listPushers() {
 			returnError := emfPusher.ForceFlush()
 			if returnError != nil {
-				// TODO now we only have one logPusher, so it's ok to return after first error occurred
 				err := wrapErrorIfBadRequest(returnError)
 				if err != nil {
+					log.Printf("Error force flushing logs: %v", err)
 					emf.config.logger.Error("Error force flushing logs. Skipping to next logPusher.", zap.Error(err))
 				}
 				return err
@@ -162,6 +180,7 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 	}
 
 	emf.config.logger.Debug("Finish processing resource metrics", zap.Any("labels", labels))
+	log.Println("=== END: pushMetricsData ===")
 
 	return nil
 }
