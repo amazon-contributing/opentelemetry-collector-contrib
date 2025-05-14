@@ -155,7 +155,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 	assert.Equal(t, mockHostInfoProvider{}, scraper.HostInfoProvider)
 
 	// build up a new PR
-	promFactory := prometheusreceiver.NewFactory("containerInsightsDCGMExporterScraper")
+	promFactory := prometheusreceiver.NewFactory()
 
 	targets := []*mocks.TestData{
 		{
