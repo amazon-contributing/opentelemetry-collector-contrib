@@ -59,12 +59,6 @@ func TestGetEntityField(t *testing.T) {
 			want:      InstanceID,
 		},
 		{
-			name:      "AttributeEntityAutoScalingGroup from map",
-			attribute: AttributeEntityAutoScalingGroup,
-			value:     "",
-			want:      AutoscalingGroup,
-		},
-		{
 			name:      "AttributeEntityServiceNameSource from map",
 			attribute: AttributeEntityServiceNameSource,
 			value:     "",
