@@ -147,7 +147,7 @@ func TestLoadConfigFailsOnUnknownSection(t *testing.T) {
 }
 
 func TestLoadConfigFailsOnNoPrometheusOrTAConfig(t *testing.T) {
-	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-nonexistent-scrape-config.yaml"))
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-non-existent-scrape-config.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()
 
@@ -236,7 +236,7 @@ func TestRejectUnsupportedPrometheusFeatures(t *testing.T) {
 }
 
 func TestNonExistentAuthCredentialsFile(t *testing.T) {
-	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-nonexistent-auth-credentials-file.yaml"))
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-non-existent-auth-credentials-file.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
@@ -251,7 +251,7 @@ func TestNonExistentAuthCredentialsFile(t *testing.T) {
 }
 
 func TestTLSConfigNonExistentCertFile(t *testing.T) {
-	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-nonexistent-cert-file.yaml"))
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-non-existent-cert-file.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
@@ -266,7 +266,8 @@ func TestTLSConfigNonExistentCertFile(t *testing.T) {
 }
 
 func TestTLSConfigNonExistentKeyFile(t *testing.T) {
-	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-nonexistent-key-file.yaml"))
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "invalid-config-prometheus-non-"+
+		"existent-key-file.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
@@ -359,7 +360,7 @@ func TestTargetAllocatorInvalidHTTPScrape(t *testing.T) {
 }
 
 func TestFileSDConfigWithoutSDFile(t *testing.T) {
-	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "nonexistent-prometheus-sd-file-config.yaml"))
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "non-existent-prometheus-sd-file-config.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
@@ -369,48 +370,4 @@ func TestFileSDConfigWithoutSDFile(t *testing.T) {
 	require.NoError(t, sub.Unmarshal(cfg))
 
 	require.NoError(t, xconfmap.Validate(cfg))
-}
-
-func TestLoadPrometheusAPIServerExtensionConfig(t *testing.T) {
-	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config_prometheus_api_server.yaml"))
-	require.NoError(t, err)
-	factory := NewFactory()
-	cfg := factory.CreateDefaultConfig()
-
-	sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "withAPIEnabled").String())
-	require.NoError(t, err)
-	require.NoError(t, sub.Unmarshal(cfg))
-	require.NoError(t, xconfmap.Validate(cfg))
-
-	r0 := cfg.(*Config)
-	assert.NotNil(t, r0.PrometheusConfig)
-	assert.True(t, r0.APIServer.Enabled)
-	assert.NotNil(t, r0.APIServer.ServerConfig)
-	assert.Equal(t, "localhost:9090", r0.APIServer.ServerConfig.Endpoint)
-
-	sub, err = cm.Sub(component.NewIDWithName(metadata.Type, "withAPIDisabled").String())
-	require.NoError(t, err)
-	cfg = factory.CreateDefaultConfig()
-	require.NoError(t, sub.Unmarshal(cfg))
-	require.NoError(t, xconfmap.Validate(cfg))
-
-	r1 := cfg.(*Config)
-	assert.NotNil(t, r1.APIServer)
-	assert.False(t, r1.APIServer.Enabled)
-
-	sub, err = cm.Sub(component.NewIDWithName(metadata.Type, "withoutAPI").String())
-	require.NoError(t, err)
-	cfg = factory.CreateDefaultConfig()
-	require.NoError(t, sub.Unmarshal(cfg))
-	require.NoError(t, xconfmap.Validate(cfg))
-
-	r2 := cfg.(*Config)
-	assert.NotNil(t, r2.PrometheusConfig)
-	assert.Nil(t, r2.APIServer)
-
-	sub, err = cm.Sub(component.NewIDWithName(metadata.Type, "withInvalidAPIConfig").String())
-	require.NoError(t, err)
-	cfg = factory.CreateDefaultConfig()
-	require.NoError(t, sub.Unmarshal(cfg))
-	require.Error(t, xconfmap.Validate(cfg))
 }

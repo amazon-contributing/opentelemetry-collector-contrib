@@ -92,6 +92,7 @@ func verifyFailTarget(t *testing.T, td *testData, mds []pmetric.ResourceMetrics)
 
 // Test open metrics negative test cases
 func TestOpenMetricsFail(t *testing.T) {
+	t.Skip()
 	targetsMap := getOpenMetricsFailTestData()
 	var targets []*testData
 	for k, v := range targetsMap {

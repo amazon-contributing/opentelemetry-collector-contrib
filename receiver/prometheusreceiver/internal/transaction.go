@@ -19,7 +19,6 @@ import (
 	"github.com/prometheus/prometheus/storage"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
-	"go.opentelemetry.io/collector/featuregate"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
@@ -28,13 +27,6 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/prometheus"
 	mdata "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/internal/metadata"
-)
-
-var removeStartTimeAdjustment = featuregate.GlobalRegistry().MustRegister(
-	"receiver.prometheusreceiver.RemoveStartTimeAdjustment",
-	featuregate.StageAlpha,
-	featuregate.WithRegisterDescription("When enabled, the Prometheus receiver will"+
-		" leave the start time unset. Use the new metricstarttime processor instead."),
 )
 
 type resourceKey struct {
@@ -521,11 +513,9 @@ func (t *transaction) Commit() error {
 		return nil
 	}
 
-	if !removeStartTimeAdjustment.IsEnabled() {
-		if err = t.metricAdjuster.AdjustMetrics(md); err != nil {
-			t.obsrecv.EndMetricsOp(ctx, dataformat, numPoints, err)
-			return err
-		}
+	if err = t.metricAdjuster.AdjustMetrics(md); err != nil {
+		t.obsrecv.EndMetricsOp(ctx, dataformat, numPoints, err)
+		return err
 	}
 
 	err = t.sink.ConsumeMetrics(ctx, md)
