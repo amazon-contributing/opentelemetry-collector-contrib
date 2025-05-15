@@ -5,8 +5,10 @@ package awscontainerinsightreceiver // import "github.com/open-telemetry/opentel
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"time"
@@ -106,7 +108,15 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 				return errors.New("environment variable HOST_IP is not set in k8s deployment config or passed as part of the agent config")
 			}
 		}
-		client, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort, kubeletutil.ClientConfig(acir.config.KubeConfigPath, acir.config.RunOnSystemd), acir.settings.Logger)
+
+		clientConfigCall:= kubeletutil.ClientConfig(acir.config.KubeConfigPath, acir.config.RunOnSystemd)
+		b, err := json.Marshal(clientConfigCall)
+		if err != nil {
+			log.Println("Error marshaling clientConfigCall:", err)
+		} else {
+			log.Println("calling clientConfigCall", string(b))
+		}
+		client, err := kubeletutil.NewKubeletClient(hostIP, ci.KubeSecurePort,clientConfigCall, acir.settings.Logger)
 		if err != nil {
 			return fmt.Errorf("cannot initialize kubelet client: %w", err)
 		}

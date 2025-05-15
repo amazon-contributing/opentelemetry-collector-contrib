@@ -6,6 +6,7 @@ package kubeletutil // import "github.com/open-telemetry/opentelemetry-collector
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"go.opentelemetry.io/collector/config/configtls"
@@ -39,13 +40,24 @@ func NewKubeletClient(kubeIP string, port string, clientConfig *kubelet.ClientCo
 		Port:   port,
 		KubeIP: kubeIP,
 	}
+	log.Println("NewKubelet client parameters", kubeIP)
+
+	b, err := json.Marshal(clientConfig)
+	if err != nil {
+		logger.Debug("Error marshaling client config", zap.Error(err))
+		log.Println("Error marshaling clientConfigCall:", err)
+	} else {
+		logger.Debug("Client config", zap.String("config", string(b)))
+		log.Println("calling clientConfigCall", string(b))
+	}
 
 	endpoint := kubeIP
 	if net.IsIPv6String(kubeIP) {
+		logger.Debug("IPv6 address detected, adding brackets")
 		endpoint = "[" + endpoint + "]"
 	}
 	endpoint = endpoint + ":" + port
-
+	logger.Debug("Created endpoint", zap.String("endpoint", endpoint))
 	// use service account for authentication by default
 	if clientConfig == nil {
 		clientConfig = &kubelet.ClientConfig{
@@ -103,6 +115,7 @@ func (k *KubeletClient) Summary(logger *zap.Logger) (*stats.Summary, error) {
 }
 
 func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
+	log.Println("kubeConfigPath")
 	if kubeConfigPath != "" {
 		// use kube-config for authentication
 		return &kubelet.ClientConfig{
@@ -112,7 +125,11 @@ func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
 			},
 		}
 	}
+	log.Println("after kubeConfigPath")
+
 	if isFileExist(kubeletCAPath) {
+		log.Println("in isFileExist")
+
 		// check if kubeletca is available
 		return &kubelet.ClientConfig{
 			APIConfig: k8sconfig.APIConfig{
@@ -121,7 +138,10 @@ func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
 			Config: configtls.Config{CAFile: kubeletCAPath},
 		}
 	}
+
 	if !isSystemd {
+		log.Println("in !systemd")
+
 		// use service account if kubelet ca or kubeconfig don't exist
 		return &kubelet.ClientConfig{
 			APIConfig: k8sconfig.APIConfig{
@@ -129,6 +149,7 @@ func ClientConfig(kubeConfigPath string, isSystemd bool) *kubelet.ClientConfig {
 			},
 		}
 	}
+	log.Println("return cfg")
 	// insecure TLS if not provided
 	return &kubelet.ClientConfig{
 		APIConfig: k8sconfig.APIConfig{
