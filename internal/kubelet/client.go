@@ -80,6 +80,7 @@ func NewClientProvider(endpoint string, cfg *ClientConfig, logger *zap.Logger) (
 		return &saClientProvider{
 			endpoint:           endpoint,
 			caCertPath:         caCertPath,
+			cfg:                cfg,
 			tokenPath:          svcAcctTokenPath,
 			insecureSkipVerify: cfg.InsecureSkipVerify,
 			logger:             logger,
