@@ -6,8 +6,10 @@ package kubelet // import "github.com/open-telemetry/opentelemetry-collector-con
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -201,6 +203,12 @@ type saClientProvider struct {
 }
 
 func (p *saClientProvider) BuildClient() (Client, error) {
+	b, err := json.Marshal(p.cfg)
+	if err != nil {
+		log.Println("Error marshaling config:", err)
+	} else {
+		log.Println(string(b))
+	}
 	caCertPath := p.caCertPath
 	if p.cfg.CAFile != "" {
 		caCertPath = p.cfg.CAFile
