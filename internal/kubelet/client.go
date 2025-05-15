@@ -194,18 +194,13 @@ func (p *tlsClientProvider) BuildClient() (Client, error) {
 type saClientProvider struct {
 	endpoint           string
 	caCertPath         string
-	cfg                *ClientConfig
 	tokenPath          string
 	insecureSkipVerify bool
 	logger             *zap.Logger
 }
 
 func (p *saClientProvider) BuildClient() (Client, error) {
-	caCertPath := p.caCertPath
-	if p.cfg.CAFile != "" {
-		caCertPath = p.cfg.CAFile
-	}
-	rootCAs, err := systemCertPoolPlusPath(caCertPath)
+	rootCAs, err := systemCertPoolPlusPath(p.caCertPath)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +211,7 @@ func (p *saClientProvider) BuildClient() (Client, error) {
 	tr := defaultTransport()
 	tr.TLSClientConfig = &tls.Config{
 		RootCAs:            rootCAs,
-		InsecureSkipVerify: p.cfg.InsecureSkipVerify,
+		InsecureSkipVerify: p.insecureSkipVerify,
 	}
 	endpoint, err := buildEndpoint(p.endpoint, true, p.logger)
 	if err != nil {
