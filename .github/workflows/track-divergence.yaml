@@ -49,6 +49,10 @@ jobs:
           ORIGIN_BRANCH: ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }}
           UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'main' }}
         run: |
+          # Set git config
+          git config --global user.name 'Github Action'
+          git config --global user.email 'action@github.com'
+          
           # Generate snapshot filename based on branches and date
           SNAPSHOT_FILE=".github/workflows/divergence/snapshots/o-${ORIGIN_BRANCH}_u-${UPSTREAM_BRANCH}_$(date +%Y%m%d_%H%M%S).txt"
           echo "snapshot_file=${SNAPSHOT_FILE}" >> $GITHUB_OUTPUT
@@ -63,6 +67,10 @@ jobs:
           git add .github/workflows/divergence/snapshots/
           git commit -m "Add divergence snapshot for $ORIGIN_BRANCH vs $UPSTREAM_BRANCH"
           git push -u origin HEAD
+          
+          # Unset git config
+          git config --global --unset user.name
+          git config --global --unset user.email
 
       - name: Compare with prior snapshot
         id: compare_snapshots
