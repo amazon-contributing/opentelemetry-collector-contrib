@@ -4,6 +4,9 @@ env:
   UPSTREAM: https://github.com/open-telemetry/opentelemetry-collector-contrib.git
 
 on:
+  push:
+    branches:
+      - 'sky333999/divergence'
   workflow_dispatch:
     inputs:
       origin_branch:
@@ -20,13 +23,6 @@ on:
         description: 'Prior snapshot file to compare against (optional)'
         required: false
         type: string
-  push:
-    branches:
-      - 'sky333999/divergence'
-    paths:
-      - '.github/workflows/track-divergence.yml'
-      - '.github/workflows/scripts/divergence.sh'
-      - '.github/workflows/divergence/**'
 
 jobs:
   track-divergence:
@@ -44,7 +40,7 @@ jobs:
 
       - name: Create snapshot directory
         run: |
-          mkdir -p .github/workflows/divergence/snapshots
+          mkdir -p divergence-snapshots
 
       - name: Create new snapshot
         id: create_snapshot
@@ -57,7 +53,7 @@ jobs:
           git config --global user.email 'action@github.com'
           
           # Generate snapshot filename based on branches and date
-          SNAPSHOT_FILE=".github/workflows/divergence/snapshots/o-${ORIGIN_BRANCH}_u-${UPSTREAM_BRANCH}_$(date +%Y%m%d_%H%M%S).txt"
+          SNAPSHOT_FILE="divergence-snapshots/o-${ORIGIN_BRANCH}_u-${UPSTREAM_BRANCH}_$(date +%Y%m%d_%H%M%S).txt"
           echo "snapshot_file=${SNAPSHOT_FILE}" >> $GITHUB_OUTPUT
           
           # Create branch for PR
@@ -67,7 +63,7 @@ jobs:
           bash .github/workflows/scripts/divergence.sh -o "$ORIGIN_BRANCH" -u "$UPSTREAM_BRANCH" -s "$SNAPSHOT_FILE"
           
           # Commit the changes
-          git add .github/workflows/divergence/snapshots/
+          git add divergence-snapshots/
           git commit -m "Add divergence snapshot for $ORIGIN_BRANCH vs $UPSTREAM_BRANCH"
           git push -u origin HEAD
           
