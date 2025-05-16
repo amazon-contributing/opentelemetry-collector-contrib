@@ -12,17 +12,18 @@ on:
       origin_branch:
         description: 'Origin branch to compare (default: aws-cwa-dev)'
         required: false
-        default: 'aws-cwa-dev'
+        default: 'bump-v0.124.1'
         type: string
       upstream_branch:
         description: 'Upstream branch to compare against (default: main)'
         required: false
-        default: 'main'
+        default: 'release/v0.124.x'
         type: string
       prior_snapshot:
         description: 'Prior snapshot file to compare against (optional)'
         required: false
         type: string
+        default: 'divergence/snapshots/o-aws-cwa-dev_u-main_20250516-230320.txt'
 
 jobs:
   track-divergence:
