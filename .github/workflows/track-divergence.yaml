@@ -1,4 +1,4 @@
-name: track-divergence
+name: Track Repository Divergence
 
 env:
   UPSTREAM: https://github.com/open-telemetry/opentelemetry-collector-contrib.git
@@ -10,13 +10,16 @@ on:
         description: 'Origin branch to compare (default: aws-cwa-dev)'
         required: false
         default: 'aws-cwa-dev'
+        type: string
       upstream_branch:
         description: 'Upstream branch to compare against (default: main)'
         required: false
         default: 'main'
+        type: string
       prior_snapshot:
         description: 'Prior snapshot file to compare against (optional)'
         required: false
+        type: string
   push:
     branches:
       - 'sky333999/divergence'
