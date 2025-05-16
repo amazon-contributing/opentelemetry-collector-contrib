@@ -1,0 +1,102 @@
+name: track-divergence
+
+env:
+  UPSTREAM: https://github.com/open-telemetry/opentelemetry-collector-contrib.git
+
+on:
+  workflow_dispatch:
+    inputs:
+      origin_branch:
+        description: 'Origin branch to compare (default: aws-cwa-dev)'
+        required: false
+        default: 'aws-cwa-dev'
+      upstream_branch:
+        description: 'Upstream branch to compare against (default: main)'
+        required: false
+        default: 'main'
+      prior_snapshot:
+        description: 'Prior snapshot file to compare against (optional)'
+        required: false
+  push:
+    branches:
+      - 'sky333999/divergence'
+    paths:
+      - '.github/workflows/track-divergence.yml'
+      - '.github/workflows/scripts/divergence.sh'
+      - '.github/workflows/divergence/**'
+
+jobs:
+  track-divergence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup upstream remote
+        run: |
+          git remote add upstream ${{ env.UPSTREAM }}
+          git fetch upstream
+
+      - name: Create snapshot directory
+        run: |
+          mkdir -p .github/workflows/divergence/snapshots
+
+      - name: Create new snapshot
+        id: create_snapshot
+        env:
+          ORIGIN_BRANCH: ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }}
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'main' }}
+        run: |
+          # Generate snapshot filename based on branches and date
+          SNAPSHOT_FILE=".github/workflows/divergence/snapshots/o-${ORIGIN_BRANCH}_u-${UPSTREAM_BRANCH}_$(date +%Y%m%d_%H%M%S).txt"
+          echo "snapshot_file=${SNAPSHOT_FILE}" >> $GITHUB_OUTPUT
+          
+          # Create branch for PR
+          git checkout -b divergence-snapshot-$(date +%Y%m%d-%H%M%S)
+          
+          # Run the diff script to create snapshot
+          bash .github/workflows/scripts/divergence.sh -o "$ORIGIN_BRANCH" -u "$UPSTREAM_BRANCH" -s "$SNAPSHOT_FILE"
+          
+          # Commit the changes
+          git add .github/workflows/divergence/snapshots/
+          git commit -m "Add divergence snapshot for $ORIGIN_BRANCH vs $UPSTREAM_BRANCH"
+          git push -u origin HEAD
+
+      - name: Compare with prior snapshot
+        id: compare_snapshots
+        if: github.event.inputs.prior_snapshot != ''
+        env:
+          PRIOR_SNAPSHOT: ${{ github.event.inputs.prior_snapshot }}
+        run: |
+          # Create multiline output for PR description
+          {
+            echo 'SNAPSHOT COMPARISON RESULTS'
+            echo '=========================='
+            echo
+            bash .github/workflows/scripts/divergence.sh -s "$PRIOR_SNAPSHOT" -c
+          } > comparison_results.txt
+          
+          # Save the comparison results as output
+          echo "comparison<<EOF" >> $GITHUB_OUTPUT
+          cat comparison_results.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create pull request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: "divergence-snapshot-$(date +%Y%m%d-%H%M%S)"
+          destination_branch: "main"
+          pr_title: "Update divergence snapshot for ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }} vs ${{ github.event.inputs.upstream_branch || 'main' }}"
+          pr_allow_empty: false
+          pr_body: |
+            # Description
+            This PR adds a new divergence snapshot comparing:
+            - Origin: ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }}
+            - Upstream: ${{ github.event.inputs.upstream_branch || 'main' }}
+            
+            ${{ steps.compare_snapshots.outputs.comparison }}
+            
+            # License
+            By submitting this pull request, I confirm that you can use, modify, copy, and redistribute this contribution, under the terms of your choice.
