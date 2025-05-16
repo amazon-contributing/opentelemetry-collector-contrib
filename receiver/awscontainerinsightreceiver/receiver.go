@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	promconfig "github.com/prometheus/prometheus/config"
 	"os"
 	"runtime"
 	"time"
@@ -310,6 +311,9 @@ func (acir *awsContainerInsightReceiver) initDcgmScraper(ctx context.Context, ho
 		ScraperConfigs:    gpu.GetScraperConfig(hostInfo),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
+	}
+	if scraperOpts.ScraperConfigs != nil && scraperOpts.ScraperConfigs.ScrapeFallbackProtocol == "" {
+		scraperOpts.ScraperConfigs.ScrapeFallbackProtocol = promconfig.PrometheusText1_0_0
 	}
 
 	var err error
