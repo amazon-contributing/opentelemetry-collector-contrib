@@ -49,8 +49,8 @@ jobs:
       - name: Create new snapshot
         id: create_snapshot
         env:
-          ORIGIN_BRANCH: ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }}
-          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'main' }}
+          ORIGIN_BRANCH: ${{ github.event.inputs.origin_branch || 'bump-v0.124.1' }}
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'release/v0.124.x' }}
         run: |
           # Set git config
           git config --global user.name 'Github Action'
