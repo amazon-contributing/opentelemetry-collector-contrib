@@ -96,7 +96,7 @@ jobs:
           source_branch: "divergence-snapshot-$(date +%Y%m%d-%H%M%S)"
           destination_branch: "main"
           pr_title: "Update divergence snapshot for ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }} vs ${{ github.event.inputs.upstream_branch || 'main' }}"
-          pr_allow_empty: false
+          pr_allow_empty: true
           pr_body: |
             # Description
             This PR adds a new divergence snapshot comparing:
