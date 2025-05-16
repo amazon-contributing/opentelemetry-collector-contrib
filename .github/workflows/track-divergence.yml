@@ -52,12 +52,17 @@ jobs:
           git config --global user.name 'Github Action'
           git config --global user.email 'action@github.com'
           
+          # Generate timestamp and branch name
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BRANCH_NAME="divergence-snapshot-${TIMESTAMP}"
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          
           # Generate snapshot filename based on branches and date
-          SNAPSHOT_FILE="divergence-snapshots/o-${ORIGIN_BRANCH}_u-${UPSTREAM_BRANCH}_$(date +%Y%m%d_%H%M%S).txt"
+          SNAPSHOT_FILE="divergence-snapshots/o-${ORIGIN_BRANCH}_u-${UPSTREAM_BRANCH}_${TIMESTAMP}.txt"
           echo "snapshot_file=${SNAPSHOT_FILE}" >> $GITHUB_OUTPUT
           
           # Create branch for PR
-          git checkout -b divergence-snapshot-$(date +%Y%m%d-%H%M%S)
+          git checkout -b "${BRANCH_NAME}"
           
           # Run the diff script to create snapshot
           bash .github/workflows/scripts/divergence.sh -o "$ORIGIN_BRANCH" -u "$UPSTREAM_BRANCH" -s "$SNAPSHOT_FILE"
@@ -93,7 +98,7 @@ jobs:
       - name: Create pull request
         uses: repo-sync/pull-request@v2
         with:
-          source_branch: "divergence-snapshot-$(date +%Y%m%d-%H%M%S)"
+          source_branch: ${{ steps.create_snapshot.outputs.branch_name }}
           destination_branch: "main"
           pr_title: "Update divergence snapshot for ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }} vs ${{ github.event.inputs.upstream_branch || 'main' }}"
           pr_allow_empty: true
