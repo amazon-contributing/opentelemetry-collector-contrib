@@ -49,8 +49,8 @@ jobs:
       - name: Create new snapshot
         id: create_snapshot
         env:
-          ORIGIN_BRANCH: ${{ github.event.inputs.origin_branch || 'aws-cwa-dev' }}
-          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'main' }}
+          ORIGIN_BRANCH: ${{ github.event.inputs.origin_branch || 'bump-v0.124.1' }}
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'release/v0.124.x' }}
         run: |
           # Set git config
           git config --global user.name 'Github Action'
@@ -72,7 +72,7 @@ jobs:
           bash .github/workflows/scripts/divergence.sh -o "$ORIGIN_BRANCH" -u "$UPSTREAM_BRANCH" -s "$SNAPSHOT_FILE"
           
           # If prior snapshot was provided, create trend analysis
-          if [ -n "${{ github.event.inputs.prior_snapshot }}" ]; then
+          if [ -n "divergence/snapshots/o-aws-cwa-dev_u-main_20250516-230320.txt" ]; then
             TREND_FILE="divergence/trends/o-${ORIGIN_BRANCH}_u-${UPSTREAM_BRANCH}_${TIMESTAMP}.txt"
             echo "trend_file=${TREND_FILE}" >> $GITHUB_OUTPUT
           
@@ -80,16 +80,16 @@ jobs:
               echo "DIVERGENCE TREND ANALYSIS"
               echo "========================"
               echo "Current snapshot: $(basename ${SNAPSHOT_FILE})"
-              echo "Previous snapshot: $(basename ${{ github.event.inputs.prior_snapshot }})"
+              echo "Previous snapshot: $(basename divergence/snapshots/o-aws-cwa-dev_u-main_20250516-230320.txt)"
               echo "Generated on: $(date)"
               echo
-              bash .github/workflows/scripts/divergence.sh -s "${{ github.event.inputs.prior_snapshot }}" -c
+              bash .github/workflows/scripts/divergence.sh -s "divergence/snapshots/o-aws-cwa-dev_u-main_20250516-230320.txt" -c
             } > "${TREND_FILE}"
           fi
           
           # Commit the changes
           git add divergence/
-          if [ -n "${{ github.event.inputs.prior_snapshot }}" ]; then
+          if [ -n "divergence/snapshots/o-aws-cwa-dev_u-main_20250516-230320.txt" ]; then
             git commit -m "Add divergence snapshot and trend analysis for $ORIGIN_BRANCH vs $UPSTREAM_BRANCH"
           else
             git commit -m "Add divergence snapshot for $ORIGIN_BRANCH vs $UPSTREAM_BRANCH"
