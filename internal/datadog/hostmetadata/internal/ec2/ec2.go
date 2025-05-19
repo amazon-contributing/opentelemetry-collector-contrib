@@ -18,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/datadog/hostmetadata/provider"
@@ -110,13 +109,13 @@ type Provider struct {
 }
 
 func NewProvider(logger *zap.Logger) (*Provider, error) {
-	sess, err := session.NewSession()
+	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	return &Provider{
 		logger:   logger,
-		detector: ec2provider.NewProvider(sess),
+		detector: ec2provider.NewProvider(cfg),
 	}, nil
 }
 
