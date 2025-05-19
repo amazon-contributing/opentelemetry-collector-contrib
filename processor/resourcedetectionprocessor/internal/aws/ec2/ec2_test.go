@@ -274,6 +274,7 @@ func TestDetector_Detect(t *testing.T) {
 			want:    pcommon.NewResource(),
 			wantErr: false,
 		},
+
 		{
 			name: "get fails",
 			fields: fields{metadataProvider: &mockMetadata{

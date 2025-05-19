@@ -7,12 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	promconfig "github.com/prometheus/prometheus/config"
 	"os"
 	"runtime"
 	"time"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
+	promconfig "github.com/prometheus/prometheus/config"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pmetric"

@@ -1,49 +1,75 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package filetest // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/filetest"
+package fileset // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/fileset"
 
 import (
-	"math/rand"
-	"os"
-	"path/filepath"
-	"testing"
+	"errors"
+	"slices"
 
-	"github.com/stretchr/testify/require"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/fingerprint"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/reader"
 )
 
-func OpenFile(tb testing.TB, path string) *os.File {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
-	require.NoError(tb, err)
-	tb.Cleanup(func() { _ = file.Close() })
-	return file
+var errFilesetEmpty = errors.New("pop() on empty Fileset")
+
+var (
+	_ Matchable = (*reader.Reader)(nil)
+	_ Matchable = (*reader.Metadata)(nil)
+)
+
+type Matchable interface {
+	GetFingerprint() *fingerprint.Fingerprint
 }
 
-func OpenTemp(t testing.TB, tempDir string) *os.File {
-	return OpenTempWithPattern(t, tempDir, "")
+type Fileset[T Matchable] struct {
+	readers []T
 }
 
-func ReopenTemp(t testing.TB, name string) *os.File {
-	return OpenTempWithPattern(t, filepath.Dir(name), filepath.Base(name))
+func New[T Matchable](capacity int) *Fileset[T] {
+	return &Fileset[T]{readers: make([]T, 0, capacity)}
 }
 
-func OpenTempWithPattern(t testing.TB, tempDir, pattern string) *os.File {
-	file, err := os.CreateTemp(tempDir, pattern)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = file.Close() })
-	return file
+func (set *Fileset[T]) Len() int {
+	return len(set.readers)
 }
 
-func WriteString(t testing.TB, file *os.File, s string) {
-	_, err := file.WriteString(s)
-	require.NoError(t, err)
+func (set *Fileset[T]) Get() []T {
+	return set.readers
 }
 
-func TokenWithLength(length int) []byte {
-	charset := "abcdefghijklmnopqrstuvwxyz"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+func (set *Fileset[T]) Pop() (T, error) {
+	// return first element from the array and remove it
+	var val T
+	if len(set.readers) == 0 {
+		return val, errFilesetEmpty
 	}
-	return b
+	r := set.readers[0]
+	set.readers = slices.Delete(set.readers, 0, 1)
+	return r, nil
+}
+
+func (set *Fileset[T]) Add(readers ...T) {
+	// add open readers
+	set.readers = append(set.readers, readers...)
+}
+
+func (set *Fileset[T]) Match(fp *fingerprint.Fingerprint, cmp func(a, b *fingerprint.Fingerprint) bool) T {
+	var val T
+	for idx, r := range set.readers {
+		if cmp(fp, r.GetFingerprint()) {
+			set.readers = append(set.readers[:idx], set.readers[idx+1:]...)
+			return r
+		}
+	}
+	return val
+}
+
+// comparators
+func StartsWith(a, b *fingerprint.Fingerprint) bool {
+	return a.StartsWith(b)
+}
+
+func Equal(a, b *fingerprint.Fingerprint) bool {
+	return a.Equal(b)
 }
