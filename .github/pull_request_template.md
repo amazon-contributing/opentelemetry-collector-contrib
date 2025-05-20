@@ -12,4 +12,9 @@ Fixes
 <!--Describe the documentation added.-->
 #### Documentation
 
+<!--Ensure checks are successful -->
+#### Checks
+- Did you run `make fmt`? Y/N
+- Did you verify that all checks pass? Y/N
+
 <!--Please delete paragraphs that you did not use before submitting.-->

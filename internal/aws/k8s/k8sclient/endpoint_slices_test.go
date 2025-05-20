@@ -253,7 +253,8 @@ var endpointSlicesArray = []runtime.Object{
 			},
 			Labels: map[string]string{
 				"kubernetes.io/service-name": "kube-controller-manager",
-			}},
+			},
+		},
 	},
 	&discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{

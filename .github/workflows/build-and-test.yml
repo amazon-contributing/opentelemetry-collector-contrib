@@ -141,25 +141,14 @@ jobs:
       fail-fast: false
       matrix:
         group:
-          - receiver-0
-          - receiver-1
-          - receiver-2
-          - receiver-3
-          - processor-0
-          - processor-1
-          - exporter-0
-          - exporter-1
-          - exporter-2
-          - exporter-3
-          - extension
-          - connector
-          - internal
-          - pkg
-          - cmd-0
-          - cmd-1
+          - cwagent
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Checkout CloudWatch Agent Repo
+        uses: actions/checkout@v4
+        with:
+          repository: aws/amazon-cloudwatch-agent
       - name: Checkout Repo
         uses: actions/checkout@v4
       - name: Setup Go
