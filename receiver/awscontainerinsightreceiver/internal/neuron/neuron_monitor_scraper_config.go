@@ -35,11 +35,12 @@ func GetNeuronScrapeConfig(hostinfo prometheusscraper.HostInfoProvider) *config.
 				InsecureSkipVerify: false,
 			},
 		},
-		ScrapeInterval: model.Duration(collectionInterval),
-		ScrapeTimeout:  model.Duration(collectionInterval),
-		JobName:        jobName,
-		Scheme:         "https",
-		MetricsPath:    scraperMetricsPath,
+		ScrapeFallbackProtocol: config.PrometheusText1_0_0,
+		ScrapeInterval:         model.Duration(collectionInterval),
+		ScrapeTimeout:          model.Duration(collectionInterval),
+		JobName:                jobName,
+		Scheme:                 "https",
+		MetricsPath:            scraperMetricsPath,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,
