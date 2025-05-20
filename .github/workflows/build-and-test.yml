@@ -139,9 +139,6 @@ jobs:
   govulncheck:
     strategy:
       fail-fast: false
-      matrix:
-        group:
-          - cwagent
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -151,6 +148,17 @@ jobs:
           repository: aws/amazon-cloudwatch-agent
           path: 'amazon-cloudwatch-agent'
           sparse-checkout: go.mod
+      - name: Get Components
+        id: get-components
+        run: |
+          CWAGENT_COMPONENTS=$(grep -o 'amazon-contributing/opentelemetry-collector-contrib/[^[:space:]]*' amazon-cloudwatch-agent/go.mod | \
+                      sed -n 's|.*/\([^/]*\)$|\1|p' | \
+                      sort -u)
+          echo "cwagent components<<EOF" >> $GITHUB_OUTPUT
+          echo "$CWAGENT_COMPONENTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "CWAGENT_COMPONENTS=$CWAGENT_COMPONENTS" >> $GITHUB_ENV
       - name: Checkout Repo
         uses: actions/checkout@v4
       - name: Setup Go
@@ -172,7 +180,9 @@ jobs:
         if: steps.go-cache.outputs.cache-hit != 'true'
         run: make install-tools
       - name: Run `govulncheck`
-        run: make -j2 gogovulncheck GROUP=${{ matrix.group }}
+        run: make -j2 gogovulncheck GROUP=$CWAGENT_COMPONENTS
+        env:
+          CWAGENT_COMPONENTS: ${{ env.CWAGENT_COMPONENTS }}
   checks:
     runs-on: ubuntu-latest
     needs: [setup-environment]
