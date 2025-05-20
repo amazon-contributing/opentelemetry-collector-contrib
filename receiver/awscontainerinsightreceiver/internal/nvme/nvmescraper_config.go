@@ -37,7 +37,7 @@ func GetScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig {
 		JobName:                jobName,
 		Scheme:                 "http",
 		MetricsPath:            scraperMetricsPath,
-		ScrapeFallbackProtocol: config.PrometheusText1_0_0,
+		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,

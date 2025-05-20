@@ -23,20 +23,13 @@ type PerfCounterWatcher interface {
 	Path() string
 	// ScrapeData collects a measurement and returns the value(s).
 	ScrapeData() ([]CounterValue, error)
-	// ScrapeRawValue collects a measurement and returns the raw value.
-	ScrapeRawValue(rawValue *int64) (bool, error)
-	// ScrapeRawValues collects a measurement and returns the raw value(s) for all instances.
-	ScrapeRawValues() ([]RawCounterValue, error)
 	// Resets the perfcounter query.
 	Reset() error
 	// Close all counters/handles related to the query and free all associated memory.
 	Close() error
 }
 
-type (
-	CounterValue    = win_perf_counters.CounterValue
-	RawCounterValue = win_perf_counters.RawCounterValue
-)
+type CounterValue = win_perf_counters.CounterValue
 
 type perfCounter struct {
 	path   string
@@ -134,12 +127,26 @@ func (pc *perfCounter) Path() string {
 }
 
 func (pc *perfCounter) ScrapeData() ([]CounterValue, error) {
-	hasData, err := pc.collectDataForScrape()
-	if err != nil {
-		return nil, err
-	}
-	if !hasData {
-		return nil, nil
+	if err := pc.query.CollectData(); err != nil {
+		var pdhErr *win_perf_counters.PdhError
+		if !errors.As(err, &pdhErr) || (pdhErr.ErrorCode != win_perf_counters.PDH_NO_DATA && pdhErr.ErrorCode != win_perf_counters.PDH_CALC_NEGATIVE_DENOMINATOR) {
+			return nil, fmt.Errorf("failed to collect data for performance counter '%s': %w", pc.path, err)
+		}
+
+		if pdhErr.ErrorCode == win_perf_counters.PDH_NO_DATA {
+			// No data is available for the counter, so return an empty slice.
+			return nil, nil
+		}
+
+		if pdhErr.ErrorCode == win_perf_counters.PDH_CALC_NEGATIVE_DENOMINATOR {
+			// A counter rolled over, so the value is invalid
+			// See https://support.microfocus.com/kb/doc.php?id=7010545
+			// Wait one second and retry once
+			time.Sleep(time.Second)
+			if retryErr := pc.query.CollectData(); retryErr != nil {
+				return nil, fmt.Errorf("failed retry for performance counter '%s': %w", pc.path, err)
+			}
+		}
 	}
 
 	vals, err := pc.query.GetFormattedCounterArrayDouble(pc.handle)
@@ -151,79 +158,21 @@ func (pc *perfCounter) ScrapeData() ([]CounterValue, error) {
 	return vals, nil
 }
 
-func (pc *perfCounter) ScrapeRawValues() ([]RawCounterValue, error) {
-	hasData, err := pc.collectDataForScrape()
-	if err != nil {
-		return nil, err
-	}
-	if !hasData {
-		return nil, nil
-	}
-
-	vals, err := pc.query.GetRawCounterArray(pc.handle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get raw data for performance counter '%s': %w", pc.path, err)
-	}
-
-	vals = cleanupScrapedValues(vals)
-	return vals, nil
-}
-
-func (pc *perfCounter) ScrapeRawValue(rawValue *int64) (bool, error) {
-	*rawValue = 0
-	hasData, err := pc.collectDataForScrape()
-	if err != nil {
-		return false, err
-	}
-	if !hasData {
-		return false, nil
-	}
-
-	*rawValue, err = pc.query.GetRawCounterValue(pc.handle)
-	if err != nil {
-		return false, fmt.Errorf("failed to get raw data for performance counter '%s': %w", pc.path, err)
-	}
-
-	return true, nil
-}
-
 // ExpandWildCardPath examines the local computer and returns those counter paths that match the given counter path which contains wildcard characters.
 func ExpandWildCardPath(counterPath string) ([]string, error) {
 	return win_perf_counters.ExpandWildCardPath(counterPath)
 }
 
-func getInstanceName(ctr any) string {
-	switch v := ctr.(type) {
-	case win_perf_counters.CounterValue:
-		return v.InstanceName
-	case win_perf_counters.RawCounterValue:
-		return v.InstanceName
-	default:
-		panic(fmt.Sprintf("unexpected type %T", v))
-	}
-}
-
-func setInstanceName(ctr any, name string) {
-	switch v := ctr.(type) {
-	case *win_perf_counters.CounterValue:
-		v.InstanceName = name
-	case *win_perf_counters.RawCounterValue:
-		v.InstanceName = name
-	default:
-		panic(fmt.Sprintf("unexpected type %T", v))
-	}
-}
-
 // cleanupScrapedValues handles instance name collisions and standardizes names.
 // It cleans up the list in-place to avoid unnecessary copies.
-func cleanupScrapedValues[C CounterValue | RawCounterValue](vals []C) []C {
+func cleanupScrapedValues(vals []CounterValue) []CounterValue {
 	if len(vals) == 0 {
 		return vals
 	}
 
 	// If there is only one "_Total" instance, clear the instance name.
-	if len(vals) == 1 && getInstanceName(vals[0]) == totalInstanceName {
-		setInstanceName(&vals[0], "")
+	if len(vals) == 1 && vals[0].InstanceName == totalInstanceName {
+		vals[0].InstanceName = ""
 		return vals
 	}
 
@@ -231,7 +180,7 @@ func cleanupScrapedValues[C CounterValue | RawCounterValue](vals []C) []C {
 	totalIndex := -1
 
 	for i := range vals {
-		instanceName := getInstanceName(vals[i])
+		instanceName := vals[i].InstanceName
 
 		if instanceName == totalInstanceName {
 			// Remember if a "_Total" instance was present.
@@ -241,7 +190,7 @@ func cleanupScrapedValues[C CounterValue | RawCounterValue](vals []C) []C {
 		if n, ok := occurrences[instanceName]; ok {
 			// Append indices to duplicate instance names.
 			occurrences[instanceName]++
-			setInstanceName(&vals[i], fmt.Sprintf("%s#%d", instanceName, n))
+			vals[i].InstanceName = fmt.Sprintf("%s#%d", instanceName, n)
 		} else {
 			occurrences[instanceName] = 1
 		}
@@ -255,35 +204,8 @@ func cleanupScrapedValues[C CounterValue | RawCounterValue](vals []C) []C {
 	return vals
 }
 
-func removeItemAt[C CounterValue | RawCounterValue](vals []C, idx int) []C {
+func removeItemAt(vals []CounterValue, idx int) []CounterValue {
 	vals[idx] = vals[len(vals)-1]
-	var zeroValue C
-	vals[len(vals)-1] = zeroValue
+	vals[len(vals)-1] = CounterValue{}
 	return vals[:len(vals)-1]
-}
-
-func (pc *perfCounter) collectDataForScrape() (bool, error) {
-	if err := pc.query.CollectData(); err != nil {
-		var pdhErr *win_perf_counters.PdhError
-		if !errors.As(err, &pdhErr) || (pdhErr.ErrorCode != win_perf_counters.PDH_NO_DATA && pdhErr.ErrorCode != win_perf_counters.PDH_CALC_NEGATIVE_DENOMINATOR) {
-			return false, fmt.Errorf("failed to collect data for performance counter '%s': %w", pc.path, err)
-		}
-
-		if pdhErr.ErrorCode == win_perf_counters.PDH_NO_DATA {
-			// No data is available for the counter, so no error but also no data
-			return false, nil
-		}
-
-		if pdhErr.ErrorCode == win_perf_counters.PDH_CALC_NEGATIVE_DENOMINATOR {
-			// A counter rolled over, so the value is invalid
-			// See https://support.microfocus.com/kb/doc.php?id=7010545
-			// Wait one second and retry once
-			time.Sleep(time.Second)
-			if retryErr := pc.query.CollectData(); retryErr != nil {
-				return false, fmt.Errorf("failed retry for performance counter '%s': %w", pc.path, err)
-			}
-		}
-	}
-
-	return true, nil
 }

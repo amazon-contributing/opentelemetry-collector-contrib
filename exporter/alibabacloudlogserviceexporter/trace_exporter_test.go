@@ -30,9 +30,9 @@ func TestNewTracesExporter(t *testing.T) {
 	ss.Spans().AppendEmpty()
 
 	// This will put trace data to send buffer and return success.
-	err = got.ConsumeTraces(context.Background(), traces) //nolint:usetesting
+	err = got.ConsumeTraces(context.Background(), traces)
 	assert.NoError(t, err)
-	assert.NoError(t, got.Shutdown(context.Background())) //nolint:usetesting
+	assert.NoError(t, got.Shutdown(context.Background()))
 }
 
 func TestNewFailsWithEmptyTracesExporterName(t *testing.T) {

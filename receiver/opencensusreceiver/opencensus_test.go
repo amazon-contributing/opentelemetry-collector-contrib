@@ -14,7 +14,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -399,19 +398,12 @@ func tempSocketName(t *testing.T) string {
 }
 
 func TestReceiveOnUnixDomainSocket_endToEnd(t *testing.T) {
-	//nolint:usetesting
-	tmpDir, err := os.MkdirTemp("", "unix-socket")
-	require.NoError(t, err)
-	t.Cleanup(func() { os.RemoveAll(tmpDir) })
-
-	// Create a shorter socket path
-	socketPath := filepath.Join(tmpDir, "test.sock")
-
+	socketName := tempSocketName(t)
 	cbts := consumertest.NewNop()
 	cfg := &Config{
 		ServerConfig: configgrpc.ServerConfig{
 			NetAddr: confignet.AddrConfig{
-				Endpoint:  socketPath,
+				Endpoint:  socketName,
 				Transport: "unix",
 			},
 		},
@@ -422,28 +414,28 @@ func TestReceiveOnUnixDomainSocket_endToEnd(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, r.Shutdown(context.Background())) })
 
 	span := `
-    {
-     "node": {
+{
+ "node": {
+ },
+ "spans": [
+   {
+     "trace_id": "YpsR8/le4OgjwSSxhjlrEg==",
+     "span_id": "2CogcbJh7Ko=",
+     "socket": {
+       "value": "/abc",
+       "truncated_byte_count": 0
      },
-     "spans": [
-       {
-         "trace_id": "YpsR8/le4OgjwSSxhjlrEg==",
-         "span_id": "2CogcbJh7Ko=",
-         "socket": {
-           "value": "/abc",
-           "truncated_byte_count": 0
-         },
-         "kind": "SPAN_KIND_UNSPECIFIED",
-         "start_time": "2020-01-09T11:13:53.187Z",
-         "end_time": "2020-01-09T11:13:53.187Z"
-        }
-     ]
-    }
-    `
+     "kind": "SPAN_KIND_UNSPECIFIED",
+     "start_time": "2020-01-09T11:13:53.187Z",
+     "end_time": "2020-01-09T11:13:53.187Z"
+	}
+ ]
+}
+`
 	c := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(context.Context, string, string) (conn net.Conn, err error) {
-				return net.Dial("unix", socketPath)
+				return net.Dial("unix", socketName)
 			},
 		},
 	}

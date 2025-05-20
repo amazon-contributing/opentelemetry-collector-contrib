@@ -313,7 +313,7 @@ func (acir *awsContainerInsightReceiver) initDcgmScraper(ctx context.Context, ho
 		Logger:            acir.settings.Logger,
 	}
 	if scraperOpts.ScraperConfigs != nil && scraperOpts.ScraperConfigs.ScrapeFallbackProtocol == "" {
-		scraperOpts.ScraperConfigs.ScrapeFallbackProtocol = promconfig.PrometheusText1_0_0
+		scraperOpts.ScraperConfigs.ScrapeFallbackProtocol = promconfig.PrometheusText0_0_4
 	}
 
 	var err error

@@ -35,7 +35,7 @@ func GetNeuronScrapeConfig(hostinfo prometheusscraper.HostInfoProvider) *config.
 				InsecureSkipVerify: false,
 			},
 		},
-		ScrapeFallbackProtocol: config.PrometheusText1_0_0,
+		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
 		ScrapeInterval:         model.Duration(collectionInterval),
 		ScrapeTimeout:          model.Duration(collectionInterval),
 		JobName:                jobName,

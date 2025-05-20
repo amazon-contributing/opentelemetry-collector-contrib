@@ -185,11 +185,16 @@ func getTimeSeriesWithSamplesAndExemplars(labels []prompb.Label, samples []promp
 	}
 }
 
-func getHistogramDataPointWithExemplars(t *testing.T, time time.Time, value float64, traceID string, spanID string, attributeKey string, attributeValue string) pmetric.HistogramDataPoint {
+func getHistogramDataPointWithExemplars[V int64 | float64](t *testing.T, time time.Time, value V, traceID string, spanID string, attributeKey string, attributeValue string) pmetric.HistogramDataPoint {
 	h := pmetric.NewHistogramDataPoint()
 
 	e := h.Exemplars().AppendEmpty()
-	e.SetDoubleValue(value)
+	switch v := (any)(value).(type) {
+	case int64:
+		e.SetIntValue(v)
+	case float64:
+		e.SetDoubleValue(v)
+	}
 	e.SetTimestamp(pcommon.NewTimestampFromTime(time))
 	if attributeKey != "" || attributeValue != "" {
 		e.FilteredAttributes().PutStr(attributeKey, attributeValue)
@@ -301,10 +306,9 @@ func getSummaryMetric(name string, attributes pcommon.Map, ts uint64, sum float6
 	}
 	dp.SetCount(count)
 	dp.SetSum(sum)
-	attributes.Range(func(k string, v pcommon.Value) bool {
+	for k, v := range attributes.All() {
 		v.CopyTo(dp.Attributes().PutEmpty(k))
-		return true
-	})
+	}
 
 	dp.SetTimestamp(pcommon.Timestamp(ts))
 

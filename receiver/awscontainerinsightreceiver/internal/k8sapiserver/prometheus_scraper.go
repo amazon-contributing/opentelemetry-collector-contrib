@@ -109,7 +109,7 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 		ScrapeInterval:         model.Duration(collectionInterval),
 		ScrapeTimeout:          model.Duration(collectionInterval),
 		ScrapeProtocols:        config.DefaultScrapeProtocols,
-		ScrapeFallbackProtocol: config.PrometheusText1_0_0,
+		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
 		JobName:                fmt.Sprintf("%s/%s", jobName, opts.Endpoint),
 		HonorTimestamps:        true,
 		Scheme:                 "https",
