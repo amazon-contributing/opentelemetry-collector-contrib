@@ -151,11 +151,9 @@ jobs:
       - name: Get Components
         id: get-components
         run: |
-          CWAGENT_COMPONENTS=$(grep -o 'amazon-contributing/opentelemetry-collector-contrib/[^[:space:]]*' amazon-cloudwatch-agent/go.mod | sed -n 's|.*/\([^/]*\)$|\1|p')
-          echo "cwagent components<<EOF" >> $GITHUB_OUTPUT
-          echo "$CWAGENT_COMPONENTS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
+          CWAGENT_COMPONENTS=$(grep -o 'amazon-contributing/opentelemetry-collector-contrib/[^[:space:]]*' amazon-cloudwatch-agent/go.mod | \
+                      sed -n 's|.*/\([^/]*\)$|\1|p' | \
+                      sort -u | tr '\n' ' ' | sed 's/ $//')
           echo "CWAGENT_COMPONENTS=$CWAGENT_COMPONENTS" >> $GITHUB_ENV
       - name: Checkout Repo
         uses: actions/checkout@v4
