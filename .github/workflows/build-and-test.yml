@@ -149,6 +149,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: aws/amazon-cloudwatch-agent
+          path: '/amazon-cloudwatch-agent'
+          sparse-checkout: go.mod
       - name: Checkout Repo
         uses: actions/checkout@v4
       - name: Setup Go
