@@ -6,11 +6,11 @@ package ec2 // import "github.com/open-telemetry/opentelemetry-collector-contrib
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"io"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	"github.com/aws/aws-sdk-go/aws/request"
 )
 
 type Provider interface {
@@ -65,5 +65,6 @@ func (c *metadataClient) Get(ctx context.Context) (imds.InstanceIdentityDocument
 }
 
 func (c *metadataClient) GetHandlers() *request.Handlers {
-	return c.GetHandlers()
+	handlers := &request.Handlers{}
+	return handlers
 }
