@@ -54,6 +54,7 @@ OVERRIDE_MODS := $(shell find ./override/* $(FIND_MOD_ARGS) -exec $(TO_MOD_DIR) 
 OTHER_MODS := $(shell find . $(EX_COMPONENTS) $(EX_INTERNAL) $(EX_PKG) $(EX_CMD) $(FIND_MOD_ARGS) -exec $(TO_MOD_DIR) ) $(PWD)
 ALL_MODS := $(RECEIVER_MODS) $(PROCESSOR_MODS) $(EXPORTER_MODS) $(EXTENSION_MODS) $(CONNECTOR_MODS) $(INTERNAL_MODS) $(PKG_MODS) $(CMD_MODS) $(OTHER_MODS)
 CGO_MODS := ./receiver/hostmetricsreceiver
+CWAGENT_MODS := $(CWAGENT_COMPONENTS) # populated from build-and-test action
 
 FIND_INTEGRATION_TEST_MODS={ find . -type f -name "*integration_test.go" & find . -type f -name "*e2e_test.go" -not -path "./testbed/*"; }
 INTEGRATION_MODS := $(shell $(FIND_INTEGRATION_TEST_MODS) | xargs $(TO_MOD_DIR) | uniq)
@@ -89,6 +90,7 @@ all-groups:
 	@echo "\ncmd: $(CMD_MODS)"
 	@echo "\noverride: $(OVERRIDE_MODS)"
 	@echo "\nother: $(OTHER_MODS)"
+	@echo "\ncwagent: $(CWAGENT_MODS)"
 
 .PHONY: all
 all: install-tools all-common goporto multimod-verify gotest otelcontribcol
@@ -278,6 +280,9 @@ for-integration-target: $(INTEGRATION_MODS)
 
 .PHONY: for-cgo-target
 for-cgo-target: $(CGO_MODS)
+
+.PHONY: for-cwagent-target
+for-cwagent-target: $(CWAGENT_MODS)
 
 # Debugging target, which helps to quickly determine whether for-all-target is working or not.
 .PHONY: all-pwd
