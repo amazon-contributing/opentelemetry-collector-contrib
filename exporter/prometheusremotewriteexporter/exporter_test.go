@@ -34,8 +34,11 @@ import (
 	"go.opentelemetry.io/collector/exporter/exportertest"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata/metricdatatest"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter/internal/metadatatest"
@@ -52,9 +55,6 @@ func Test_NewPRWExporter(t *testing.T) {
 		ClientConfig:    confighttp.NewDefaultClientConfig(),
 		TargetInfo: &TargetInfo{
 			Enabled: true,
-		},
-		CreatedMetric: &CreatedMetric{
-			Enabled: false,
 		},
 	}
 	buildInfo := component.BuildInfo{
@@ -148,9 +148,6 @@ func Test_Start(t *testing.T) {
 		ExternalLabels:    map[string]string{},
 		TargetInfo: &TargetInfo{
 			Enabled: true,
-		},
-		CreatedMetric: &CreatedMetric{
-			Enabled: false,
 		},
 	}
 	buildInfo := component.BuildInfo{
@@ -387,8 +384,6 @@ func runExportPipeline(ts *prompb.TimeSeries, endpoint *url.URL) error {
 
 // Test_PushMetrics checks the number of TimeSeries received by server and the number of metrics dropped is the same as
 // expected
-// Test_PushMetrics checks the number of TimeSeries received by server and the number of metrics dropped is the same as
-// expected
 func Test_PushMetrics(t *testing.T) {
 	invalidTypeBatch := testdata.GenerateMetricsMetricTypeInvalid()
 
@@ -455,9 +450,7 @@ func Test_PushMetrics(t *testing.T) {
 
 	checkFunc := func(t *testing.T, r *http.Request, expected int, isStaleMarker bool) {
 		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		buf := make([]byte, len(body))
 		dest, err := snappy.Decode(buf, body)
@@ -498,7 +491,7 @@ func Test_PushMetrics(t *testing.T) {
 			name:               "intSum_case",
 			metrics:            intSumBatch,
 			reqTestFunc:        checkFunc,
-			expectedTimeSeries: 4,
+			expectedTimeSeries: 2,
 			httpResponseCode:   http.StatusAccepted,
 		},
 		{
@@ -688,11 +681,7 @@ func Test_PushMetrics(t *testing.T) {
 			name = "WAL"
 		}
 		t.Run(name, func(t *testing.T) {
-			if useWAL {
-				t.Skip("Flaky test, see https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/9124")
-			}
-			for _, ttt := range tests {
-				tt := ttt
+			for _, tt := range tests {
 				if useWAL && tt.skipForWAL {
 					t.Skip("test not supported when using WAL")
 				}
@@ -724,9 +713,6 @@ func Test_PushMetrics(t *testing.T) {
 						MaxBatchSizeBytes: 3000000,
 						RemoteWriteQueue:  RemoteWriteQueue{NumConsumers: 1},
 						TargetInfo: &TargetInfo{
-							Enabled: true,
-						},
-						CreatedMetric: &CreatedMetric{
 							Enabled: true,
 						},
 						BackOffConfig: retrySettings,
@@ -772,6 +758,22 @@ func Test_PushMetrics(t *testing.T) {
 						assert.Error(t, err)
 						return
 					}
+					assert.NoError(t, err)
+					if tt.expectedFailedTranslations > 0 {
+						metadatatest.AssertEqualExporterPrometheusremotewriteFailedTranslations(t, tel, []metricdata.DataPoint[int64]{
+							{
+								Value:      int64(tt.expectedFailedTranslations),
+								Attributes: attribute.NewSet(attribute.String("exporter", "prometheusremotewrite"), attribute.String("endpoint", clientConfig.Endpoint)),
+							},
+						}, metricdatatest.IgnoreTimestamp())
+					}
+
+					metadatatest.AssertEqualExporterPrometheusremotewriteTranslatedTimeSeries(t, tel, []metricdata.DataPoint[int64]{
+						{
+							Value:      int64(tt.expectedTimeSeries),
+							Attributes: attribute.NewSet(attribute.String("exporter", "prometheusremotewrite"), attribute.String("endpoint", clientConfig.Endpoint)),
+						},
+					}, metricdatatest.IgnoreTimestamp())
 				})
 			}
 		})
@@ -937,9 +939,6 @@ func TestWALOnExporterRoundTrip(t *testing.T) {
 		TargetInfo: &TargetInfo{
 			Enabled: true,
 		},
-		CreatedMetric: &CreatedMetric{
-			Enabled: false,
-		},
 	}
 
 	set := exportertest.NewNopSettings(metadata.Type)
@@ -977,7 +976,7 @@ func TestWALOnExporterRoundTrip(t *testing.T) {
 	errs := prwe.handleExport(ctx, tsMap, nil)
 	assert.NoError(t, errs)
 	// Shutdown after we've written to the WAL. This ensures that our
-	// exported data in-flight will flushed flushed to the WAL before exiting.
+	// exported data in-flight will be flushed to the WAL before exiting.
 	require.NoError(t, prwe.Shutdown(ctx))
 
 	// 3. Let's now read back all of the WAL records and ensure
@@ -1142,6 +1141,11 @@ func TestRetries(t *testing.T) {
 			endpointURL, err := url.Parse(mockServer.URL)
 			require.NoError(t, err)
 
+			// Create the telemetry
+			testTel := componenttest.NewTelemetry()
+			telemetry, err := newPRWTelemetry(exporter.Settings{TelemetrySettings: testTel.NewTelemetrySettings()}, endpointURL)
+			require.NoError(t, err)
+
 			// Create the prwExporter
 			exporter := &prwExporter{
 				endpointURL:    endpointURL,
@@ -1150,6 +1154,7 @@ func TestRetries(t *testing.T) {
 				retrySettings: configretry.BackOffConfig{
 					Enabled: true,
 				},
+				telemetry: telemetry,
 			}
 
 			err = exporter.execute(tt.ctx, &prompb.WriteRequest{})

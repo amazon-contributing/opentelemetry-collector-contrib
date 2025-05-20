@@ -57,17 +57,11 @@ func createMetricsExporter(ctx context.Context, set exporter.Settings,
 	if err != nil {
 		return nil, err
 	}
+
 	numConsumers := 1
 	if enableMultipleWorkersFeatureGate.IsEnabled() {
 		numConsumers = prwCfg.RemoteWriteQueue.NumConsumers
 	}
-
-	// Don't allow users to configure the queue.
-	// See https://github.com/open-telemetry/opentelemetry-collector/issues/2949.
-	// Prometheus remote write samples needs to be in chronological
-	// order for each timeseries. If we shard the incoming metrics
-	// without considering this limitation, we experience
-	// "out of order samples" errors.
 	exporter, err := exporterhelper.NewMetrics(
 		ctx,
 		set,
@@ -103,11 +97,12 @@ func createDefaultConfig() component.Config {
 	if enableMultipleWorkersFeatureGate.IsEnabled() {
 		numConsumers = 1
 	}
-
 	return &Config{
 		Namespace:         "",
 		ExternalLabels:    map[string]string{},
 		MaxBatchSizeBytes: 3000000,
+		// To set this as default once `exporter.prometheusremotewritexporter.EnableMultipleWorkers` is removed
+		// MaxBatchRequestParallelism: 5,
 		TimeoutSettings:   exporterhelper.NewDefaultTimeoutConfig(),
 		BackOffConfig:     retrySettings,
 		AddMetricSuffixes: true,
@@ -121,9 +116,6 @@ func createDefaultConfig() component.Config {
 		},
 		TargetInfo: &TargetInfo{
 			Enabled: true,
-		},
-		CreatedMetric: &CreatedMetric{
-			Enabled: false,
 		},
 	}
 }
