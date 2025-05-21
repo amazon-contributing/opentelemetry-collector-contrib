@@ -21,7 +21,7 @@ import (
 const (
 	caFile                    = "/etc/amazon-cloudwatch-observability-agent-cert/tls-ca.crt"
 	collectionInterval        = 60 * time.Second
-	jobName                   = "containerInsightsNeuronMonitorScraper"
+	jobName                   = "prometheus"
 	scraperMetricsPath        = "/metrics"
 	scraperK8sServiceSelector = "k8s-app=neuron-monitor-service"
 )

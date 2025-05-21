@@ -273,5 +273,5 @@ func TestNewPrometheusScraperEndToEnd(t *testing.T) {
 
 func TestPrometheusScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
-	assert.True(t, strings.HasPrefix(jobName, "containerInsightsKubeAPIServerScraper"))
+	assert.True(t, strings.HasPrefix(jobName, "prometheus"))
 }

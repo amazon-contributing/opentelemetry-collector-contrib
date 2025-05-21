@@ -28,7 +28,7 @@ import (
 const (
 	kmCollectionInterval = 60 * time.Second
 	// kmJobName needs to be "containerInsightsKueueMetricsScraper" so metric translator tags the source as the container insights receiver
-	kmJobName                   = "containerInsightsKueueMetricsScraper"
+	kmJobName                   = "prometheus"
 	kueueNamespace              = "kueue-system"
 	kueueNameLabelSelector      = "app.kubernetes.io/name=kueue"
 	kueueComponentLabelSelector = "app.kubernetes.io/component=controller"
@@ -131,7 +131,7 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 
-	promFactory := prometheusreceiver.NewFactory(kmJobName)
+	promFactory := prometheusreceiver.NewFactory()
 	promReceiver, err := promFactory.CreateMetrics(opts.Ctx, params, &promConfig, opts.Consumer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create prometheus receiver for kueue metrics: %w", err)

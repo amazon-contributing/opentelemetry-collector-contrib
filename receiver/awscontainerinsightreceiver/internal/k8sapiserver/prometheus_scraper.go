@@ -29,7 +29,7 @@ const (
 	caFile             = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	collectionInterval = 60 * time.Second
 	// needs to start with "containerInsightsKubeAPIServerScraper" for histogram deltas in the emf exporter
-	jobName                        = "containerInsightsKubeAPIServerScraper"
+	jobName                        = "prometheus"
 	serviceAccountTokenDefaultPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec
 )
 
@@ -157,11 +157,11 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 	}
 
 	params := receiver.Settings{
-		ID:                component.MustNewID(jobName),
+		ID:                component.MustNewID("prometheus"),
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 
-	promFactory := prometheusreceiver.NewFactory(jobName)
+	promFactory := prometheusreceiver.NewFactory()
 	promReceiver, err := promFactory.CreateMetrics(opts.Ctx, params, &promConfig, opts.Consumer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create prometheus receiver: %w", err)

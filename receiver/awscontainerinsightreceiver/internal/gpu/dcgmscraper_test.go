@@ -155,7 +155,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 	assert.Equal(t, mockHostInfoProvider{}, scraper.HostInfoProvider)
 
 	// build up a new PR
-	promFactory := prometheusreceiver.NewFactory("containerInsightsDCGMExporterScraper")
+	promFactory := prometheusreceiver.NewFactory()
 
 	targets := []*mocks.TestData{
 		{
@@ -225,5 +225,5 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 
 func TestDcgmScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
-	assert.True(t, strings.HasPrefix(jobName, "containerInsightsDCGMExporterScraper"))
+	assert.True(t, strings.HasPrefix(jobName, "prometheus"))
 }

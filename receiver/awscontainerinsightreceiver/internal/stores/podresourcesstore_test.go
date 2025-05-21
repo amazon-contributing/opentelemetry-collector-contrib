@@ -175,10 +175,8 @@ func TestUpdateMaps(t *testing.T) {
 
 	assert.NotNil(t, store.containerInfoToResourcesMap)
 	assert.NotNil(t, store.resourceToPodContainerMap)
-	//nolint:testifylint
-	assert.Equal(t, len(expectedContainerInfoToResourcesMap), len(store.containerInfoToResourcesMap))
-	//nolint:testifylint
-	assert.Equal(t, len(expectedResourceToPodContainerMap), len(store.resourceToPodContainerMap))
+	assert.Len(t, expectedContainerInfoToResourcesMap, len(store.containerInfoToResourcesMap))
+	assert.Len(t, expectedResourceToPodContainerMap, len(store.resourceToPodContainerMap))
 	assert.Equal(t, expectedContainerInfoToResourcesMap, store.containerInfoToResourcesMap)
 	assert.Equal(t, expectedResourceToPodContainerMap, store.resourceToPodContainerMap)
 }
@@ -238,6 +236,7 @@ func constructPodResourcesStore(containerToDevices map[ContainerInfo][]ResourceI
 	}
 }
 
+// change
 func assertMapsContainData(t *testing.T, store *PodResourcesStore) {
 	//nolint:testifylint
 	assert.Equal(t, len(expectedContainerInfoToResourcesMap), len(store.containerInfoToResourcesMap))
