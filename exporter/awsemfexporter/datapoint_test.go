@@ -22,6 +22,7 @@ import (
 	aws "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 )
 
+// fix test
 type metricValueType string
 
 const (

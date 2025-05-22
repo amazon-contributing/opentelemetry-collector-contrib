@@ -38,6 +38,17 @@ type ConnAttr interface {
 // Conn implements connAttr interface.
 type Conn struct{}
 
+func (c *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
+	region, err := ec2metadata.New(s, &aws.Config{
+		Retryer:                   override.NewIMDSRetryer(imdsRetries),
+		EC2MetadataEnableFallback: aws.Bool(false),
+	}).Region()
+	if err == nil {
+		return region, err
+	}
+	return ec2metadata.New(s, &aws.Config{}).Region()
+}
+
 type stsCredentialProvider struct {
 	regional, partitional, fallbackProvider *stscreds.AssumeRoleProvider
 }
@@ -64,17 +75,6 @@ func (s *stsCredentialProvider) Retrieve() (credentials.Value, error) {
 	}
 
 	return v, err
-}
-
-func (c *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
-	region, err := ec2metadata.New(s, &aws.Config{
-		Retryer:                   override.NewIMDSRetryer(imdsRetries),
-		EC2MetadataEnableFallback: aws.Bool(false),
-	}).Region()
-	if err == nil {
-		return region, err
-	}
-	return ec2metadata.New(s, &aws.Config{}).Region()
 }
 
 // AWS STS endpoint constants

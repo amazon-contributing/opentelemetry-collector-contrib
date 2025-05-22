@@ -3,7 +3,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/aw
 go 1.23.8
 
 require (
-	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-00010101000000-000000000000
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20250519142056-97a2f5e08ffa
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/goleak v1.3.0
@@ -24,8 +24,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws => ../../../override/aws
 
 retract (
 	v0.76.2
