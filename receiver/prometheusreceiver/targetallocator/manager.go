@@ -39,6 +39,7 @@ type Manager struct {
 	enableNativeHistograms bool
 	watcher                *fsnotify.Watcher
 	host                   component.Host
+	httpClient             *http.Client
 }
 
 func NewManager(set receiver.Settings, cfg *Config, promCfg *promconfig.Config, enableNativeHistograms bool) *Manager {
@@ -65,6 +66,9 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 	if m.cfg == nil {
 		// the target allocator is disabled
 		return nil
+	}
+	if err = m.setHTTPClient(ctx); err != nil {
+		return err
 	}
 	m.settings.Logger.Info("Starting target allocator discovery")
 	// immediately sync jobs, not waiting for the first tick
@@ -140,7 +144,7 @@ func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 				if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Remove) != 0 {
 					m.settings.Logger.Info("TLS file changed; re-syncing",
 						zap.String("file", event.Name), zap.String("op", event.Op.String()))
-					if _, err := m.sync(ctx, uint64(0)); err != nil {
+					if err := m.setHTTPClient(ctx); err != nil {
 						m.settings.Logger.Error("Failed to sync after TLS file change", zap.Error(err))
 					}
 				}
@@ -158,19 +162,23 @@ func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 	return nil
 }
 
+func (m *Manager) setHTTPClient(ctx context.Context) error {
+	var err error
+	m.httpClient, err = m.cfg.ClientConfig.ToClient(ctx, m.host, m.settings.TelemetrySettings)
+	if err != nil {
+		m.settings.Logger.Error("Failed to create http client", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
 // sync request jobs from targetAllocator and update underlying receiver, if the response does not match the provided compareHash.
 // baseDiscoveryCfg can be used to provide additional ScrapeConfigs which will be added to the retrieved jobs.
 func (m *Manager) sync(ctx context.Context, compareHash uint64) (uint64, error) {
 	m.settings.Logger.Debug("Syncing target allocator jobs")
 	m.settings.Logger.Debug("endpoint", zap.String("endpoint", m.cfg.Endpoint))
 
-	httpClient, err := m.cfg.ClientConfig.ToClient(ctx, m.host, m.settings.TelemetrySettings)
-	if err != nil {
-		m.settings.Logger.Error("Failed to create http client", zap.Error(err))
-		return 0, err
-	}
-
-	scrapeConfigsResponse, err := getScrapeConfigsResponse(httpClient, m.cfg.Endpoint)
+	scrapeConfigsResponse, err := getScrapeConfigsResponse(m.httpClient, m.cfg.Endpoint)
 	if err != nil {
 		m.settings.Logger.Error("Failed to retrieve job list", zap.Error(err))
 		return 0, err
