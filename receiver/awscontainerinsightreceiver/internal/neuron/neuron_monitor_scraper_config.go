@@ -21,7 +21,7 @@ import (
 const (
 	caFile                    = "/etc/amazon-cloudwatch-observability-agent-cert/tls-ca.crt"
 	collectionInterval        = 60 * time.Second
-	jobName                   = "containerInsightsNeuronMonitorScraper"
+	jobName                   = "prometheus"
 	scraperMetricsPath        = "/metrics"
 	scraperK8sServiceSelector = "k8s-app=neuron-monitor-service"
 )
@@ -35,11 +35,12 @@ func GetNeuronScrapeConfig(hostinfo prometheusscraper.HostInfoProvider) *config.
 				InsecureSkipVerify: false,
 			},
 		},
-		ScrapeInterval: model.Duration(collectionInterval),
-		ScrapeTimeout:  model.Duration(collectionInterval),
-		JobName:        jobName,
-		Scheme:         "https",
-		MetricsPath:    scraperMetricsPath,
+		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
+		ScrapeInterval:         model.Duration(collectionInterval),
+		ScrapeTimeout:          model.Duration(collectionInterval),
+		JobName:                jobName,
+		Scheme:                 "https",
+		MetricsPath:            scraperMetricsPath,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,

@@ -22,6 +22,7 @@ import (
 	aws "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 )
 
+// fix test
 type metricValueType string
 
 const (
@@ -1487,6 +1488,7 @@ func TestCalculateDeltaDatapoints_ExponentialHistogramDataPointSliceWithSplitDat
 
 			assert.True(t, retained)
 			assert.Equal(t, 1, exponentialHistogramDatapointSlice.Len())
+			//nolint:testifylint
 			assert.Equal(t, len(tc.expectedDatapoints), len(dps))
 			for i, expectedDP := range tc.expectedDatapoints {
 				assert.Equal(t, expectedDP, dps[i], "datapoint mismatch at index %d", i)

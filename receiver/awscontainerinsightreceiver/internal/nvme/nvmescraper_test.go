@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -193,6 +194,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 	// replace the prom receiver
 	params := receiver.Settings{
 		TelemetrySettings: scraper.Settings,
+		ID:                component.NewIDWithName(component.MustNewType("prometheus"), ""),
 	}
 	scraper.PrometheusReceiver, err = promFactory.CreateMetrics(scraper.Ctx, params, &promConfig, mConsumer)
 
@@ -216,5 +218,5 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 
 func TestNvmeScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
-	assert.True(t, strings.HasPrefix(jobName, "containerInsightsNVMeExporterScraper"))
+	assert.True(t, strings.HasPrefix(jobName, "prometheus"))
 }

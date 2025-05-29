@@ -6,6 +6,7 @@ package awsemfexporter
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"testing"
@@ -129,13 +130,6 @@ func stringSlicesEqual(expected, actual []string) bool {
 	return true
 }
 
-func min(i, j int) int {
-	if i < j {
-		return i
-	}
-	return j
-}
-
 type dimensionality [][]string
 
 func (d dimensionality) Len() int {
@@ -186,6 +180,7 @@ func hashMetricSlice(metricSlice []cWMetricInfo) []string {
 // assertDimsEqual asserts whether dimension sets are equal
 // (i.e. has same sets of dimensions), regardless of order.
 func assertDimsEqual(t *testing.T, expected, actual [][]string) {
+	//nolint:testifylint
 	assert.Equal(t, len(expected), len(actual))
 	expectedDimensions := normalizeDimensionality(expected)
 	actualDimensions := normalizeDimensionality(actual)
@@ -223,7 +218,7 @@ func assertCWMeasurementEqual(t *testing.T, expected, actual cWMeasurement) {
 	// Check namespace
 	assert.Equal(t, expected.Namespace, actual.Namespace)
 
-	// Check metrics
+	//nolint:testifylint
 	assert.Equal(t, len(expected.Metrics), len(actual.Metrics))
 	expectedHashSlice := hashMetricSlice(expected.Metrics)
 	actualHashSlice := hashMetricSlice(actual.Metrics)
@@ -235,6 +230,7 @@ func assertCWMeasurementEqual(t *testing.T, expected, actual cWMeasurement) {
 
 // assertCWMeasurementSliceEqual asserts whether CW Measurements are equal, regardless of order.
 func assertCWMeasurementSliceEqual(t *testing.T, expected, actual []cWMeasurement) {
+	//nolint:testifylint
 	assert.Equal(t, len(expected), len(actual))
 	seen := make([]bool, len(expected))
 	for _, actualMeasurement := range actual {
@@ -255,6 +251,7 @@ func assertCWMeasurementSliceEqual(t *testing.T, expected, actual []cWMeasuremen
 func assertCWMetricsEqual(t *testing.T, expected, actual *cWMetrics) {
 	assert.Equal(t, expected.timestampMs, actual.timestampMs)
 	assert.Equal(t, expected.fields, actual.fields)
+	//nolint:testifylint
 	assert.Equal(t, len(expected.measurements), len(actual.measurements))
 	assertCWMeasurementSliceEqual(t, expected.measurements, actual.measurements)
 }
@@ -414,6 +411,15 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 
 			for _, v := range groupedMetrics {
 				assert.Equal(t, tc.expectedNamespace, v.metadata.namespace)
+				assert.Equal(t, tc.expectedReceiver, v.metadata.receiver)
+
+				for _, metric := range v.metrics {
+					if mv, ok := metric.value.(float64); ok {
+						// round the metrics, the floats can get off by a very small amount
+						metric.value = math.Round(mv*100000) / 100000
+					}
+				}
+
 				switch v.metadata.metricDataType {
 				case pmetric.MetricTypeSum:
 					assert.Len(t, v.metrics, 2)

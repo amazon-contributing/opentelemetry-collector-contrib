@@ -28,7 +28,7 @@ import (
 const (
 	kmCollectionInterval = 60 * time.Second
 	// kmJobName needs to be "containerInsightsKueueMetricsScraper" so metric translator tags the source as the container insights receiver
-	kmJobName                   = "containerInsightsKueueMetricsScraper"
+	kmJobName                   = "prometheus"
 	kueueNamespace              = "kueue-system"
 	kueueNameLabelSelector      = "app.kubernetes.io/name=kueue"
 	kueueComponentLabelSelector = "app.kubernetes.io/component=controller"
@@ -94,13 +94,14 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 				CredentialsFile: serviceAccountTokenDefaultPath,
 			},
 		},
-		ScrapeInterval:  model.Duration(kmCollectionInterval),
-		ScrapeTimeout:   model.Duration(kmCollectionInterval),
-		ScrapeProtocols: config.DefaultScrapeProtocols,
-		JobName:         kmJobName,
-		HonorTimestamps: true,
-		Scheme:          "https",
-		MetricsPath:     "/metrics",
+		ScrapeInterval:         model.Duration(kmCollectionInterval),
+		ScrapeTimeout:          model.Duration(kmCollectionInterval),
+		ScrapeProtocols:        config.DefaultScrapeProtocols,
+		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
+		JobName:                kmJobName,
+		HonorTimestamps:        true,
+		Scheme:                 "https",
+		MetricsPath:            "/metrics",
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,
