@@ -1,8 +1,0 @@
-type: faro
-
-status:
-  class: "pkg"
-  stability:
-    alpha: [ traces, logs ]
-  codeowners:
-    active: [mar4uk, rlankfo]

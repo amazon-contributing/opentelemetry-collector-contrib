@@ -1,1 +1,0 @@
-a_schema	a_table	123	38	734976	0
