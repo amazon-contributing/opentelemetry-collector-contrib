@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/component/componenttest"
@@ -15,10 +16,11 @@ import (
 )
 
 const (
-	dummyClusterName  = "cluster-name"
-	dummyHostName     = "i-000000000"
-	dummyNodeName     = "dummy-nodeName"
-	dummyInstanceType = "instance-type"
+	dummyClusterName        = "cluster-name"
+	dummyHostName           = "i-000000000"
+	dummyNodeName           = "dummy-nodeName"
+	dummyInstanceType       = "instance-type"
+	dummyCollectionInterval = 60 * time.Second
 )
 
 type mockHostInfoProvider struct{}
@@ -132,7 +134,7 @@ func TestNewNeuronScraperEndToEnd(t *testing.T) {
 		TelemetrySettings: componenttest.NewNopTelemetrySettings(),
 		Consumer:          consumer,
 		Host:              componenttest.NewNopHost(),
-		ScraperConfigs:    GetNeuronScrapeConfig(mockHostInfoProvider{}),
+		ScraperConfigs:    GetNeuronScrapeConfig(mockHostInfoProvider{}, dummyCollectionInterval),
 		HostInfoProvider:  mockHostInfoProvider{},
 	}
 
@@ -246,7 +248,7 @@ func TestNewNeuronScraperWithUltraServersEndToEnd(t *testing.T) {
 		TelemetrySettings: componenttest.NewNopTelemetrySettings(),
 		Consumer:          consumer,
 		Host:              componenttest.NewNopHost(),
-		ScraperConfigs:    GetNeuronScrapeConfig(mockHostInfoProvider{}),
+		ScraperConfigs:    GetNeuronScrapeConfig(mockHostInfoProvider{}, dummyCollectionInterval),
 		HostInfoProvider:  mockHostInfoProvider{},
 	}
 

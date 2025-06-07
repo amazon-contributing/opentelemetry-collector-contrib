@@ -40,6 +40,10 @@ func newAWSContainerInsightsKueueReceiver(
 		nextConsumer: nextConsumer,
 		config:       config,
 	}
+	// Set the default collection interval if not already set
+	if r.config.CollectionInterval == 0 {
+		r.config.CollectionInterval = defaultCollectionInterval
+	}
 	return r, nil
 }
 
@@ -92,11 +96,12 @@ func (akr *awsContainerInsightsKueueReceiver) initKueuePrometheusScraper(
 ) error {
 	var err error
 	akr.kueueScraper, err = kueuescraper.NewKueuePrometheusScraper(kueuescraper.KueuePrometheusScraperOpts{
-		Ctx:               ctx,
-		TelemetrySettings: akr.settings,
-		Consumer:          akr.nextConsumer,
-		Host:              host,
-		ClusterName:       akr.config.ClusterName,
+		Ctx:                ctx,
+		TelemetrySettings:  akr.settings,
+		Consumer:           akr.nextConsumer,
+		Host:               host,
+		ClusterName:        akr.config.ClusterName,
+		CollectionInterval: akr.config.CollectionInterval,
 	})
 	return err
 }

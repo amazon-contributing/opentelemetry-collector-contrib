@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	collectionInterval        = 60 * time.Second
 	jobName                   = "containerInsightsNVMeExporterScraper"
 	scraperMetricsPath        = "/metrics"
 	scraperK8sServiceSelector = "app=ebs-csi-node"
@@ -29,7 +28,7 @@ type hostInfoProvider interface {
 	GetInstanceType() string
 }
 
-func GetScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig {
+func GetScraperConfig(hostInfoProvider hostInfoProvider, collectionInterval time.Duration) *config.ScrapeConfig {
 	return &config.ScrapeConfig{
 		ScrapeInterval:         model.Duration(collectionInterval),
 		ScrapeTimeout:          model.Duration(collectionInterval),

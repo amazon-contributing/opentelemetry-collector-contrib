@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	configutil "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
@@ -36,9 +37,10 @@ DCGM_FI_DEV_GPU_UTIL{gpu="0",UUID="uuid",device="nvidia0",modelName="NVIDIA A10G
 `
 
 const (
-	dummyInstanceID   = "i-0000000000"
-	dummyClusterName  = "cluster-name"
-	dummyInstanceType = "instance-type"
+	dummyInstanceID         = "i-0000000000"
+	dummyClusterName        = "cluster-name"
+	dummyInstanceType       = "instance-type"
+	dummyCollectionInterval = 60 * time.Second
 )
 
 type mockHostInfoProvider struct{}
@@ -148,7 +150,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 		Consumer:          mConsumer,
 		Host:              componenttest.NewNopHost(),
 		HostInfoProvider:  mockHostInfoProvider{},
-		ScraperConfigs:    GetScraperConfig(mockHostInfoProvider{}),
+		ScraperConfigs:    GetScraperConfig(mockHostInfoProvider{}, dummyCollectionInterval),
 		Logger:            settings.Logger,
 	})
 	assert.NoError(t, err)

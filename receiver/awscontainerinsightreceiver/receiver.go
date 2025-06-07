@@ -76,6 +76,10 @@ func newAWSContainerInsightReceiver(
 		nextConsumer: nextConsumer,
 		config:       config,
 	}
+	// Set the default collection interval if not already set
+	if r.config.CollectionInterval == 0 {
+		r.config.CollectionInterval = defaultCollectionInterval
+	}
 	return r, nil
 }
 
@@ -296,6 +300,7 @@ func (acir *awsContainerInsightReceiver) initPrometheusScraper(ctx context.Conte
 		Host:                host,
 		ClusterNameProvider: hostInfo,
 		LeaderElection:      leaderElection,
+		CollectionInterval:  acir.config.CollectionInterval,
 	})
 	return err
 }
@@ -319,7 +324,7 @@ func (acir *awsContainerInsightReceiver) initDcgmScraper(ctx context.Context, ho
 		TelemetrySettings: acir.settings,
 		Consumer:          &decoConsumer,
 		Host:              host,
-		ScraperConfigs:    gpu.GetScraperConfig(hostInfo),
+		ScraperConfigs:    gpu.GetScraperConfig(hostInfo, acir.config.CollectionInterval),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
 	}
@@ -344,7 +349,7 @@ func (acir *awsContainerInsightReceiver) initNVMEScraper(ctx context.Context, ho
 		TelemetrySettings: acir.settings,
 		Consumer:          &decoConsumer,
 		Host:              host,
-		ScraperConfigs:    nvme.GetScraperConfig(hostInfo),
+		ScraperConfigs:    nvme.GetScraperConfig(hostInfo, acir.config.CollectionInterval),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
 	}
@@ -364,6 +369,7 @@ func (acir *awsContainerInsightReceiver) initNeuronScraper(ctx context.Context, 
 	if !acir.config.EnableAcceleratedComputeMetrics {
 		return nil
 	}
+
 	var err error
 
 	decoConsumer := decoratorconsumer.DecorateConsumer{
@@ -398,7 +404,7 @@ func (acir *awsContainerInsightReceiver) initNeuronScraper(ctx context.Context, 
 		TelemetrySettings: acir.settings,
 		Consumer:          &podAttributesDecoratorConsumer,
 		Host:              host,
-		ScraperConfigs:    neuron.GetNeuronScrapeConfig(hostInfo),
+		ScraperConfigs:    neuron.GetNeuronScrapeConfig(hostInfo, acir.config.CollectionInterval),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
 	}
@@ -415,7 +421,12 @@ func (acir *awsContainerInsightReceiver) initEfaSysfsScraper(localNodeDecorator 
 	if acir.podResourcesStore == nil {
 		return errors.New("pod resources store was not initialized")
 	}
-	acir.efaSysfsScraper = efa.NewEfaSyfsScraper(acir.settings.Logger, localNodeDecorator, acir.podResourcesStore, hostInfo)
+	acir.efaSysfsScraper = efa.NewEfaSyfsScraper(
+		acir.settings.Logger,
+		localNodeDecorator,
+		acir.podResourcesStore,
+		hostInfo,
+		acir.config.CollectionInterval)
 	return nil
 }
 

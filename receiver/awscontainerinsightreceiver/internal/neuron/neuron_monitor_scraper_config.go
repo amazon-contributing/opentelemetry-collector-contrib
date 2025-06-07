@@ -20,13 +20,12 @@ import (
 
 const (
 	caFile                    = "/etc/amazon-cloudwatch-observability-agent-cert/tls-ca.crt"
-	collectionInterval        = 60 * time.Second
 	jobName                   = "containerInsightsNeuronMonitorScraper"
 	scraperMetricsPath        = "/metrics"
 	scraperK8sServiceSelector = "k8s-app=neuron-monitor-service"
 )
 
-func GetNeuronScrapeConfig(hostinfo prometheusscraper.HostInfoProvider) *config.ScrapeConfig {
+func GetNeuronScrapeConfig(hostinfo prometheusscraper.HostInfoProvider, collectionInterval time.Duration) *config.ScrapeConfig {
 	return &config.ScrapeConfig{
 		ScrapeProtocols: config.DefaultScrapeProtocols,
 		HTTPClientConfig: configutil.HTTPClientConfig{

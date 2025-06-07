@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	configutil "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
@@ -36,10 +37,11 @@ aws_ebs_csi_read_seconds_total{instance_id="i-0131bee5395cc4317",volume_id="vol-
 `
 
 const (
-	dummyInstanceID   = "i-0000000000"
-	dummyClusterName  = "cluster-name"
-	dummyInstanceType = "instance-type"
-	dummyNodeName     = "hostname"
+	dummyInstanceID         = "i-0000000000"
+	dummyClusterName        = "cluster-name"
+	dummyInstanceType       = "instance-type"
+	dummyNodeName           = "hostname"
+	dummyCollectionInterval = 60 * time.Second
 )
 
 type mockHostInfoProvider struct{}
@@ -141,7 +143,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 		Consumer:          mConsumer,
 		Host:              componenttest.NewNopHost(),
 		HostInfoProvider:  mockHostInfoProvider{},
-		ScraperConfigs:    GetScraperConfig(mockHostInfoProvider{}),
+		ScraperConfigs:    GetScraperConfig(mockHostInfoProvider{}, dummyCollectionInterval),
 		Logger:            settings.Logger,
 	})
 	assert.NoError(t, err)

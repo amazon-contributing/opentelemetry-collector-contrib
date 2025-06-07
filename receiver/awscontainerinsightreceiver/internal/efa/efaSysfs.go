@@ -22,7 +22,10 @@ import (
 )
 
 const (
-	defaultCollectionInterval = 20 * time.Second
+	// acirDefaultCollectionInterval is the hardcoded collection interval that is set in
+	// the awsContainerInsightReceiver when collection interval is not specified in the agent configuration.
+	awsContainerInsightsDefaultCollectionInterval = 60 * time.Second
+	efaDefaultCollectionInterval                  = 20 * time.Second
 )
 
 const (
@@ -106,11 +109,14 @@ type efaCounters struct {
 	txBytes            uint64 // hw_counters/tx_bytes
 }
 
-func NewEfaSyfsScraper(logger *zap.Logger, decorator stores.Decorator, podResourcesStore podResourcesStore, hostInfo hostInfoProvider) *Scraper {
+func NewEfaSyfsScraper(logger *zap.Logger, decorator stores.Decorator, podResourcesStore podResourcesStore, hostInfo hostInfoProvider, collectionInterval time.Duration) *Scraper {
 	ctx, cancel := context.WithCancel(context.Background())
 	podResourcesStore.AddResourceName(efaK8sResourceName)
+	if collectionInterval == awsContainerInsightsDefaultCollectionInterval {
+		collectionInterval = efaDefaultCollectionInterval
+	}
 	e := &Scraper{
-		collectionInterval: defaultCollectionInterval,
+		collectionInterval: collectionInterval,
 		cancel:             cancel,
 		sysFsReader:        defaultSysFsReader(logger),
 		deltaCalculator:    metrics.NewMetricCalculator(calculateDelta),

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	configutil "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
@@ -24,6 +25,10 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/mocks"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver"
+)
+
+const (
+	dummyCollectionInterval = 60 * time.Second
 )
 
 const renameMetric = `
@@ -102,6 +107,7 @@ func TestNewPrometheusScraperBadInputs(t *testing.T) {
 			Host:                componenttest.NewNopHost(),
 			ClusterNameProvider: mockClusterNameProvider{},
 			LeaderElection:      nil,
+			CollectionInterval:  dummyCollectionInterval,
 		},
 		{
 			Ctx:                 context.TODO(),
@@ -111,6 +117,7 @@ func TestNewPrometheusScraperBadInputs(t *testing.T) {
 			Host:                componenttest.NewNopHost(),
 			ClusterNameProvider: mockClusterNameProvider{},
 			LeaderElection:      &leaderElection,
+			CollectionInterval:  dummyCollectionInterval,
 		},
 		{
 			Ctx:                 context.TODO(),
@@ -120,6 +127,7 @@ func TestNewPrometheusScraperBadInputs(t *testing.T) {
 			Host:                nil,
 			ClusterNameProvider: mockClusterNameProvider{},
 			LeaderElection:      &leaderElection,
+			CollectionInterval:  dummyCollectionInterval,
 		},
 		{
 			Ctx:                 context.TODO(),
@@ -129,6 +137,7 @@ func TestNewPrometheusScraperBadInputs(t *testing.T) {
 			Host:                componenttest.NewNopHost(),
 			ClusterNameProvider: nil,
 			LeaderElection:      &leaderElection,
+			CollectionInterval:  dummyCollectionInterval,
 		},
 	}
 
@@ -169,6 +178,7 @@ func TestNewPrometheusScraperEndToEnd(t *testing.T) {
 		Host:                componenttest.NewNopHost(),
 		ClusterNameProvider: mockClusterNameProvider{},
 		LeaderElection:      &leaderElection,
+		CollectionInterval:  dummyCollectionInterval,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, mockClusterNameProvider{}, scraper.clusterNameProvider)

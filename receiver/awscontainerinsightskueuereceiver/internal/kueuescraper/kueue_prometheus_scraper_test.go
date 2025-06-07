@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
@@ -21,6 +22,10 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightskueuereceiver/internal/mocks"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver"
+)
+
+const (
+	dummyCollectionInterval = 60 * time.Second
 )
 
 const kueueMetrics = `
@@ -70,24 +75,27 @@ func TestNewKueuePrometheusScraperBadInputs(t *testing.T) {
 
 	tests := []KueuePrometheusScraperOpts{
 		{ // case: no consumer
-			Ctx:               context.TODO(),
-			TelemetrySettings: settings,
-			Consumer:          nil,
-			Host:              componenttest.NewNopHost(),
-			ClusterName:       "DummyCluster",
+			Ctx:                context.TODO(),
+			TelemetrySettings:  settings,
+			Consumer:           nil,
+			Host:               componenttest.NewNopHost(),
+			ClusterName:        "DummyCluster",
+			CollectionInterval: dummyCollectionInterval,
 		},
 		{ // case: no host
-			Ctx:               context.TODO(),
-			TelemetrySettings: settings,
-			Consumer:          mockKueueConsumer{},
-			Host:              nil,
-			ClusterName:       "DummyCluster",
+			Ctx:                context.TODO(),
+			TelemetrySettings:  settings,
+			Consumer:           mockKueueConsumer{},
+			Host:               nil,
+			ClusterName:        "DummyCluster",
+			CollectionInterval: dummyCollectionInterval,
 		},
 		{ // case: no cluster name
-			Ctx:               context.TODO(),
-			TelemetrySettings: settings,
-			Consumer:          mockKueueConsumer{},
-			Host:              componenttest.NewNopHost(),
+			Ctx:                context.TODO(),
+			TelemetrySettings:  settings,
+			Consumer:           mockKueueConsumer{},
+			Host:               componenttest.NewNopHost(),
+			CollectionInterval: dummyCollectionInterval,
 		},
 	}
 
@@ -116,11 +124,12 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 
 	scraper, err := NewKueuePrometheusScraper(
 		KueuePrometheusScraperOpts{
-			Ctx:               context.TODO(),
-			TelemetrySettings: settings,
-			Consumer:          mConsumer,
-			Host:              componenttest.NewNopHost(),
-			ClusterName:       "DummyCluster",
+			Ctx:                context.TODO(),
+			TelemetrySettings:  settings,
+			Consumer:           mConsumer,
+			Host:               componenttest.NewNopHost(),
+			ClusterName:        "DummyCluster",
+			CollectionInterval: dummyCollectionInterval,
 		},
 	)
 	assert.NoError(t, err)

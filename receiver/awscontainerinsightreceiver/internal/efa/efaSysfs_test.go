@@ -20,6 +20,10 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 )
 
+const (
+	dummyCollectionInterval = 60 * time.Second
+)
+
 type mockSysfsReader struct {
 	scrapeCounts map[string]uint64
 }
@@ -250,7 +254,7 @@ var efa1PodContainerMetrics = []expectation{
 var efa1Metrics = []expectation{efa1NodeMetric, efa1PodContainerMetrics[0], efa1PodContainerMetrics[1]}
 
 func TestGetMetrics(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{}, mockHost)
+	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{}, mockHost, dummyCollectionInterval)
 	s.sysFsReader = newMockSysfsReader()
 
 	var expectedMetrics []expectation
@@ -269,7 +273,7 @@ func TestGetMetrics(t *testing.T) {
 }
 
 func TestGetMetricsBeforeSuccessfulScrape(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{}, mockHost)
+	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStore{}, mockHost, dummyCollectionInterval)
 
 	result := s.GetMetrics()
 	assert.Empty(t, result)
@@ -296,7 +300,7 @@ func (p mockPodResourcesStoreMissingOneDevice) GetContainerInfo(deviceID string,
 }
 
 func TestGetMetricsMissingDeviceFromPodResources(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStoreMissingOneDevice{}, mockHost)
+	s := NewEfaSyfsScraper(zap.NewNop(), mockDecorator{}, mockPodResourcesStoreMissingOneDevice{}, mockHost, dummyCollectionInterval)
 	s.sysFsReader = newMockSysfsReader()
 
 	assert.NoError(t, s.scrape())
@@ -394,7 +398,7 @@ func findTimestamp(t *testing.T, attrs pcommon.Map) (string, time.Time) {
 }
 
 func TestScrape(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost)
+	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost, dummyCollectionInterval)
 	s.sysFsReader = newMockSysfsReader()
 
 	s.hostInfo = mockHost
@@ -515,7 +519,7 @@ func (r mockSysfsReaderError4) GetMACAddressFromDeviceName(_ efaDeviceName) (str
 
 func TestScrapeErrors(t *testing.T) {
 	for _, reader := range []sysFsReader{mockSysfsReaderError1{}, mockSysfsReaderError2{}, mockSysfsReaderError3{}, mockSysfsReaderError4{}} {
-		s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost)
+		s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost, dummyCollectionInterval)
 
 		s.sysFsReader = reader
 
@@ -547,7 +551,7 @@ func (r mockSysfsReaderNoEfaData) GetMACAddressFromDeviceName(_ efaDeviceName) (
 }
 
 func TestScrapeNoEfaData(t *testing.T) {
-	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost)
+	s := NewEfaSyfsScraper(zap.NewNop(), nil, mockPodResourcesStore{}, mockHost, dummyCollectionInterval)
 
 	s.sysFsReader = mockSysfsReaderNoEfaData{}
 
