@@ -168,12 +168,26 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 					timestampMs:                timestamp,
 					logGroup:                   logGroup,
 					logStream:                  logStream,
-					metricDataType:             metric.Type(),
 					batchIndex:                 0,
 					retainInitialValueForDelta: deltaInitialValue,
 				},
 				instrumentationScopeName: instrumentationScopeName,
 				receiver:                 metricReceiver,
+			}
+			if metricReceiver != containerInsightsReceiver {
+				metadata = cWMetricMetadata{
+					groupedMetricMetadata: groupedMetricMetadata{
+						namespace:                  cWNamespace,
+						timestampMs:                timestamp,
+						logGroup:                   logGroup,
+						logStream:                  logStream,
+						metricDataType:             metric.Type(),
+						batchIndex:                 0,
+						retainInitialValueForDelta: deltaInitialValue,
+					},
+					instrumentationScopeName: instrumentationScopeName,
+					receiver:                 metricReceiver,
+				}
 			}
 			err := addToGroupedMetric(metric, groupedMetrics, metadata, patternReplaceSucceeded, mt.metricDescriptor, config, mt.calculators)
 			if err != nil {
