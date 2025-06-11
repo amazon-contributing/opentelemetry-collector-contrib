@@ -185,41 +185,41 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 			acir.settings.Logger.Warn("Unable to elect leader node", zap.Error(err))
 		}
 
-		acir.k8sapiserver, err = k8sapiserver.NewK8sAPIServer(hostInfo, acir.settings.Logger, leaderElection, acir.config.AddFullPodNameMetricLabel, acir.config.EnableControlPlaneMetrics)
-		if err != nil {
-			acir.k8sapiserver = nil
-			acir.settings.Logger.Warn("Unable to connect to api-server", zap.Error(err))
-		}
-
-		if acir.k8sapiserver != nil {
-			err = acir.initPrometheusScraper(ctx, host, hostInfo, leaderElection)
-			if err != nil {
-				acir.settings.Logger.Warn("Unable to start kube apiserver prometheus scraper", zap.Error(err))
-			}
-		}
+		//acir.k8sapiserver, err = k8sapiserver.NewK8sAPIServer(hostInfo, acir.settings.Logger, leaderElection, acir.config.AddFullPodNameMetricLabel, acir.config.EnableControlPlaneMetrics)
+		//if err != nil {
+		//	acir.k8sapiserver = nil
+		//	acir.settings.Logger.Warn("Unable to connect to api-server", zap.Error(err))
+		//}
+		//
+		//if acir.k8sapiserver != nil {
+		//	err = acir.initPrometheusScraper(ctx, host, hostInfo, leaderElection)
+		//	if err != nil {
+		//		acir.settings.Logger.Warn("Unable to start kube apiserver prometheus scraper", zap.Error(err))
+		//	}
+		//}
 
 		acir.settings.Logger.Info("[Test] This is a test!")
 
-		err = acir.initDcgmScraper(ctx, host, hostInfo, localNodeDecorator)
-		if err != nil {
-			acir.settings.Logger.Debug("Unable to start dcgm scraper", zap.Error(err))
-		}
+		//err = acir.initDcgmScraper(ctx, host, hostInfo, localNodeDecorator)
+		//if err != nil {
+		//	acir.settings.Logger.Debug("Unable to start dcgm scraper", zap.Error(err))
+		//}
 		err = acir.initNVMEScraper(ctx, host, hostInfo, localNodeDecorator)
 		if err != nil {
 			acir.settings.Logger.Info("[Test] Unable to start NVME scraper", zap.Error(err))
 		}
 		err = acir.initPodResourcesStore()
-		if err != nil {
-			acir.settings.Logger.Debug("Unable to start pod resources store", zap.Error(err))
-		}
-		err = acir.initNeuronScraper(ctx, host, hostInfo, localNodeDecorator)
-		if err != nil {
-			acir.settings.Logger.Debug("Unable to start neuron scraper", zap.Error(err))
-		}
-		err = acir.initEfaSysfsScraper(localNodeDecorator, hostInfo)
-		if err != nil {
-			acir.settings.Logger.Debug("Unable to start EFA scraper", zap.Error(err))
-		}
+		//if err != nil {
+		//	acir.settings.Logger.Debug("Unable to start pod resources store", zap.Error(err))
+		//}
+		//err = acir.initNeuronScraper(ctx, host, hostInfo, localNodeDecorator)
+		//if err != nil {
+		//	acir.settings.Logger.Debug("Unable to start neuron scraper", zap.Error(err))
+		//}
+		//err = acir.initEfaSysfsScraper(localNodeDecorator, hostInfo)
+		//if err != nil {
+		//	acir.settings.Logger.Debug("Unable to start EFA scraper", zap.Error(err))
+		//}
 	}
 	return nil
 }

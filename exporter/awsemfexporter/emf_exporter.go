@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/collector/component"
@@ -20,6 +19,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+
+	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/useragent"
@@ -99,7 +100,7 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 			})
 		}
 	}
-	emf.config.logger.Debug("Start processing resource metrics", zap.Any("labels", labels))
+	emf.config.logger.Info("[Test] Start processing resource metrics", zap.Any("labels", labels))
 	emf.processResourceLabels(labels)
 	emf.processMetrics(md)
 
@@ -113,6 +114,8 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 			return err
 		}
 	}
+
+	emf.config.logger.Info("[Test] Grouped Metrics", zap.Any("groupedMetrics", groupedMetrics))
 
 	for _, groupedMetric := range groupedMetrics {
 		putLogEvent, err := translateGroupedMetricToEmf(groupedMetric, emf.config, defaultLogStream)
