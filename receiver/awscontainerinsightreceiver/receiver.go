@@ -185,11 +185,11 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 			acir.settings.Logger.Warn("Unable to elect leader node", zap.Error(err))
 		}
 
-		//acir.k8sapiserver, err = k8sapiserver.NewK8sAPIServer(hostInfo, acir.settings.Logger, leaderElection, acir.config.AddFullPodNameMetricLabel, acir.config.EnableControlPlaneMetrics)
-		//if err != nil {
-		//	acir.k8sapiserver = nil
-		//	acir.settings.Logger.Warn("Unable to connect to api-server", zap.Error(err))
-		//}
+		acir.k8sapiserver, err = k8sapiserver.NewK8sAPIServer(hostInfo, acir.settings.Logger, leaderElection, acir.config.AddFullPodNameMetricLabel, acir.config.EnableControlPlaneMetrics)
+		if err != nil {
+			acir.k8sapiserver = nil
+			acir.settings.Logger.Warn("Unable to connect to api-server", zap.Error(err))
+		}
 		//
 		//if acir.k8sapiserver != nil {
 		//	err = acir.initPrometheusScraper(ctx, host, hostInfo, leaderElection)
