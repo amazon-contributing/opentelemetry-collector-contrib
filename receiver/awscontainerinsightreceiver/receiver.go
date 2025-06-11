@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	promconfig "github.com/prometheus/prometheus/config"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -317,9 +316,6 @@ func (acir *awsContainerInsightReceiver) initDcgmScraper(ctx context.Context, ho
 		ScraperConfigs:    gpu.GetScraperConfig(hostInfo),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
-	}
-	if scraperOpts.ScraperConfigs != nil && scraperOpts.ScraperConfigs.ScrapeFallbackProtocol == "" {
-		scraperOpts.ScraperConfigs.ScrapeFallbackProtocol = promconfig.PrometheusText0_0_4
 	}
 
 	var err error

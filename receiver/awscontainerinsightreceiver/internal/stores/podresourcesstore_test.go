@@ -238,10 +238,8 @@ func constructPodResourcesStore(containerToDevices map[ContainerInfo][]ResourceI
 
 // change
 func assertMapsContainData(t *testing.T, store *PodResourcesStore) {
-	//nolint:testifylint
-	assert.Equal(t, len(expectedContainerInfoToResourcesMap), len(store.containerInfoToResourcesMap))
-	//nolint:testifylint
-	assert.Equal(t, len(expectedResourceToPodContainerMap), len(store.resourceToPodContainerMap))
+	assert.Len(t, expectedContainerInfoToResourcesMap, len(store.containerInfoToResourcesMap))
+	assert.Len(t, expectedResourceToPodContainerMap, len(store.resourceToPodContainerMap))
 
 	assert.Equal(t, expectedContainerInfo, *store.GetContainerInfo(defaultDeviceID1, defaultResourceName))
 	assert.Equal(t, expectedResourceInfo, *store.GetResourcesInfo(defaultPodName, defaultContainerName, defaultNamespace))

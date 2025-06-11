@@ -201,7 +201,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 	// replace the prom receiver
 	params := receiver.Settings{
 		TelemetrySettings: scraper.Settings,
-		ID:                component.NewIDWithName(component.MustNewType(jobName), ""),
+		ID:                component.NewID(component.MustNewType("prometheus")),
 	}
 	scraper.PrometheusReceiver, err = promFactory.CreateMetrics(scraper.Ctx, params, &promConfig, mConsumer)
 
@@ -225,5 +225,5 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 
 func TestDcgmScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
-	assert.True(t, strings.HasPrefix(jobName, "prometheus"))
+	assert.True(t, strings.HasPrefix(jobName, "containerInsightsDCGMExporterScraper"))
 }

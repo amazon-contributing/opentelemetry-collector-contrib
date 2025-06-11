@@ -144,7 +144,7 @@ func TestSimplePrometheusEndToEnd(opts TestSimplePrometheusEndToEndOpts) {
 	// replace the prom receiver
 	params := receiver.Settings{
 		TelemetrySettings: scraper.Settings,
-		ID:                component.NewIDWithName(component.MustNewType("prometheus"), ""),
+		ID:                component.NewID(component.MustNewType("prometheus")),
 	}
 	scraper.PrometheusReceiver, err = promFactory.CreateMetrics(scraper.Ctx, params, &promConfig, opts.Consumer)
 	assert.NoError(opts.T, err)

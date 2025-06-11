@@ -19,7 +19,7 @@ import (
 const (
 	caFile                    = "/etc/amazon-cloudwatch-observability-agent-cert/tls-ca.crt"
 	collectionInterval        = 60 * time.Second
-	jobName                   = "prometheus"
+	jobName                   = "containerInsightsDCGMExporterScraper"
 	scraperMetricsPath        = "/metrics"
 	scraperK8sServiceSelector = "k8s-app=dcgm-exporter-service"
 )
@@ -38,12 +38,13 @@ func GetScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig {
 				InsecureSkipVerify: false,
 			},
 		},
-		ScrapeInterval:  model.Duration(collectionInterval),
-		ScrapeTimeout:   model.Duration(collectionInterval),
-		ScrapeProtocols: config.DefaultScrapeProtocols,
-		JobName:         jobName,
-		Scheme:          "https",
-		MetricsPath:     scraperMetricsPath,
+		ScrapeInterval:         model.Duration(collectionInterval),
+		ScrapeTimeout:          model.Duration(collectionInterval),
+		ScrapeProtocols:        config.DefaultScrapeProtocols,
+		JobName:                jobName,
+		Scheme:                 "https",
+		MetricsPath:            scraperMetricsPath,
+		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,

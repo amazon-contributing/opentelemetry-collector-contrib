@@ -261,5 +261,5 @@ func TestNewNeuronScraperWithUltraServersEndToEnd(t *testing.T) {
 
 func TestNeuronMonitorScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
-	assert.True(t, strings.HasPrefix(jobName, "prometheus"))
+	assert.True(t, strings.HasPrefix(jobName, "containerInsightsNeuronMonitorScraper"))
 }

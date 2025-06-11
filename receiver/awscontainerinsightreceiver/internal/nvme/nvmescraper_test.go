@@ -194,7 +194,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 	// replace the prom receiver
 	params := receiver.Settings{
 		TelemetrySettings: scraper.Settings,
-		ID:                component.NewIDWithName(component.MustNewType("prometheus"), ""),
+		ID:                component.NewID(component.MustNewType("prometheus")),
 	}
 	scraper.PrometheusReceiver, err = promFactory.CreateMetrics(scraper.Ctx, params, &promConfig, mConsumer)
 
@@ -218,5 +218,5 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 
 func TestNvmeScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
-	assert.True(t, strings.HasPrefix(jobName, "prometheus"))
+	assert.True(t, strings.HasPrefix(jobName, "containerInsightsNVMeExporterScraper"))
 }

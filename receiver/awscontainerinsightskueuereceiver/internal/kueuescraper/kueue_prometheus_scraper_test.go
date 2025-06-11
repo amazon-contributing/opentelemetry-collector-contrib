@@ -199,5 +199,5 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 
 func TestKueuePrometheusScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
-	assert.Equal(t, "prometheus", kmJobName)
+	assert.Equal(t, "containerInsightsKueueMetricsScraper", kmJobName)
 }

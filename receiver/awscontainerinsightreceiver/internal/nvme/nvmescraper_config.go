@@ -18,7 +18,7 @@ import (
 
 const (
 	collectionInterval        = 60 * time.Second
-	jobName                   = "prometheus"
+	jobName                   = "containerInsightsNVMeExporterScraper"
 	scraperMetricsPath        = "/metrics"
 	scraperK8sServiceSelector = "app=ebs-csi-node"
 )

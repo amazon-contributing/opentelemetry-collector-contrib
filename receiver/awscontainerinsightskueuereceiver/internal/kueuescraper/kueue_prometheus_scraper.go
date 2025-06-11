@@ -28,7 +28,7 @@ import (
 const (
 	kmCollectionInterval = 60 * time.Second
 	// kmJobName needs to be "containerInsightsKueueMetricsScraper" so metric translator tags the source as the container insights receiver
-	kmJobName                   = "prometheus"
+	kmJobName                   = "containerInsightsKueueMetricsScraper"
 	kueueNamespace              = "kueue-system"
 	kueueNameLabelSelector      = "app.kubernetes.io/name=kueue"
 	kueueComponentLabelSelector = "app.kubernetes.io/component=controller"
@@ -127,7 +127,7 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 	}
 
 	params := receiver.Settings{
-		ID:                component.MustNewID(kmJobName),
+		ID:                component.MustNewID("prometheus"),
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 
