@@ -286,6 +286,8 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 	neuronMetric.Resource().Attributes().PutStr(conventions.AttributeServiceName, "containerInsightsNeuronMonitorScraper")
 	kueueMetric := createTestResourceMetricsHelper(defaultNumberOfTestMetrics + 1)
 	kueueMetric.Resource().Attributes().PutStr(conventions.AttributeServiceName, "containerInsightsKueueMetricsScraper")
+	nvmeMetric := createTestResourceMetricsHelper(defaultNumberOfTestMetrics + 1)
+	nvmeMetric.Resource().Attributes().PutStr(conventions.AttributeServiceName, "containerInsightsNVMeExporterScraper")
 
 	counterSumMetrics := map[string]*metricInfo{
 		"spanCounter": {
@@ -403,6 +405,19 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 			"myServiceNS/containerInsightsKueueMetricsScraper",
 			containerInsightsReceiver,
 		},
+		{
+			"nvme receiver",
+			nvmeMetric,
+			map[string]string{
+				"isItAnError": "false",
+				"spanName":    "testSpan",
+			},
+			map[string]string{
+				"spanName": "testSpan",
+			},
+			"myServiceNS/containerInsightsNVMeExporterScraper",
+			containerInsightsReceiver,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -438,7 +453,7 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 					assert.Equal(t, tc.timerLabels, v.labels)
 					assert.Equal(t, timerMetrics, v.metrics)
 				default:
-					assert.Fail(t, fmt.Sprintf("Unhandled metric type %s not expected", v.metadata.metricDataType))
+					assert.Equal(t, tc.expectedReceiver, containerInsightsReceiver)
 				}
 			}
 		})
