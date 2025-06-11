@@ -115,9 +115,10 @@ func (emf *emfExporter) pushMetricsData(_ context.Context, md pmetric.Metrics) e
 		}
 	}
 
-	emf.config.logger.Info("[Test] Grouped Metrics", zap.Any("groupedMetrics", groupedMetrics))
-
 	for _, groupedMetric := range groupedMetrics {
+		emf.config.logger.Info("[Test] Grouped Metrics", zap.Any("metrics", groupedMetric.metrics))
+		emf.config.logger.Info("[Test] Grouped Metrics", zap.Any("labels", groupedMetric.labels))
+
 		putLogEvent, err := translateGroupedMetricToEmf(groupedMetric, emf.config, defaultLogStream)
 		if err != nil {
 			if errors.Is(err, errMissingMetricsForEnhancedContainerInsights) {
