@@ -93,7 +93,7 @@ func addToGroupedMetric(
 			}
 
 			if metadata.receiver == containerInsightsReceiver {
-				// For container insights, put all metrics in the same group regardless of type (ie guage/counter)
+				// For container insights, put all metrics in the same group regardless of type (ie gauge/counter)
 				metadata.groupedMetricMetadata.metricDataType = pmetric.MetricTypeEmpty
 			}
 
