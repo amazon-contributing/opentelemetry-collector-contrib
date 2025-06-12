@@ -92,9 +92,10 @@ func addToGroupedMetric(
 				metadata.groupedMetricMetadata.batchIndex = i
 			}
 
-			if metadata.receiver == containerInsightsReceiver {
-				// For container insights, put all metrics in the same group regardless of type (ie gauge/counter)
-				metadata.groupedMetricMetadata.metricDataType = pmetric.MetricTypeEmpty
+			if metadata.receiver == containerInsightsReceiver && metadata.groupedMetricMetadata.metricDataType == pmetric.MetricTypeGauge {
+				// For container insights, treat gauge metrics as sum
+				// If we ever add histogram/summary metrics to container insights, we need to ensure they're in the same log to prevent price increase
+				metadata.groupedMetricMetadata.metricDataType = pmetric.MetricTypeSum
 			}
 
 			groupKey := aws.NewKey(metadata.groupedMetricMetadata, labels)
