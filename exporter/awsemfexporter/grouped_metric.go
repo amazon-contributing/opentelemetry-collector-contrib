@@ -5,6 +5,7 @@ package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collec
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -12,6 +13,11 @@ import (
 
 	aws "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 )
+
+var containerInsightsDenyMetricType = []pmetric.MetricType{
+	pmetric.MetricTypeSummary,
+	pmetric.MetricTypeHistogram,
+}
 
 // groupedMetric defines set of metrics with same namespace, timestamp and labels
 type groupedMetric struct {
@@ -92,9 +98,16 @@ func addToGroupedMetric(
 				metadata.groupedMetricMetadata.batchIndex = i
 			}
 
+			// Handle metric types with container insights
 			if metadata.receiver == containerInsightsReceiver {
-				// For container insights, put all metrics in the same group regardless of type (ie gauge/counter)
-				metadata.groupedMetricMetadata.metricDataType = pmetric.MetricTypeEmpty
+				// For container insights, treat gauge metrics as sum
+				if metadata.groupedMetricMetadata.metricDataType == pmetric.MetricTypeGauge {
+					metadata.groupedMetricMetadata.metricDataType = pmetric.MetricTypeSum
+				}
+				// drop unsupported metric types
+				if slices.Contains(containerInsightsDenyMetricType, metadata.groupedMetricMetadata.metricDataType) {
+					continue
+				}
 			}
 
 			groupKey := aws.NewKey(metadata.groupedMetricMetadata, labels)
