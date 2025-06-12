@@ -130,7 +130,6 @@ func (p *kubeConfigClientProvider) BuildClient() (Client, error) {
 	}
 
 	joinPath, err := url.JoinPath(authConf.Host, "/api/v1/nodes/", p.endpoint, "/proxy/")
-
 	if err != nil {
 		return nil, err
 	}
