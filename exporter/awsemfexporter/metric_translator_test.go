@@ -453,7 +453,7 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 				}
 
 				if tc.expectedReceiver == containerInsightsReceiver {
-					assert.Equal(t, v.metadata.metricDataType, pmetric.MetricTypeSum)
+					assert.Equal(t, pmetric.MetricTypeSum, v.metadata.metricDataType)
 					assert.True(t, reflect.DeepEqual(counterSumMetrics, v.metrics) ||
 						reflect.DeepEqual(counterGaugeMetrics, v.metrics),
 					)
