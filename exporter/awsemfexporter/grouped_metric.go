@@ -95,8 +95,8 @@ func addToGroupedMetric(
 			// Handle metric types with container insights
 			if metadata.receiver == containerInsightsReceiver {
 				// For container insights, treat gauge metrics as sum
-				if metadata.groupedMetricMetadata.metricDataType == pmetric.MetricTypeGauge {
-					metadata.groupedMetricMetadata.metricDataType = pmetric.MetricTypeSum
+				if metadata.metricDataType == pmetric.MetricTypeGauge {
+					metadata.metricDataType = pmetric.MetricTypeSum
 				}
 			}
 
