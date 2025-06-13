@@ -72,7 +72,7 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 	}
 	m.settings.Logger.Info("Starting target allocator discovery")
 	// immediately sync jobs, not waiting for the first tick
-	savedHash, err := m.sync(ctx, uint64(0))
+	savedHash, err := m.sync(uint64(0))
 	if err != nil {
 		m.settings.Logger.Error("Failed to sync target allocator", zap.Error(err))
 	}
@@ -87,7 +87,7 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 		for {
 			select {
 			case <-targetAllocatorIntervalTicker.C:
-				hash, newErr := m.sync(ctx, savedHash)
+				hash, newErr := m.sync(savedHash)
 				if newErr != nil {
 					m.settings.Logger.Error(newErr.Error())
 					continue
@@ -164,7 +164,7 @@ func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 
 func (m *Manager) setHTTPClient(ctx context.Context) error {
 	var err error
-	m.httpClient, err = m.cfg.ClientConfig.ToClient(ctx, m.host, m.settings.TelemetrySettings)
+	m.httpClient, err = m.cfg.ToClient(ctx, m.host, m.settings.TelemetrySettings)
 	if err != nil {
 		m.settings.Logger.Error("Failed to create http client", zap.Error(err))
 		return err
@@ -174,7 +174,7 @@ func (m *Manager) setHTTPClient(ctx context.Context) error {
 
 // sync request jobs from targetAllocator and update underlying receiver, if the response does not match the provided compareHash.
 // baseDiscoveryCfg can be used to provide additional ScrapeConfigs which will be added to the retrieved jobs.
-func (m *Manager) sync(ctx context.Context, compareHash uint64) (uint64, error) {
+func (m *Manager) sync(compareHash uint64) (uint64, error) {
 	m.settings.Logger.Debug("Syncing target allocator jobs")
 	m.settings.Logger.Debug("endpoint", zap.String("endpoint", m.cfg.Endpoint))
 
