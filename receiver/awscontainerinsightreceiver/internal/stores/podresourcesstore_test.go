@@ -236,7 +236,6 @@ func constructPodResourcesStore(containerToDevices map[ContainerInfo][]ResourceI
 	}
 }
 
-// change
 func assertMapsContainData(t *testing.T, store *PodResourcesStore) {
 	assert.Len(t, expectedContainerInfoToResourcesMap, len(store.containerInfoToResourcesMap))
 	assert.Len(t, expectedResourceToPodContainerMap, len(store.resourceToPodContainerMap))
