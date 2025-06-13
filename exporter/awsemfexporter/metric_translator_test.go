@@ -410,19 +410,6 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 			"myServiceNS/containerInsightsNVMeExporterScraper",
 			containerInsightsReceiver,
 		},
-		{
-			"container insights gauge/sum metrics",
-			containerInsightMetric,
-			map[string]string{
-				"isItAnError": "false",
-				"spanName":    "testSpan",
-			},
-			map[string]string{
-				"spanName": "testSpan",
-			},
-			"myServiceNS/containerInsightsKubeAPIServerScraper",
-			containerInsightsReceiver,
-		},
 	}
 
 	for _, tc := range testCases {
@@ -444,15 +431,25 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 					}
 				}
 
-
+				// container insights has special handling such as converting gauges to sum
 				if tc.expectedReceiver == containerInsightsReceiver {
-					assert.Equal(t, pmetric.MetricTypeSum, v.metadata.metricDataType)
-					assert.True(t, reflect.DeepEqual(counterSumMetrics, v.metrics) ||
-						reflect.DeepEqual(counterGaugeMetrics, v.metrics),
-					)
+					switch v.metadata.metricDataType {
+					case pmetric.MetricTypeSum:
+						assert.Len(t, v.metrics, 2)
+						assert.Equal(t, tc.counterLabels, v.labels)
+						assert.True(t, reflect.DeepEqual(counterSumMetrics, v.metrics) ||
+							reflect.DeepEqual(counterGaugeMetrics, v.metrics),
+						)
+					case pmetric.MetricTypeHistogram:
+						assert.Len(t, v.metrics, 1)
+						assert.Equal(t, tc.timerLabels, v.labels)
+						assert.Equal(t, timerMetrics, v.metrics)
+					default:
+						assert.Fail(t, fmt.Sprintf("Unhandled metric type %s not expected", v.metadata.metricDataType))
+					}
 					continue
 				}
-        
+
 				switch v.metadata.metricDataType {
 				case pmetric.MetricTypeSum:
 					assert.Len(t, v.metrics, 2)
