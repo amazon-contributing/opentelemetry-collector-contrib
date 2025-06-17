@@ -6,7 +6,7 @@ package translator // import "github.com/open-telemetry/opentelemetry-collector-
 import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	conventionsv112 "go.opentelemetry.io/collector/semconv/v1.12.0"
+	conventions "go.opentelemetry.io/collector/semconv/v1.12.0"
 
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 )
@@ -25,15 +25,15 @@ func makeSQL(span ptrace.Span, attributes map[string]pcommon.Value) (map[string]
 
 	for key, value := range attributes {
 		switch key {
-		case conventionsv112.AttributeDBConnectionString:
+		case conventions.AttributeDBConnectionString:
 			dbConnectionString = value.Str()
-		case conventionsv112.AttributeDBSystem:
+		case conventions.AttributeDBSystem:
 			dbSystem = value.Str()
-		case conventionsv112.AttributeDBName:
+		case conventions.AttributeDBName:
 			dbInstance = value.Str()
-		case conventionsv112.AttributeDBStatement:
+		case conventions.AttributeDBStatement:
 			dbStatement = value.Str()
-		case conventionsv112.AttributeDBUser:
+		case conventions.AttributeDBUser:
 			dbUser = value.Str()
 		default:
 			filtered[key] = value

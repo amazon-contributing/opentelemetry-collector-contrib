@@ -10,10 +10,22 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	conventionsv112 "go.opentelemetry.io/collector/semconv/v1.12.0"
-	conventions "go.opentelemetry.io/collector/semconv/v1.27.0"
+	conventions "go.opentelemetry.io/collector/semconv/v1.12.0"
 
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
+)
+
+const (
+	AttributeHTTPRequestMethod      = "http.request.method"
+	AttributeHTTPResponseStatusCode = "http.response.status_code"
+	AttributeServerAddress          = "server.address"
+	AttributeServerPort             = "server.port"
+	AttributeNetworkPeerAddress     = "network.peer.address"
+	AttributeClientAddress          = "client.address"
+	AttributeURLScheme              = "url.scheme"
+	AttributeURLFull                = "url.full"
+	AttributeURLPath                = "url.path"
+	AttributeUserAgentOriginal      = "user_agent.original"
 )
 
 func makeHTTP(span ptrace.Span) (map[string]pcommon.Value, *awsxray.HTTPData) {
@@ -36,57 +48,57 @@ func makeHTTP(span ptrace.Span) (map[string]pcommon.Value, *awsxray.HTTPData) {
 
 	for key, value := range span.Attributes().All() {
 		switch key {
-		case conventionsv112.AttributeHTTPMethod, conventions.AttributeHTTPRequestMethod:
+		case conventions.AttributeHTTPMethod, AttributeHTTPRequestMethod:
 			info.Request.Method = awsxray.String(value.Str())
 			hasHTTP = true
-		case conventionsv112.AttributeHTTPClientIP:
+		case conventions.AttributeHTTPClientIP:
 			info.Request.ClientIP = awsxray.String(value.Str())
 			hasHTTP = true
-		case conventionsv112.AttributeHTTPUserAgent, conventions.AttributeUserAgentOriginal:
+		case conventions.AttributeHTTPUserAgent, AttributeUserAgentOriginal:
 			info.Request.UserAgent = awsxray.String(value.Str())
 			hasHTTP = true
-		case conventionsv112.AttributeHTTPStatusCode, conventions.AttributeHTTPResponseStatusCode:
+		case conventions.AttributeHTTPStatusCode, AttributeHTTPResponseStatusCode:
 			info.Response.Status = aws.Int64(value.Int())
 			hasHTTP = true
-		case conventionsv112.AttributeHTTPURL, conventions.AttributeURLFull:
-			urlParts[conventionsv112.AttributeHTTPURL] = value.Str()
+		case conventions.AttributeHTTPURL, AttributeURLFull:
+			urlParts[conventions.AttributeHTTPURL] = value.Str()
 			hasHTTP = true
 			hasHTTPRequestURLAttributes = true
-		case conventionsv112.AttributeHTTPScheme, conventions.AttributeURLScheme:
-			urlParts[conventionsv112.AttributeHTTPScheme] = value.Str()
+		case conventions.AttributeHTTPScheme, AttributeURLScheme:
+			urlParts[conventions.AttributeHTTPScheme] = value.Str()
 			hasHTTP = true
-		case conventionsv112.AttributeHTTPHost:
+		case conventions.AttributeHTTPHost:
 			urlParts[key] = value.Str()
 			hasHTTP = true
 			hasHTTPRequestURLAttributes = true
-		case conventionsv112.AttributeHTTPTarget, conventions.AttributeURLQuery:
-			urlParts[conventionsv112.AttributeHTTPTarget] = value.Str()
+		case conventions.AttributeHTTPTarget:
+			urlParts[key] = value.Str()
 			hasHTTP = true
-		case conventionsv112.AttributeHTTPServerName:
+		case conventions.AttributeHTTPServerName:
 			urlParts[key] = value.Str()
 			hasHTTP = true
 			hasHTTPRequestURLAttributes = true
-		case conventionsv112.AttributeNetHostPort:
+		case conventions.AttributeNetHostPort:
 			urlParts[key] = value.Str()
 			hasHTTP = true
 			if len(urlParts[key]) == 0 {
 				urlParts[key] = strconv.FormatInt(value.Int(), 10)
 			}
-		case conventionsv112.AttributeHostName:
+		case conventions.AttributeHostName:
 			urlParts[key] = value.Str()
 			hasHTTPRequestURLAttributes = true
-		case conventionsv112.AttributeNetHostName:
+		case conventions.AttributeNetHostName:
 			urlParts[key] = value.Str()
 			hasHTTPRequestURLAttributes = true
-		case conventionsv112.AttributeNetPeerName:
+		case conventions.AttributeNetPeerName:
 			urlParts[key] = value.Str()
 			hasHTTPRequestURLAttributes = true
-		case conventionsv112.AttributeNetPeerPort:
+		case conventions.AttributeNetPeerPort:
 			urlParts[key] = value.Str()
 			if len(urlParts[key]) == 0 {
 				urlParts[key] = strconv.FormatInt(value.Int(), 10)
 			}
-		case conventionsv112.AttributeNetPeerIP:
+		case conventions.AttributeNetPeerIP:
 			// Prefer HTTP forwarded information (AttributeHTTPClientIP) when present.
 			if info.Request.ClientIP == nil {
 				info.Request.ClientIP = awsxray.String(value.Str())
@@ -94,7 +106,7 @@ func makeHTTP(span ptrace.Span) (map[string]pcommon.Value, *awsxray.HTTPData) {
 			urlParts[key] = value.Str()
 			hasHTTPRequestURLAttributes = true
 			hasNetPeerAddr = true
-		case conventions.AttributeNetworkPeerAddress:
+		case AttributeNetworkPeerAddress:
 			// Prefer HTTP forwarded information (AttributeHTTPClientIP) when present.
 			if net.ParseIP(value.Str()) != nil {
 				if info.Request.ClientIP == nil {
@@ -103,17 +115,17 @@ func makeHTTP(span ptrace.Span) (map[string]pcommon.Value, *awsxray.HTTPData) {
 				hasHTTPRequestURLAttributes = true
 				hasNetPeerAddr = true
 			}
-		case conventions.AttributeClientAddress:
+		case AttributeClientAddress:
 			if net.ParseIP(value.Str()) != nil {
 				info.Request.ClientIP = awsxray.String(value.Str())
 			}
-		case conventions.AttributeURLPath:
+		case AttributeURLPath:
 			urlParts[key] = value.Str()
 			hasHTTP = true
-		case conventions.AttributeServerAddress:
+		case AttributeServerAddress:
 			urlParts[key] = value.Str()
 			hasHTTPRequestURLAttributes = true
-		case conventions.AttributeServerPort:
+		case AttributeServerPort:
 			urlParts[key] = value.Str()
 			if len(urlParts[key]) == 0 {
 				urlParts[key] = strconv.FormatInt(value.Int(), 10)
@@ -164,7 +176,7 @@ func extractResponseSizeFromEvents(span ptrace.Span) int64 {
 func extractResponseSizeFromAttributes(attributes pcommon.Map) int64 {
 	typeVal, ok := attributes.Get("message.type")
 	if ok && typeVal.Str() == "RECEIVED" {
-		if sizeVal, ok := attributes.Get(conventionsv112.AttributeMessagingMessagePayloadSizeBytes); ok {
+		if sizeVal, ok := attributes.Get(conventions.AttributeMessagingMessagePayloadSizeBytes); ok {
 			return sizeVal.Int()
 		}
 	}
@@ -173,26 +185,26 @@ func extractResponseSizeFromAttributes(attributes pcommon.Map) int64 {
 
 func constructClientURL(urlParts map[string]string) string {
 	// follows OpenTelemetry specification-defined combinations for client spans described in
-	// https://github.com/open-telemetry/semantic-conventionsv112/blob/main/docs/http/http-spans.md#http-client
+	// https://github.com/open-telemetry/semantic-conventions/blob/main/docs/http/http-spans.md#http-client
 
-	url, ok := urlParts[conventionsv112.AttributeHTTPURL]
+	url, ok := urlParts[conventions.AttributeHTTPURL]
 	if ok {
 		// full URL available so no need to assemble
 		return url
 	}
 
-	scheme, ok := urlParts[conventionsv112.AttributeHTTPScheme]
+	scheme, ok := urlParts[conventions.AttributeHTTPScheme]
 	if !ok {
 		scheme = "http"
 	}
 	port := ""
-	host, ok := urlParts[conventionsv112.AttributeHTTPHost]
+	host, ok := urlParts[conventions.AttributeHTTPHost]
 	if !ok {
-		host, ok = urlParts[conventionsv112.AttributeNetPeerName]
+		host, ok = urlParts[conventions.AttributeNetPeerName]
 		if !ok {
-			host = urlParts[conventionsv112.AttributeNetPeerIP]
+			host = urlParts[conventions.AttributeNetPeerIP]
 		}
-		port, ok = urlParts[conventionsv112.AttributeNetPeerPort]
+		port, ok = urlParts[conventions.AttributeNetPeerPort]
 		if !ok {
 			port = ""
 		}
@@ -201,7 +213,7 @@ func constructClientURL(urlParts map[string]string) string {
 	if len(port) > 0 && (scheme != "http" || port != "80") && (scheme != "https" || port != "443") {
 		url += ":" + port
 	}
-	target, ok := urlParts[conventionsv112.AttributeHTTPTarget]
+	target, ok := urlParts[conventions.AttributeHTTPTarget]
 	if ok {
 		url += target
 	} else {
@@ -212,34 +224,34 @@ func constructClientURL(urlParts map[string]string) string {
 
 func constructServerURL(urlParts map[string]string) string {
 	// follows OpenTelemetry specification-defined combinations for server spans described in
-	// https://github.com/open-telemetry/semantic-conventionsv112/blob/main/docs/http/http-spans.md#http-server
+	// https://github.com/open-telemetry/semantic-conventions/blob/main/docs/http/http-spans.md#http-server
 
-	url, ok := urlParts[conventionsv112.AttributeHTTPURL]
+	url, ok := urlParts[conventions.AttributeHTTPURL]
 	if ok {
 		// full URL available so no need to assemble
 		return url
 	}
 
-	scheme, ok := urlParts[conventionsv112.AttributeHTTPScheme]
+	scheme, ok := urlParts[conventions.AttributeHTTPScheme]
 	if !ok {
 		scheme = "http"
 	}
 	port := ""
-	host, ok := urlParts[conventionsv112.AttributeHTTPHost]
+	host, ok := urlParts[conventions.AttributeHTTPHost]
 	if !ok {
-		host, ok = urlParts[conventionsv112.AttributeHTTPServerName]
+		host, ok = urlParts[conventions.AttributeHTTPServerName]
 		if !ok {
-			host, ok = urlParts[conventionsv112.AttributeNetHostName]
+			host, ok = urlParts[conventions.AttributeNetHostName]
 			if !ok {
-				host, ok = urlParts[conventionsv112.AttributeHostName]
+				host, ok = urlParts[conventions.AttributeHostName]
 				if !ok {
-					host = urlParts[conventions.AttributeServerAddress]
+					host = urlParts[AttributeServerAddress]
 				}
 			}
 		}
-		port, ok = urlParts[conventionsv112.AttributeNetHostPort]
+		port, ok = urlParts[conventions.AttributeNetHostPort]
 		if !ok {
-			port, ok = urlParts[conventions.AttributeServerPort]
+			port, ok = urlParts[AttributeServerPort]
 			if !ok {
 				port = ""
 			}
@@ -249,11 +261,11 @@ func constructServerURL(urlParts map[string]string) string {
 	if len(port) > 0 && (scheme != "http" || port != "80") && (scheme != "https" || port != "443") {
 		url += ":" + port
 	}
-	target, ok := urlParts[conventionsv112.AttributeHTTPTarget]
+	target, ok := urlParts[conventions.AttributeHTTPTarget]
 	if ok {
 		url += target
 	} else {
-		path, ok := urlParts[conventions.AttributeURLPath]
+		path, ok := urlParts[AttributeURLPath]
 		if ok {
 			url += path
 		} else {

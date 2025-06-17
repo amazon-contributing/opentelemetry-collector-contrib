@@ -9,8 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"go.opentelemetry.io/collector/pdata/pcommon"
-	conventionsv112 "go.opentelemetry.io/collector/semconv/v1.12.0"
-	conventions "go.opentelemetry.io/collector/semconv/v1.27.0"
+	conventions "go.opentelemetry.io/collector/semconv/v1.12.0"
 
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 )
@@ -57,75 +56,76 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 	)
 
 	filtered := make(map[string]pcommon.Value)
-	for key, value := range resource.Attributes().All() {
+	resource.Attributes().Range(func(key string, value pcommon.Value) bool {
 		switch key {
-		case conventionsv112.AttributeCloudProvider:
+		case conventions.AttributeCloudProvider:
 			cloud = value.Str()
-		case conventionsv112.AttributeCloudPlatform:
+		case conventions.AttributeCloudPlatform:
 			service = value.Str()
-		case conventionsv112.AttributeCloudAccountID:
+		case conventions.AttributeCloudAccountID:
 			account = value.Str()
-		case conventionsv112.AttributeCloudAvailabilityZone:
+		case conventions.AttributeCloudAvailabilityZone:
 			zone = value.Str()
-		case conventionsv112.AttributeHostID:
+		case conventions.AttributeHostID:
 			hostID = value.Str()
-		case conventionsv112.AttributeHostType:
+		case conventions.AttributeHostType:
 			hostType = value.Str()
-		case conventionsv112.AttributeHostImageID:
+		case conventions.AttributeHostImageID:
 			amiID = value.Str()
-		case conventionsv112.AttributeContainerName:
+		case conventions.AttributeContainerName:
 			if container == "" {
 				container = value.Str()
 			}
-		case conventionsv112.AttributeK8SPodName:
+		case conventions.AttributeK8SPodName:
 			podUID = value.Str()
-		case conventionsv112.AttributeServiceNamespace:
+		case conventions.AttributeServiceNamespace:
 			namespace = value.Str()
-		case conventionsv112.AttributeServiceInstanceID:
+		case conventions.AttributeServiceInstanceID:
 			deployID = value.Str()
-		case conventionsv112.AttributeServiceVersion:
+		case conventions.AttributeServiceVersion:
 			versionLabel = value.Str()
-		case conventionsv112.AttributeTelemetrySDKName:
+		case conventions.AttributeTelemetrySDKName:
 			sdkName = value.Str()
-		case conventionsv112.AttributeTelemetrySDKLanguage:
+		case conventions.AttributeTelemetrySDKLanguage:
 			sdkLanguage = value.Str()
-		case conventionsv112.AttributeTelemetrySDKVersion:
+		case conventions.AttributeTelemetrySDKVersion:
 			sdkVersion = value.Str()
-		case conventionsv112.AttributeTelemetryAutoVersion, conventions.AttributeTelemetryDistroVersion:
+		case conventions.AttributeTelemetryAutoVersion:
 			autoVersion = value.Str()
-		case conventionsv112.AttributeContainerID:
+		case conventions.AttributeContainerID:
 			containerID = value.Str()
-		case conventionsv112.AttributeK8SClusterName:
+		case conventions.AttributeK8SClusterName:
 			clusterName = value.Str()
-		case conventionsv112.AttributeAWSECSClusterARN:
+		case conventions.AttributeAWSECSClusterARN:
 			clusterArn = value.Str()
-		case conventionsv112.AttributeAWSECSContainerARN:
+		case conventions.AttributeAWSECSContainerARN:
 			containerArn = value.Str()
-		case conventionsv112.AttributeAWSECSTaskARN:
+		case conventions.AttributeAWSECSTaskARN:
 			taskArn = value.Str()
-		case conventionsv112.AttributeAWSECSTaskFamily:
+		case conventions.AttributeAWSECSTaskFamily:
 			taskFamily = value.Str()
-		case conventionsv112.AttributeAWSECSLaunchtype:
+		case conventions.AttributeAWSECSLaunchtype:
 			launchType = value.Str()
-		case conventionsv112.AttributeAWSLogGroupNames:
+		case conventions.AttributeAWSLogGroupNames:
 			logGroups = normalizeToSlice(value)
-		case conventionsv112.AttributeAWSLogGroupARNs:
+		case conventions.AttributeAWSLogGroupARNs:
 			logGroupArns = normalizeToSlice(value)
 		}
-	}
+		return true
+	})
 
 	if awsOperation, ok := attributes[awsxray.AWSOperationAttribute]; ok {
 		operation = awsOperation.Str()
-	} else if rpcMethod, ok := attributes[conventionsv112.AttributeRPCMethod]; ok {
+	} else if rpcMethod, ok := attributes[conventions.AttributeRPCMethod]; ok {
 		operation = rpcMethod.Str()
 	}
 
 	for key, value := range attributes {
 		switch key {
-		case conventionsv112.AttributeRPCMethod:
-			// Deterministically handled with if else above
+		case conventions.AttributeRPCMethod:
+			// Determinstically handled with if else above
 		case awsxray.AWSOperationAttribute:
-			// Deterministically handled with if else above
+			// Determinstically handled with if else above
 		case awsxray.AWSAccountAttribute:
 			if value.Type() != pcommon.ValueTypeEmpty {
 				account = value.Str()
@@ -148,15 +148,15 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 			filtered[key] = value
 		}
 	}
-	if cloud != conventionsv112.AttributeCloudProviderAWS && cloud != "" {
+	if cloud != conventions.AttributeCloudProviderAWS && cloud != "" {
 		return filtered, nil // not AWS so return nil
 	}
 
 	// Favor Semantic Conventions for specific SQS and DynamoDB attributes.
-	if value, ok := attributes[conventionsv112.AttributeMessagingURL]; ok {
+	if value, ok := attributes[conventions.AttributeMessagingURL]; ok {
 		queueURL = value.Str()
 	}
-	if value, ok := attributes[conventionsv112.AttributeAWSDynamoDBTableNames]; ok {
+	if value, ok := attributes[conventions.AttributeAWSDynamoDBTableNames]; ok {
 		switch value.Type() {
 		case pcommon.ValueTypeSlice:
 			if value.Slice().Len() == 1 {
@@ -176,7 +176,7 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 	// EC2 - add ec2 metadata to xray request if
 	//       1. cloud.platfrom is set to "aws_ec2" or
 	//       2. there is an non-blank host/instance id found
-	if service == conventionsv112.AttributeCloudPlatformAWSEC2 || hostID != "" {
+	if service == conventions.AttributeCloudPlatformAWSEC2 || hostID != "" {
 		ec2 = &awsxray.EC2Metadata{
 			InstanceID:       awsxray.String(hostID),
 			AvailabilityZone: awsxray.String(zone),
@@ -186,7 +186,7 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 	}
 
 	// ECS
-	if service == conventionsv112.AttributeCloudPlatformAWSECS {
+	if service == conventions.AttributeCloudPlatformAWSECS {
 		ecs = &awsxray.ECSMetadata{
 			ContainerName:    awsxray.String(container),
 			ContainerID:      awsxray.String(containerID),
@@ -200,7 +200,7 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 	}
 
 	// Beanstalk
-	if service == conventionsv112.AttributeCloudPlatformAWSElasticBeanstalk && deployID != "" {
+	if service == conventions.AttributeCloudPlatformAWSElasticBeanstalk && deployID != "" {
 		deployNum, err := strconv.ParseInt(deployID, 10, 64)
 		if err != nil {
 			deployNum = 0
@@ -213,7 +213,7 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 	}
 
 	// EKS or native Kubernetes
-	if service == conventionsv112.AttributeCloudPlatformAWSEKS || clusterName != "" {
+	if service == conventions.AttributeCloudPlatformAWSEKS || clusterName != "" {
 		eks = &awsxray.EKSMetadata{
 			ClusterName: awsxray.String(clusterName),
 			Pod:         awsxray.String(podUID),
@@ -242,7 +242,7 @@ func makeAws(attributes map[string]pcommon.Value, resource pcommon.Resource, log
 
 	if sdkName != "" && sdkLanguage != "" {
 		// Convention for SDK name for xray SDK information is e.g., `X-Ray SDK for Java`, `X-Ray for Go`.
-		// We fill in with e.g, `opentelemetry for java` by using the conventionsv112
+		// We fill in with e.g, `opentelemetry for java` by using the conventions
 		sdk = sdkName + " for " + sdkLanguage
 	} else {
 		sdk = sdkName
