@@ -59,7 +59,7 @@ func makeHTTP(span ptrace.Span) (map[string]pcommon.Value, *awsxray.HTTPData) {
 			urlParts[key] = value.Str()
 			hasHTTP = true
 			hasHTTPRequestURLAttributes = true
-		case conventionsv112.AttributeHTTPTarget, conventions.AttributeURLQuery:
+		case conventionsv112.AttributeHTTPTarget:
 			urlParts[conventionsv112.AttributeHTTPTarget] = value.Str()
 			hasHTTP = true
 		case conventionsv112.AttributeHTTPServerName:
