@@ -109,6 +109,20 @@ func (r *pReceiver) Start(ctx context.Context, host component.Host) error {
 
 	logger := slog.New(zapslog.NewHandler(r.settings.Logger.Core()))
 
+	// Log Prometheus configuration details
+	r.settings.Logger.Info("Starting Prometheus receiver with configuration",
+		zap.Int("num_scrape_configs", len(r.cfg.PrometheusConfig.ScrapeConfigs)))
+	
+	// Log details about each scrape config, especially honor_timestamps
+	for _, sc := range r.cfg.PrometheusConfig.ScrapeConfigs {
+		r.settings.Logger.Info("Scrape config details",
+			zap.String("job_name", sc.JobName),
+			zap.Bool("honor_timestamps", sc.HonorTimestamps),
+			zap.String("scrape_interval", sc.ScrapeInterval.String()),
+			zap.String("scrape_timeout", sc.ScrapeTimeout.String()),
+			zap.Int("target_count", len(sc.ServiceDiscoveryConfigs)))
+	}
+
 	err := r.initPrometheusComponents(discoveryCtx, logger, host)
 	if err != nil {
 		r.settings.Logger.Error("Failed to initPrometheusComponents Prometheus components", zap.Error(err))
@@ -135,6 +149,9 @@ func (r *pReceiver) Start(ctx context.Context, host component.Host) error {
 }
 
 func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger *slog.Logger, host component.Host) error {
+	startTime := time.Now()
+	r.settings.Logger.Info("Initializing Prometheus components", zap.String("start_time", startTime.String()))
+	
 	// Some SD mechanisms use the "refresh" package, which has its own metrics.
 	refreshSdMetrics := discovery.NewRefreshMetrics(r.registerer)
 
@@ -194,6 +211,13 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger *slog.L
 		opts.EnableNativeHistogramsIngestion = true
 	}
 
+	// Log scrape options
+	r.settings.Logger.Info("Scrape options",
+		zap.Bool("pass_metadata_in_context", opts.PassMetadataInContext),
+		zap.Bool("extra_metrics", opts.ExtraMetrics),
+		zap.Bool("enable_created_timestamp_zero_ingestion", opts.EnableCreatedTimestampZeroIngestion),
+		zap.Bool("enable_native_histograms_ingestion", opts.EnableNativeHistogramsIngestion))
+
 	// for testing only
 	if r.skipOffsetting {
 		optsValue := reflect.ValueOf(opts).Elem()
@@ -228,6 +252,8 @@ func (r *pReceiver) initPrometheusComponents(ctx context.Context, logger *slog.L
 		}
 	}()
 
+	r.settings.Logger.Info("Prometheus components initialized", 
+		zap.Duration("initialization_time", time.Since(startTime)))
 	return nil
 }
 
