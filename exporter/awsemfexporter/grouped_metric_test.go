@@ -67,9 +67,11 @@ func TestAddToGroupedMetric(t *testing.T) {
 			expectedLabels:     map[string]string{"label1": "value1"},
 			expectedMetricInfo: map[string]*metricInfo{
 				"foo": {
-					value: &cWMetricStats{
-						Count: 18,
-						Sum:   35.0,
+					value: &cWMetricHistogram{
+						Values: []float64{0, 5, 5},
+						Counts: []float64{5, 6, 7},
+						Count:  18,
+						Sum:    35.0,
 					},
 					unit: "Seconds",
 				},

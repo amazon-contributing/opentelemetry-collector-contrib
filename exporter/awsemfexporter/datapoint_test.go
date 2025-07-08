@@ -636,7 +636,7 @@ func TestCalculateDeltaDatapoints_HistogramDataPointSlice(t *testing.T) {
 			}(),
 			expectedDatapoint: dataPoint{
 				name:   "foo",
-				value:  &cWMetricStats{Sum: 17.13, Count: 17, Min: 10, Max: 30},
+				value:  &cWMetricHistogram{Values: []float64{}, Counts: []float64{}, Sum: 17.13, Count: 17, Min: 10, Max: 30},
 				labels: map[string]string{"label1": "value1"},
 			},
 		},
@@ -652,7 +652,7 @@ func TestCalculateDeltaDatapoints_HistogramDataPointSlice(t *testing.T) {
 			}(),
 			expectedDatapoint: dataPoint{
 				name:   "foo",
-				value:  &cWMetricStats{Sum: 17.13, Count: 17, Min: 0, Max: 0},
+				value:  &cWMetricHistogram{Values: []float64{}, Counts: []float64{}, Sum: 17.13, Count: 17, Min: 0, Max: 0},
 				labels: map[string]string{"label1": "value1"},
 			},
 		},
@@ -670,7 +670,7 @@ func TestCalculateDeltaDatapoints_HistogramDataPointSlice(t *testing.T) {
 			}(),
 			expectedDatapoint: dataPoint{
 				name:   "foo",
-				value:  &cWMetricStats{Sum: 17.13, Count: 17, Min: 0, Max: 0},
+				value:  &cWMetricHistogram{Values: []float64{0.5, 1.5, 2.5}, Counts: []float64{1, 2, 3}, Sum: 17.13, Count: 17, Min: 0, Max: 0},
 				labels: map[string]string{"label1": "value1"},
 			},
 		},
@@ -884,7 +884,7 @@ func TestCalculateDeltaDatapoints_HistogramDataPointSlice_Delta(t *testing.T) {
 	assert.Equal(t, 1, histogramDatapointSlice.Len())
 	assert.Equal(t, dataPoint{
 		name:   "foo",
-		value:  &cWMetricStats{Sum: 0, Count: 0, Min: 10, Max: 30},
+		value:  &cWMetricHistogram{Values: []float64{}, Counts: []float64{}, Sum: 0, Count: 0, Min: 10, Max: 30},
 		labels: map[string]string{"label1": "value1"},
 	}, dps[0])
 
@@ -898,7 +898,7 @@ func TestCalculateDeltaDatapoints_HistogramDataPointSlice_Delta(t *testing.T) {
 	assert.Equal(t, 1, histogramDatapointSlice.Len())
 	assert.Equal(t, dataPoint{
 		name:   "foo",
-		value:  &cWMetricStats{Sum: 10.14, Count: 10, Min: 5, Max: 40},
+		value:  &cWMetricHistogram{Values: []float64{}, Counts: []float64{}, Sum: 10.14, Count: 10, Min: 5, Max: 40},
 		labels: map[string]string{"label1": "value1"},
 	}, dps[0])
 }
