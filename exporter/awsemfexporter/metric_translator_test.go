@@ -303,7 +303,13 @@ func TestTranslateOtToGroupedMetric(t *testing.T) {
 	}
 	timerMetrics := map[string]*metricInfo{
 		"spanTimer": {
-			value: &cWMetricStats{
+			value: &cWMetricHistogram{
+				Values: []float64{
+					0, 5, 5,
+				},
+				Counts: []float64{
+					0, 4, 1,
+				},
 				Count: 5,
 				Sum:   15,
 			},

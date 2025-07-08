@@ -185,79 +185,79 @@ func (dps numberDataPointSlice) IsStaleNaNInf(i int) (bool, pcommon.Map) {
 
 // CalculateDeltaDatapoints retrieves the HistogramDataPoint at the given index.
 func (dps histogramDataPointSlice) CalculateDeltaDatapoints(i int, _ string, _ bool, calculators *emfCalculators) ([]dataPoint, bool) {
-    metric := dps.At(i)
-    labels := createLabels(metric.Attributes())
-    timestamp := unixNanoToMilliseconds(metric.Timestamp())
+	metric := dps.At(i)
+	labels := createLabels(metric.Attributes())
+	timestamp := unixNanoToMilliseconds(metric.Timestamp())
 
-    sum := metric.Sum()
-    count := metric.Count()
+	sum := metric.Sum()
+	count := metric.Count()
 
-    var datapoints []dataPoint
+	var datapoints []dataPoint
 
-    if dps.adjustToDelta {
-        var delta any
-        mKey := aws.NewKey(dps.deltaMetricMetadata, labels)
-        delta, retained := calculators.summary.Calculate(mKey, summaryMetricEntry{sum, count}, metric.Timestamp().AsTime())
+	if dps.adjustToDelta {
+		var delta any
+		mKey := aws.NewKey(dps.deltaMetricMetadata, labels)
+		delta, retained := calculators.summary.Calculate(mKey, summaryMetricEntry{sum, count}, metric.Timestamp().AsTime())
 
-        // If a delta to the previous data point could not be computed use the current metric value instead
-        if !retained && dps.retainInitialValueForDelta {
-            retained = true
-            delta = summaryMetricEntry{sum, count}
-        }
+		// If a delta to the previous data point could not be computed use the current metric value instead
+		if !retained && dps.retainInitialValueForDelta {
+			retained = true
+			delta = summaryMetricEntry{sum, count}
+		}
 
-        if !retained {
-            return datapoints, retained
-        }
-        summaryMetricDelta := delta.(summaryMetricEntry)
-        sum = summaryMetricDelta.sum
-        count = summaryMetricDelta.count
-    }
+		if !retained {
+			return datapoints, retained
+		}
+		summaryMetricDelta := delta.(summaryMetricEntry)
+		sum = summaryMetricDelta.sum
+		count = summaryMetricDelta.count
+	}
 
-    values := make([]float64, 0)
-    counts := make([]float64, 0)
-    bounds := metric.ExplicitBounds()
-    bucketCounts := metric.BucketCounts()
+	values := make([]float64, 0)
+	counts := make([]float64, 0)
+	bounds := metric.ExplicitBounds()
+	bucketCounts := metric.BucketCounts()
 
-    // Handle the first bucket (min, bounds[0]]
-    if bucketCounts.Len() > 0 {
-        if bounds.Len() > 0 {
-            midpoint := (metric.Min() + bounds.At(0)) / 2
-            values = append(values, midpoint)
-            counts = append(counts, float64(bucketCounts.At(0)))
-        }
-    }
+	// Handle the first bucket (min, bounds[0]]
+	if bucketCounts.Len() > 0 {
+		if bounds.Len() > 0 {
+			midpoint := (metric.Min() + bounds.At(0)) / 2
+			values = append(values, midpoint)
+			counts = append(counts, float64(bucketCounts.At(0)))
+		}
+	}
 
-    // Handle middle buckets (bounds[i-1], bounds[i]]
-    for i := 1; i < bounds.Len(); i++ {
-        if i < bucketCounts.Len() && bucketCounts.At(i) > 0 {
-            midpoint := (bounds.At(i-1) + bounds.At(i)) / 2
-            values = append(values, midpoint)
-            counts = append(counts, float64(bucketCounts.At(i)))
-        }
-    }
+	// Handle middle buckets (bounds[i-1], bounds[i]]
+	for i := 1; i < bounds.Len(); i++ {
+		if i < bucketCounts.Len() && bucketCounts.At(i) > 0 {
+			midpoint := (bounds.At(i-1) + bounds.At(i)) / 2
+			values = append(values, midpoint)
+			counts = append(counts, float64(bucketCounts.At(i)))
+		}
+	}
 
-    // Handle the last bucket (bounds[last], max)
-    if bounds.Len() < bucketCounts.Len() && bucketCounts.At(bucketCounts.Len()-1) > 0 {
-        if bounds.Len() > 0 {
-            midpoint := (bounds.At(bounds.Len()-1) + metric.Max()) / 2
-            values = append(values, midpoint)
-            counts = append(counts, float64(bucketCounts.At(bucketCounts.Len()-1)))
-        }
-    }
+	// Handle the last bucket (bounds[last], max)
+	if bounds.Len() < bucketCounts.Len() && bucketCounts.At(bucketCounts.Len()-1) > 0 {
+		if bounds.Len() > 0 {
+			midpoint := (bounds.At(bounds.Len()-1) + metric.Max()) / 2
+			values = append(values, midpoint)
+			counts = append(counts, float64(bucketCounts.At(bucketCounts.Len()-1)))
+		}
+	}
 
-    return []dataPoint{{
-        name: dps.metricName,
-        value: &cWMetricHistogram{
-            Values: values,
-            Counts: counts,
-            Count:  count, 
-            Sum:    sum,  
-            Max:    metric.Max(),
-            Min:    metric.Min(),
-        },
-        labels:      labels,
-        timestampMs: timestamp,
-    }}, true
+	return []dataPoint{{
+		name: dps.metricName,
+		value: &cWMetricHistogram{
+			Values: values,
+			Counts: counts,
+			Count:  count,
+			Sum:    sum,
+			Max:    metric.Max(),
+			Min:    metric.Min(),
+		},
+		labels:      labels,
+		timestampMs: timestamp,
+	}}, true
 }
 
 func (dps histogramDataPointSlice) IsStaleNaNInf(i int) (bool, pcommon.Map) {

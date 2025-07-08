@@ -389,48 +389,46 @@ func shutdownEmfCalculators(c *emfCalculators) error {
 
 func TestHistogramDataPointSliceCalculateDeltaDatapoints(t *testing.T) {
 	metrics := pmetric.NewMetrics()
-    rmetrics := metrics.ResourceMetrics().AppendEmpty()
-    smetrics := rmetrics.ScopeMetrics().AppendEmpty()
-    metric := smetrics.Metrics().AppendEmpty()
-    
-    // Set metric to histogram type
-    metric.SetName("test_histogram")
-    hdp := metric.SetEmptyHistogram().DataPoints().AppendEmpty()
-    
-    // Histogram data point values
-    hdp.SetCount(5)
-    hdp.SetSum(100)
-    hdp.SetMin(7)
-    hdp.SetMax(32)
-    
+	rmetrics := metrics.ResourceMetrics().AppendEmpty()
+	smetrics := rmetrics.ScopeMetrics().AppendEmpty()
+	metric := smetrics.Metrics().AppendEmpty()
 
-    hdp.ExplicitBounds().FromRaw([]float64{10, 20})
-    hdp.BucketCounts().FromRaw([]uint64{1, 2, 2})  // [7], [13,20], [28,32]
+	// Set metric to histogram type
+	metric.SetName("test_histogram")
+	hdp := metric.SetEmptyHistogram().DataPoints().AppendEmpty()
 
-    dps := histogramDataPointSlice{
-        deltaMetricMetadata: deltaMetricMetadata{
-            metricName: "test_histogram",
-        },
-        HistogramDataPointSlice: metric.Histogram().DataPoints(),
-    }
+	// Histogram data point values
+	hdp.SetCount(5)
+	hdp.SetSum(100)
+	hdp.SetMin(7)
+	hdp.SetMax(32)
 
+	hdp.ExplicitBounds().FromRaw([]float64{10, 20})
+	hdp.BucketCounts().FromRaw([]uint64{1, 2, 2}) // [7], [13,20], [28,32]
 
-    datapoints, retained := dps.CalculateDeltaDatapoints(0, "", false, nil)
+	dps := histogramDataPointSlice{
+		deltaMetricMetadata: deltaMetricMetadata{
+			metricName: "test_histogram",
+		},
+		HistogramDataPointSlice: metric.Histogram().DataPoints(),
+	}
 
-    assert.True(t, retained)
-    assert.Equal(t, 1, len(datapoints))
+	datapoints, retained := dps.CalculateDeltaDatapoints(0, "", false, nil)
 
-    histogram := datapoints[0].value.(*cWMetricHistogram)
+	assert.True(t, retained)
+	assert.Equal(t, 1, len(datapoints))
 
-    expectedValues := []float64{8.5, 15, 26}  // midpoints of [7-10], [10-20], [20-32]
-    expectedCounts := []float64{1, 2, 2}      // counts in each bucket
+	histogram := datapoints[0].value.(*cWMetricHistogram)
 
-    assert.Equal(t, expectedValues, histogram.Values)
-    assert.Equal(t, expectedCounts, histogram.Counts)
-    assert.Equal(t, uint64(5), histogram.Count)
-    assert.Equal(t, float64(100), histogram.Sum)
-    assert.Equal(t, float64(7), histogram.Min)
-    assert.Equal(t, float64(32), histogram.Max)
+	expectedValues := []float64{8.5, 15, 26} // midpoints of [7-10], [10-20], [20-32]
+	expectedCounts := []float64{1, 2, 2}     // counts in each bucket
+
+	assert.Equal(t, expectedValues, histogram.Values)
+	assert.Equal(t, expectedCounts, histogram.Counts)
+	assert.Equal(t, uint64(5), histogram.Count)
+	assert.Equal(t, float64(100), histogram.Sum)
+	assert.Equal(t, float64(7), histogram.Min)
+	assert.Equal(t, float64(32), histogram.Max)
 }
 
 func TestIsStaleNaNInf_NumberDataPointSlice(t *testing.T) {
