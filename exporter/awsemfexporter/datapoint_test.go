@@ -416,7 +416,7 @@ func TestHistogramDataPointSliceCalculateDeltaDatapoints(t *testing.T) {
 	datapoints, retained := dps.CalculateDeltaDatapoints(0, "", false, nil)
 
 	assert.True(t, retained)
-	assert.Equal(t, 1, len(datapoints))
+	assert.Len(t, datapoints, 1)
 
 	histogram := datapoints[0].value.(*cWMetricHistogram)
 
