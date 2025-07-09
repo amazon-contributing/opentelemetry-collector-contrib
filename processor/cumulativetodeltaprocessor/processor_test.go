@@ -75,8 +75,8 @@ type testHistogramMetric struct {
 func (tm testHistogramMetric) addToMetrics(ms pmetric.MetricSlice, now time.Time) {
 	for i, name := range tm.metricNames {
 		m := ms.AppendEmpty()
-		m.SetName(name)
 		hist := m.SetEmptyHistogram()
+		m.SetName(name)
 
 		if tm.isCumulative[i] {
 			hist.SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
@@ -110,6 +110,88 @@ func (tm testHistogramMetric) addToMetrics(ms pmetric.MetricSlice, now time.Time
 				dp.SetFlags(tm.flags[i][index])
 			}
 		}
+	}
+}
+
+type testExpHistogramMetric struct {
+	metricNames      []string
+	metricScales     []uint64
+	metricPosCounts  [][][]uint64
+	metricNegCounts  [][][]uint64
+	metricZeroCounts []uint64
+	metricSums       [][]float64
+	metricMins       [][]float64
+	metricMaxes      [][]float64
+	isCumulative     []bool
+	flags            [][]pmetric.DataPointFlags
+}
+
+func (tm testExpHistogramMetric) addToMetrics(ms pmetric.MetricSlice, now time.Time) {
+	for i, name := range tm.metricNames {
+		m := ms.AppendEmpty()
+		m.SetName(name)
+		hist := m.SetEmptyExponentialHistogram()
+
+		if tm.isCumulative[i] {
+			hist.SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+		} else {
+			hist.SetAggregationTemporality(pmetric.AggregationTemporalityDelta)
+		}
+
+		// for index, count := range tm.metricPosCounts[i] {
+		// 	dp := m.ExponentialHistogram().DataPoints().AppendEmpty()
+		// 	dp.SetTimestamp(pcommon.NewTimestampFromTime(now.Add(10 * time.Second)))
+		// 	dp.SetCount(count)
+
+		// 	sums := tm.metricSums[i]
+		// 	if len(sums) > 0 {
+		// 		dp.SetSum(sums[index])
+		// 	}
+		// 	if tm.metricMins != nil {
+		// 		mins := tm.metricMins[i]
+		// 		if len(mins) > 0 {
+		// 			dp.SetMin(mins[index])
+		// 		}
+		// 	}
+		// 	if tm.metricMaxes != nil {
+		// 		maxes := tm.metricMaxes[i]
+		// 		if len(maxes) > 0 {
+		// 			dp.SetMax(maxes[index])
+		// 		}
+		// 	}
+		// 	dp.SetScale(int32(tm.metricScales[i]))
+		// 	dp.Positive().BucketCounts().FromRaw(tm.metricPosCounts[i][index])
+		// 	if len(tm.flags) > i && len(tm.flags[i]) > index {
+		// 		dp.SetFlags(tm.flags[i][index])
+		// 	}
+		// }
+
+		// for index, count := range tm.metricCounts[i] {
+		// 	dp := m.Histogram().DataPoints().AppendEmpty()
+		// 	dp.SetTimestamp(pcommon.NewTimestampFromTime(now.Add(10 * time.Second)))
+		// 	dp.SetCount(count)
+
+		// 	sums := tm.metricSums[i]
+		// 	if len(sums) > 0 {
+		// 		dp.SetSum(sums[index])
+		// 	}
+		// 	if tm.metricMins != nil {
+		// 		mins := tm.metricMins[i]
+		// 		if len(mins) > 0 {
+		// 			dp.SetMin(mins[index])
+		// 		}
+		// 	}
+		// 	if tm.metricMaxes != nil {
+		// 		maxes := tm.metricMaxes[i]
+		// 		if len(maxes) > 0 {
+		// 			dp.SetMax(maxes[index])
+		// 		}
+		// 	}
+		// 	dp.BucketCounts().FromRaw(tm.metricBuckets[i][index])
+		// 	if len(tm.flags) > i && len(tm.flags[i]) > index {
+		// 		dp.SetFlags(tm.flags[i][index])
+		// 	}
+		// }
 	}
 }
 
@@ -261,11 +343,11 @@ func TestCumulativeToDeltaProcessor(t *testing.T) {
 				},
 				metricMins: [][]float64{
 					{0, 5.0, 2.0, 3.0},
-					{2.0, 2.0, 2.0},
+					{2.0},
 				},
 				metricMaxes: [][]float64{
 					{0, 800.0, 825.0, 800.0},
-					{3.0, 3.0, 3.0},
+					{3.0},
 				},
 				isCumulative: []bool{true, true},
 			}),
@@ -279,11 +361,11 @@ func TestCumulativeToDeltaProcessor(t *testing.T) {
 				},
 				metricMins: [][]float64{
 					nil,
-					{2.0, 2.0, 2.0},
+					{2.0},
 				},
 				metricMaxes: [][]float64{
 					nil,
-					{3.0, 3.0, 3.0},
+					{3.0},
 				},
 				isCumulative: []bool{false, true},
 			}),
@@ -737,6 +819,17 @@ func generateTestSumMetrics(tm testSumMetric) pmetric.Metrics {
 }
 
 func generateTestHistogramMetrics(tm testHistogramMetric) pmetric.Metrics {
+	md := pmetric.NewMetrics()
+	now := time.Now()
+
+	rm := md.ResourceMetrics().AppendEmpty()
+	ms := rm.ScopeMetrics().AppendEmpty().Metrics()
+	tm.addToMetrics(ms, now)
+
+	return md
+}
+
+func generateTestExpHistogramMetrics(tm testExpHistogramMetric) pmetric.Metrics {
 	md := pmetric.NewMetrics()
 	now := time.Now()
 
