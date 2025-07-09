@@ -27,4 +27,8 @@ const (
 	ResourceDetectionHostName    = "host.name"
 	ResourceDetectionASG         = "ec2.tag.aws:autoscaling:groupName"
 	ResourceDetectionClusterName = "k8s.cluster.name"
+
+	// deployment resource attributes
+	AttributeDeploymentEnvironment     = "deployment.environment"
+	AttributeDeploymentEnvironmentName = "deployment.environment.name"
 )
