@@ -12,7 +12,6 @@ import (
 	appsignalsconfig "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/config"
 	attr "github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor/internal/attributes"
 	"go.opentelemetry.io/collector/pdata/pcommon"
-	semconv "go.opentelemetry.io/collector/semconv/v1.22.0"
 	"go.uber.org/zap"
 )
 
@@ -27,16 +26,18 @@ const (
 )
 
 var GenericInheritedAttributes = map[string]string{
-	semconv.AttributeDeploymentEnvironment: attr.AWSLocalEnvironment,
-	attr.ResourceDetectionHostName:         common.AttributeHost,
+	attr.AttributeDeploymentEnvironment:     attr.AWSLocalEnvironment,
+	attr.AttributeDeploymentEnvironmentName: attr.AWSLocalEnvironment,
+	attr.ResourceDetectionHostName:          common.AttributeHost,
 }
 
 // DefaultInheritedAttributes is an allow-list that also renames attributes from the resource detection processor
 var DefaultInheritedAttributes = map[string]string{
-	semconv.AttributeDeploymentEnvironment: attr.AWSLocalEnvironment,
-	attr.ResourceDetectionASG:              common.AttributeEC2AutoScalingGroup,
-	attr.ResourceDetectionHostID:           common.AttributeEC2InstanceID,
-	attr.ResourceDetectionHostName:         common.AttributeHost,
+	attr.AttributeDeploymentEnvironment:     attr.AWSLocalEnvironment,
+	attr.AttributeDeploymentEnvironmentName: attr.AWSLocalEnvironment,
+	attr.ResourceDetectionASG:               common.AttributeEC2AutoScalingGroup,
+	attr.ResourceDetectionHostID:            common.AttributeEC2InstanceID,
+	attr.ResourceDetectionHostName:          common.AttributeHost,
 }
 
 type subResolver interface {
