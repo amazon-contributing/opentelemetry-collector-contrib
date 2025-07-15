@@ -219,17 +219,15 @@ func (dps histogramDataPointSlice) CalculateDeltaDatapoints(i int, _ string, _ b
 	bucketCounts := metric.BucketCounts()
 
 	// Handle the first bucket (min, bounds[0]]
-	if bucketCounts.Len() > 0 {
-		if bounds.Len() > 0 {
-			midpoint := (metric.Min() + bounds.At(0)) / 2
-			values = append(values, midpoint)
-			counts = append(counts, float64(bucketCounts.At(0)))
-		}
+	if bucketCounts.Len() > 0 && bounds.Len() > 0 {
+		midpoint := (metric.Min() + bounds.At(0)) / 2
+		values = append(values, midpoint)
+		counts = append(counts, float64(bucketCounts.At(0)))
 	}
 
 	// Handle middle buckets (bounds[i-1], bounds[i]]
-	for i := 1; i < bounds.Len(); i++ {
-		if i < bucketCounts.Len() && bucketCounts.At(i) > 0 {
+	for i := 1; i < bounds.Len() && i < bucketCounts.Len(); i++ {
+		if bucketCounts.At(i) > 0 {
 			midpoint := (bounds.At(i-1) + bounds.At(i)) / 2
 			values = append(values, midpoint)
 			counts = append(counts, float64(bucketCounts.At(i)))
@@ -237,12 +235,10 @@ func (dps histogramDataPointSlice) CalculateDeltaDatapoints(i int, _ string, _ b
 	}
 
 	// Handle the last bucket (bounds[last], max)
-	if bounds.Len() < bucketCounts.Len() && bucketCounts.At(bucketCounts.Len()-1) > 0 {
-		if bounds.Len() > 0 {
-			midpoint := (bounds.At(bounds.Len()-1) + metric.Max()) / 2
-			values = append(values, midpoint)
-			counts = append(counts, float64(bucketCounts.At(bucketCounts.Len()-1)))
-		}
+	if bounds.Len() > 0 && bounds.Len() < bucketCounts.Len() && bucketCounts.At(bucketCounts.Len()-1) > 0 {
+		midpoint := (bounds.At(bounds.Len()-1) + metric.Max()) / 2
+		values = append(values, midpoint)
+		counts = append(counts, float64(bucketCounts.At(bucketCounts.Len()-1)))
 	}
 
 	return []dataPoint{{

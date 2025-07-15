@@ -404,7 +404,7 @@ func TestHistogramDataPointSliceCalculateDeltaDatapoints(t *testing.T) {
 	hdp.SetMax(32)
 
 	hdp.ExplicitBounds().FromRaw([]float64{10, 20})
-	hdp.BucketCounts().FromRaw([]uint64{1, 2, 2}) // [7], [13,20], [28,32]
+	hdp.BucketCounts().FromRaw([]uint64{1, 2, 2})
 
 	dps := histogramDataPointSlice{
 		deltaMetricMetadata: deltaMetricMetadata{
