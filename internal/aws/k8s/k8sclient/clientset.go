@@ -218,6 +218,11 @@ type statefulSetClientWithStopper interface {
 	stopper
 }
 
+type pvcClientWithStopper interface {
+	PVCClient
+	stopper
+}
+
 type K8sClient struct {
 	kubeConfigPath       string
 	initSyncPollInterval time.Duration
@@ -254,6 +259,9 @@ type K8sClient struct {
 
 	ssMu        sync.Mutex
 	statefulSet statefulSetClientWithStopper
+
+	pvcMu sync.Mutex
+	pvc   pvcClientWithStopper
 
 	logger *zap.Logger
 }
@@ -303,6 +311,7 @@ func (c *K8sClient) init(logger *zap.Logger, options ...Option) error {
 	c.deployment = nil
 	c.daemonSet = nil
 	c.statefulSet = nil
+	c.pvc = nil
 
 	return nil
 }
@@ -459,6 +468,26 @@ func (c *K8sClient) ShutdownStatefulSetClient() {
 	})
 }
 
+func (c *K8sClient) GetPVCClient() PVCClient {
+	var err error
+	c.pvcMu.Lock()
+	defer c.pvcMu.Unlock()
+	if c.pvc == nil || reflect.ValueOf(c.pvc).IsNil() {
+		c.pvc, err = newPVCClient(c.clientSet, c.logger, pvcSyncCheckerOption(c.syncChecker))
+		if err != nil {
+			c.logger.Error("use an no-op PVC client instead because of error", zap.Error(err))
+			c.pvc = &noOpPVCClient{}
+		}
+	}
+	return c.pvc
+}
+
+func (c *K8sClient) ShutdownPVCClient() {
+	shutdownClient(c.pvc, &c.pvcMu, func() {
+		c.pvc = nil
+	})
+}
+
 func (c *K8sClient) GetClientSet() kubernetes.Interface {
 	return c.clientSet
 }
@@ -476,6 +505,7 @@ func (c *K8sClient) Shutdown() {
 	c.ShutdownDeploymentClient()
 	c.ShutdownDaemonSetClient()
 	c.ShutdownStatefulSetClient()
+	c.ShutdownPVCClient()
 
 	// remove the current instance of k8s client from map
 	for key, val := range optionsToK8sClient {

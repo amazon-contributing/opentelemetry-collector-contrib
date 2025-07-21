@@ -57,8 +57,10 @@ type K8sClient interface {
 	GetDaemonSetClient() k8sclient.DaemonSetClient
 	GetStatefulSetClient() k8sclient.StatefulSetClient
 	GetReplicaSetClient() k8sclient.ReplicaSetClient
+	GetPVCClient() k8sclient.PVCClient
 	ShutdownNodeClient()
 	ShutdownPodClient()
+	ShutdownPVCClient()
 }
 
 // K8sAPIServer is a struct that produces metrics from kubernetes api server
@@ -136,6 +138,7 @@ func (k *K8sAPIServer) GetMetrics() []pmetric.Metrics {
 
 	if k.includeEnhancedMetrics {
 		result = append(result, k.getHyperPodResiliencyMetrics(clusterName, timestampNs)...)
+		result = append(result, k.getPVCMetrics(clusterName, timestampNs)...)
 	}
 
 	return result
@@ -481,6 +484,66 @@ func (k *K8sAPIServer) getHyperPodResiliencyMetrics(clusterName, timestampNs str
 				metrics = append(metrics, md)
 			}
 		}
+	}
+	return metrics
+}
+
+func (k *K8sAPIServer) getPVCMetrics(clusterName, timestampNs string) []pmetric.Metrics {
+	var metrics []pmetric.Metrics
+
+	// Check if pvcClient is initialized
+	if k.leaderElection.pvcClient == nil {
+		k.logger.Debug("PVC client is not initialized, skipping PVC metrics")
+		return metrics
+	}
+
+	// Get namespace-level counts
+	nameSpaceCounts := k.leaderElection.pvcClient.NamespaceToPVCCount()
+	// If no PVCs are found, return empty metrics
+	if len(nameSpaceCounts) == 0 {
+		k.logger.Debug("No PVCs found, skipping PVC metrics")
+		return metrics
+	}
+	// Get total PVC count
+	clusterCount := k.leaderElection.pvcClient.TotalPVCCount()
+
+	// Create name-space level metrics
+	for namespace, count := range nameSpaceCounts {
+		fields := map[string]any{
+			ci.PVCCount: count,
+		}
+		attributes := map[string]string{
+			ci.ClusterNameKey: clusterName,
+			ci.MetricType:     ci.TypeClusterNamespacePVC,
+			ci.Timestamp:      timestampNs,
+			ci.K8sNamespace:   namespace,
+			ci.Version:        "0",
+		}
+		if k.nodeName != "" {
+			attributes["NodeName"] = k.nodeName
+		}
+		attributes[ci.SourcesKey] = "[\"apiserver\"]"
+		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
+		metrics = append(metrics, md)
+	}
+
+	// Create cluster-level metrics
+	if clusterCount > 0 {
+		fields := map[string]any{
+			ci.PVCCount: clusterCount,
+		}
+		attributes := map[string]string{
+			ci.ClusterNameKey: clusterName,
+			ci.MetricType:     ci.TypeClusterPVC,
+			ci.Timestamp:      timestampNs,
+			ci.Version:        "0",
+		}
+		if k.nodeName != "" {
+			attributes["NodeName"] = k.nodeName
+		}
+		attributes[ci.SourcesKey] = "[\"apiserver\"]"
+		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
+		metrics = append(metrics, md)
 	}
 	return metrics
 }
