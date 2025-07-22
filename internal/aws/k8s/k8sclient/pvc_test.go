@@ -63,10 +63,10 @@ var pvcObjects = []runtime.Object{
 }
 
 func TestPVCClient_NamespaceToPVCCount(t *testing.T) {
-	setOption := pvcSyncCheckerOption(&mockReflectorSyncChecker{})
+	setOption := &mockReflectorSyncChecker{}
 
 	fakeClientSet := fake.NewSimpleClientset(pvcObjects...)
-	client, _ := newPVCClient(fakeClientSet, zap.NewNop(), setOption)
+	client, _ := NewPVCClient(fakeClientSet, zap.NewNop(), setOption)
 
 	pvcs := make([]any, len(pvcObjects))
 	for i := range pvcObjects {
@@ -78,7 +78,7 @@ func TestPVCClient_NamespaceToPVCCount(t *testing.T) {
 		"test-namespace":    2,
 		"another-namespace": 1,
 	}
-	resultMap := client.NamespaceToPVCCount()
+	resultMap := client.CountByNamespace()
 	assert.Equal(t, expectedMap, resultMap)
 
 	client.shutdown()
@@ -86,10 +86,10 @@ func TestPVCClient_NamespaceToPVCCount(t *testing.T) {
 }
 
 func TestPVCClient_TotalPVCCount(t *testing.T) {
-	setOption := pvcSyncCheckerOption(&mockReflectorSyncChecker{})
+	setOption := &mockReflectorSyncChecker{}
 
 	fakeClientSet := fake.NewSimpleClientset(pvcObjects...)
-	client, err := newPVCClient(fakeClientSet, zap.NewNop(), setOption)
+	client, err := NewPVCClient(fakeClientSet, zap.NewNop(), setOption)
 	assert.NoError(t, err)
 
 	pvcs := make([]any, len(pvcObjects))
@@ -104,7 +104,7 @@ func TestPVCClient_TotalPVCCount(t *testing.T) {
 	client.store.mu.Unlock()
 
 	expectedCount := 3
-	actualCount := client.TotalPVCCount()
+	actualCount := client.TotalCount()
 	assert.Equal(t, expectedCount, actualCount)
 
 	client.shutdown()
@@ -130,10 +130,10 @@ func TestTransformFuncPVC(t *testing.T) {
 func TestNoOpPVCClient(t *testing.T) {
 	client := &noOpPVCClient{}
 
-	namespaceToPVCCount := client.NamespaceToPVCCount()
+	namespaceToPVCCount := client.CountByNamespace()
 	assert.Equal(t, map[string]int{}, namespaceToPVCCount)
 
-	totalCount := client.TotalPVCCount()
+	totalCount := client.TotalCount()
 	assert.Equal(t, 0, totalCount)
 
 	// Should not panic

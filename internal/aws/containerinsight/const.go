@@ -126,7 +126,8 @@ const (
 	ContainerRestartCount = "number_of_container_restarts"
 	RunningTaskCount      = "number_of_running_tasks"
 
-	PVCCount = "pvc_count"
+	PVCCount = "number_of_persistent_volume_claims"
+	PVCount  = "number_of_persistent_volumes"
 
 	DiskIOServiceBytesPrefix = "diskio_io_service_bytes_"
 	DiskIOServicedPrefix     = "diskio_io_serviced_"
@@ -162,30 +163,31 @@ const (
 	KueueClusterQueueNominalQuota  = "kueue_cluster_queue_nominal_quota"
 
 	// Define the metric types
-	TypeCluster             = "Cluster"
-	TypeClusterService      = "ClusterService"
-	TypeClusterDeployment   = "ClusterDeployment"
-	TypeClusterDaemonSet    = "ClusterDaemonSet"
-	TypeClusterStatefulSet  = "ClusterStatefulSet"
-	TypeClusterReplicaSet   = "ClusterReplicaSet"
+	TypeCluster            = "Cluster"
+	TypeClusterService     = "ClusterService"
+	TypeClusterDeployment  = "ClusterDeployment"
+	TypeClusterDaemonSet   = "ClusterDaemonSet"
+	TypeClusterStatefulSet = "ClusterStatefulSet"
+	TypeClusterReplicaSet  = "ClusterReplicaSet"
+	TypeClusterNamespace   = "ClusterNamespace"
+	TypeService            = "Service"
+	TypeInstance           = "Instance" // mean EC2 Instance in ECS
+	TypeNode               = "Node"     // mean EC2 Instance in EKS
+	TypeInstanceFS         = "InstanceFS"
+	TypeNodeFS             = "NodeFS"
+	TypeInstanceNet        = "InstanceNet"
+	TypeNodeNet            = "NodeNet"
+	TypeInstanceDiskIO     = "InstanceDiskIO"
+	TypeNodeDiskIO         = "NodeDiskIO"
+	TypePod                = "Pod"
+	TypePodNet             = "PodNet"
+	TypeContainer          = "Container"
+	TypeContainerFS        = "ContainerFS"
+	TypeContainerDiskIO    = "ContainerDiskIO"
+
 	TypeClusterPVC          = "ClusterPVC"
 	TypeClusterPV           = "ClusterPV"
-	TypeClusterNamespace    = "ClusterNamespace"
 	TypeClusterNamespacePVC = "ClusterNamespacePVC"
-	TypeService             = "Service"
-	TypeInstance            = "Instance" // mean EC2 Instance in ECS
-	TypeNode                = "Node"     // mean EC2 Instance in EKS
-	TypeInstanceFS          = "InstanceFS"
-	TypeNodeFS              = "NodeFS"
-	TypeInstanceNet         = "InstanceNet"
-	TypeNodeNet             = "NodeNet"
-	TypeInstanceDiskIO      = "InstanceDiskIO"
-	TypeNodeDiskIO          = "NodeDiskIO"
-	TypePod                 = "Pod"
-	TypePodNet              = "PodNet"
-	TypeContainer           = "Container"
-	TypeContainerFS         = "ContainerFS"
-	TypeContainerDiskIO     = "ContainerDiskIO"
 
 	// kueue metric types
 	TypeClusterQueue = "ClusterQueue"
@@ -378,5 +380,6 @@ func init() {
 		HyperPodUnschedulable:                   UnitCount,
 
 		PVCCount: UnitCount,
+		PVCount:  UnitCount,
 	}
 }

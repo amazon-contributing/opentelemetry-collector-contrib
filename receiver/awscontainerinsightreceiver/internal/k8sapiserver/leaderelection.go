@@ -43,6 +43,7 @@ type LeaderElection struct {
 	statefulSetClient k8sclient.StatefulSetClient
 	replicaSetClient  k8sclient.ReplicaSetClient
 	pvcClient         k8sclient.PVCClient
+	pvClient          k8sclient.PVClient
 
 	// the following can be set to mocks in testing
 	broadcaster eventBroadcaster
@@ -182,6 +183,7 @@ func (le *LeaderElection) startLeaderElection(ctx context.Context, lock resource
 					le.statefulSetClient = le.k8sClient.GetStatefulSetClient()
 					le.replicaSetClient = le.k8sClient.GetReplicaSetClient()
 					le.pvcClient = le.k8sClient.GetPVCClient()
+					le.pvClient = le.k8sClient.GetPVClient()
 					le.mu.Unlock()
 
 					if le.isLeadingC != nil {

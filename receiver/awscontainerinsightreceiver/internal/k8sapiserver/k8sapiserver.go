@@ -58,6 +58,7 @@ type K8sClient interface {
 	GetStatefulSetClient() k8sclient.StatefulSetClient
 	GetReplicaSetClient() k8sclient.ReplicaSetClient
 	GetPVCClient() k8sclient.PVCClient
+	GetPVClient() k8sclient.PVClient
 	ShutdownNodeClient()
 	ShutdownPodClient()
 	ShutdownPVCClient()
@@ -139,6 +140,7 @@ func (k *K8sAPIServer) GetMetrics() []pmetric.Metrics {
 	if k.includeEnhancedMetrics {
 		result = append(result, k.getHyperPodResiliencyMetrics(clusterName, timestampNs)...)
 		result = append(result, k.getPVCMetrics(clusterName, timestampNs)...)
+		result = append(result, k.getPVMetrics(clusterName, timestampNs)...)
 	}
 
 	return result
@@ -148,6 +150,7 @@ func (k *K8sAPIServer) getClusterMetrics(clusterName, timestampNs string) pmetri
 	fields := map[string]any{
 		"cluster_failed_node_count": k.leaderElection.nodeClient.ClusterFailedNodeCount(),
 		"cluster_node_count":        k.leaderElection.nodeClient.ClusterNodeCount(),
+		// "cluster_" + ci.PVCount:     k.leaderElection.pvClient.TotalCount(),
 	}
 
 	namespaceMap := k.leaderElection.podClient.NamespaceToRunningPodNum()
@@ -172,9 +175,11 @@ func (k *K8sAPIServer) getClusterMetrics(clusterName, timestampNs string) pmetri
 
 func (k *K8sAPIServer) getNamespaceMetrics(clusterName, timestampNs string) []pmetric.Metrics {
 	var metrics []pmetric.Metrics
+	// pvClaimsByNamespace := k.leaderElection.pvcClient.CountByNamespace()
 	for namespace, podNum := range k.leaderElection.podClient.NamespaceToRunningPodNum() {
 		fields := map[string]any{
 			"namespace_number_of_running_pods": podNum,
+			// "namespace_" + ci.PVCCount:         pvClaimsByNamespace[namespace],
 		}
 		attributes := map[string]string{
 			ci.ClusterNameKey: clusterName,
@@ -498,14 +503,14 @@ func (k *K8sAPIServer) getPVCMetrics(clusterName, timestampNs string) []pmetric.
 	}
 
 	// Get namespace-level counts
-	nameSpaceCounts := k.leaderElection.pvcClient.NamespaceToPVCCount()
+	nameSpaceCounts := k.leaderElection.pvcClient.CountByNamespace()
 	// If no PVCs are found, return empty metrics
 	if len(nameSpaceCounts) == 0 {
 		k.logger.Debug("No PVCs found, skipping PVC metrics")
 		return metrics
 	}
 	// Get total PVC count
-	clusterCount := k.leaderElection.pvcClient.TotalPVCCount()
+	clusterCount := k.leaderElection.pvcClient.TotalCount()
 
 	// Create name-space level metrics
 	for namespace, count := range nameSpaceCounts {
@@ -520,7 +525,7 @@ func (k *K8sAPIServer) getPVCMetrics(clusterName, timestampNs string) []pmetric.
 			ci.Version:        "0",
 		}
 		if k.nodeName != "" {
-			attributes["NodeName"] = k.nodeName
+			attributes[ci.NodeNameKey] = k.nodeName
 		}
 		attributes[ci.SourcesKey] = "[\"apiserver\"]"
 		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
@@ -535,6 +540,39 @@ func (k *K8sAPIServer) getPVCMetrics(clusterName, timestampNs string) []pmetric.
 		attributes := map[string]string{
 			ci.ClusterNameKey: clusterName,
 			ci.MetricType:     ci.TypeClusterPVC,
+			ci.Timestamp:      timestampNs,
+			ci.Version:        "0",
+		}
+		if k.nodeName != "" {
+			attributes["NodeName"] = k.nodeName
+		}
+		attributes[ci.SourcesKey] = "[\"apiserver\"]"
+		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
+		metrics = append(metrics, md)
+	}
+	return metrics
+}
+
+func (k *K8sAPIServer) getPVMetrics(clusterName, timestampNs string) []pmetric.Metrics {
+	var metrics []pmetric.Metrics
+
+	// Check if pvClient is initialized
+	if k.leaderElection.pvClient == nil {
+		k.logger.Debug("PV client is not initialized, skipping PV metrics")
+		return metrics
+	}
+
+	// Get total PV count
+	clusterCount := k.leaderElection.pvClient.TotalCount()
+
+	// Create cluster-level metrics
+	if clusterCount > 0 {
+		fields := map[string]any{
+			ci.PVCount: clusterCount,
+		}
+		attributes := map[string]string{
+			ci.ClusterNameKey: clusterName,
+			ci.MetricType:     ci.TypeClusterPV,
 			ci.Timestamp:      timestampNs,
 			ci.Version:        "0",
 		}

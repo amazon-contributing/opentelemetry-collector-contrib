@@ -6,7 +6,6 @@ package k8sclient // import "github.com/open-telemetry/opentelemetry-collector-c
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -18,128 +17,40 @@ import (
 )
 
 type PVCClient interface {
-	// NamespaceToPVCCount returns a map of namespace to PVC count
-	NamespaceToPVCCount() map[string]int
-	// TotalPVCCount returns the total number of PVCs in the cluster
-	TotalPVCCount() int
-}
-
-type noOpPVCClient struct{}
-
-func (p *noOpPVCClient) NamespaceToPVCCount() map[string]int {
-	return map[string]int{}
-}
-
-func (p *noOpPVCClient) TotalPVCCount() int {
-	return 0
-}
-
-func (p *noOpPVCClient) shutdown() {
-}
-
-type pvcClientOption func(*pvcClient)
-
-func pvcSyncCheckerOption(checker initialSyncChecker) pvcClientOption {
-	return func(p *pvcClient) {
-		p.syncChecker = checker
-	}
+	CountByNamespaceClient
 }
 
 type pvcClient struct {
-	stopChan chan struct{}
-	stopped  bool
-
-	store *ObjStore
-
-	syncChecker initialSyncChecker
-
-	mu                sync.RWMutex
-	namespaceToPVCMap map[string]int
-	totalCount        int
+	*BaseResourceClient[*corev1.PersistentVolumeClaim]
 }
 
-func (p *pvcClient) refresh() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+type noOpPVCClient struct {
+	noOpClient
+}
 
+func (p *noOpPVCClient) CountByNamespace() map[string]int { return map[string]int{} }
+
+func (p *pvcClient) CountByNamespace() map[string]int {
+	return p.GetExtraMap()
+}
+
+// PVC-specific functions
+func refreshFuncPVC(objs []*corev1.PersistentVolumeClaim) (int, map[string]int) {
 	namespaceToPVCMap := make(map[string]int)
 	totalCount := 0
 
-	objsList := p.store.List()
-	for _, obj := range objsList {
-		pvc, ok := obj.(*corev1.PersistentVolumeClaim)
-		if !ok {
+	for _, pvc := range objs {
+		if pvc == nil {
 			continue
 		}
 		namespaceToPVCMap[pvc.Namespace]++
 		totalCount++
 	}
 
-	p.namespaceToPVCMap = namespaceToPVCMap
-	p.totalCount = totalCount
+	return totalCount, namespaceToPVCMap
 }
 
-func (p *pvcClient) NamespaceToPVCCount() map[string]int {
-	if p.store.GetResetRefreshStatus() {
-		p.refresh()
-	}
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	result := make(map[string]int)
-	for ns, count := range p.namespaceToPVCMap {
-		result[ns] = count
-	}
-	return result
-}
-
-func (p *pvcClient) TotalPVCCount() int {
-	if p.store.GetResetRefreshStatus() {
-		p.refresh()
-	}
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.totalCount
-}
-
-func newPVCClient(clientSet kubernetes.Interface, logger *zap.Logger, options ...pvcClientOption) (*pvcClient, error) {
-	p := &pvcClient{
-		stopChan:          make(chan struct{}),
-		namespaceToPVCMap: make(map[string]int),
-	}
-
-	for _, option := range options {
-		option(p)
-	}
-
-	ctx := context.Background()
-	if _, err := clientSet.CoreV1().PersistentVolumeClaims(metav1.NamespaceAll).List(ctx, metav1.ListOptions{}); err != nil {
-		return nil, fmt.Errorf("cannot list PVCs. err: %w", err)
-	}
-
-	// Create a store to hold PVC objects
-	p.store = NewObjStore(transformFuncPVC, logger)
-	// Create a ListWatch that knows how to list and watch PVCs
-	lw := createPVCListWatch(clientSet, metav1.NamespaceAll)
-	// Create a Reflector that watches PVCs and updates the store
-	reflector := cache.NewReflector(lw, &corev1.PersistentVolumeClaim{}, p.store, 0)
-	// Start the Reflector in a goroutine
-	go reflector.Run(p.stopChan)
-
-	if p.syncChecker != nil {
-		// Check the init sync for potential connection issue
-		p.syncChecker.Check(reflector, "PVC initial sync timeout")
-	}
-
-	return p, nil
-}
-
-func (p *pvcClient) shutdown() {
-	close(p.stopChan)
-	p.stopped = true
-}
-
-func transformFuncPVC(obj interface{}) (interface{}, error) {
+func transformFuncPVC(obj interface{}) (*corev1.PersistentVolumeClaim, error) {
 	pvc, ok := obj.(*corev1.PersistentVolumeClaim)
 	if !ok {
 		return nil, fmt.Errorf("input obj %v is not PersistentVolumeClaim type", obj)
@@ -157,4 +68,33 @@ func createPVCListWatch(client kubernetes.Interface, ns string) cache.ListerWatc
 			return client.CoreV1().PersistentVolumeClaims(ns).Watch(ctx, opts)
 		},
 	}
+}
+
+func testPVCList(clientSet kubernetes.Interface) error {
+	ctx := context.Background()
+	_, err := clientSet.CoreV1().PersistentVolumeClaims("").List(ctx, metav1.ListOptions{})
+	return err
+}
+
+func newPVCObject() *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{}
+}
+
+func NewPVCClient(clientSet kubernetes.Interface, logger *zap.Logger, syncChecker initialSyncChecker) (*pvcClient, error) {
+	config := ResourceConfig[*corev1.PersistentVolumeClaim]{
+		ResourceName:  "PVC",
+		ListWatchFunc: createPVCListWatch,
+		TransformFunc: transformFuncPVC,
+		RefreshFunc:   refreshFuncPVC,
+		TestListFunc:  testPVCList,
+		NewObjectFunc: newPVCObject,
+		Namespace:     metav1.NamespaceAll,
+	}
+
+	base, err := NewBaseResourceClient(clientSet, logger, config, syncChecker)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pvcClient{base}, nil
 }

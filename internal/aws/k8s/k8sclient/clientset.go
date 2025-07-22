@@ -223,6 +223,11 @@ type pvcClientWithStopper interface {
 	stopper
 }
 
+type pvClientWithStopper interface {
+	PVClient
+	stopper
+}
+
 type K8sClient struct {
 	kubeConfigPath       string
 	initSyncPollInterval time.Duration
@@ -262,6 +267,9 @@ type K8sClient struct {
 
 	pvcMu sync.Mutex
 	pvc   pvcClientWithStopper
+
+	pvMu sync.Mutex
+	pv   pvClientWithStopper
 
 	logger *zap.Logger
 }
@@ -468,14 +476,16 @@ func (c *K8sClient) ShutdownStatefulSetClient() {
 	})
 }
 
+// --- PV and PVC clients reverted to explicit instantiation ---
+
 func (c *K8sClient) GetPVCClient() PVCClient {
 	var err error
 	c.pvcMu.Lock()
 	defer c.pvcMu.Unlock()
 	if c.pvc == nil || reflect.ValueOf(c.pvc).IsNil() {
-		c.pvc, err = newPVCClient(c.clientSet, c.logger, pvcSyncCheckerOption(c.syncChecker))
+		c.pvc, err = NewPVCClient(c.clientSet, c.logger, c.syncChecker)
 		if err != nil {
-			c.logger.Error("use an no-op PVC client instead because of error", zap.Error(err))
+			c.logger.Error("use a no-op PVC client instead because of error", zap.Error(err))
 			c.pvc = &noOpPVCClient{}
 		}
 	}
@@ -483,9 +493,33 @@ func (c *K8sClient) GetPVCClient() PVCClient {
 }
 
 func (c *K8sClient) ShutdownPVCClient() {
-	shutdownClient(c.pvc, &c.pvcMu, func() {
-		c.pvc = nil
-	})
+	if client, ok := c.pvc.(stopper); ok {
+		shutdownClient(client, &c.pvcMu, func() {
+			c.pvc = nil
+		})
+	}
+}
+
+func (c *K8sClient) GetPVClient() PVClient {
+	var err error
+	c.pvMu.Lock()
+	defer c.pvMu.Unlock()
+	if c.pv == nil || reflect.ValueOf(c.pv).IsNil() {
+		c.pv, err = NewPVClient(c.clientSet, c.logger, c.syncChecker)
+		if err != nil {
+			c.logger.Error("use a no-op PV client instead because of error", zap.Error(err))
+			c.pv = &noOpPVClient{}
+		}
+	}
+	return c.pv
+}
+
+func (c *K8sClient) ShutdownPVClient() {
+	if client, ok := c.pv.(stopper); ok {
+		shutdownClient(client, &c.pvMu, func() {
+			c.pv = nil
+		})
+	}
 }
 
 func (c *K8sClient) GetClientSet() kubernetes.Interface {
@@ -506,6 +540,7 @@ func (c *K8sClient) Shutdown() {
 	c.ShutdownDaemonSetClient()
 	c.ShutdownStatefulSetClient()
 	c.ShutdownPVCClient()
+	c.ShutdownPVClient()
 
 	// remove the current instance of k8s client from map
 	for key, val := range optionsToK8sClient {

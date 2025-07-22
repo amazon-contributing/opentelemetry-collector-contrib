@@ -172,6 +172,10 @@ func getPrefixByMetricType(mType string) string {
 		prefix = replicaSet
 	case TypeHyperPodNode:
 		prefix = hyperPodNodeHealthStatus
+	case TypeClusterPV, TypeClusterPVC:
+		prefix = ""
+	case TypeClusterNamespacePVC:
+		prefix = ""
 	default:
 		log.Printf("E! Unexpected MetricType: %s", mType)
 	}
