@@ -226,8 +226,10 @@ func assertMemoryUsageMetricHasLinuxSpecificStateLabels(t *testing.T, metric pme
 	internal.AssertSumMetricHasAttributeValue(t, metric, 3, "state",
 		pcommon.NewValueStr(metadata.AttributeStateCached.String()))
 	internal.AssertSumMetricHasAttributeValue(t, metric, 4, "state",
-		pcommon.NewValueStr(metadata.AttributeStateSlabReclaimable.String()))
+		pcommon.NewValueStr(metadata.AttributeStateShared.String()))
 	internal.AssertSumMetricHasAttributeValue(t, metric, 5, "state",
+		pcommon.NewValueStr(metadata.AttributeStateSlabReclaimable.String()))
+	internal.AssertSumMetricHasAttributeValue(t, metric, 6, "state",
 		pcommon.NewValueStr(metadata.AttributeStateSlabUnreclaimable.String()))
 }
 
