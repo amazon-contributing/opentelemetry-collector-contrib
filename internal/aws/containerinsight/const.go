@@ -126,6 +126,9 @@ const (
 	ContainerRestartCount = "number_of_container_restarts"
 	RunningTaskCount      = "number_of_running_tasks"
 
+	PVCCount = "number_of_persistent_volume_claims"
+	PVCount  = "number_of_persistent_volumes"
+
 	DiskIOServiceBytesPrefix = "diskio_io_service_bytes_"
 	DiskIOServicedPrefix     = "diskio_io_serviced_"
 	DiskIOAsync              = "Async"
@@ -181,6 +184,10 @@ const (
 	TypeContainer          = "Container"
 	TypeContainerFS        = "ContainerFS"
 	TypeContainerDiskIO    = "ContainerDiskIO"
+
+	TypeClusterPVC          = "ClusterPVC"
+	TypeClusterPV           = "ClusterPV"
+	TypeClusterNamespacePVC = "ClusterNamespacePVC"
 
 	// kueue metric types
 	TypeClusterQueue = "ClusterQueue"
@@ -371,5 +378,8 @@ func init() {
 		HyperPodUnschedulablePendingReboot:      UnitCount,
 		HyperPodSchedulable:                     UnitCount,
 		HyperPodUnschedulable:                   UnitCount,
+
+		PVCCount: UnitCount,
+		PVCount:  UnitCount,
 	}
 }

@@ -44,3 +44,5 @@ internal/tools/testresults/*
 go.work*
 
 /result
+receiver/awscontainerinsightreceiver/internal/k8sapiserver/debug.test*
+receiver/awscontainerinsightreceiver/internal/k8sapiserver/debug.test*
