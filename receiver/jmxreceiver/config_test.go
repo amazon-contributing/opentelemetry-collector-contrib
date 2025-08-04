@@ -5,7 +5,9 @@ package jmxreceiver
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -405,6 +407,102 @@ func TestPasswordFileValidation(t *testing.T) {
 			require.Equal(t, tc.expectedError, actual)
 		})
 	}
+}
+
+func TestPasswordFilePermissions(t *testing.T) {
+	// Create a temporary directory for test files
+	tempDir := t.TempDir()
+	
+	testCases := []struct {
+		desc           string
+		setupFile      func(t *testing.T) string
+		expectedError  string
+		skipOnPlatform string // Skip test on specific platforms
+	}{
+		{
+			desc: "nonexistent file",
+			setupFile: func(t *testing.T) string {
+				return filepath.Join(tempDir, "nonexistent.properties")
+			},
+			expectedError: "`password_file` is inaccessible:",
+		},
+		{
+			desc: "readable file",
+			setupFile: func(t *testing.T) string {
+				filePath := filepath.Join(tempDir, "readable.properties")
+				content := "user1=password1\nuser2=password2\n"
+				err := os.WriteFile(filePath, []byte(content), 0o644)
+				require.NoError(t, err)
+				return filePath
+			},
+			expectedError: "", // Should pass on all platforms
+		},
+		{
+			desc: "unreadable file",
+			setupFile: func(t *testing.T) string {
+				filePath := filepath.Join(tempDir, "unreadable.properties")
+				content := "user1=password1\nuser2=password2\n"
+				err := os.WriteFile(filePath, []byte(content), 0o000)
+				require.NoError(t, err)
+				return filePath
+			},
+			expectedError:  "`password_file` cannot be read:",
+			skipOnPlatform: "windows", // Windows file permissions work differently
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			if tc.skipOnPlatform != "" && runtime.GOOS == tc.skipOnPlatform {
+				t.Skipf("Skipping test on %s", tc.skipOnPlatform)
+			}
+
+			filePath := tc.setupFile(t)
+			cfg := &Config{
+				PasswordFile: filePath,
+			}
+
+			err := cfg.validatePasswordFilePermissions()
+			
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			}
+		})
+	}
+}
+
+func TestPasswordFileIntegration(t *testing.T) {
+	// Test the full validation flow including file permissions and password parsing
+	tempDir := t.TempDir()
+	
+	// Create a valid password file
+	passwordFile := filepath.Join(tempDir, "passwords.properties")
+	content := "testuser=testpass\nkeystore=keystorepass\ntruststore=truststorepass\n"
+	err := os.WriteFile(passwordFile, []byte(content), 0o600)
+	require.NoError(t, err)
+
+	cfg := &Config{
+		JARPath:        "testdata/fake_jmx.jar",
+		Endpoint:       "localhost:9999",
+		TargetSystem:   "jvm",
+		Username:       "testuser",
+		PasswordFile:   passwordFile,
+		KeystorePath:   "/path/to/keystore",
+		TruststorePath: "/path/to/truststore",
+	}
+
+	// Mock the jar versions for validation
+	mockJarVersions()
+	t.Cleanup(func() {
+		unmockJarVersions()
+	})
+
+	// This should pass - file exists, is readable, and contains required passwords
+	err = cfg.Validate()
+	assert.NoError(t, err)
 }
 
 func TestWithInvalidConfig(t *testing.T) {
