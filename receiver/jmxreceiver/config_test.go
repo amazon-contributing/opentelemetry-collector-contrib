@@ -412,7 +412,7 @@ func TestPasswordFileValidation(t *testing.T) {
 func TestPasswordFilePermissions(t *testing.T) {
 	// Create a temporary directory for test files
 	tempDir := t.TempDir()
-	
+
 	testCases := []struct {
 		desc           string
 		setupFile      func(t *testing.T) string
@@ -463,7 +463,7 @@ func TestPasswordFilePermissions(t *testing.T) {
 			}
 
 			err := cfg.validatePasswordFilePermissions()
-			
+
 			if tc.expectedError == "" {
 				assert.NoError(t, err)
 			} else {
@@ -477,7 +477,7 @@ func TestPasswordFilePermissions(t *testing.T) {
 func TestPasswordFileIntegration(t *testing.T) {
 	// Test the full validation flow including file permissions and password parsing
 	tempDir := t.TempDir()
-	
+
 	// Create a valid password file
 	passwordFile := filepath.Join(tempDir, "passwords.properties")
 	content := "testuser=testpass\nkeystore=keystorepass\ntruststore=truststorepass\n"

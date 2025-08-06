@@ -3,7 +3,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package jmxreceiver
+package jmxreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jmxreceiver"
 
 import (
 	"fmt"
@@ -17,13 +17,13 @@ func (c *Config) validatePasswordFilePermissions() error {
 	if _, err := os.Stat(c.PasswordFile); err != nil {
 		return fmt.Errorf("`password_file` is inaccessible: %w", err)
 	}
-	
+
 	// Test that we can actually read the file
 	file, err := os.Open(c.PasswordFile)
 	if err != nil {
 		return fmt.Errorf("`password_file` cannot be read: %w", err)
 	}
 	defer file.Close()
-	
+
 	return nil
 }

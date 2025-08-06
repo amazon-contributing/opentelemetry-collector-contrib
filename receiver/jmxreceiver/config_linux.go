@@ -3,7 +3,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package jmxreceiver
+package jmxreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jmxreceiver"
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ func (c *Config) validatePasswordFilePermissions() error {
 	if err != nil {
 		return fmt.Errorf("`password_file` is inaccessible: %w", err)
 	}
-	
+
 	switch info.Mode().Perm() {
 	// Matches JMX agent requirements for password file.
 	case 0o400, 0o600:
