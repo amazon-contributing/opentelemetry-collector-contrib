@@ -421,24 +421,47 @@ func TestPasswordFilePermissions(t *testing.T) {
 	}{
 		{
 			desc: "nonexistent file",
-			setupFile: func(t *testing.T) string {
+			setupFile: func(_ *testing.T) string {
 				return filepath.Join(tempDir, "nonexistent.properties")
 			},
 			expectedError: "`password_file` is inaccessible:",
 		},
 		{
-			desc: "readable file",
+			desc: "file with valid permissions (0400)",
 			setupFile: func(t *testing.T) string {
-				filePath := filepath.Join(tempDir, "readable.properties")
+				filePath := filepath.Join(tempDir, "readonly.properties")
 				content := "user1=password1\nuser2=password2\n"
-				err := os.WriteFile(filePath, []byte(content), 0o644)
+				err := os.WriteFile(filePath, []byte(content), 0o400)
 				require.NoError(t, err)
 				return filePath
 			},
 			expectedError: "", // Should pass on all platforms
 		},
 		{
-			desc: "unreadable file",
+			desc: "file with valid permissions (0600)",
+			setupFile: func(t *testing.T) string {
+				filePath := filepath.Join(tempDir, "valid.properties")
+				content := "user1=password1\nuser2=password2\n"
+				err := os.WriteFile(filePath, []byte(content), 0o600)
+				require.NoError(t, err)
+				return filePath
+			},
+			expectedError: "", // Should pass on all platforms
+		},
+		{
+			desc: "file with invalid permissions (0644)",
+			setupFile: func(t *testing.T) string {
+				filePath := filepath.Join(tempDir, "readable.properties")
+				content := "user1=password1\nuser2=password2\n"
+				// #nosec G306 -- This test intentionally creates a file with 0644 permissions to verify validation logic
+				err := os.WriteFile(filePath, []byte(content), 0o644)
+				require.NoError(t, err)
+				return filePath
+			},
+			expectedError: "`password_file` read access must be restricted to owner-only:",
+		},
+		{
+			desc: "file with invalid permissions (0000)",
 			setupFile: func(t *testing.T) string {
 				filePath := filepath.Join(tempDir, "unreadable.properties")
 				content := "user1=password1\nuser2=password2\n"
@@ -446,7 +469,7 @@ func TestPasswordFilePermissions(t *testing.T) {
 				require.NoError(t, err)
 				return filePath
 			},
-			expectedError:  "`password_file` cannot be read:",
+			expectedError:  "`password_file` read access must be restricted to owner-only:",
 			skipOnPlatform: "windows", // Windows file permissions work differently
 		},
 	}
