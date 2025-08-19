@@ -1,9 +1,9 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/pkg/xk8stest
 
-go 1.23.0
+go 1.24.6
 
 require (
-	github.com/docker/docker v27.5.1+incompatible
+	github.com/docker/docker v28.0.1+incompatible
 	github.com/stretchr/testify v1.10.0
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
