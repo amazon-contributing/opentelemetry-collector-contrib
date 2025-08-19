@@ -141,10 +141,26 @@ const (
 	EfaRxDropped          = "rx_dropped"
 	EfaTxBytes            = "tx_bytes"
 
-	GpuLimit            = "gpu_limit"
-	GpuUsageTotal       = "gpu_usage_total"
-	GpuRequest          = "gpu_request"
-	GpuReservedCapacity = "gpu_reserved_capacity"
+	GpuLimit              = "gpu_limit"
+	GpuUsageTotal         = "gpu_usage_total"
+	GpuRequest            = "gpu_request"
+	GpuReservedCapacity   = "gpu_reserved_capacity"
+	GpuUnreservedCapacity = "gpu_unreserved_capacity"
+	GpuAvailableCapacity  = "gpu_available_capacity"
+
+	NeuroncoreLimit              = "neuroncore_limit"
+	NeuroncoreUsageTotal         = "neuroncore_usage_total"
+	NeuroncoreRequest            = "neuroncore_request"
+	NeuroncoreReservedCapacity   = "neuroncore_reserved_capacity"
+	NeuroncoreUnreservedCapacity = "neuroncore_unreserved_capacity"
+	NeuroncoreAvailableCapacity  = "neuroncore_available_capacity"
+
+	EfaLimit              = "efa_limit"
+	EfaUsageTotal         = "efa_usage_total"
+	EfaRequest            = "efa_request"
+	EfaReservedCapacity   = "efa_reserved_capacity"
+	EfaUnreservedCapacity = "efa_unreserved_capacity"
+	EfaAvailableCapacity  = "efa_available_capacity"
 
 	HyperPodUnschedulablePendingReplacement = "unschedulable_pending_replacement"
 	HyperPodUnschedulablePendingReboot      = "unschedulable_pending_reboot"
@@ -354,7 +370,6 @@ func init() {
 		ContainerCount:        UnitCount,
 		ContainerRestartCount: UnitCount,
 		RunningTaskCount:      UnitCount,
-
 		EfaRdmaReadBytes:      UnitBytesPerSec,
 		EfaRdmaWriteBytes:     UnitBytesPerSec,
 		EfaRdmaWriteRecvBytes: UnitBytesPerSec,
@@ -362,10 +377,26 @@ func init() {
 		EfaRxDropped:          UnitCountPerSec,
 		EfaTxBytes:            UnitBytesPerSec,
 
-		GpuLimit:            UnitCount,
-		GpuUsageTotal:       UnitCount,
-		GpuRequest:          UnitCount,
-		GpuReservedCapacity: UnitPercent,
+		EfaLimit:              UnitCount,
+		EfaUsageTotal:         UnitCount,
+		EfaRequest:            UnitCount,
+		EfaReservedCapacity:   UnitPercent,
+		EfaUnreservedCapacity: UnitPercent,
+		EfaAvailableCapacity:  UnitCount,
+
+		GpuLimit:              UnitCount,
+		GpuUsageTotal:         UnitCount,
+		GpuRequest:            UnitCount,
+		GpuReservedCapacity:   UnitPercent,
+		GpuUnreservedCapacity: UnitPercent,
+		GpuAvailableCapacity:  UnitCount,
+
+		NeuroncoreLimit:              UnitCount,
+		NeuroncoreUsageTotal:         UnitCount,
+		NeuroncoreRequest:            UnitCount,
+		NeuroncoreReservedCapacity:   UnitPercent,
+		NeuroncoreUnreservedCapacity: UnitPercent,
+		NeuroncoreAvailableCapacity:  UnitCount,
 
 		HyperPodUnschedulablePendingReplacement: UnitCount,
 		HyperPodUnschedulablePendingReboot:      UnitCount,
