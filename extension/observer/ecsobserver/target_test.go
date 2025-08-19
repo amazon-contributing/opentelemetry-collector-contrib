@@ -35,7 +35,7 @@ func TestTargetsToFileSDTargets(t *testing.T) {
 		result, err := targetsToFileSDTargets(targets, "prometheus_job")
 		assert.NoError(t, err)
 		assert.Len(t, result, 1)
-		
+
 		labels := result[0].Labels
 		assert.Equal(t, "test-job", labels["prometheus_job"])
 		assert.NotContains(t, labels, "job")
@@ -45,7 +45,7 @@ func TestTargetsToFileSDTargets(t *testing.T) {
 		result, err := targetsToFileSDTargets(targets, "job")
 		assert.NoError(t, err)
 		assert.Len(t, result, 1)
-		
+
 		labels := result[0].Labels
 		assert.Equal(t, "test-job", labels["job"])
 		assert.NotContains(t, labels, "prometheus_job")
@@ -55,7 +55,7 @@ func TestTargetsToFileSDTargets(t *testing.T) {
 		result, err := targetsToFileSDTargets(targets, "")
 		assert.NoError(t, err)
 		assert.Len(t, result, 1)
-		
+
 		labels := result[0].Labels
 		assert.Equal(t, "test-job", labels["job"])
 		assert.NotContains(t, labels, "")
@@ -71,7 +71,7 @@ func TestTargetsToFileSDTargets(t *testing.T) {
 		result, err := targetsToFileSDTargets(emptyJobTargets, "prometheus_job")
 		assert.NoError(t, err)
 		assert.Len(t, result, 1)
-		
+
 		labels := result[0].Labels
 		assert.NotContains(t, labels, "job")
 		assert.NotContains(t, labels, "prometheus_job")
