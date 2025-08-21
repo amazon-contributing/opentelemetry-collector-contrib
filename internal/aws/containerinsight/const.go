@@ -197,7 +197,9 @@ const (
 	TypeContainer          = "Container"
 	TypeContainerFS        = "ContainerFS"
 	TypeContainerDiskIO    = "ContainerDiskIO"
-
+	
+	TypeContainerKeda 	   = "ContainerKeda"
+	TypeContainerKarpenter = "ContainerKarpenter"
 	// kueue metric types
 	TypeClusterQueue = "ClusterQueue"
 
