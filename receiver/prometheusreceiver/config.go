@@ -20,6 +20,9 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/targetallocator"
 )
 
+// CaptureGroupOne is a constant that gets converted to "$1" during config preprocessing
+const Escaped_CaptureGroupOne = "__capture_group_1__"
+
 // Config defines configuration for Prometheus receiver.
 type Config struct {
 	PrometheusConfig   *PromConfig `mapstructure:"config"`
@@ -160,6 +163,8 @@ func (cfg *PromConfig) Validate() error {
 }
 
 func unmarshalYAML(in map[string]any, out any) error {
+	preprocessPrometheusConfig(in)
+
 	yamlOut, err := yaml.Marshal(in)
 	if err != nil {
 		return fmt.Errorf("prometheus receiver: failed to marshal config to yaml: %w", err)
@@ -170,6 +175,32 @@ func unmarshalYAML(in map[string]any, out any) error {
 		return fmt.Errorf("prometheus receiver: failed to unmarshal yaml to prometheus config object: %w", err)
 	}
 	return nil
+}
+
+func preprocessPrometheusConfig(config map[string]any) {
+	replacementKey := "replacement"
+
+	for key, value := range config {
+		switch v := value.(type) {
+		case map[string]any:
+			preprocessPrometheusConfig(v)
+		case []any:
+			for _, item := range v {
+				if itemMap, ok := item.(map[string]any); ok {
+					preprocessPrometheusConfig(itemMap)
+					if replacement, exists := itemMap[replacementKey]; exists {
+						if replacement == Escaped_CaptureGroupOne {
+							itemMap[replacementKey] = "$1"
+						}
+					}
+				}
+			}
+		case string:
+			if key == replacementKey && v == Escaped_CaptureGroupOne {
+				config[key] = "$1"
+			}
+		}
+	}
 }
 
 func validateHTTPClientConfig(cfg *commonconfig.HTTPClientConfig) error {
