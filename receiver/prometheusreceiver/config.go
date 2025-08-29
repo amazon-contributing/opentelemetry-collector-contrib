@@ -20,8 +20,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/targetallocator"
 )
 
-// CaptureGroupOne is a constant that gets converted to "$1" during config preprocessing
-const Escaped_CaptureGroupOne = "__capture_group_1__"
+// EscapedCaptureGroupOne is a constant that gets converted to "$1" during config preprocessing
+const EscapedCaptureGroupOne = "__capture_group_1__"
 
 // Config defines configuration for Prometheus receiver.
 type Config struct {
@@ -189,14 +189,14 @@ func preprocessPrometheusConfig(config map[string]any) {
 				if itemMap, ok := item.(map[string]any); ok {
 					preprocessPrometheusConfig(itemMap)
 					if replacement, exists := itemMap[replacementKey]; exists {
-						if replacement == Escaped_CaptureGroupOne {
+						if replacement == EscapedCaptureGroupOne {
 							itemMap[replacementKey] = "$1"
 						}
 					}
 				}
 			}
 		case string:
-			if key == replacementKey && v == Escaped_CaptureGroupOne {
+			if key == replacementKey && v == EscapedCaptureGroupOne {
 				config[key] = "$1"
 			}
 		}

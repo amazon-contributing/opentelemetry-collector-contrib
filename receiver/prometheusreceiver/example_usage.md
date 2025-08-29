@@ -1,6 +1,6 @@
-# CaptureGroupOne Constant Usage Example
+# EscapedCaptureGroupOne Constant Usage Example
 
-The `CaptureGroupOne` constant provides a safe way to reference regex capture groups in Prometheus receiver configurations without using the raw `$1` syntax that can cause YAML parsing issues.
+The `EscapedCaptureGroupOne` constant provides a safe way to reference regex capture groups in Prometheus receiver configurations without using the raw `$1` syntax that can cause YAML parsing issues.
 
 ## Usage
 
@@ -14,7 +14,7 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_pod_name]
         regex: '(.+)'
         target_label: pod
-        replacement: $1  # This might cause issues
+        replacement: $1  # This might cause issues during OTEL yaml validation
 ```
 
 Use the exported constant:
@@ -31,7 +31,7 @@ config := map[string]any{
                     "source_labels": []any{"__meta_kubernetes_pod_name"},
                     "regex":         "(.+)",
                     "target_label":  "pod",
-                    "replacement":   prometheusreceiver.CaptureGroupOne, // Safe to use
+                    "replacement":   prometheusreceiver.EscapedCaptureGroupOne, // Safe to use
                 },
             },
         },
@@ -41,7 +41,7 @@ config := map[string]any{
 
 ## How it works
 
-1. The constant `CaptureGroupOne` has the value `"__capture_group_1__"`
+1. The constant `EscapedCaptureGroupOne` has the value `"__capture_group_1__"`
 2. During configuration preprocessing, this constant is automatically replaced with `"$1"`
 3. This ensures proper YAML parsing while maintaining the intended regex functionality
 
