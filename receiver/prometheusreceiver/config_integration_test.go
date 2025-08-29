@@ -20,7 +20,7 @@ func TestCaptureGroupConstantIntegration(t *testing.T) {
 					map[string]any{
 						"source_labels": []any{"__meta_kubernetes_pod_name"},
 						"target_label":  "pod",
-						"replacement":   CaptureGroupOne,
+						"replacement":   Escaped_CaptureGroupOne,
 					},
 					map[string]any{
 						"source_labels": []any{"__meta_kubernetes_service_name"},
@@ -36,7 +36,7 @@ func TestCaptureGroupConstantIntegration(t *testing.T) {
 	scrapeConfigs := config["scrape_configs"].([]any)
 	relabelConfigs := scrapeConfigs[0].(map[string]any)["relabel_configs"].([]any)
 	firstRelabelConfig := relabelConfigs[0].(map[string]any)
-	assert.Equal(t, CaptureGroupOne, firstRelabelConfig["replacement"])
+	assert.Equal(t, Escaped_CaptureGroupOne, firstRelabelConfig["replacement"])
 
 	// Apply preprocessing
 	preprocessPrometheusConfig(config)
@@ -46,7 +46,7 @@ func TestCaptureGroupConstantIntegration(t *testing.T) {
 	relabelConfigsAfter := scrapeConfigsAfter[0].(map[string]any)["relabel_configs"].([]any)
 	firstRelabelConfigAfter := relabelConfigsAfter[0].(map[string]any)
 	secondRelabelConfigAfter := relabelConfigsAfter[1].(map[string]any)
-	
+
 	assert.Equal(t, "$1", firstRelabelConfigAfter["replacement"])
 	assert.Equal(t, "static_value", secondRelabelConfigAfter["replacement"]) // Should remain unchanged
 }
@@ -64,7 +64,7 @@ func TestUnmarshalYAMLIntegration(t *testing.T) {
 					map[string]any{
 						"source_labels": []any{"__meta_kubernetes_pod_name"},
 						"target_label":  "kubernetes_pod_name",
-						"replacement":   CaptureGroupOne,
+						"replacement":   Escaped_CaptureGroupOne,
 					},
 				},
 			},
@@ -79,6 +79,6 @@ func TestUnmarshalYAMLIntegration(t *testing.T) {
 	scrapeConfigs := input["scrape_configs"].([]any)
 	relabelConfigs := scrapeConfigs[0].(map[string]any)["relabel_configs"].([]any)
 	firstRelabelConfig := relabelConfigs[0].(map[string]any)
-	
+
 	assert.Equal(t, "$1", firstRelabelConfig["replacement"])
 }

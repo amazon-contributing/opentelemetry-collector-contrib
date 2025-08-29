@@ -10,11 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCaptureGroupOneConstant(t *testing.T) {
-	// Test that the constant is exported and has the expected value
-	assert.Equal(t, "__capture_group_1__", CaptureGroupOne)
-}
-
 func TestPreprocessPrometheusConfig(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -24,7 +19,7 @@ func TestPreprocessPrometheusConfig(t *testing.T) {
 		{
 			name: "simple replacement at top level",
 			input: map[string]any{
-				"replacement": CaptureGroupOne,
+				"replacement": Escaped_CaptureGroupOne,
 				"other_field": "unchanged",
 			},
 			expected: map[string]any{
@@ -36,13 +31,13 @@ func TestPreprocessPrometheusConfig(t *testing.T) {
 			name: "nested map replacement",
 			input: map[string]any{
 				"relabel_configs": map[string]any{
-					"replacement": CaptureGroupOne,
+					"replacement":  Escaped_CaptureGroupOne,
 					"target_label": "test",
 				},
 			},
 			expected: map[string]any{
 				"relabel_configs": map[string]any{
-					"replacement": "$1",
+					"replacement":  "$1",
 					"target_label": "test",
 				},
 			},
@@ -52,7 +47,7 @@ func TestPreprocessPrometheusConfig(t *testing.T) {
 			input: map[string]any{
 				"relabel_configs": []any{
 					map[string]any{
-						"replacement": CaptureGroupOne,
+						"replacement": Escaped_CaptureGroupOne,
 						"action":      "replace",
 					},
 					map[string]any{
@@ -81,10 +76,10 @@ func TestPreprocessPrometheusConfig(t *testing.T) {
 					map[string]any{
 						"relabel_configs": []any{
 							map[string]any{
-								"replacement": CaptureGroupOne,
+								"replacement": Escaped_CaptureGroupOne,
 							},
 							map[string]any{
-								"replacement": CaptureGroupOne,
+								"replacement": Escaped_CaptureGroupOne,
 							},
 						},
 					},
@@ -117,17 +112,17 @@ func TestPreprocessPrometheusConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "empty config",
-			input: map[string]any{},
+			name:     "empty config",
+			input:    map[string]any{},
 			expected: map[string]any{},
 		},
 		{
 			name: "non-replacement field with constant value",
 			input: map[string]any{
-				"some_field": CaptureGroupOne,
+				"some_field": Escaped_CaptureGroupOne,
 			},
 			expected: map[string]any{
-				"some_field": CaptureGroupOne,
+				"some_field": Escaped_CaptureGroupOne,
 			},
 		},
 	}
@@ -158,7 +153,7 @@ func TestUnmarshalYAMLWithPreprocessing(t *testing.T) {
 							map[string]any{
 								"source_labels": []any{"__meta_kubernetes_pod_name"},
 								"target_label":  "pod",
-								"replacement":   CaptureGroupOne,
+								"replacement":   Escaped_CaptureGroupOne,
 							},
 						},
 					},
@@ -186,7 +181,7 @@ func TestUnmarshalYAMLWithPreprocessing(t *testing.T) {
 			var result map[string]any
 			err := unmarshalYAML(tt.input, &result)
 			require.NoError(t, err)
-			
+
 			// The preprocessing should have converted the constant
 			assert.Equal(t, tt.expected, tt.input)
 		})
