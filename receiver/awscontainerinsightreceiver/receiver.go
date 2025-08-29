@@ -232,23 +232,15 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start EFA scraper", zap.Error(err))
 		}
-		acir.settings.Logger.Info("test0")
-		acir.settings.Logger.Info("Initializing KEEEEDA and Karpenter scrapers")
+
 		err = acir.initKedaScraper(ctx, host, hostInfo, localNodeDecorator)
-		acir.settings.Logger.Info("KEDA scraper initialization result", zap.Error(err))
 		if err != nil {
 			acir.settings.Logger.Info("Unable to start KEDA scraper", zap.Error(err))
-		}else {
-			acir.settings.Logger.Info("KEDA scraper initialized successfully")
 		}
 		err = acir.initKarpenterScraper(ctx, host, hostInfo, localNodeDecorator)
-		acir.settings.Logger.Info("KARPENTER scraper initialization result", zap.Error(err))
 		if err != nil {
 			acir.settings.Logger.Info("Unable to start Karpenter scraper", zap.Error(err))
-		} else {
-			acir.settings.Logger.Info("Karpenter scraper initialized successfully")
 		}
-
 	}
 	return nil
 }
@@ -440,51 +432,63 @@ func (acir *awsContainerInsightReceiver) initEfaSysfsScraper(localNodeDecorator 
 }
 
 func (acir *awsContainerInsightReceiver) initKedaScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, localNodeDecorator stores.Decorator) error {
-        decoConsumer := decoratorconsumer.DecorateConsumer{
-                ContainerOrchestrator: ci.EKS,
-                NextConsumer:          acir.nextConsumer,
-                MetricType:            ci.TypeCluster,
-                K8sDecorator:          localNodeDecorator,
-                Logger:                acir.settings.Logger,
-        }
+	decoConsumer := decoratorconsumer.DecorateConsumer{
+		ContainerOrchestrator: ci.EKS,
+		NextConsumer:          acir.nextConsumer,
+		MetricType:            ci.TypeCluster,
+		K8sDecorator:          localNodeDecorator,
+		Logger:                acir.settings.Logger,
+	}
 
-        scraperOpts := prometheusscraper.SimplePrometheusScraperOpts{
-                Ctx:               ctx,
-                TelemetrySettings: acir.settings,
-                Consumer:          &decoConsumer,
-                Host:              host,
-                ScraperConfigs:    keda.GetKedaScrapeConfig(hostInfo),
-                HostInfoProvider:  hostInfo,
-                Logger:            acir.settings.Logger,
-        }
+	kedaEmptyMetricDecorator := keda.EmptyMetricDecorator{
+		NextConsumer: &decoConsumer,
+		Logger:       acir.settings.Logger,
+		MetricType:   ci.TypeCluster,
+	}
 
-        var err error
-        acir.kedaScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
-        return err
+	scraperOpts := prometheusscraper.SimplePrometheusScraperOpts{
+		Ctx:               ctx,
+		TelemetrySettings: acir.settings,
+		Consumer:          &kedaEmptyMetricDecorator,
+		Host:              host,
+		ScraperConfigs:    keda.GetKedaScrapeConfig(hostInfo),
+		HostInfoProvider:  hostInfo,
+		Logger:            acir.settings.Logger,
+	}
+
+	var err error
+	acir.kedaScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
+	return err
 }
 
 func (acir *awsContainerInsightReceiver) initKarpenterScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, localNodeDecorator stores.Decorator) error {
-        decoConsumer := decoratorconsumer.DecorateConsumer{
-                ContainerOrchestrator: ci.EKS,
-                NextConsumer:          acir.nextConsumer,
-                MetricType:            ci.TypeCluster,
-                K8sDecorator:          localNodeDecorator,
-                Logger:                acir.settings.Logger,
-        }
+	decoConsumer := decoratorconsumer.DecorateConsumer{
+		ContainerOrchestrator: ci.EKS,
+		NextConsumer:          acir.nextConsumer,
+		MetricType:            ci.TypeCluster,
+		K8sDecorator:          localNodeDecorator,
+		Logger:                acir.settings.Logger,
+	}
 
-        scraperOpts := prometheusscraper.SimplePrometheusScraperOpts{
-                Ctx:               ctx,
-                TelemetrySettings: acir.settings,
-                Consumer:          &decoConsumer,
-                Host:              host,
-                ScraperConfigs:    karpenter.GetKarpenterScrapeConfig(hostInfo),
-                HostInfoProvider:  hostInfo,
-                Logger:            acir.settings.Logger,
-        }
+	karpenterEmptyMetricDecorator := karpenter.EmptyMetricDecorator{
+		NextConsumer: &decoConsumer,
+		Logger:       acir.settings.Logger,
+		MetricType:   ci.TypeCluster,
+	}
 
-        var err error
-        acir.karpenterScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
-        return err
+	scraperOpts := prometheusscraper.SimplePrometheusScraperOpts{
+		Ctx:               ctx,
+		TelemetrySettings: acir.settings,
+		Consumer:          &karpenterEmptyMetricDecorator,
+		Host:              host,
+		ScraperConfigs:    karpenter.GetKarpenterScrapeConfig(hostInfo),
+		HostInfoProvider:  hostInfo,
+		Logger:            acir.settings.Logger,
+	}
+
+	var err error
+	acir.karpenterScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
+	return err
 }
 
 // Shutdown stops the awsContainerInsightReceiver receiver.
@@ -549,7 +553,9 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 	}
 
 	if acir.containerMetricsProvider != nil {
-		mds = append(mds, acir.containerMetricsProvider.GetMetrics()...)
+		containerMetrics := acir.containerMetricsProvider.GetMetrics()
+		mds = append(mds, containerMetrics...)
+		acir.settings.Logger.Info("Container metrics collected", zap.Int("count", len(containerMetrics)))
 	}
 
 	if acir.k8sapiserver != nil {
@@ -578,16 +584,17 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 	}
 
 	if acir.kedaScraper != nil {
-		acir.settings.Logger.Info("KEDA scraper trying to get metrics")
-		acir.kedaScraper.GetMetrics()
+		kedaMetrics := acir.kedaScraper.GetMetrics()
+		mds = append(mds, kedaMetrics...)
 	}
 
 	if acir.karpenterScraper != nil {
-			acir.settings.Logger.Info("Karpenter scraper trying to get metrics")
-			acir.karpenterScraper.GetMetrics()
+		karpenterMetrics := acir.karpenterScraper.GetMetrics()
+		mds = append(mds, karpenterMetrics...)
 	}
 
-	for _, md := range mds {
+	for i, md := range mds {
+		acir.settings.Logger.Info("Sending metric batch to next consumer", zap.Int("batch_index", i), zap.Int("resource_metrics", md.ResourceMetrics().Len()))
 		err := acir.nextConsumer.ConsumeMetrics(ctx, md)
 		if err != nil {
 			return err

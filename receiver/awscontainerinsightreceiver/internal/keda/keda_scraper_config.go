@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	// configutil "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
@@ -23,11 +22,11 @@ const (
 	collectionInterval        = 60 * time.Second
 	jobName                   = "containerInsightsKedaScraper"
 	scraperMetricsPath        = "/metrics"
-	scraperK8sServiceSelector = "app.kubernetes.io/name=keda-operator-metrics-apiserver"
+	scraperK8sServiceSelector = "app.kubernetes.io/name=keda-operator"
 )
 
 func GetKedaScrapeConfig(hostinfo prometheusscraper.HostInfoProvider) *config.ScrapeConfig {
-	return &config.ScrapeConfig{
+	scrapeConfig := &config.ScrapeConfig{
 		ScrapeProtocols:        config.DefaultScrapeProtocols,
 		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
 		ScrapeInterval:         model.Duration(collectionInterval),
@@ -53,20 +52,21 @@ func GetKedaScrapeConfig(hostinfo prometheusscraper.HostInfoProvider) *config.Sc
 			{
 				SourceLabels: model.LabelNames{"__address__"},
 				TargetLabel:  "__address__",
-				Regex:        relabel.MustNewRegexp("([^:]+)(?::\\d+)?"),
-				Replacement:  "${1}:9022",
+				Regex:        relabel.MustNewRegexp("([^:]+)(?:\\d+)?"),
+				Replacement:  "${1}:8080",
 				Action:       relabel.Replace,
 			},
 		},
 		MetricRelabelConfigs: GetKedaMetricRelabelConfigs(hostinfo),
 	}
+	return scrapeConfig
 }
 
 func GetKedaMetricRelabelConfigs(hostinfo prometheusscraper.HostInfoProvider) []*relabel.Config {
 	return []*relabel.Config{
 		{
 			SourceLabels: model.LabelNames{"__name__"},
-			Regex:        relabel.MustNewRegexp("keda_.*"),
+			Regex:        relabel.MustNewRegexp("keda_scaler_.*|keda_scaled_object_.*|keda_internal_scale_loop_latency_seconds|keda_internal_metricsservice_grpc_server_handled_total"),
 			Action:       relabel.Keep,
 		},
 		{
@@ -79,6 +79,13 @@ func GetKedaMetricRelabelConfigs(hostinfo prometheusscraper.HostInfoProvider) []
 		{
 			SourceLabels: model.LabelNames{"scaler"},
 			TargetLabel:  "Scaler",
+			Regex:        relabel.MustNewRegexp("(.*)"),
+			Replacement:  "${1}",
+			Action:       relabel.Replace,
+		},
+		{
+			SourceLabels: model.LabelNames{"metric"},
+			TargetLabel:  "Metric",
 			Regex:        relabel.MustNewRegexp("(.*)"),
 			Replacement:  "${1}",
 			Action:       relabel.Replace,
