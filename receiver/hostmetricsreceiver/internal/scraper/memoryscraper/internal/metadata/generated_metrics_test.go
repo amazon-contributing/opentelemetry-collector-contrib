@@ -66,6 +66,9 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordSystemLinuxMemoryDirtyDataPoint(ts, 1)
 
 			allMetricsCount++
+			mb.RecordSystemLinuxMemorySharedDataPoint(ts, 1)
+
+			allMetricsCount++
 			mb.RecordSystemMemoryLimitDataPoint(ts, 1)
 
 			allMetricsCount++
@@ -120,6 +123,20 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The amount of dirty memory according to `/proc/meminfo`.", ms.At(i).Description())
+					assert.Equal(t, "By", ms.At(i).Unit())
+					assert.False(t, ms.At(i).Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
+					dp := ms.At(i).Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "system.linux.memory.shared":
+					assert.False(t, validatedMetrics["system.linux.memory.shared"], "Found a duplicate in the metrics slice: system.linux.memory.shared")
+					validatedMetrics["system.linux.memory.shared"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
+					assert.Equal(t, "The amount of shared memory (Shmem) according to `/proc/meminfo`.", ms.At(i).Description())
 					assert.Equal(t, "By", ms.At(i).Unit())
 					assert.False(t, ms.At(i).Sum().IsMonotonic())
 					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
