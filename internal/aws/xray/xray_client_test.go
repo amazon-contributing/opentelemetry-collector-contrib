@@ -4,6 +4,7 @@
 package awsxray
 
 import (
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"net/http"
 	"testing"
 
@@ -26,6 +27,7 @@ func TestUserAgent(t *testing.T) {
 	}
 
 	newSession, err := session.NewSession()
+	newSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	require.NoError(t, err)
 	xray := NewXRayClient(logger, &aws.Config{}, buildInfo, newSession).(*xrayClient)
 

@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -28,7 +29,8 @@ type Record struct {
 func main() {
 	dynamo = dynamodb.New(session.Must(session.NewSession(
 		&aws.Config{
-			Region: aws.String("us-west-2"),
+			Region:               aws.String("us-west-2"),
+			UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled,
 		},
 	)))
 	xray.AWS(dynamo.Client)

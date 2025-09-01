@@ -5,6 +5,7 @@ package awsutil
 
 import (
 	"errors"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -48,6 +49,7 @@ func TestEC2Session(t *testing.T) {
 	m.On("getEC2Region", nil).Return("").Once()
 	var expectedSession *session.Session
 	expectedSession, _ = session.NewSession()
+	expectedSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	m.sn = expectedSession
 	cfg, s, err := GetAWSConfigSession(logger, m, &sessionCfg)
 	assert.Equal(t, expectedSession, s, "Expect the session object is not overridden")
@@ -65,6 +67,7 @@ func TestRegionEnv(t *testing.T) {
 	m := &mockConn{}
 	var expectedSession *session.Session
 	expectedSession, _ = session.NewSession()
+	expectedSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	m.sn = expectedSession
 	cfg, s, err := GetAWSConfigSession(logger, m, &sessionCfg)
 	assert.Equal(t, expectedSession, s, "Expect the session object is not overridden")
@@ -82,6 +85,7 @@ func TestGetAWSConfigSessionWithSessionErr(t *testing.T) {
 	m.On("getEC2Region", nil).Return("").Once()
 	var expectedSession *session.Session
 	expectedSession, _ = session.NewSession()
+	expectedSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	m.sn = expectedSession
 	cfg, s, err := GetAWSConfigSession(logger, m, &sessionCfg)
 	assert.Nil(t, cfg)
@@ -98,6 +102,7 @@ func TestGetAWSConfigSessionWithEC2RegionErr(t *testing.T) {
 	m.On("getEC2Region", nil).Return("some error").Once()
 	var expectedSession *session.Session
 	expectedSession, _ = session.NewSession()
+	expectedSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	m.sn = expectedSession
 	cfg, s, err := GetAWSConfigSession(logger, m, &sessionCfg)
 	assert.Nil(t, cfg)
@@ -127,7 +132,8 @@ func TestNewAWSSessionWithErr(t *testing.T) {
 	t.Setenv("AWS_SDK_LOAD_CONFIG", "true")
 	t.Setenv("AWS_STS_REGIONAL_ENDPOINTS", "regional")
 	se, _ = session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
+		Region:               aws.String("us-east-1"),
+		UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled,
 	})
 	assert.NotNil(t, se)
 	_, err = conn.getEC2Region(se, aWSSessionSettings.IMDSRetries)
@@ -137,6 +143,7 @@ func TestNewAWSSessionWithErr(t *testing.T) {
 func TestGetSTSCredsFromPrimaryRegionEndpoint(t *testing.T) {
 	logger := zap.NewNop()
 	session, _ := session.NewSession()
+	session.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 
 	regions := []string{"us-east-1", "us-gov-west-1", "cn-north-1"}
 

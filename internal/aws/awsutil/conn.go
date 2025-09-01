@@ -280,7 +280,8 @@ func (c *Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region
 		stsCreds := newStsCredentials(s, cfg.RoleARN, region)
 
 		s, err = session.NewSession(&aws.Config{
-			Credentials: stsCreds,
+			Credentials:          stsCreds,
+			UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled,
 		})
 		if err != nil {
 			logger.Error("Error in creating session object : ", zap.Error(err))
@@ -374,7 +375,8 @@ func GetDefaultSession(logger *zap.Logger, cfg *AWSSessionSettings) (*session.Se
 	cfgFiles := getFallbackSharedConfigFiles(backwardsCompatibleUserHomeDir)
 	logger.Debug("Fallback shared config file(s)", zap.Strings("files", cfgFiles))
 	awsConfig := aws.Config{
-		Credentials: getRootCredentials(cfg),
+		Credentials:          getRootCredentials(cfg),
+		UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled,
 	}
 	result, serr := session.NewSessionWithOptions(session.Options{
 		Config:            awsConfig,

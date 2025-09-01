@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"sort"
 	"strings"
 
@@ -118,6 +119,7 @@ func newTaskFetcher(opts taskFetcherOptions) (*taskFetcher, error) {
 	}
 	logger.Debug("Init TaskFetcher", zap.String("Region", opts.Region), zap.String("Cluster", opts.Cluster))
 	awsCfg := aws.NewConfig().WithRegion(opts.Region).WithCredentialsChainVerboseErrors(true)
+	awsCfg.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	sess, err := session.NewSession(awsCfg)
 	if err != nil {
 		return nil, fmt.Errorf("create aws session failed: %w", err)

@@ -6,6 +6,7 @@ package cwlogs
 import (
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"net/http"
 	"testing"
 
@@ -647,6 +648,7 @@ func TestUserAgent(t *testing.T) {
 	}
 
 	testSession, _ := session.NewSession()
+	testSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cwlog := NewClient(logger, &aws.Config{}, tc.buildInfo, tc.logGroupName, 0, map[string]*string{}, testSession, expectedComponentName, tc.clientOptions...)
