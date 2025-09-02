@@ -122,7 +122,11 @@ func createAddScraperOptions(
 
 	envMap := setGoPsutilEnvVars(cfg.RootPath)
 
-	for key, cfg := range cfg.Scrapers {
+	for keyStr, cfg := range cfg.Scrapers {
+		key, err := component.NewType(keyStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid scraper key name: %s", keyStr)
+		}
 		factory, err := getFactory(key, factories)
 		if err != nil {
 			return nil, err
