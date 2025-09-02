@@ -668,31 +668,31 @@ func TestUnmarshalYAMLWithPreprocessing(t *testing.T) {
 
 // Helper function to deep copy a map for testing
 func deepCopyMap(original map[string]any) map[string]any {
-	copy := make(map[string]any)
+	result := make(map[string]any)
 	for key, value := range original {
 		switch v := value.(type) {
 		case map[string]any:
-			copy[key] = deepCopyMap(v)
+			result[key] = deepCopyMap(v)
 		case []any:
-			copy[key] = deepCopySlice(v)
+			result[key] = deepCopySlice(v)
 		default:
-			copy[key] = v
+			result[key] = v
 		}
 	}
-	return copy
+	return result
 }
 
 func deepCopySlice(original []any) []any {
-	copy := make([]any, len(original))
+	result := make([]any, len(original))
 	for i, value := range original {
 		switch v := value.(type) {
 		case map[string]any:
-			copy[i] = deepCopyMap(v)
+			result[i] = deepCopyMap(v)
 		case []any:
-			copy[i] = deepCopySlice(v)
+			result[i] = deepCopySlice(v)
 		default:
-			copy[i] = v
+			result[i] = v
 		}
 	}
-	return copy
+	return result
 }
