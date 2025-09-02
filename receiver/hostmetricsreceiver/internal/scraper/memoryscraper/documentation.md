@@ -52,6 +52,14 @@ The amount of dirty memory according to `/proc/meminfo`.
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | false |
 
+### system.linux.memory.shared
+
+The amount of shared memory (Shmem) according to `/proc/meminfo`.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| By | Sum | Int | Cumulative | false |
+
 ### system.memory.limit
 
 Total bytes of memory available.

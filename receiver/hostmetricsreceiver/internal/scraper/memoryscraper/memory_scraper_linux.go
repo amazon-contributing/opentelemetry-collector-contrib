@@ -41,11 +41,18 @@ func (s *memoryScraper) recordLinuxMemoryDirtyMetric(now pcommon.Timestamp, memI
 }
 
 func (s *memoryScraper) recordLinuxMemorySharedMetric(now pcommon.Timestamp, memInfo *mem.VirtualMemoryStat) {
+	// This value is collected from /proc/meminfo and converted from kB to bytes in gopsutil:
+	// https://github.com/shirou/gopsutil/blob/d8750909ba41f2de9750c90a6d2074c68dfc677e/mem/mem_linux.go#L148
+	s.mb.RecordSystemLinuxMemorySharedDataPoint(now, int64(memInfo.Shared))
+}
+
+func (s *memoryScraper) recordLinuxMemorySharedMetric(now pcommon.Timestamp, memInfo *mem.VirtualMemoryStat) {
 	s.mb.RecordSystemLinuxMemorySharedDataPoint(now, int64(memInfo.Shared))
 }
 
 func (s *memoryScraper) recordSystemSpecificMetrics(now pcommon.Timestamp, memInfo *mem.VirtualMemoryStat) {
 	s.recordLinuxMemoryAvailableMetric(now, memInfo)
 	s.recordLinuxMemoryDirtyMetric(now, memInfo)
+	s.recordLinuxMemorySharedMetric(now, memInfo)
 	s.recordLinuxMemorySharedMetric(now, memInfo)
 }
