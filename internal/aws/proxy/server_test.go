@@ -9,6 +9,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -227,7 +228,7 @@ func TestCanCreateTransport(t *testing.T) {
 }
 
 func TestGetServiceEndpointInvalidAWSConfig(t *testing.T) {
-	_, err := getServiceEndpoint(&aws.Config{}, "")
+	_, err := getServiceEndpoint(&aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}, "")
 	assert.EqualError(t, err, "unable to generate endpoint from region with nil value")
 }
 

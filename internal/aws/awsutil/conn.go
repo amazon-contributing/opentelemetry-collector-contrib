@@ -42,11 +42,12 @@ func (c *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error)
 	region, err := ec2metadata.New(s, &aws.Config{
 		Retryer:                   override.NewIMDSRetryer(imdsRetries),
 		EC2MetadataEnableFallback: aws.Bool(false),
+		UseDualStackEndpoint:      endpoints.DualStackEndpointStateEnabled,
 	}).Region()
 	if err == nil {
 		return region, err
 	}
-	return ec2metadata.New(s, &aws.Config{}).Region()
+	return ec2metadata.New(s, &aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}).Region()
 }
 
 type stsCredentialProvider struct {
@@ -226,6 +227,7 @@ func GetAWSConfigSession(logger *zap.Logger, cn ConnAttr, cfg *AWSSessionSetting
 		Endpoint:                      aws.String(cfg.Endpoint),
 		HTTPClient:                    http,
 		CredentialsChainVerboseErrors: aws.Bool(true),
+		UseDualStackEndpoint:          endpoints.DualStackEndpointStateEnabled,
 	}
 	return config, s, nil
 }
@@ -327,7 +329,7 @@ func getSTSCredsFromRegionEndpoint(logger *zap.Logger, sess *session.Session, re
 	// if regionalEndpoint is "", the STS endpoint is Global endpoint for classic regions except ap-east-1 - (HKG)
 	// for other opt-in regions, region value will create STS regional endpoint.
 	// This will be only in the case, if provided region is not present in aws_regions.go
-	c := &aws.Config{Region: aws.String(region), Endpoint: &regionalEndpoint}
+	c := &aws.Config{Region: aws.String(region), Endpoint: &regionalEndpoint, UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}
 	st := sts.New(sess, c)
 	logger.Info("STS Endpoint ", zap.String("endpoint", st.Endpoint))
 	options := []func(*stscreds.AssumeRoleProvider){}
@@ -470,9 +472,10 @@ func getCredentialProviderChain(cfg *AWSSessionSettings) []credentials.Provider 
 func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *credentials.Credentials {
 	regional := &stscreds.AssumeRoleProvider{
 		Client: newStsClient(c, &aws.Config{
-			Region:              aws.String(region),
-			STSRegionalEndpoint: endpoints.RegionalSTSEndpoint,
-			HTTPClient:          &http.Client{Timeout: 1 * time.Minute},
+			Region:               aws.String(region),
+			STSRegionalEndpoint:  endpoints.RegionalSTSEndpoint,
+			HTTPClient:           &http.Client{Timeout: 1 * time.Minute},
+			UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled,
 		}),
 		RoleARN:  roleARN,
 		Duration: stscreds.DefaultDuration,
@@ -482,10 +485,11 @@ func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *
 
 	partitional := &stscreds.AssumeRoleProvider{
 		Client: newStsClient(c, &aws.Config{
-			Region:              aws.String(fallbackRegion),
-			Endpoint:            aws.String(getFallbackEndpoint(fallbackRegion)),
-			STSRegionalEndpoint: endpoints.RegionalSTSEndpoint,
-			HTTPClient:          &http.Client{Timeout: 1 * time.Minute},
+			Region:               aws.String(fallbackRegion),
+			Endpoint:             aws.String(getFallbackEndpoint(fallbackRegion)),
+			STSRegionalEndpoint:  endpoints.RegionalSTSEndpoint,
+			HTTPClient:           &http.Client{Timeout: 1 * time.Minute},
+			UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled,
 		}),
 		RoleARN:  roleARN,
 		Duration: stscreds.DefaultDuration,

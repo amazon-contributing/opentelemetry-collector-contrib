@@ -5,6 +5,7 @@ package host // import "github.com/open-telemetry/opentelemetry-collector-contri
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"log"
 	"time"
 
@@ -53,8 +54,9 @@ func newEC2Metadata(ctx context.Context, session *session.Session, refreshInterv
 		client: awsec2metadata.New(session, &aws.Config{
 			Retryer:                   override.NewIMDSRetryer(imdsRetries),
 			EC2MetadataEnableFallback: aws.Bool(false),
+			UseDualStackEndpoint:      endpoints.DualStackEndpointStateEnabled,
 		}),
-		clientFallbackEnable: awsec2metadata.New(session, &aws.Config{}),
+		clientFallbackEnable: awsec2metadata.New(session, &aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}),
 		refreshInterval:      refreshInterval,
 		instanceIDReadyC:     instanceIDReadyC,
 		instanceIPReadyC:     instanceIPReadyC,

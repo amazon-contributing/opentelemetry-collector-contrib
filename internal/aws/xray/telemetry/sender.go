@@ -4,6 +4,7 @@
 package telemetry // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray/telemetry"
 
 import (
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"os"
 	"sync"
 	"time"
@@ -184,8 +185,9 @@ func ToOptions(cfg Config, sess *session.Session, settings *awsutil.AWSSessionSe
 		metadataClient := ec2metadata.New(sess, &aws.Config{
 			Retryer:                   override.NewIMDSRetryer(settings.IMDSRetries),
 			EC2MetadataEnableFallback: aws.Bool(false),
+			UseDualStackEndpoint:      endpoints.DualStackEndpointStateEnabled,
 		})
-		metadataClientFallbackEnable := ec2metadata.New(sess, &aws.Config{})
+		metadataClientFallbackEnable := ec2metadata.New(sess, &aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled})
 		hostnameProviders = append(hostnameProviders, ec2MetadataProvider{
 			client:               metadataClient,
 			clientFallbackEnable: metadataClientFallbackEnable,

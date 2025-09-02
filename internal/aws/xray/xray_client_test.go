@@ -29,7 +29,7 @@ func TestUserAgent(t *testing.T) {
 	newSession, err := session.NewSession()
 	newSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	require.NoError(t, err)
-	xray := NewXRayClient(logger, &aws.Config{}, buildInfo, newSession).(*xrayClient)
+	xray := NewXRayClient(logger, &aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}, buildInfo, newSession).(*xrayClient)
 
 	req := request.New(aws.Config{}, metadata.ClientInfo{}, *xray.Handlers(), nil, &request.Operation{
 		HTTPMethod: http.MethodGet,

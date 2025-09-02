@@ -6,6 +6,7 @@ package host
 import (
 	"context"
 	"errors"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"testing"
 	"time"
 
@@ -99,7 +100,7 @@ func TestInfo(t *testing.T) {
 	// test normal case where everything is working
 	awsSessionCreatorOpt = func(m any) {
 		m.(*Info).awsSessionCreator = func(*zap.Logger, awsutil.ConnAttr, *awsutil.AWSSessionSettings) (*aws.Config, *session.Session, error) {
-			return &aws.Config{}, &session.Session{}, nil
+			return &aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}, &session.Session{}, nil
 		}
 	}
 	ec2MetadataCreatorOpt := func(m any) {
@@ -184,7 +185,7 @@ func TestInfoForECS(t *testing.T) {
 	// test normal case where everything is working
 	awsSessionCreatorOpt = func(m any) {
 		m.(*Info).awsSessionCreator = func(*zap.Logger, awsutil.ConnAttr, *awsutil.AWSSessionSettings) (*aws.Config, *session.Session, error) {
-			return &aws.Config{}, &session.Session{}, nil
+			return &aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}, &session.Session{}, nil
 		}
 	}
 	ec2MetadataCreatorOpt := func(m any) {

@@ -651,10 +651,10 @@ func TestUserAgent(t *testing.T) {
 	testSession.Config.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cwlog := NewClient(logger, &aws.Config{}, tc.buildInfo, tc.logGroupName, 0, map[string]*string{}, testSession, expectedComponentName, tc.clientOptions...)
+			cwlog := NewClient(logger, &aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}, tc.buildInfo, tc.logGroupName, 0, map[string]*string{}, testSession, expectedComponentName, tc.clientOptions...)
 			logClient := cwlog.Svc.(*cloudwatchlogs.CloudWatchLogs)
 
-			req := request.New(aws.Config{}, metadata.ClientInfo{}, logClient.Handlers, nil, &request.Operation{
+			req := request.New(aws.Config{UseDualStackEndpoint: endpoints.DualStackEndpointStateEnabled}, metadata.ClientInfo{}, logClient.Handlers, nil, &request.Operation{
 				HTTPMethod: http.MethodGet,
 				HTTPPath:   "/",
 			}, nil, nil)
