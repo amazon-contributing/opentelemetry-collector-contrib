@@ -20,7 +20,7 @@ import (
 // Config defines configuration for HostMetrics receiver.
 type Config struct {
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
-	Scrapers                       map[string]component.Config `mapstructure:"scrapers"`
+	Scrapers                       map[component.Type]component.Config `mapstructure:"-"`
 	// RootPath is the host's root directory (linux only).
 	RootPath string `mapstructure:"root_path"`
 
@@ -59,7 +59,7 @@ func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
 
 	// dynamically load the individual collector configs based on the key name
 
-	cfg.Scrapers = map[string]component.Config{}
+	cfg.Scrapers = map[component.Type]component.Config{}
 
 	scrapersSection, err := componentParser.Sub("scrapers")
 	if err != nil {
@@ -89,7 +89,7 @@ func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
 			iCfg.SetRootPath(cfg.RootPath)
 		}
 
-		cfg.Scrapers[keyStr] = scraperCfg
+		cfg.Scrapers[key] = scraperCfg
 	}
 
 	return nil
