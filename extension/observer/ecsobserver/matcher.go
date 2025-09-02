@@ -104,8 +104,8 @@ type matchedTarget struct {
 func matcherOrders() []matcherType {
 	return []matcherType{
 		matcherTypeService,
-		matcherTypeTaskDefinition,
 		matcherTypeDockerLabel,
+		matcherTypeTaskDefinition,
 	}
 }
 

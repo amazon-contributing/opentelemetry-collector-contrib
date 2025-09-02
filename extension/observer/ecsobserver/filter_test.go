@@ -190,4 +190,72 @@ func TestFilter(t *testing.T) {
 		require.Len(t, merr, 1)
 		assert.Len(t, res, 1)
 	})
+
+	t.Run("docker_label_precedence_over_task_definition", func(t *testing.T) {
+		cfgDockerLabelTaskDef := Config{
+			DockerLabels: []DockerLabelConfig{
+				{
+					PortLabel: "PROMETHEUS_PORT",
+					CommonExporterConfig: CommonExporterConfig{
+						JobName: "DOCKER_LABEL_JOB",
+					},
+				},
+			},
+			TaskDefinitions: []TaskDefinitionConfig{
+				{
+					ArnPattern: "arn:alike:nginx-.*",
+					CommonExporterConfig: CommonExporterConfig{
+						JobName:      "TASK_DEFINITION_JOB",
+						MetricsPorts: []int{2112},
+					},
+				},
+			},
+		}
+
+		f := newTestTaskFilter(t, cfgDockerLabelTaskDef)
+		res, err := f.filter(genTasksWithDockerLabels())
+		require.NoError(t, err)
+		assert.Len(t, res, 1)
+		assert.Equal(t, []matchedContainer{
+			{
+				TaskIndex:      0,
+				ContainerIndex: 0,
+				Targets: []matchedTarget{
+					{
+						MatcherType: matcherTypeDockerLabel,
+						Port:        2112,
+						Job:         "DOCKER_LABEL_JOB", // DockerLabel should win over TaskDefinition
+					},
+				},
+			},
+		}, res[0].Matched)
+	})
+}
+
+func genTasksWithDockerLabels() []*taskAnnotated {
+	return []*taskAnnotated{
+		{
+			Task: &ecs.Task{
+				TaskArn:           aws.String("arn:alike:nginx-task"),
+				TaskDefinitionArn: aws.String("arn:alike:nginx-def"),
+			},
+			Definition: &ecs.TaskDefinition{
+				TaskDefinitionArn: aws.String("arn:alike:nginx-def"),
+				ContainerDefinitions: []*ecs.ContainerDefinition{
+					{
+						Name: aws.String("nginx"),
+						DockerLabels: map[string]*string{
+							"PROMETHEUS_PORT": aws.String("2112"),
+						},
+						PortMappings: []*ecs.PortMapping{
+							{
+								ContainerPort: aws.Int64(2112),
+								HostPort:      aws.Int64(2112),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
