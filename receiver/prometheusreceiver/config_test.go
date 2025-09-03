@@ -413,3 +413,285 @@ func TestLoadPrometheusAPIServerExtensionConfig(t *testing.T) {
 	require.NoError(t, sub.Unmarshal(cfg))
 	require.Error(t, xconfmap.Validate(cfg))
 }
+
+func TestCaptureGroupConstant_FullExample(t *testing.T) {
+	// Test that the constant can be used in a real config structure and gets replaced correctly
+	config := map[string]any{
+		"scrape_configs": []any{
+			map[string]any{
+				"job_name": "test-job",
+				"relabel_configs": []any{
+					map[string]any{
+						"source_labels": []any{"__meta_kubernetes_pod_name"},
+						"target_label":  "pod",
+						"replacement":   EscapedCaptureGroupOne,
+					},
+					map[string]any{
+						"source_labels": []any{"__meta_kubernetes_service_name"},
+						"target_label":  "service",
+						"replacement":   "static_value",
+					},
+				},
+			},
+		},
+	}
+
+	// Before preprocessing, the constant should be present
+	scrapeConfigs := config["scrape_configs"].([]any)
+	relabelConfigs := scrapeConfigs[0].(map[string]any)["relabel_configs"].([]any)
+	firstRelabelConfig := relabelConfigs[0].(map[string]any)
+	assert.Equal(t, EscapedCaptureGroupOne, firstRelabelConfig["replacement"])
+
+	// Apply preprocessing
+	preprocessPrometheusConfig(config)
+
+	// After preprocessing, the constant should be replaced with "$1"
+	scrapeConfigsAfter := config["scrape_configs"].([]any)
+	relabelConfigsAfter := scrapeConfigsAfter[0].(map[string]any)["relabel_configs"].([]any)
+	firstRelabelConfigAfter := relabelConfigsAfter[0].(map[string]any)
+	secondRelabelConfigAfter := relabelConfigsAfter[1].(map[string]any)
+
+	assert.Equal(t, "$1", firstRelabelConfigAfter["replacement"])
+	assert.Equal(t, "static_value", secondRelabelConfigAfter["replacement"]) // Should remain unchanged
+}
+
+func TestUnmarshalYAML_FullExample(t *testing.T) {
+	// Test that unmarshalYAML correctly applies preprocessing
+	input := map[string]any{
+		"global": map[string]any{
+			"scrape_interval": "15s",
+		},
+		"scrape_configs": []any{
+			map[string]any{
+				"job_name": "kubernetes-pods",
+				"relabel_configs": []any{
+					map[string]any{
+						"source_labels": []any{"__meta_kubernetes_pod_name"},
+						"target_label":  "kubernetes_pod_name",
+						"replacement":   EscapedCaptureGroupOne,
+					},
+				},
+			},
+		},
+	}
+
+	var result map[string]any
+	err := unmarshalYAML(input, &result)
+	require.NoError(t, err)
+
+	// Verify that the constant was replaced during unmarshaling
+	scrapeConfigs := input["scrape_configs"].([]any)
+	relabelConfigs := scrapeConfigs[0].(map[string]any)["relabel_configs"].([]any)
+	firstRelabelConfig := relabelConfigs[0].(map[string]any)
+
+	assert.Equal(t, "$1", firstRelabelConfig["replacement"])
+}
+
+func TestPreprocessPrometheusConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]any
+		expected map[string]any
+	}{
+		{
+			name: "simple replacement at top level",
+			input: map[string]any{
+				"replacement": EscapedCaptureGroupOne,
+				"other_field": "unchanged",
+			},
+			expected: map[string]any{
+				"replacement": "$1",
+				"other_field": "unchanged",
+			},
+		},
+		{
+			name: "nested map replacement",
+			input: map[string]any{
+				"relabel_configs": map[string]any{
+					"replacement":  EscapedCaptureGroupOne,
+					"target_label": "test",
+				},
+			},
+			expected: map[string]any{
+				"relabel_configs": map[string]any{
+					"replacement":  "$1",
+					"target_label": "test",
+				},
+			},
+		},
+		{
+			name: "array with map containing replacement",
+			input: map[string]any{
+				"relabel_configs": []any{
+					map[string]any{
+						"replacement": EscapedCaptureGroupOne,
+						"action":      "replace",
+					},
+					map[string]any{
+						"replacement": "static_value",
+						"action":      "replace",
+					},
+				},
+			},
+			expected: map[string]any{
+				"relabel_configs": []any{
+					map[string]any{
+						"replacement": "$1",
+						"action":      "replace",
+					},
+					map[string]any{
+						"replacement": "static_value",
+						"action":      "replace",
+					},
+				},
+			},
+		},
+		{
+			name: "multiple replacements in array",
+			input: map[string]any{
+				"scrape_configs": []any{
+					map[string]any{
+						"relabel_configs": []any{
+							map[string]any{
+								"replacement": EscapedCaptureGroupOne,
+							},
+							map[string]any{
+								"replacement": EscapedCaptureGroupOne,
+							},
+						},
+					},
+				},
+			},
+			expected: map[string]any{
+				"scrape_configs": []any{
+					map[string]any{
+						"relabel_configs": []any{
+							map[string]any{
+								"replacement": "$1",
+							},
+							map[string]any{
+								"replacement": "$1",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "no replacement needed",
+			input: map[string]any{
+				"replacement": "static_value",
+				"other_field": "unchanged",
+			},
+			expected: map[string]any{
+				"replacement": "static_value",
+				"other_field": "unchanged",
+			},
+		},
+		{
+			name:     "empty config",
+			input:    map[string]any{},
+			expected: map[string]any{},
+		},
+		{
+			name: "non-replacement field with constant value",
+			input: map[string]any{
+				"some_field": EscapedCaptureGroupOne,
+			},
+			expected: map[string]any{
+				"some_field": EscapedCaptureGroupOne,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Make a deep copy to avoid modifying the original
+			inputCopy := deepCopyMap(tt.input)
+			preprocessPrometheusConfig(inputCopy)
+			assert.Equal(t, tt.expected, inputCopy)
+		})
+	}
+}
+
+func TestUnmarshalYAMLWithPreprocessing(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]any
+		expected map[string]any
+	}{
+		{
+			name: "replacement in scrape config",
+			input: map[string]any{
+				"scrape_configs": []any{
+					map[string]any{
+						"job_name": "test",
+						"relabel_configs": []any{
+							map[string]any{
+								"source_labels": []any{"__meta_kubernetes_pod_name"},
+								"target_label":  "pod",
+								"replacement":   EscapedCaptureGroupOne,
+							},
+						},
+					},
+				},
+			},
+			expected: map[string]any{
+				"scrape_configs": []any{
+					map[string]any{
+						"job_name": "test",
+						"relabel_configs": []any{
+							map[string]any{
+								"source_labels": []any{"__meta_kubernetes_pod_name"},
+								"target_label":  "pod",
+								"replacement":   "$1",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result map[string]any
+			err := unmarshalYAML(tt.input, &result)
+			require.NoError(t, err)
+
+			// The preprocessing should have converted the constant
+			assert.Equal(t, tt.expected, tt.input)
+		})
+	}
+}
+
+// Helper function to deep copy a map for testing
+func deepCopyMap(original map[string]any) map[string]any {
+	result := make(map[string]any)
+	for key, value := range original {
+		switch v := value.(type) {
+		case map[string]any:
+			result[key] = deepCopyMap(v)
+		case []any:
+			result[key] = deepCopySlice(v)
+		default:
+			result[key] = v
+		}
+	}
+	return result
+}
+
+func deepCopySlice(original []any) []any {
+	result := make([]any, len(original))
+	for i, value := range original {
+		switch v := value.(type) {
+		case map[string]any:
+			result[i] = deepCopyMap(v)
+		case []any:
+			result[i] = deepCopySlice(v)
+		default:
+			result[i] = v
+		}
+	}
+	return result
+}
