@@ -133,15 +133,22 @@ func createAddScraperOptions(
 	return scraperControllerOptions, nil
 }
 
-func createHostMetricsScraper(ctx context.Context, set receiver.Settings, key string, cfg internal.Config, factories map[string]internal.ScraperFactory) (scraper scraperhelper.Scraper, ok bool, err error) {
+func createHostMetricsScraper(ctx context.Context, set receiver.Settings, key string, cfg component.Config, factories map[string]internal.ScraperFactory) (scraper scraperhelper.Scraper, ok bool, err error) {
 	factory := factories[key]
 	if factory == nil {
 		ok = false
 		return
 	}
 
+	// Convert component.Config to internal.Config
+	internalCfg, ok := cfg.(internal.Config)
+	if !ok {
+		err = fmt.Errorf("config for scraper %q does not implement internal.Config", key)
+		return
+	}
+
 	ok = true
-	scraper, err = factory.CreateMetricsScraper(ctx, set, cfg)
+	scraper, err = factory.CreateMetricsScraper(ctx, set, internalCfg)
 	return
 }
 

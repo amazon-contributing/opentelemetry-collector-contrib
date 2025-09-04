@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/otelcol/otelcoltest"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver/internal/scraper/cpuscraper"
 )
@@ -57,7 +56,7 @@ func TestLoadConfigRootPath(t *testing.T) {
 		common.HostSysEnvKey:     "testdata/sys",
 		common.HostVarEnvKey:     "testdata/var",
 	})
-	expectedConfig.Scrapers = map[string]internal.Config{cpuscraper.TypeStr: cpuScraperCfg}
+	expectedConfig.Scrapers = map[string]component.Config{cpuscraper.TypeStr: cpuScraperCfg}
 
 	assert.Equal(t, expectedConfig, r)
 }

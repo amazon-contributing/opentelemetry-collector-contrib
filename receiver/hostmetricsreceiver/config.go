@@ -12,8 +12,6 @@ import (
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/receiver/scraperhelper"
 	"go.uber.org/multierr"
-
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver/internal"
 )
 
 const (
@@ -23,7 +21,7 @@ const (
 // Config defines configuration for HostMetrics receiver.
 type Config struct {
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
-	Scrapers                       map[string]internal.Config `mapstructure:"-"`
+	Scrapers                       map[string]component.Config `mapstructure:"scrapers"`
 	// RootPath is the host's root directory (linux only).
 	RootPath string `mapstructure:"root_path"`
 
@@ -62,7 +60,7 @@ func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
 
 	// dynamically load the individual collector configs based on the key name
 
-	cfg.Scrapers = map[string]internal.Config{}
+	cfg.Scrapers = map[string]component.Config{}
 
 	scrapersSection, err := componentParser.Sub(scrapersKey)
 	if err != nil {
