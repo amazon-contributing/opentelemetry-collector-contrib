@@ -443,11 +443,11 @@ func TestPathGetSetter_NumberDataPoint(t *testing.T) {
 
 			ctx := newTestContext(numberDataPoint)
 
-			got, err := accessor.Get(context.Background(), ctx)
+			got, err := accessor.Get(t.Context(), ctx)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.orig, got)
 
-			err = accessor.Set(context.Background(), ctx, tt.newVal)
+			err = accessor.Set(t.Context(), ctx, tt.newVal)
 			assert.NoError(t, err)
 
 			exNumberDataPoint := createNumberDataPoint(tt.valueType)
@@ -920,11 +920,11 @@ func TestPathGetSetter_HistogramDataPoint(t *testing.T) {
 
 			ctx := newTestContext(histogramDataPoint)
 
-			got, err := accessor.Get(context.Background(), ctx)
+			got, err := accessor.Get(t.Context(), ctx)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.orig, got)
 
-			err = accessor.Set(context.Background(), ctx, tt.newVal)
+			err = accessor.Set(t.Context(), ctx, tt.newVal)
 			assert.NoError(t, err)
 
 			exNumberDataPoint := createHistogramDataPointTelemetry()
@@ -1481,11 +1481,11 @@ func TestPathGetSetter_ExpoHistogramDataPoint(t *testing.T) {
 
 			ctx := newTestContext(expoHistogramDataPoint)
 
-			got, err := accessor.Get(context.Background(), ctx)
+			got, err := accessor.Get(t.Context(), ctx)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.orig, got)
 
-			err = accessor.Set(context.Background(), ctx, tt.newVal)
+			err = accessor.Set(t.Context(), ctx, tt.newVal)
 			assert.NoError(t, err)
 
 			exNumberDataPoint := createExpoHistogramDataPointTelemetry()
@@ -1942,11 +1942,11 @@ func TestPathGetSetter_SummaryDataPoint(t *testing.T) {
 
 			ctx := newTestContext(summaryDataPoint)
 
-			got, err := accessor.Get(context.Background(), ctx)
+			got, err := accessor.Get(t.Context(), ctx)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.orig, got)
 
-			err = accessor.Set(context.Background(), ctx, tt.newVal)
+			err = accessor.Set(t.Context(), ctx, tt.newVal)
 			assert.NoError(t, err)
 
 			exNumberDataPoint := createSummaryDataPointTelemetry()

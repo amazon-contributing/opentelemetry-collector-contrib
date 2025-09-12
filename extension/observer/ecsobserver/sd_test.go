@@ -160,7 +160,7 @@ func TestNewDiscovery(t *testing.T) {
 		sd, err := newDiscovery(cfg, opts)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), cfg.RefreshInterval*2)
+		ctx, cancel := context.WithTimeout(t.Context(), cfg.RefreshInterval*2)
 		defer cancel()
 		err = sd.runAndWriteFile(ctx)
 		require.NoError(t, err)
@@ -180,7 +180,7 @@ func TestNewDiscovery(t *testing.T) {
 		sd, err := newDiscovery(cfg2, opts)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), cfg2.RefreshInterval*2)
+		ctx, cancel := context.WithTimeout(t.Context(), cfg2.RefreshInterval*2)
 		defer cancel()
 		err = sd.runAndWriteFile(ctx)
 		require.NoError(t, err)
@@ -197,7 +197,7 @@ func TestNewDiscovery(t *testing.T) {
 		sd, err := newDiscovery(cfg2, opts)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), cfg2.RefreshInterval*2)
+		ctx, cancel := context.WithTimeout(t.Context(), cfg2.RefreshInterval*2)
 		defer cancel()
 		err = sd.runAndWriteFile(ctx)
 		require.NoError(t, err)

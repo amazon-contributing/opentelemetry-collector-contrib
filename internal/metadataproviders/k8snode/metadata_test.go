@@ -4,7 +4,6 @@
 package k8snode
 
 import (
-	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -66,12 +65,12 @@ func TestNodeUID(t *testing.T) {
 				k8snodeClient: client,
 				nodeName:      tt.nodeName,
 			}
-			nodeUID, err := k8snodeP.NodeUID(context.Background())
+			nodeUID, err := k8snodeP.NodeUID(t.Context())
 			if tt.errMsg != "" {
 				assert.EqualError(t, err, tt.errMsg)
 			} else {
 				assert.Equal(t, nodeUID, tt.nodeUID)
-				nodeName, err := k8snodeP.NodeName(context.Background())
+				nodeName, err := k8snodeP.NodeName(t.Context())
 				assert.NoError(t, err)
 				assert.Equal(t, nodeName, tt.nodeName)
 			}
@@ -87,7 +86,7 @@ func setupNodes(client *fake.Clientset) error {
 				Name: strconv.Itoa(i),
 			},
 		}
-		_, err := client.CoreV1().Nodes().Create(context.Background(), n, metav1.CreateOptions{})
+		_, err := client.CoreV1().Nodes().Create(t.Context(), n, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}

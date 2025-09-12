@@ -36,5 +36,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(context.Background()))
+	require.NoError(t, testTel.Shutdown(t.Context()))
 }

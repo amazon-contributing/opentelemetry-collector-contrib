@@ -6,7 +6,6 @@ package sapmreceiver
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -185,7 +184,7 @@ func sendSapm(
 			},
 			ServerName: "localhost",
 		}
-		tls, errTLS := tlscs.LoadTLSConfig(context.Background())
+		tls, errTLS := tlscs.LoadTLSConfig(t.Context())
 		if errTLS != nil {
 			return nil, fmt.Errorf("failed to send request to receiver %w", err)
 		}
@@ -251,12 +250,12 @@ func setupReceiver(t *testing.T, config *Config, sink consumer.Traces) receiver.
 	assert.NoError(t, err, "should not have failed to create the SAPM receiver")
 	t.Log("Starting")
 
-	require.NoError(t, sr.Start(context.Background(), &nopHost{
+	require.NoError(t, sr.Start(t.Context(), &nopHost{
 		reportFunc: func(event *componentstatus.Event) {
 			require.NoError(t, event.Err())
 		},
 	}), "should not have failed to start trace reception")
-	require.NoError(t, sr.Start(context.Background(), &nopHost{
+	require.NoError(t, sr.Start(t.Context(), &nopHost{
 		reportFunc: func(event *componentstatus.Event) {
 			require.NoError(t, event.Err())
 		},
@@ -339,7 +338,7 @@ func TestReception(t *testing.T) {
 			sink := new(consumertest.TracesSink)
 			sr := setupReceiver(t, tt.args.config, sink)
 			defer func() {
-				require.NoError(t, sr.Shutdown(context.Background()))
+				require.NoError(t, sr.Shutdown(t.Context()))
 			}()
 
 			t.Log("Sending Sapm Request")
@@ -395,7 +394,7 @@ func TestStatusCode(t *testing.T) {
 			resp, err := sendSapm(config.Endpoint, sapm, "", false, "")
 			require.NoErrorf(t, err, "should not have failed when sending sapm %v", err)
 			assert.Equal(t, test.expectedStatus, resp.StatusCode)
-			require.NoError(t, sr.Shutdown(context.Background()))
+			require.NoError(t, sr.Shutdown(t.Context()))
 		})
 	}
 }

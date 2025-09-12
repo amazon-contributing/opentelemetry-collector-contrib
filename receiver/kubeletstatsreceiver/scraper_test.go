@@ -64,7 +64,7 @@ func TestScraper(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	md, err := r.ScrapeMetrics(context.Background())
+	md, err := r.ScrapeMetrics(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, dataLen, md.DataPointCount())
 	expectedFile := filepath.Join("testdata", "scraper", "test_scraper_expected.yaml")
@@ -124,7 +124,7 @@ func TestScraperWithCPUNodeUtilization(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	err = r.Start(context.Background(), nil)
+	err = r.Start(t.Context(), nil)
 	require.NoError(t, err)
 
 	// we wait until the watcher starts
@@ -138,7 +138,7 @@ func TestScraperWithCPUNodeUtilization(t *testing.T) {
 
 	var md pmetric.Metrics
 	require.Eventually(t, func() bool {
-		md, err = r.ScrapeMetrics(context.Background())
+		md, err = r.ScrapeMetrics(t.Context())
 		require.NoError(t, err)
 		return numContainers+numPods == md.DataPointCount()
 	}, 10*time.Second, 100*time.Millisecond,
@@ -158,7 +158,7 @@ func TestScraperWithCPUNodeUtilization(t *testing.T) {
 		pmetrictest.IgnoreTimestamp(),
 		pmetrictest.IgnoreMetricsOrder()))
 
-	err = r.Shutdown(context.Background())
+	err = r.Shutdown(t.Context())
 	require.NoError(t, err)
 }
 
@@ -203,7 +203,7 @@ func TestScraperWithMemoryNodeUtilization(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	err = r.Start(context.Background(), nil)
+	err = r.Start(t.Context(), nil)
 	require.NoError(t, err)
 
 	// we wait until the watcher starts
@@ -217,7 +217,7 @@ func TestScraperWithMemoryNodeUtilization(t *testing.T) {
 
 	var md pmetric.Metrics
 	require.Eventually(t, func() bool {
-		md, err = r.ScrapeMetrics(context.Background())
+		md, err = r.ScrapeMetrics(t.Context())
 		require.NoError(t, err)
 		return numContainers+numPods == md.DataPointCount()
 	}, 10*time.Second, 100*time.Millisecond,
@@ -236,7 +236,7 @@ func TestScraperWithMemoryNodeUtilization(t *testing.T) {
 		pmetrictest.IgnoreTimestamp(),
 		pmetrictest.IgnoreMetricsOrder()))
 
-	err = r.Shutdown(context.Background())
+	err = r.Shutdown(t.Context())
 	require.NoError(t, err)
 }
 
@@ -286,7 +286,7 @@ func TestScraperWithMetadata(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			md, err := r.ScrapeMetrics(context.Background())
+			md, err := r.ScrapeMetrics(t.Context())
 			require.NoError(t, err)
 
 			filename := "test_scraper_with_metadata_" + tt.name + "_expected.yaml"
@@ -478,7 +478,7 @@ func TestScraperWithPercentMetrics(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	md, err := r.ScrapeMetrics(context.Background())
+	md, err := r.ScrapeMetrics(t.Context())
 	require.NoError(t, err)
 
 	expectedFile := filepath.Join("testdata", "scraper", "test_scraper_with_percent_expected.yaml")
@@ -557,7 +557,7 @@ func TestScraperWithMetricGroups(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			md, err := r.ScrapeMetrics(context.Background())
+			md, err := r.ScrapeMetrics(t.Context())
 			require.NoError(t, err)
 
 			filename := "test_scraper_with_metric_groups_" + test.name + "_expected.yaml"
@@ -722,7 +722,7 @@ func TestScraperWithPVCDetailedLabels(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			md, err := r.ScrapeMetrics(context.Background())
+			md, err := r.ScrapeMetrics(t.Context())
 			require.NoError(t, err)
 
 			filename := "test_scraper_with_pvc_labels_" + test.name + "_expected.yaml"
@@ -807,7 +807,7 @@ func TestClientErrors(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			_, err = r.ScrapeMetrics(context.Background())
+			_, err = r.ScrapeMetrics(t.Context())
 			if test.numLogs == 0 {
 				require.NoError(t, err)
 			} else {

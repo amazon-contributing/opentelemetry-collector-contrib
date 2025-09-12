@@ -5,7 +5,6 @@ package octrace
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -36,7 +35,7 @@ import (
 func TestReceiver_endToEnd(t *testing.T) {
 	tt := componenttest.NewTelemetry()
 	defer func() {
-		require.NoError(t, tt.Shutdown(context.Background()))
+		require.NoError(t, tt.Shutdown(t.Context()))
 	}()
 
 	spanSink := new(consumertest.TracesSink)
@@ -68,7 +67,7 @@ func TestReceiver_endToEnd(t *testing.T) {
 func TestExportMultiplexing(t *testing.T) {
 	tt := componenttest.NewTelemetry()
 	defer func() {
-		require.NoError(t, tt.Shutdown(context.Background()))
+		require.NoError(t, tt.Shutdown(t.Context()))
 	}()
 
 	spanSink := new(consumertest.TracesSink)
@@ -203,7 +202,7 @@ func TestExportMultiplexing(t *testing.T) {
 func TestExportProtocolViolations_nodelessFirstMessage(t *testing.T) {
 	tt := componenttest.NewTelemetry()
 	defer func() {
-		require.NoError(t, tt.Shutdown(context.Background()))
+		require.NoError(t, tt.Shutdown(t.Context()))
 	}()
 
 	spanSink := new(consumertest.TracesSink)
@@ -276,7 +275,7 @@ func TestExportProtocolViolations_nodelessFirstMessage(t *testing.T) {
 func TestExportProtocolConformation_spansInFirstMessage(t *testing.T) {
 	tt := componenttest.NewTelemetry()
 	defer func() {
-		require.NoError(t, tt.Shutdown(context.Background()))
+		require.NoError(t, tt.Shutdown(t.Context()))
 	}()
 
 	spanSink := new(consumertest.TracesSink)
@@ -347,7 +346,7 @@ func makeTraceServiceClient(addr net.Addr) (agenttracepb.TraceService_ExportClie
 	}
 
 	svc := agenttracepb.NewTraceServiceClient(cc)
-	traceClient, err := svc.Export(context.Background())
+	traceClient, err := svc.Export(t.Context())
 	if err != nil {
 		_ = cc.Close()
 		return nil, nil, err

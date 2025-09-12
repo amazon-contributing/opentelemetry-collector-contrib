@@ -12,7 +12,7 @@ import (
 )
 
 func TestContextWithRequestCounter(t *testing.T) {
-	parent := ContextWithRequestCounter(context.Background())
+	parent := ContextWithRequestCounter(t.Context())
 	assert.True(t, counterExists(parent), "parent context contains counter")
 	assert.Equal(t, uint32(0), GetRequestCount(parent), "parent context with counter is initialized to 0")
 

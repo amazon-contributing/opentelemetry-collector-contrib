@@ -412,11 +412,11 @@ func TestPathGetSetter(t *testing.T) {
 
 			tCtx := newTestContext(spanEvent)
 
-			got, err := accessor.Get(context.Background(), tCtx)
+			got, err := accessor.Get(t.Context(), tCtx)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.orig, got)
 
-			err = accessor.Set(context.Background(), tCtx, tt.newVal)
+			err = accessor.Set(t.Context(), tCtx, tt.newVal)
 			if tt.expectSetterError {
 				assert.Error(t, err)
 				return

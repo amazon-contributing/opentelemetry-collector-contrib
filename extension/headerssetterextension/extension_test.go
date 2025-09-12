@@ -35,7 +35,7 @@ func TestRoundTripper(t *testing.T) {
 			assert.NotNil(t, roundTripper)
 
 			ctx := client.NewContext(
-				context.Background(),
+				t.Context(),
 				client.Info{
 					Metadata: tt.metadata,
 				},
@@ -70,7 +70,7 @@ func TestPerRPCCredentials(t *testing.T) {
 			assert.NotNil(t, perRPC)
 
 			ctx := client.NewContext(
-				context.Background(),
+				t.Context(),
 				client.Info{Metadata: tt.metadata},
 			)
 

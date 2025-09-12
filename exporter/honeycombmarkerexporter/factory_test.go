@@ -30,7 +30,7 @@ func TestFactory_CreateLogs(t *testing.T) {
 		cfg.APIURL = defaultURL
 	})
 	params := exportertest.NewNopSettings(metadata.Type)
-	exporter, err := factory.CreateLogs(context.Background(), params, cfg)
+	exporter, err := factory.CreateLogs(t.Context(), params, cfg)
 	require.NoError(t, err)
 	require.NotNil(t, exporter)
 

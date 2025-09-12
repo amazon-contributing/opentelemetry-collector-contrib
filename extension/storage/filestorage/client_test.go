@@ -27,7 +27,7 @@ func TestClientOperations(t *testing.T) {
 		require.NoError(t, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	testKey := "testKey"
 	testValue := []byte("testValue")
 
@@ -65,7 +65,7 @@ func TestClientBatchOperations(t *testing.T) {
 		require.NoError(t, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	testSetEntries := []*storage.Operation{
 		storage.SetOperation("testKey1", []byte("testValue1")),
 		storage.SetOperation("testKey2", []byte("testValue2")),
@@ -142,7 +142,7 @@ func TestNewClientTransactionErrors(t *testing.T) {
 				return tx.DeleteBucket(defaultBucket)
 			},
 			validate: func(t *testing.T, c *fileStorageClient) {
-				value, err := c.Get(context.Background(), testKey)
+				value, err := c.Get(t.Context(), testKey)
 				require.Error(t, err)
 				require.Equal(t, "storage not initialized", err.Error())
 				require.Nil(t, value)
@@ -154,7 +154,7 @@ func TestNewClientTransactionErrors(t *testing.T) {
 				return tx.DeleteBucket(defaultBucket)
 			},
 			validate: func(t *testing.T, c *fileStorageClient) {
-				err := c.Set(context.Background(), testKey, testValue)
+				err := c.Set(t.Context(), testKey, testValue)
 				require.Error(t, err)
 				require.Equal(t, "storage not initialized", err.Error())
 			},
@@ -165,7 +165,7 @@ func TestNewClientTransactionErrors(t *testing.T) {
 				return tx.DeleteBucket(defaultBucket)
 			},
 			validate: func(t *testing.T, c *fileStorageClient) {
-				err := c.Delete(context.Background(), testKey)
+				err := c.Delete(t.Context(), testKey)
 				require.Error(t, err)
 				require.Equal(t, "storage not initialized", err.Error())
 			},
@@ -263,7 +263,7 @@ func TestClientReboundCompaction(t *testing.T) {
 			})
 
 			// 1. Fill up the database
-			ctx := context.Background()
+			ctx := t.Context()
 
 			entrySize := int64(400_000)
 
@@ -354,7 +354,7 @@ func TestClientConcurrentCompaction(t *testing.T) {
 		require.NoError(t, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Make sure the compaction conditions will be met by putting and deleting large chunk of data
 	batchWrite := []*storage.Operation{
@@ -410,7 +410,7 @@ func BenchmarkClientGet(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	testKey := "testKey"
 
 	b.ResetTimer()
@@ -430,7 +430,7 @@ func BenchmarkClientGet100(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	testEntries := make([]*storage.Operation, 100)
 	for i := 0; i < 100; i++ {
@@ -453,7 +453,7 @@ func BenchmarkClientSet(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	testKey := "testKey"
 	testValue := []byte("testValue")
 
@@ -472,7 +472,7 @@ func BenchmarkClientSet100(b *testing.B) {
 	b.Cleanup(func() {
 		require.NoError(b, client.Close(context.TODO()))
 	})
-	ctx := context.Background()
+	ctx := t.Context()
 
 	testEntries := make([]*storage.Operation, 100)
 	for i := 0; i < 100; i++ {
@@ -495,7 +495,7 @@ func BenchmarkClientDelete(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	testKey := "testKey"
 
 	b.ResetTimer()
@@ -521,7 +521,7 @@ func BenchmarkClientSetLargeDB(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for n := 0; n < entryCount; n++ {
 		testKey = fmt.Sprintf("testKey-%d", n)
@@ -558,7 +558,7 @@ func BenchmarkClientInitLargeDB(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for n := 0; n < entryCount; n++ {
 		testKey = fmt.Sprintf("testKey-%d", n)
@@ -595,7 +595,7 @@ func BenchmarkClientCompactLargeDBFile(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for n := 0; n < entryCount; n++ {
 		testKey = fmt.Sprintf("testKey-%d", n)
@@ -639,7 +639,7 @@ func BenchmarkClientCompactDb(b *testing.B) {
 		require.NoError(b, client.Close(context.TODO()))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for n := 0; n < entryCount; n++ {
 		testKey = fmt.Sprintf("testKey-%d", n)

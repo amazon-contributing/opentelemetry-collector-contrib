@@ -3,7 +3,6 @@
 package metadatatest
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,18 +19,18 @@ func TestSetupTelemetry(t *testing.T) {
 	tb, err := metadata.NewTelemetryBuilder(testTel.NewTelemetrySettings())
 	require.NoError(t, err)
 	defer tb.Shutdown()
-	tb.ProcessorTailSamplingCountSpansSampled.Add(context.Background(), 1)
-	tb.ProcessorTailSamplingCountTracesSampled.Add(context.Background(), 1)
-	tb.ProcessorTailSamplingEarlyReleasesFromCacheDecision.Add(context.Background(), 1)
-	tb.ProcessorTailSamplingGlobalCountTracesSampled.Add(context.Background(), 1)
-	tb.ProcessorTailSamplingNewTraceIDReceived.Add(context.Background(), 1)
-	tb.ProcessorTailSamplingSamplingDecisionLatency.Record(context.Background(), 1)
-	tb.ProcessorTailSamplingSamplingDecisionTimerLatency.Record(context.Background(), 1)
-	tb.ProcessorTailSamplingSamplingLateSpanAge.Record(context.Background(), 1)
-	tb.ProcessorTailSamplingSamplingPolicyEvaluationError.Add(context.Background(), 1)
-	tb.ProcessorTailSamplingSamplingTraceDroppedTooEarly.Add(context.Background(), 1)
-	tb.ProcessorTailSamplingSamplingTraceRemovalAge.Record(context.Background(), 1)
-	tb.ProcessorTailSamplingSamplingTracesOnMemory.Record(context.Background(), 1)
+	tb.ProcessorTailSamplingCountSpansSampled.Add(t.Context(), 1)
+	tb.ProcessorTailSamplingCountTracesSampled.Add(t.Context(), 1)
+	tb.ProcessorTailSamplingEarlyReleasesFromCacheDecision.Add(t.Context(), 1)
+	tb.ProcessorTailSamplingGlobalCountTracesSampled.Add(t.Context(), 1)
+	tb.ProcessorTailSamplingNewTraceIDReceived.Add(t.Context(), 1)
+	tb.ProcessorTailSamplingSamplingDecisionLatency.Record(t.Context(), 1)
+	tb.ProcessorTailSamplingSamplingDecisionTimerLatency.Record(t.Context(), 1)
+	tb.ProcessorTailSamplingSamplingLateSpanAge.Record(t.Context(), 1)
+	tb.ProcessorTailSamplingSamplingPolicyEvaluationError.Add(t.Context(), 1)
+	tb.ProcessorTailSamplingSamplingTraceDroppedTooEarly.Add(t.Context(), 1)
+	tb.ProcessorTailSamplingSamplingTraceRemovalAge.Record(t.Context(), 1)
+	tb.ProcessorTailSamplingSamplingTracesOnMemory.Record(t.Context(), 1)
 	AssertEqualProcessorTailSamplingCountSpansSampled(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -69,5 +68,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(context.Background()))
+	require.NoError(t, testTel.Shutdown(t.Context()))
 }

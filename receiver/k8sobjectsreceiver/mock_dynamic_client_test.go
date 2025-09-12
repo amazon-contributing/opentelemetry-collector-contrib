@@ -4,8 +4,6 @@
 package k8sobjectsreceiver
 
 import (
-	"context"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,7 +40,7 @@ func (c mockDynamicClient) createPods(objects ...*unstructured.Unstructured) {
 		Resource: "pods",
 	})
 	for _, pod := range objects {
-		_, _ = pods.Namespace(pod.GetNamespace()).Create(context.Background(), pod, v1.CreateOptions{})
+		_, _ = pods.Namespace(pod.GetNamespace()).Create(t.Context(), pod, v1.CreateOptions{})
 	}
 }
 
@@ -52,7 +50,7 @@ func (c mockDynamicClient) deletePods(objects ...*unstructured.Unstructured) {
 		Resource: "pods",
 	})
 	for _, pod := range objects {
-		_ = pods.Namespace(pod.GetNamespace()).Delete(context.Background(), pod.GetName(), v1.DeleteOptions{})
+		_ = pods.Namespace(pod.GetNamespace()).Delete(t.Context(), pod.GetName(), v1.DeleteOptions{})
 	}
 }
 

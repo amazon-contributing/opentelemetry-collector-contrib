@@ -30,7 +30,7 @@ func TestExtension_Start(t *testing.T) {
 				factory := NewFactory()
 				cfg := factory.CreateDefaultConfig()
 				cfg.(*Config).Protocol = "otlp_json"
-				return factory.Create(context.Background(), extensiontest.NewNopSettings(factory.Type()), cfg)
+				return factory.Create(t.Context(), extensiontest.NewNopSettings(factory.Type()), cfg)
 			},
 		},
 
@@ -40,7 +40,7 @@ func TestExtension_Start(t *testing.T) {
 				factory := NewFactory()
 				cfg := factory.CreateDefaultConfig()
 				cfg.(*Config).Protocol = "otlp_proto"
-				return factory.Create(context.Background(), extensiontest.NewNopSettings(factory.Type()), cfg)
+				return factory.Create(t.Context(), extensiontest.NewNopSettings(factory.Type()), cfg)
 			},
 		},
 	}
@@ -52,7 +52,7 @@ func TestExtension_Start(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			err = ext.Start(context.Background(), componenttest.NewNopHost())
+			err = ext.Start(t.Context(), componenttest.NewNopHost())
 			if test.expectedErr != "" && err != nil {
 				require.ErrorContains(t, err, test.expectedErr)
 			} else {

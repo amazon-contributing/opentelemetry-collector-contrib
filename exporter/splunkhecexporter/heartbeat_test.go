@@ -54,7 +54,7 @@ func assertHeartbeatInfoLog(t *testing.T, l plog.Logs) {
 
 func getMetricValue(reader *sdkmetric.ManualReader, name string) ([]int64, error) {
 	var md metricdata.ResourceMetrics
-	err := reader.Collect(context.Background(), &md)
+	err := reader.Collect(t.Context(), &md)
 	var ret []int64
 	for _, sm := range md.ScopeMetrics {
 		for _, m := range sm.Metrics {
@@ -69,7 +69,7 @@ func getMetricValue(reader *sdkmetric.ManualReader, name string) ([]int64, error
 
 func getAttributes(reader *sdkmetric.ManualReader, name string) ([]attribute.Set, error) {
 	var md metricdata.ResourceMetrics
-	err := reader.Collect(context.Background(), &md)
+	err := reader.Collect(t.Context(), &md)
 	var ret []attribute.Set
 	for _, sm := range md.ScopeMetrics {
 		for _, m := range sm.Metrics {

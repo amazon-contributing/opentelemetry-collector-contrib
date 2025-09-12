@@ -5,7 +5,6 @@ package jaegerreceiver
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -52,7 +51,7 @@ func TestTraceSource(t *testing.T) {
 }
 
 func jaegerBatchToHTTPBody(b *jaegerthrift.Batch) (*http.Request, error) {
-	body, err := thrift.NewTSerializer().Write(context.Background(), b)
+	body, err := thrift.NewTSerializer().Write(t.Context(), b)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +88,8 @@ func TestReception(t *testing.T) {
 	jr, err := newJaegerReceiver(jaegerReceiver, config, sink, set)
 	require.NoError(t, err)
 
-	require.NoError(t, jr.Start(context.Background(), componenttest.NewNopHost()))
-	t.Cleanup(func() { require.NoError(t, jr.Shutdown(context.Background())) })
+	require.NoError(t, jr.Start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() { require.NoError(t, jr.Shutdown(t.Context())) })
 
 	// 2. Then send spans to the Jaeger receiver.
 	_, port, _ := net.SplitHostPort(addr)
@@ -119,8 +118,8 @@ func TestPortsNotOpen(t *testing.T) {
 	jr, err := newJaegerReceiver(jaegerReceiver, config, sink, set)
 	require.NoError(t, err)
 
-	require.NoError(t, jr.Start(context.Background(), componenttest.NewNopHost()))
-	t.Cleanup(func() { require.NoError(t, jr.Shutdown(context.Background())) })
+	require.NoError(t, jr.Start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() { require.NoError(t, jr.Shutdown(t.Context())) })
 
 	// there is a race condition here that we're ignoring.
 	//  this test may occasionally pass incorrectly, but it will not fail incorrectly
@@ -154,8 +153,8 @@ func TestGRPCReception(t *testing.T) {
 	jr, err := newJaegerReceiver(jaegerReceiver, config, sink, set)
 	require.NoError(t, err)
 
-	require.NoError(t, jr.Start(context.Background(), componenttest.NewNopHost()))
-	t.Cleanup(func() { require.NoError(t, jr.Shutdown(context.Background())) })
+	require.NoError(t, jr.Start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() { require.NoError(t, jr.Shutdown(t.Context())) })
 
 	conn, err := grpc.NewClient(config.GRPC.NetAddr.Endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
@@ -171,7 +170,7 @@ func TestGRPCReception(t *testing.T) {
 
 	// test
 	req := grpcFixture(t, now, d10min, d2sec)
-	resp, err := cl.PostSpans(context.Background(), req, grpc.WaitForReady(true))
+	resp, err := cl.PostSpans(t.Context(), req, grpc.WaitForReady(true))
 
 	// verify
 	assert.NoError(t, err, "should not have failed to post spans")
@@ -212,8 +211,8 @@ func TestGRPCReceptionWithTLS(t *testing.T) {
 	jr, err := newJaegerReceiver(jaegerReceiver, config, sink, set)
 	require.NoError(t, err)
 
-	require.NoError(t, jr.Start(context.Background(), componenttest.NewNopHost()))
-	t.Cleanup(func() { require.NoError(t, jr.Shutdown(context.Background())) })
+	require.NoError(t, jr.Start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() { require.NoError(t, jr.Shutdown(t.Context())) })
 
 	creds, err := credentials.NewClientTLSFromFile(filepath.Join("testdata", "server.crt"), "localhost")
 	require.NoError(t, err)
@@ -231,7 +230,7 @@ func TestGRPCReceptionWithTLS(t *testing.T) {
 
 	// test
 	req := grpcFixture(t, now, d10min, d2sec)
-	resp, err := cl.PostSpans(context.Background(), req, grpc.WaitForReady(true))
+	resp, err := cl.PostSpans(t.Context(), req, grpc.WaitForReady(true))
 
 	// verify
 	assert.NoError(t, err, "should not have failed to post spans")
@@ -348,8 +347,8 @@ func TestSampling(t *testing.T) {
 	jr, err := newJaegerReceiver(jaegerReceiver, config, sink, set)
 	require.NoError(t, err)
 
-	require.NoError(t, jr.Start(context.Background(), componenttest.NewNopHost()))
-	t.Cleanup(func() { require.NoError(t, jr.Shutdown(context.Background())) })
+	require.NoError(t, jr.Start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() { require.NoError(t, jr.Shutdown(t.Context())) })
 
 	conn, err := grpc.NewClient(config.GRPC.NetAddr.Endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	assert.NoError(t, err)
@@ -357,7 +356,7 @@ func TestSampling(t *testing.T) {
 
 	cl := api_v2.NewSamplingManagerClient(conn)
 
-	resp, err := cl.GetSamplingStrategy(context.Background(), &api_v2.SamplingStrategyParameters{
+	resp, err := cl.GetSamplingStrategy(t.Context(), &api_v2.SamplingStrategyParameters{
 		ServiceName: "foo",
 	})
 	assert.Error(t, err, "expect: unknown service jaeger.api_v2.SamplingManager")
@@ -378,14 +377,14 @@ func TestConsumeThriftTrace(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		numSpans, err := consumeTraces(context.Background(), test.batch, consumertest.NewNop())
+		numSpans, err := consumeTraces(t.Context(), test.batch, consumertest.NewNop())
 		require.NoError(t, err)
 		assert.Equal(t, test.numSpans, numSpans)
 	}
 }
 
 func sendToCollector(endpoint string, batch *jaegerthrift.Batch) error {
-	buf, err := thrift.NewTSerializer().Write(context.Background(), batch)
+	buf, err := thrift.NewTSerializer().Write(t.Context(), batch)
 	if err != nil {
 		return err
 	}

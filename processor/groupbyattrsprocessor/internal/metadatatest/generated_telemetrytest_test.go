@@ -3,7 +3,6 @@
 package metadatatest
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,15 +19,15 @@ func TestSetupTelemetry(t *testing.T) {
 	tb, err := metadata.NewTelemetryBuilder(testTel.NewTelemetrySettings())
 	require.NoError(t, err)
 	defer tb.Shutdown()
-	tb.ProcessorGroupbyattrsLogGroups.Record(context.Background(), 1)
-	tb.ProcessorGroupbyattrsMetricGroups.Record(context.Background(), 1)
-	tb.ProcessorGroupbyattrsNumGroupedLogs.Add(context.Background(), 1)
-	tb.ProcessorGroupbyattrsNumGroupedMetrics.Add(context.Background(), 1)
-	tb.ProcessorGroupbyattrsNumGroupedSpans.Add(context.Background(), 1)
-	tb.ProcessorGroupbyattrsNumNonGroupedLogs.Add(context.Background(), 1)
-	tb.ProcessorGroupbyattrsNumNonGroupedMetrics.Add(context.Background(), 1)
-	tb.ProcessorGroupbyattrsNumNonGroupedSpans.Add(context.Background(), 1)
-	tb.ProcessorGroupbyattrsSpanGroups.Record(context.Background(), 1)
+	tb.ProcessorGroupbyattrsLogGroups.Record(t.Context(), 1)
+	tb.ProcessorGroupbyattrsMetricGroups.Record(t.Context(), 1)
+	tb.ProcessorGroupbyattrsNumGroupedLogs.Add(t.Context(), 1)
+	tb.ProcessorGroupbyattrsNumGroupedMetrics.Add(t.Context(), 1)
+	tb.ProcessorGroupbyattrsNumGroupedSpans.Add(t.Context(), 1)
+	tb.ProcessorGroupbyattrsNumNonGroupedLogs.Add(t.Context(), 1)
+	tb.ProcessorGroupbyattrsNumNonGroupedMetrics.Add(t.Context(), 1)
+	tb.ProcessorGroupbyattrsNumNonGroupedSpans.Add(t.Context(), 1)
+	tb.ProcessorGroupbyattrsSpanGroups.Record(t.Context(), 1)
 	AssertEqualProcessorGroupbyattrsLogGroups(t, testTel,
 		[]metricdata.HistogramDataPoint[int64]{{}}, metricdatatest.IgnoreValue(),
 		metricdatatest.IgnoreTimestamp())
@@ -57,5 +56,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.HistogramDataPoint[int64]{{}}, metricdatatest.IgnoreValue(),
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(context.Background()))
+	require.NoError(t, testTel.Shutdown(t.Context()))
 }

@@ -26,7 +26,7 @@ func TestEndToEnd(t *testing.T) {
 	numEntries := 123_456
 	numHosts := 4
 
-	ctx := context.Background()
+	ctx := t.Context()
 	f := NewFactory(BenchReceiverType{}, component.StabilityLevelUndefined)
 	cfg := f.CreateDefaultConfig().(*BenchConfig)
 	cfg.NumEntries = numEntries
@@ -36,9 +36,9 @@ func TestEndToEnd(t *testing.T) {
 	rcvr, err := f.CreateLogs(ctx, receivertest.NewNopSettings(f.Type()), cfg, sink)
 	require.NoError(t, err)
 
-	require.NoError(t, rcvr.Start(context.Background(), componenttest.NewNopHost()))
+	require.NoError(t, rcvr.Start(t.Context(), componenttest.NewNopHost()))
 	defer func() {
-		require.NoError(t, rcvr.Shutdown(context.Background()))
+		require.NoError(t, rcvr.Shutdown(t.Context()))
 	}()
 	require.Eventually(t, func() bool {
 		return sink.LogRecordCount() == numEntries
@@ -60,14 +60,14 @@ func (bc benchCase) run(b *testing.B) {
 		cfg.NumHosts = numHosts
 		sink := new(consumertest.LogsSink)
 
-		rcvr, err := f.CreateLogs(context.Background(), receivertest.NewNopSettings(f.Type()), cfg, sink)
+		rcvr, err := f.CreateLogs(t.Context(), receivertest.NewNopSettings(f.Type()), cfg, sink)
 		require.NoError(b, err)
 
 		b.ReportAllocs()
 
-		require.NoError(b, rcvr.Start(context.Background(), componenttest.NewNopHost()))
+		require.NoError(b, rcvr.Start(t.Context(), componenttest.NewNopHost()))
 		defer func() {
-			require.NoError(b, rcvr.Shutdown(context.Background()))
+			require.NoError(b, rcvr.Shutdown(t.Context()))
 		}()
 		require.Eventually(b, func() bool {
 			return sink.LogRecordCount() == numEntries
@@ -178,7 +178,7 @@ type Input struct {
 
 // Start will start generating log entries.
 func (b *Input) Start(_ operator.Persister) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	b.cancel = cancel
 
 	b.wg.Add(1)

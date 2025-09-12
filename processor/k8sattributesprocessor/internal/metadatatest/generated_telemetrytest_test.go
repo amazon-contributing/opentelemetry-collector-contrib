@@ -3,7 +3,6 @@
 package metadatatest
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,20 +19,20 @@ func TestSetupTelemetry(t *testing.T) {
 	tb, err := metadata.NewTelemetryBuilder(testTel.NewTelemetrySettings())
 	require.NoError(t, err)
 	defer tb.Shutdown()
-	tb.OtelsvcK8sIPLookupMiss.Add(context.Background(), 1)
-	tb.OtelsvcK8sNamespaceAdded.Add(context.Background(), 1)
-	tb.OtelsvcK8sNamespaceDeleted.Add(context.Background(), 1)
-	tb.OtelsvcK8sNamespaceUpdated.Add(context.Background(), 1)
-	tb.OtelsvcK8sNodeAdded.Add(context.Background(), 1)
-	tb.OtelsvcK8sNodeDeleted.Add(context.Background(), 1)
-	tb.OtelsvcK8sNodeUpdated.Add(context.Background(), 1)
-	tb.OtelsvcK8sPodAdded.Add(context.Background(), 1)
-	tb.OtelsvcK8sPodDeleted.Add(context.Background(), 1)
-	tb.OtelsvcK8sPodTableSize.Record(context.Background(), 1)
-	tb.OtelsvcK8sPodUpdated.Add(context.Background(), 1)
-	tb.OtelsvcK8sReplicasetAdded.Add(context.Background(), 1)
-	tb.OtelsvcK8sReplicasetDeleted.Add(context.Background(), 1)
-	tb.OtelsvcK8sReplicasetUpdated.Add(context.Background(), 1)
+	tb.OtelsvcK8sIPLookupMiss.Add(t.Context(), 1)
+	tb.OtelsvcK8sNamespaceAdded.Add(t.Context(), 1)
+	tb.OtelsvcK8sNamespaceDeleted.Add(t.Context(), 1)
+	tb.OtelsvcK8sNamespaceUpdated.Add(t.Context(), 1)
+	tb.OtelsvcK8sNodeAdded.Add(t.Context(), 1)
+	tb.OtelsvcK8sNodeDeleted.Add(t.Context(), 1)
+	tb.OtelsvcK8sNodeUpdated.Add(t.Context(), 1)
+	tb.OtelsvcK8sPodAdded.Add(t.Context(), 1)
+	tb.OtelsvcK8sPodDeleted.Add(t.Context(), 1)
+	tb.OtelsvcK8sPodTableSize.Record(t.Context(), 1)
+	tb.OtelsvcK8sPodUpdated.Add(t.Context(), 1)
+	tb.OtelsvcK8sReplicasetAdded.Add(t.Context(), 1)
+	tb.OtelsvcK8sReplicasetDeleted.Add(t.Context(), 1)
+	tb.OtelsvcK8sReplicasetUpdated.Add(t.Context(), 1)
 	AssertEqualOtelsvcK8sIPLookupMiss(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -77,5 +76,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(context.Background()))
+	require.NoError(t, testTel.Shutdown(t.Context()))
 }

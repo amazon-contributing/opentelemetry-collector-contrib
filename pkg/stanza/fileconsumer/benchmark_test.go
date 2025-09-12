@@ -329,10 +329,10 @@ func BenchmarkConsumeFiles(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for len(consumePaths) > op.maxBatchFiles {
-				op.consume(context.Background(), consumePaths[:op.maxBatchFiles])
+				op.consume(t.Context(), consumePaths[:op.maxBatchFiles])
 				consumePaths = consumePaths[op.maxBatchFiles:]
 			}
-			op.consume(context.Background(), consumePaths)
+			op.consume(t.Context(), consumePaths)
 			<-doneChan
 		})
 	}

@@ -4,7 +4,6 @@
 package stores // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -229,7 +228,7 @@ func constructPodResourcesStore(containerToDevices map[ContainerInfo][]ResourceI
 		resourceToPodContainerMap:   deviceToContainer,
 		resourceNameSet:             resourceNameSet,
 		lastRefreshed:               time.Now(),
-		ctx:                         context.Background(),
+		ctx:                         t.Context(),
 		cancel:                      func() {},
 		logger:                      logger,
 		podResourcesClient:          &MockPodResourcesClient{podResourcesResponse, podResourcesError, false},

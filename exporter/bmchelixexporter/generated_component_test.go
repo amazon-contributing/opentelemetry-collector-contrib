@@ -54,16 +54,16 @@ func TestComponentLifecycle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name+"-shutdown", func(t *testing.T) {
-			c, err := tt.createFn(context.Background(), exportertest.NewNopSettings(typ), cfg)
+			c, err := tt.createFn(t.Context(), exportertest.NewNopSettings(typ), cfg)
 			require.NoError(t, err)
-			err = c.Shutdown(context.Background())
+			err = c.Shutdown(t.Context())
 			require.NoError(t, err)
 		})
 		t.Run(tt.name+"-lifecycle", func(t *testing.T) {
-			c, err := tt.createFn(context.Background(), exportertest.NewNopSettings(typ), cfg)
+			c, err := tt.createFn(t.Context(), exportertest.NewNopSettings(typ), cfg)
 			require.NoError(t, err)
 			host := componenttest.NewNopHost()
-			err = c.Start(context.Background(), host)
+			err = c.Start(t.Context(), host)
 			require.NoError(t, err)
 			require.NotPanics(t, func() {
 				switch tt.name {
@@ -74,7 +74,7 @@ func TestComponentLifecycle(t *testing.T) {
 					if !e.Capabilities().MutatesData {
 						logs.MarkReadOnly()
 					}
-					err = e.ConsumeLogs(context.Background(), logs)
+					err = e.ConsumeLogs(t.Context(), logs)
 				case "metrics":
 					e, ok := c.(exporter.Metrics)
 					require.True(t, ok)
@@ -82,7 +82,7 @@ func TestComponentLifecycle(t *testing.T) {
 					if !e.Capabilities().MutatesData {
 						metrics.MarkReadOnly()
 					}
-					err = e.ConsumeMetrics(context.Background(), metrics)
+					err = e.ConsumeMetrics(t.Context(), metrics)
 				case "traces":
 					e, ok := c.(exporter.Traces)
 					require.True(t, ok)
@@ -90,13 +90,13 @@ func TestComponentLifecycle(t *testing.T) {
 					if !e.Capabilities().MutatesData {
 						traces.MarkReadOnly()
 					}
-					err = e.ConsumeTraces(context.Background(), traces)
+					err = e.ConsumeTraces(t.Context(), traces)
 				}
 			})
 
 			require.NoError(t, err)
 
-			err = c.Shutdown(context.Background())
+			err = c.Shutdown(t.Context())
 			require.NoError(t, err)
 		})
 	}

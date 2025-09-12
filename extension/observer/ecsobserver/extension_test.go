@@ -63,7 +63,7 @@ func TestExtensionStartStop(t *testing.T) {
 		statusEventChan := make(chan *componentstatus.Event)
 		ext, err := createExtensionWithFetcher(cs, sdCfg, f)
 		require.NoError(t, err)
-		err = ext.Start(context.Background(), &nopHost{
+		err = ext.Start(t.Context(), &nopHost{
 			reportFunc: func(e *componentstatus.Event) {
 				statusEventChan <- e
 			},

@@ -44,7 +44,7 @@ func newStreamTestCase(t *testing.T, pname PrioritizerName) *streamTestCase {
 	ctrl := gomock.NewController(t)
 	producer := arrowRecordMock.NewMockProducerAPI(ctrl)
 
-	bg, dc := newDoneCancel(context.Background())
+	bg, dc := newDoneCancel(t.Context())
 	prio, state := newStreamPrioritizer(dc, pname, 1, 10*time.Second)
 
 	ctc := newCommonTestCase(t, NotNoisy)
@@ -125,10 +125,10 @@ func (tc *streamTestCase) mustGet() streamWriter {
 }
 
 func (tc *streamTestCase) mustSendAndWait() error {
-	ctx := context.Background()
+	ctx := t.Context()
 	ch := make(chan error, 1)
 	wri := writeItem{
-		producerCtx: context.Background(),
+		producerCtx: t.Context(),
 		records:     twoTraces,
 		errCh:       ch,
 	}

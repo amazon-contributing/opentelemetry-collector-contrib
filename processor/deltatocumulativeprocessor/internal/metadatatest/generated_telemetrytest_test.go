@@ -25,9 +25,9 @@ func TestSetupTelemetry(t *testing.T) {
 		observer.Observe(1)
 		return nil
 	}))
-	tb.DeltatocumulativeDatapoints.Add(context.Background(), 1)
-	tb.DeltatocumulativeStreamsLimit.Record(context.Background(), 1)
-	tb.DeltatocumulativeStreamsMaxStale.Record(context.Background(), 1)
+	tb.DeltatocumulativeDatapoints.Add(t.Context(), 1)
+	tb.DeltatocumulativeStreamsLimit.Record(t.Context(), 1)
+	tb.DeltatocumulativeStreamsMaxStale.Record(t.Context(), 1)
 	AssertEqualDeltatocumulativeDatapoints(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -41,5 +41,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(context.Background()))
+	require.NoError(t, testTel.Shutdown(t.Context()))
 }

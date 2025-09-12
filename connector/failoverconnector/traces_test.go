@@ -3,7 +3,6 @@
 
 package failoverconnector // import "github.com/open-telemetry/opentelemetry-collector-contrib/connector/failoverconnector"
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -39,12 +38,12 @@ func TestTracesRegisterConsumers(t *testing.T) {
 		tracesThird:  &sinkThird,
 	})
 
-	conn, err := NewFactory().CreateTracesToTraces(context.Background(),
+	conn, err := NewFactory().CreateTracesToTraces(t.Context(),
 		connectortest.NewNopSettings(metadata.Type), cfg, router.(consumer.Traces))
 
 	failoverConnector := conn.(*tracesFailover)
 	defer func() {
-		assert.NoError(t, failoverConnector.Shutdown(context.Background()))
+		assert.NoError(t, failoverConnector.Shutdown(t.Context()))
 	}()
 
 	require.NoError(t, err)
@@ -78,7 +77,7 @@ func TestTracesWithValidFailover(t *testing.T) {
 		tracesThird:  &sinkThird,
 	})
 
-	conn, err := NewFactory().CreateTracesToTraces(context.Background(),
+	conn, err := NewFactory().CreateTracesToTraces(t.Context(),
 		connectortest.NewNopSettings(metadata.Type), cfg, router.(consumer.Traces))
 
 	require.NoError(t, err)
@@ -86,7 +85,7 @@ func TestTracesWithValidFailover(t *testing.T) {
 	failoverConnector := conn.(*tracesFailover)
 	failoverConnector.failover.ModifyConsumerAtIndex(0, consumertest.NewErr(errTracesConsumer))
 	defer func() {
-		assert.NoError(t, failoverConnector.Shutdown(context.Background()))
+		assert.NoError(t, failoverConnector.Shutdown(t.Context()))
 	}()
 
 	tr := sampleTrace()
@@ -114,7 +113,7 @@ func TestTracesWithFailoverError(t *testing.T) {
 		tracesThird:  &sinkThird,
 	})
 
-	conn, err := NewFactory().CreateTracesToTraces(context.Background(),
+	conn, err := NewFactory().CreateTracesToTraces(t.Context(),
 		connectortest.NewNopSettings(metadata.Type), cfg, router.(consumer.Traces))
 
 	require.NoError(t, err)
@@ -124,16 +123,16 @@ func TestTracesWithFailoverError(t *testing.T) {
 	failoverConnector.failover.ModifyConsumerAtIndex(1, consumertest.NewErr(errTracesConsumer))
 	failoverConnector.failover.ModifyConsumerAtIndex(2, consumertest.NewErr(errTracesConsumer))
 	defer func() {
-		assert.NoError(t, failoverConnector.Shutdown(context.Background()))
+		assert.NoError(t, failoverConnector.Shutdown(t.Context()))
 	}()
 
 	tr := sampleTrace()
 
-	assert.EqualError(t, conn.ConsumeTraces(context.Background(), tr), "All provided pipelines return errors")
+	assert.EqualError(t, conn.ConsumeTraces(t.Context(), tr), "All provided pipelines return errors")
 }
 
 func consumeTracesAndCheckStable(conn *tracesFailover, idx int, tr ptrace.Traces) bool {
-	_ = conn.ConsumeTraces(context.Background(), tr)
+	_ = conn.ConsumeTraces(t.Context(), tr)
 	stableIndex := conn.failover.pS.CurrentPipeline()
 	return stableIndex == idx
 }

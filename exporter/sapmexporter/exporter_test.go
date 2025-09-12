@@ -44,7 +44,7 @@ func TestCreateTraces(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, te, "failed to create trace exporter")
 
-	assert.NoError(t, te.Shutdown(context.Background()), "trace exporter shutdown failed")
+	assert.NoError(t, te.Shutdown(t.Context()), "trace exporter shutdown failed")
 }
 
 func buildTestTraces(setTokenLabel bool) (traces ptrace.Traces) {
@@ -205,7 +205,7 @@ func TestSAPMClientTokenUsageAndErrorMarshalling(t *testing.T) {
 
 			trace, testTraceErr := buildTestTrace()
 			require.NoError(t, testTraceErr)
-			err = se.pushTraceData(context.Background(), trace)
+			err = se.pushTraceData(t.Context(), trace)
 
 			if tt.sendError {
 				require.Error(t, err)
@@ -274,7 +274,7 @@ func TestSAPMClientTokenAccess(t *testing.T) {
 			trace, testTraceErr := buildTestTrace()
 			require.NoError(t, testTraceErr)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			if tt.inContext {
 				ctx = client.NewContext(
 					ctx,
@@ -393,7 +393,7 @@ func TestCompression(t *testing.T) {
 
 				trace, testTraceErr := buildTestTrace()
 				require.NoError(t, testTraceErr)
-				err = se.pushTraceData(context.Background(), trace)
+				err = se.pushTraceData(t.Context(), trace)
 				require.NoError(t, err)
 			},
 		)

@@ -69,9 +69,9 @@ func TestComponentLifecycle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name+"-shutdown", func(t *testing.T) {
-			c, err := tt.createFn(context.Background(), processortest.NewNopSettings(typ), cfg)
+			c, err := tt.createFn(t.Context(), processortest.NewNopSettings(typ), cfg)
 			require.NoError(t, err)
-			err = c.Shutdown(context.Background())
+			err = c.Shutdown(t.Context())
 			require.NoError(t, err)
 		})
 	}

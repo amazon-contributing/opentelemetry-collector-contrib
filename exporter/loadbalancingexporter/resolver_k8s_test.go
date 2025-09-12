@@ -68,7 +68,7 @@ func TestK8sResolve(t *testing.T) {
 		res, err := newK8sResolver(cl, zap.NewNop(), service, ports, defaultListWatchTimeout, returnHostnames, tb)
 		require.NoError(t, err)
 
-		require.NoError(t, res.start(context.Background()))
+		require.NoError(t, res.start(t.Context()))
 		// verify endpoints should be the same as expectInit
 		assert.NoError(t, err)
 		assert.Equal(t, expectInit, res.Endpoints())
@@ -78,7 +78,7 @@ func TestK8sResolve(t *testing.T) {
 				clientset: cl,
 				resolver:  res,
 			}, func(*testing.T) {
-				require.NoError(t, res.shutdown(context.Background()))
+				require.NoError(t, res.shutdown(t.Context()))
 			}
 	}
 	tests := []struct {
@@ -111,7 +111,7 @@ func TestK8sResolve(t *testing.T) {
 				return err
 			},
 			verifyFn: func(ctx *suiteContext, _ args) error {
-				if _, err := ctx.resolver.resolve(context.Background()); err != nil {
+				if _, err := ctx.resolver.resolve(t.Context()); err != nil {
 					return err
 				}
 
@@ -148,7 +148,7 @@ func TestK8sResolve(t *testing.T) {
 				assert.Fail(t, "should not call onChange")
 			},
 			verifyFn: func(ctx *suiteContext, _ args) error {
-				if _, err := ctx.resolver.resolve(context.Background()); err != nil {
+				if _, err := ctx.resolver.resolve(t.Context()); err != nil {
 					return err
 				}
 
@@ -184,7 +184,7 @@ func TestK8sResolve(t *testing.T) {
 				return err
 			},
 			verifyFn: func(ctx *suiteContext, _ args) error {
-				if _, err := ctx.resolver.resolve(context.Background()); err != nil {
+				if _, err := ctx.resolver.resolve(t.Context()); err != nil {
 					return err
 				}
 
@@ -221,7 +221,7 @@ func TestK8sResolve(t *testing.T) {
 				return err
 			},
 			verifyFn: func(ctx *suiteContext, _ args) error {
-				if _, err := ctx.resolver.resolve(context.Background()); err != nil {
+				if _, err := ctx.resolver.resolve(t.Context()); err != nil {
 					return err
 				}
 
@@ -245,7 +245,7 @@ func TestK8sResolve(t *testing.T) {
 					Delete(context.TODO(), args.service, metav1.DeleteOptions{})
 			},
 			verifyFn: func(suiteCtx *suiteContext, _ args) error {
-				if _, err := suiteCtx.resolver.resolve(context.Background()); err != nil {
+				if _, err := suiteCtx.resolver.resolve(t.Context()); err != nil {
 					return err
 				}
 				assert.Empty(t, suiteCtx.resolver.Endpoints(), "resolver failed, endpoints should empty")
