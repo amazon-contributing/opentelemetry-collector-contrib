@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/exporter/logzioexporter
 
-go 1.23.7
+go 1.24.6
 
 require (
 	github.com/gogo/protobuf v1.3.2

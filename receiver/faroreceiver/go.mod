@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/faroreceiver
 
-go 1.23.3
+go 1.24.6
 
 require (
 	github.com/stretchr/testify v1.10.0
