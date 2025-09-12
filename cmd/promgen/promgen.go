@@ -20,6 +20,19 @@ func main() {
 	start := time.Now()
 	generator := NewGenerator()
 
+	untypedMetric := MetricDefinition{
+		Name: "untyped_metric",
+		Type: TypeUntyped,
+		Help: "An untyped metric that always returns 42",
+		Update: func(collector prometheus.Collector, timestamp time.Time) error {
+			return nil
+		},
+	}
+
+	if err := generator.AddMetric(untypedMetric); err != nil {
+		log.Fatalf("unable to add metric: %v", err)
+	}
+
 	monotonicCounter := MetricDefinition{
 		Name: "monotonic_counter",
 		Type: TypeCounter,
