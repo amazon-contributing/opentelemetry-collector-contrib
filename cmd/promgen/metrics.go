@@ -151,6 +151,18 @@ func (g *Generator) serveProtobuf(w http.ResponseWriter, r *http.Request) {
 
 func (g *Generator) defaultCollector(def MetricDefinition) (prometheus.Collector, error) {
 	switch def.Type {
+	case TypeUntyped:
+		return prometheus.NewUntypedFunc(
+			prometheus.UntypedOpts{
+				Name: "my_untyped_metric",
+				Help: "An example of an untyped metric.",
+			},
+			func() float64 {
+				// This function will be called whenever Prometheus scrapes
+				// the metric, returning the current value.
+				return 42.0 // Example value
+			},
+		), nil
 	case TypeCounter:
 		return prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -198,7 +210,6 @@ func (g *Generator) defaultCollector(def MetricDefinition) (prometheus.Collector
 			},
 			def.Labels,
 		), nil
-
 	default:
 		return nil, fmt.Errorf("unsupported metric type: %s", def.Type)
 	}
