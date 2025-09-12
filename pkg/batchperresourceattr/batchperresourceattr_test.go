@@ -465,7 +465,7 @@ func BenchmarkBatchPerResourceTraces(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := bpr.ConsumeTraces(t.Context(), inBatch); err != nil {
+		if err := bpr.ConsumeTraces(b.Context(), inBatch); err != nil {
 			b.Fail()
 		}
 	}
@@ -481,7 +481,7 @@ func BenchmarkBatchPerResourceMetrics(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := bpr.ConsumeMetrics(t.Context(), inBatch); err != nil {
+		if err := bpr.ConsumeMetrics(b.Context(), inBatch); err != nil {
 			b.Fail()
 		}
 	}
@@ -497,7 +497,7 @@ func BenchmarkBatchPerResourceLogs(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := bpr.ConsumeLogs(t.Context(), inBatch); err != nil {
+		if err := bpr.ConsumeLogs(b.Context(), inBatch); err != nil {
 			b.Fail()
 		}
 	}
