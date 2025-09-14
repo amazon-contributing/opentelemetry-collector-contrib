@@ -3,7 +3,6 @@
 
 package otlpencodingextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding/otlpencodingextension"
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -141,7 +140,7 @@ func TestOTLPProtoUnmarshal(t *testing.T) {
 func createAndExtension0(t *testing.T, c *Config) *otlpExtension {
 	ex, err := newExtension(c)
 	require.NoError(t, err)
-	err = ex.Start(context.TODO(), nil)
+	err = ex.Start(t.Context(), nil)
 	require.NoError(t, err)
 	return ex
 }

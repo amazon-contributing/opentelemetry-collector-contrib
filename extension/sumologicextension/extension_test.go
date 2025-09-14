@@ -1519,7 +1519,7 @@ func TestUpdateMetadataRequestPayload(t *testing.T) {
 	httpClient, err := se.getHTTPClient(t.Context(), se.conf.ClientConfig, api.OpenRegisterResponsePayload{})
 	require.NoError(t, err)
 
-	err = se.updateMetadataWithHTTPClient(context.TODO(), httpClient)
+	err = se.updateMetadataWithHTTPClient(t.Context(), httpClient)
 	require.NoError(t, err)
 }
 

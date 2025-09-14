@@ -4,7 +4,6 @@
 package ecsobserver
 
 import (
-	"context"
 	"runtime"
 	"testing"
 	"time"
@@ -44,12 +43,12 @@ func TestExtensionStartStop(t *testing.T) {
 		c := ecsmock.NewCluster()
 		ext := createTestExt(c, "testdata/ut_ext_noop.actual.yaml")
 		require.IsType(t, &ecsObserver{}, ext)
-		require.NoError(t, ext.Start(context.TODO(), &nopHost{
+		require.NoError(t, ext.Start(t.Context(), &nopHost{
 			reportFunc: func(event *componentstatus.Event) {
 				require.NoError(t, event.Err())
 			},
 		}))
-		require.NoError(t, ext.Shutdown(context.TODO()))
+		require.NoError(t, ext.Shutdown(t.Context()))
 	})
 
 	t.Run("critical error", func(t *testing.T) {

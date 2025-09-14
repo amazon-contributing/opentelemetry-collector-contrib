@@ -4,7 +4,6 @@
 package sdktest
 
 import (
-	"context"
 	"fmt"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -66,7 +65,7 @@ updown not.exist:
 	mr := sdk.NewManualReader()
 	meter := sdk.NewMeterProvider(sdk.WithReader(mr)).Meter("test")
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
 	gauge, _ := meter.Int64Gauge("streams.tracked")
 	gauge.Record(ctx, 40)

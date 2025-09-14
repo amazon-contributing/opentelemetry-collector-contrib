@@ -151,7 +151,7 @@ func TestDetectResource_Error_ContextDeadline_WithErrPropagation(t *testing.T) {
 	p := NewResourceProvider(zap.NewNop(), time.Second, nil, md1, md2)
 
 	var cancel context.CancelFunc
-	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 
 	_, _, err = p.Get(ctx, &http.Client{Timeout: 10 * time.Second})
@@ -170,7 +170,7 @@ func TestDetectResource_Error_ContextDeadline_WithoutErrPropagation(t *testing.T
 	p := NewResourceProvider(zap.NewNop(), time.Second, nil, md1, md2)
 
 	var cancel context.CancelFunc
-	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 
 	_, _, err := p.Get(ctx, &http.Client{Timeout: 10 * time.Second})

@@ -4,7 +4,6 @@
 package filestorage
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -523,7 +522,7 @@ func TestCompactionOnStart(t *testing.T) {
 	t.Cleanup(func() {
 		// At least one compaction should have happened on start
 		require.GreaterOrEqual(t, len(logObserver.FilterMessage("finished compaction").All()), 1)
-		require.NoError(t, client.Close(context.TODO()))
+		require.NoError(t, client.Close(t.Context()))
 	})
 }
 
