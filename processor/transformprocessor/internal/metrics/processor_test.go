@@ -4,7 +4,6 @@
 package metrics
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"

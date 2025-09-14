@@ -199,7 +199,7 @@ func BenchmarkForTracesExporter(tb *testing.B) {
 	traceExporter := initializeTracesExporter(tb, generateConfig(tb), telemetrytest.NewNopRegistry())
 	for i := 0; i < tb.N; i++ {
 		tb.StopTimer()
-		ctx := t.Context()
+		ctx := tb.Context()
 		td := constructSpanData()
 		tb.StartTimer()
 		err := traceExporter.ConsumeTraces(ctx, td)
@@ -222,7 +222,7 @@ func initializeTracesExporter(tb testing.TB, exporterConfig *Config, registry te
 	if err != nil {
 		panic(err)
 	}
-	err = traceExporter.Start(t.Context(), &mockHost{})
+	err = traceExporter.Start(tb.Context(), &mockHost{})
 	if err != nil {
 		panic(err)
 	}

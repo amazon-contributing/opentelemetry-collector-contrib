@@ -143,7 +143,7 @@ func TestLogsConsumer_Errors(t *testing.T) {
 				unmarshaler: unmarshalertest.NewErrLogs(testCase.unmarshalerErr),
 				consumer:    consumertest.NewErr(testCase.consumerErr),
 			}
-			gotStatus, gotErr := lc.Consume(context.TODO(), newNextRecordFunc([][]byte{{}}), nil)
+			gotStatus, gotErr := lc.Consume(t.Context(), newNextRecordFunc([][]byte{{}}), nil)
 			require.Equal(t, testCase.wantStatus, gotStatus)
 			require.Equal(t, testCase.wantErr, gotErr)
 		})
@@ -159,7 +159,7 @@ func TestLogsConsumer(t *testing.T) {
 			unmarshaler: unmarshalertest.NewWithLogs(base),
 			consumer:    &rc,
 		}
-		gotStatus, gotErr := lc.Consume(context.TODO(), newNextRecordFunc([][]byte{{}}), map[string]string{
+		gotStatus, gotErr := lc.Consume(t.Context(), newNextRecordFunc([][]byte{{}}), map[string]string{
 			"CommonAttributes": "Test",
 		})
 		require.Equal(t, http.StatusOK, gotStatus)

@@ -5,7 +5,6 @@ package sapmexporter
 
 import (
 	"compress/gzip"
-	"context"
 	"crypto/rand"
 	"fmt"
 	"io"

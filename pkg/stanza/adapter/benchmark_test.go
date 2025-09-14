@@ -60,14 +60,14 @@ func (bc benchCase) run(b *testing.B) {
 		cfg.NumHosts = numHosts
 		sink := new(consumertest.LogsSink)
 
-		rcvr, err := f.CreateLogs(t.Context(), receivertest.NewNopSettings(f.Type()), cfg, sink)
+		rcvr, err := f.CreateLogs(b.Context(), receivertest.NewNopSettings(f.Type()), cfg, sink)
 		require.NoError(b, err)
 
 		b.ReportAllocs()
 
-		require.NoError(b, rcvr.Start(t.Context(), componenttest.NewNopHost()))
+		require.NoError(b, rcvr.Start(b.Context(), componenttest.NewNopHost()))
 		defer func() {
-			require.NoError(b, rcvr.Shutdown(t.Context()))
+			require.NoError(b, rcvr.Shutdown(b.Context()))
 		}()
 		require.Eventually(b, func() bool {
 			return sink.LogRecordCount() == numEntries
@@ -178,7 +178,7 @@ type Input struct {
 
 // Start will start generating log entries.
 func (b *Input) Start(_ operator.Persister) error {
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(context.Background())
 	b.cancel = cancel
 
 	b.wg.Add(1)

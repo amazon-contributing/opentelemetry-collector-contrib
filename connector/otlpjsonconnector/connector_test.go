@@ -188,30 +188,30 @@ func BenchmarkConsumeLogs(b *testing.B) {
 	factory := NewFactory()
 	// initialize log -> log connector
 	logsink := &consumertest.LogsSink{}
-	logscon, _ := factory.CreateLogsToLogs(t.Context(),
+	logscon, _ := factory.CreateLogsToLogs(b.Context(),
 		connectortest.NewNopSettings(metadata.Type), createDefaultConfig(), logsink)
 
-	require.NoError(b, logscon.Start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(b, logscon.Start(b.Context(), componenttest.NewNopHost()))
 	defer func() {
-		assert.NoError(b, logscon.Shutdown(t.Context()))
+		assert.NoError(b, logscon.Shutdown(b.Context()))
 	}()
 
 	// initialize log -> traces connector
 	tracesink := &consumertest.TracesSink{}
-	traceconn, _ := factory.CreateLogsToTraces(t.Context(),
+	traceconn, _ := factory.CreateLogsToTraces(b.Context(),
 		connectortest.NewNopSettings(metadata.Type), createDefaultConfig(), tracesink)
-	require.NoError(b, traceconn.Start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(b, traceconn.Start(b.Context(), componenttest.NewNopHost()))
 	defer func() {
-		assert.NoError(b, traceconn.Shutdown(t.Context()))
+		assert.NoError(b, traceconn.Shutdown(b.Context()))
 	}()
 
 	// initialize log -> metric connector
 	metricsink := &consumertest.MetricsSink{}
-	metricconn, _ := factory.CreateLogsToMetrics(t.Context(),
+	metricconn, _ := factory.CreateLogsToMetrics(b.Context(),
 		connectortest.NewNopSettings(metadata.Type), createDefaultConfig(), metricsink)
-	require.NoError(b, metricconn.Start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(b, metricconn.Start(b.Context(), componenttest.NewNopHost()))
 	defer func() {
-		assert.NoError(b, metricconn.Shutdown(t.Context()))
+		assert.NoError(b, metricconn.Shutdown(b.Context()))
 	}()
 
 	testLogs, _ := golden.ReadLogs(filepath.Join("testdata", "logsToLogs", inputlogs))
@@ -219,8 +219,8 @@ func BenchmarkConsumeLogs(b *testing.B) {
 	testMetrics, _ := golden.ReadLogs(filepath.Join("testdata", "logsToMetrics", inputMetrics))
 
 	for i := 0; i < b.N; i++ {
-		assert.NoError(b, logscon.ConsumeLogs(t.Context(), testLogs))
-		assert.NoError(b, traceconn.ConsumeLogs(t.Context(), testTraces))
-		assert.NoError(b, metricconn.ConsumeLogs(t.Context(), testMetrics))
+		assert.NoError(b, logscon.ConsumeLogs(b.Context(), testLogs))
+		assert.NoError(b, traceconn.ConsumeLogs(b.Context(), testTraces))
+		assert.NoError(b, metricconn.ConsumeLogs(b.Context(), testMetrics))
 	}
 }

@@ -62,7 +62,7 @@ func TestCreateWithInvalidInputConfig(t *testing.T) {
 	}
 
 	_, err := newFactoryAdapter().CreateLogs(
-		t.Context(),
+		b.Context(),
 		receivertest.NewNopSettings(metadata.Type),
 		cfg,
 		new(consumertest.LogsSink),
@@ -97,7 +97,7 @@ func BenchmarkReadWindowsEventLogger(b *testing.B) {
 		b.Run(tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				// Set up the receiver and sink.
-				ctx := t.Context()
+				ctx := b.Context()
 				factory := newFactoryAdapter()
 				createSettings := receivertest.NewNopSettings(metadata.Type)
 				cfg := createTestConfig()
@@ -127,7 +127,7 @@ func TestReadWindowsEventLogger(t *testing.T) {
 	defer uninstallEventSource()
 	require.NoError(t, err)
 
-	ctx := t.Context()
+	ctx := b.Context()
 	factory := newFactoryAdapter()
 	createSettings := receivertest.NewNopSettings(metadata.Type)
 	cfg := createTestConfig()
@@ -180,7 +180,7 @@ func TestReadWindowsEventLoggerRaw(t *testing.T) {
 	defer uninstallEventSource()
 	require.NoError(t, err)
 
-	ctx := t.Context()
+	ctx := b.Context()
 	factory := newFactoryAdapter()
 	createSettings := receivertest.NewNopSettings(metadata.Type)
 	cfg := createTestConfig()
@@ -245,7 +245,7 @@ func TestExcludeProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := b.Context()
 			factory := newFactoryAdapter()
 			createSettings := receivertest.NewNopSettings(metadata.Type)
 			cfg := createTestConfig()

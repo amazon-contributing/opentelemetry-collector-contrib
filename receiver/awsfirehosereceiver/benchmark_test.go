@@ -38,17 +38,17 @@ func BenchmarkLogsConsumer_cwlogs(b *testing.B) {
 				config := createDefaultConfig().(*Config)
 				config.Endpoint = "localhost:0"
 				r, err := createLogsReceiver(
-					t.Context(),
+					b.Context(),
 					receivertest.NewNopSettings(metadata.Type),
 					config,
 					consumertest.NewNop(),
 				)
 				require.NoError(b, err)
 
-				err = r.Start(t.Context(), componenttest.NewNopHost())
+				err = r.Start(b.Context(), componenttest.NewNopHost())
 				require.NoError(b, err)
 				b.Cleanup(func() {
-					err = r.Shutdown(t.Context())
+					err = r.Shutdown(b.Context())
 					assert.NoError(b, err)
 				})
 
@@ -93,17 +93,17 @@ func BenchmarkMetricsConsumer_cwmetrics(b *testing.B) {
 				config := createDefaultConfig().(*Config)
 				config.Endpoint = "localhost:0"
 				r, err := createMetricsReceiver(
-					t.Context(),
+					b.Context(),
 					receivertest.NewNopSettings(metadata.Type),
 					config,
 					consumertest.NewNop(),
 				)
 				require.NoError(b, err)
 
-				err = r.Start(t.Context(), componenttest.NewNopHost())
+				err = r.Start(b.Context(), componenttest.NewNopHost())
 				require.NoError(b, err)
 				b.Cleanup(func() {
-					err = r.Shutdown(t.Context())
+					err = r.Shutdown(b.Context())
 					assert.NoError(b, err)
 				})
 

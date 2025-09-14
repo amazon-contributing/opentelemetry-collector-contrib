@@ -248,7 +248,7 @@ func benchmarkReceiver(b *testing.B, logsPerIteration int, batchingInput, batchi
 
 	b.ResetTimer()
 
-	require.NoError(b, rcv.Start(t.Context(), nil))
+	require.NoError(b, rcv.Start(b.Context(), nil))
 
 	for i := 0; i < b.N; i++ {
 		nextIteration <- struct{}{}
@@ -256,7 +256,7 @@ func benchmarkReceiver(b *testing.B, logsPerIteration int, batchingInput, batchi
 		mockConsumer.receivedLogs.Store(0)
 	}
 
-	require.NoError(b, rcv.Shutdown(t.Context()))
+	require.NoError(b, rcv.Shutdown(b.Context()))
 }
 
 func BenchmarkReadLine(b *testing.B) {
@@ -332,11 +332,11 @@ pipeline:
 
 	// Run the actual benchmark
 	b.ResetTimer()
-	require.NoError(b, rcv.Start(t.Context(), nil))
+	require.NoError(b, rcv.Start(b.Context(), nil))
 
 	<-receivedAllLogs
 
-	require.NoError(b, rcv.Shutdown(t.Context()))
+	require.NoError(b, rcv.Shutdown(b.Context()))
 }
 
 func BenchmarkParseAndMap(b *testing.B) {
@@ -411,11 +411,11 @@ type testInputBuilder struct {
 	produceBatches     bool
 }
 
-func (t *testInputBuilder) ID() string {
+func (*testInputBuilder) ID() string {
 	return testInputOperatorTypeStr
 }
 
-func (t *testInputBuilder) Type() string {
+func (*testInputBuilder) Type() string {
 	return testInputOperatorTypeStr
 }
 
@@ -434,7 +434,7 @@ func (t *testInputBuilder) Build(settings component.TelemetrySettings) (operator
 	}, nil
 }
 
-func (t *testInputBuilder) SetID(_ string) {}
+func (*testInputBuilder) SetID(string) {}
 
 var _ operator.Operator = &testInputOperator{}
 
@@ -446,16 +446,16 @@ type testInputOperator struct {
 	cancelFunc         context.CancelFunc
 }
 
-func (t *testInputOperator) ID() string {
+func (*testInputOperator) ID() string {
 	return testInputOperatorTypeStr
 }
 
-func (t *testInputOperator) Type() string {
+func (*testInputOperator) Type() string {
 	return testInputOperatorTypeStr
 }
 
 func (t *testInputOperator) Start(_ operator.Persister) error {
-	ctx, cancelFunc := context.WithCancel(t.Context())
+	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.cancelFunc = cancelFunc
 
 	e := complexEntry()
@@ -465,11 +465,11 @@ func (t *testInputOperator) Start(_ operator.Persister) error {
 			case <-t.nextIteration:
 				if writeBatches {
 					for i := 0; i < t.numberOfLogEntries; i += len(entries) {
-						_ = t.WriteBatch(t.Context(), entries)
+						_ = t.WriteBatch(context.Background(), entries)
 					}
 				} else {
 					for i := 0; i < t.numberOfLogEntries; i++ {
-						_ = t.Write(t.Context(), e)
+						_ = t.Write(context.Background(), e)
 					}
 				}
 			case <-ctx.Done():
@@ -493,7 +493,7 @@ type testConsumer struct {
 	receivedLogs    atomic.Uint32
 }
 
-func (t *testConsumer) Capabilities() consumer.Capabilities {
+func (*testConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{}
 }
 

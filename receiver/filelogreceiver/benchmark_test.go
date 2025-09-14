@@ -58,13 +58,13 @@ func benchmarkReadSingleStaticFile(b *testing.B, numLines int) {
 
 	b.ResetTimer()
 	for range b.N {
-		rcvr, err := f.CreateLogs(t.Context(), receivertest.NewNopSettings(metadata.Type), cfg, sink)
+		rcvr, err := f.CreateLogs(b.Context(), receivertest.NewNopSettings(metadata.Type), cfg, sink)
 		require.NoError(b, err)
-		require.NoError(b, rcvr.Start(t.Context(), componenttest.NewNopHost()))
+		require.NoError(b, rcvr.Start(b.Context(), componenttest.NewNopHost()))
 
 		require.Eventually(b, expectNLogs(sink, numLines), 2*time.Second, 2*time.Microsecond)
 		sink.Reset()
 
-		require.NoError(b, rcvr.Shutdown(t.Context()))
+		require.NoError(b, rcvr.Shutdown(b.Context()))
 	}
 }

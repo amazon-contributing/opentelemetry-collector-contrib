@@ -109,14 +109,14 @@ func BenchmarkLogsWithoutFlatten(b *testing.B) {
 		},
 	}
 	sink := new(consumertest.LogsSink)
-	p, err := factory.CreateLogs(t.Context(), processortest.NewNopSettings(metadata.Type), oCfg, sink)
+	p, err := factory.CreateLogs(b.Context(), processortest.NewNopSettings(metadata.Type), oCfg, sink)
 	require.NoError(b, err)
 
 	input, err := golden.ReadLogs(filepath.Join("testdata", "logs", "input.yaml"))
 	require.NoError(b, err)
 
 	for n := 0; n < b.N; n++ {
-		assert.NoError(b, p.ConsumeLogs(t.Context(), input))
+		assert.NoError(b, p.ConsumeLogs(b.Context(), input))
 	}
 }
 
@@ -135,13 +135,13 @@ func BenchmarkLogsWithFlatten(b *testing.B) {
 		},
 	}
 	sink := new(consumertest.LogsSink)
-	p, err := factory.CreateLogs(t.Context(), processortest.NewNopSettings(metadata.Type), oCfg, sink)
+	p, err := factory.CreateLogs(b.Context(), processortest.NewNopSettings(metadata.Type), oCfg, sink)
 	require.NoError(b, err)
 
 	input, err := golden.ReadLogs(filepath.Join("testdata", "logs", "input.yaml"))
 	require.NoError(b, err)
 
 	for n := 0; n < b.N; n++ {
-		assert.NoError(b, p.ConsumeLogs(t.Context(), input))
+		assert.NoError(b, p.ConsumeLogs(b.Context(), input))
 	}
 }

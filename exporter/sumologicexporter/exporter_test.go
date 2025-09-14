@@ -381,7 +381,7 @@ func TestAllMetricsOTLP(t *testing.T) {
 		},
 	)
 
-	err := test.exp.pushMetricsData(t.Context(), metrics)
+	err := test.exp.pushMetricsData(b.Context(), metrics)
 	assert.NoError(t, err)
 }
 
@@ -457,7 +457,7 @@ gauge_metric_name{foo="bar",remote_name="156955",url="http://another_url"} 245 1
 			test.exp.config.MetricFormat = PrometheusFormat
 
 			metrics := tc.metricFunc()
-			err := test.exp.pushMetricsData(t.Context(), metrics)
+			err := test.exp.pushMetricsData(b.Context(), metrics)
 
 			assert.EqualError(t, err, tc.expectedError)
 
@@ -488,7 +488,7 @@ func TestMetricsPrometheusFormatMetadataFilter(t *testing.T) {
 
 	metrics.MarkReadOnly()
 
-	err := test.exp.pushMetricsData(t.Context(), metrics)
+	err := test.exp.pushMetricsData(b.Context(), metrics)
 	assert.NoError(t, err)
 }
 
@@ -511,9 +511,9 @@ func Benchmark_ExporterPushLogs(b *testing.B) {
 
 	exp, err := initExporter(cfg, exportertest.NewNopSettings(metadata.Type))
 	require.NoError(b, err)
-	require.NoError(b, exp.start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(b, exp.start(b.Context(), componenttest.NewNopHost()))
 	defer func() {
-		require.NoError(b, exp.shutdown(t.Context()))
+		require.NoError(b, exp.shutdown(b.Context()))
 	}()
 
 	b.ResetTimer()
@@ -524,7 +524,7 @@ func Benchmark_ExporterPushLogs(b *testing.B) {
 			go func() {
 				logs := logRecordsToLogs(exampleNLogs(128))
 				logs.MarkReadOnly()
-				err := exp.pushLogsData(t.Context(), logs)
+				err := exp.pushLogsData(b.Context(), logs)
 				if err != nil {
 					b.Logf("Failed pushing logs: %v", err)
 				}
@@ -544,7 +544,7 @@ func TestSendEmptyLogsOTLP(t *testing.T) {
 	logs := plog.NewLogs()
 	logs.MarkReadOnly()
 
-	err := test.exp.pushLogsData(t.Context(), logs)
+	err := test.exp.pushLogsData(b.Context(), logs)
 	assert.NoError(t, err)
 }
 
@@ -556,7 +556,7 @@ func TestSendEmptyMetricsOTLP(t *testing.T) {
 
 	metrics := metricPairToMetrics()
 
-	err := test.exp.pushMetricsData(t.Context(), metrics)
+	err := test.exp.pushMetricsData(b.Context(), metrics)
 	assert.NoError(t, err)
 }
 
@@ -567,7 +567,7 @@ func TestSendEmptyTraces(t *testing.T) {
 
 	traces := ptrace.NewTraces()
 
-	err := test.exp.pushTracesData(t.Context(), traces)
+	err := test.exp.pushTracesData(b.Context(), traces)
 	assert.NoError(t, err)
 }
 

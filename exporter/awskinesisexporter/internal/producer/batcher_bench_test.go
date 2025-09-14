@@ -30,7 +30,7 @@ func benchXEmptyMessages(b *testing.B, msgCount int) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		assert.NoError(b, producer.Put(t.Context(), bt))
+		assert.NoError(b, producer.Put(b.Context(), bt))
 	}
 }
 

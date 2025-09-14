@@ -4,7 +4,6 @@
 package ottlmetric
 
 import (
-	"context"
 	"slices"
 	"testing"
 

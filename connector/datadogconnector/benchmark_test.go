@@ -66,22 +66,22 @@ func benchmarkPeerTags(b *testing.B) {
 	creationParams := connectortest.NewNopSettings(metadata.Type)
 	metricsSink := &consumertest.MetricsSink{}
 
-	tconn, err := factory.CreateTracesToMetrics(t.Context(), creationParams, cfg, metricsSink)
+	tconn, err := factory.CreateTracesToMetrics(b.Context(), creationParams, cfg, metricsSink)
 	assert.NoError(b, err)
 
-	err = tconn.Start(t.Context(), componenttest.NewNopHost())
+	err = tconn.Start(b.Context(), componenttest.NewNopHost())
 	if err != nil {
 		b.Errorf("Error starting connector: %v", err)
 		return
 	}
 	defer func() {
-		require.NoError(b, tconn.Shutdown(t.Context()))
+		require.NoError(b, tconn.Shutdown(b.Context()))
 	}()
 
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		err = tconn.ConsumeTraces(t.Context(), genTrace())
+		err = tconn.ConsumeTraces(b.Context(), genTrace())
 		assert.NoError(b, err)
 		for {
 			metrics := metricsSink.AllMetrics()

@@ -1568,15 +1568,15 @@ func TestReadGzipCompressedLogsFromEnd(t *testing.T) {
 
 	// poll for the first time - this should not lead to emitted
 	// logs as those were already in the existing file
-	operator.poll(context.TODO())
+	operator.poll(t.Context())
 
 	// append new content to the log and poll again - this should be picked up
 	appendToLog(t, "testlog3\n")
-	operator.poll(context.TODO())
+	operator.poll(t.Context())
 	sink.ExpectToken(t, []byte("testlog3"))
 
 	// do another iteration to verify correct setting of compressed reader offset
 	appendToLog(t, "testlog4\n")
-	operator.poll(context.TODO())
+	operator.poll(t.Context())
 	sink.ExpectToken(t, []byte("testlog4"))
 }

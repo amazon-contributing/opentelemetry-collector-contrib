@@ -6,6 +6,7 @@ package sapmreceiver
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -184,7 +185,7 @@ func sendSapm(
 			},
 			ServerName: "localhost",
 		}
-		tls, errTLS := tlscs.LoadTLSConfig(t.Context())
+		tls, errTLS := tlscs.LoadTLSConfig(context.Background())
 		if errTLS != nil {
 			return nil, fmt.Errorf("failed to send request to receiver %w", err)
 		}

@@ -4,7 +4,6 @@
 package headerssetterextension
 
 import (
-	"context"
 	"net/http"
 	"testing"
 

@@ -360,7 +360,7 @@ func BenchmarkFileRead(b *testing.B) {
 		require.NoError(b, err)
 		reader, err := f.NewReader(file, fp)
 		require.NoError(b, err)
-		reader.ReadToEnd(t.Context())
+		reader.ReadToEnd(b.Context())
 		assert.EqualValues(b, (i+1)*101, counter.Load())
 		reader.Close()
 	}

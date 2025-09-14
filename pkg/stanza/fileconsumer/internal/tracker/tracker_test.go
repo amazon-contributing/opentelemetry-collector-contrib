@@ -4,6 +4,7 @@
 package tracker // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/tracker"
 
 import (
+	"context"
 	"fmt"
 	"math/rand/v2"
 	"testing"
@@ -162,7 +163,7 @@ func populatedPersisterData(persister operator.Persister, fps []*fingerprint.Fin
 		}
 	}
 	// save half keys in knownFiles0 and other half in knownFiles1
-	_ = checkpoint.SaveKey(t.Context(), persister, md[:len(md)/2], "knownFiles0")
-	_ = checkpoint.SaveKey(t.Context(), persister, md[len(md)/2:], "knownFiles1")
+	_ = checkpoint.SaveKey(context.Background(), persister, md[:len(md)/2], "knownFiles0")
+	_ = checkpoint.SaveKey(context.Background(), persister, md[len(md)/2:], "knownFiles1")
 	return fpInStorage
 }

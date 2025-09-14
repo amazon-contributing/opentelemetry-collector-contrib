@@ -4,7 +4,6 @@
 package kubeletstatsreceiver
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -131,7 +130,7 @@ func TestScraperWithCPUNodeUtilization(t *testing.T) {
 	<-watcherStarted
 	// Inject an event node into the fake client.
 	node := getNodeWithCPUCapacity("worker-42", 8)
-	_, err = client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+	_, err = client.CoreV1().Nodes().Create(t.Context(), node, metav1.CreateOptions{})
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -210,7 +209,7 @@ func TestScraperWithMemoryNodeUtilization(t *testing.T) {
 	<-watcherStarted
 	// Inject an event node into the fake client.
 	node := getNodeWithMemoryCapacity("worker-42", "32564740Ki")
-	_, err = client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+	_, err = client.CoreV1().Nodes().Create(t.Context(), node, metav1.CreateOptions{})
 	if err != nil {
 		require.NoError(t, err)
 	}

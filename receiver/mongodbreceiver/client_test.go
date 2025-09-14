@@ -217,7 +217,7 @@ func TestGetVersion(t *testing.T) {
 		logger: zap.NewNop(),
 	}
 
-	version, err := client.GetVersion(context.TODO())
+	version, err := client.GetVersion(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, "4.4.10", version.String())
 }

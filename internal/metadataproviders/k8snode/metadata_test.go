@@ -4,6 +4,7 @@
 package k8snode
 
 import (
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -86,7 +87,7 @@ func setupNodes(client *fake.Clientset) error {
 				Name: strconv.Itoa(i),
 			},
 		}
-		_, err := client.CoreV1().Nodes().Create(t.Context(), n, metav1.CreateOptions{})
+		_, err := client.CoreV1().Nodes().Create(context.Background(), n, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}

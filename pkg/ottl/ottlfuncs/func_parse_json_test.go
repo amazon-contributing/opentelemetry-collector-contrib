@@ -246,7 +246,7 @@ const benchData = `{
 }`
 
 func BenchmarkParseJSON(b *testing.B) {
-	ctx := t.Context()
+	ctx := b.Context()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

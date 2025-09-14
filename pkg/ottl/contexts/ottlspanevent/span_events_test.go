@@ -4,7 +4,6 @@
 package ottlspanevent
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"testing"

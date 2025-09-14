@@ -239,11 +239,11 @@ func TestGroupingFileLogsExporter(t *testing.T) {
 			}
 			td := testLogs()
 
-			assert.NoError(t, gfe.Start(t.Context(), componenttest.NewNopHost()))
-			require.NoError(t, gfe.consumeLogs(t.Context(), td))
+			assert.NoError(t, gfe.Start(b.Context(), componenttest.NewNopHost()))
+			require.NoError(t, gfe.consumeLogs(b.Context(), td))
 			assert.LessOrEqual(t, gfe.writers.Len(), conf.GroupBy.MaxOpenFiles)
 
-			assert.NoError(t, gfe.Shutdown(t.Context()))
+			assert.NoError(t, gfe.Shutdown(b.Context()))
 
 			// make sure the exporter did not modify any data
 			assert.Equal(t, testLogs(), td)
@@ -317,11 +317,11 @@ func TestGroupingFileMetricsExporter(t *testing.T) {
 			}
 			td := testMetrics()
 
-			assert.NoError(t, gfe.Start(t.Context(), componenttest.NewNopHost()))
-			require.NoError(t, gfe.consumeMetrics(t.Context(), td))
+			assert.NoError(t, gfe.Start(b.Context(), componenttest.NewNopHost()))
+			require.NoError(t, gfe.consumeMetrics(b.Context(), td))
 			assert.LessOrEqual(t, gfe.writers.Len(), conf.GroupBy.MaxOpenFiles)
 
-			assert.NoError(t, gfe.Shutdown(t.Context()))
+			assert.NoError(t, gfe.Shutdown(b.Context()))
 
 			// make sure the exporter did not modify any data
 			assert.Equal(t, testMetrics(), td)
@@ -491,19 +491,19 @@ func BenchmarkExporters(b *testing.B) {
 			fExp.marshaller = marshaller
 		}
 
-		require.NoError(b, fe.Start(t.Context(), componenttest.NewNopHost()))
+		require.NoError(b, fe.Start(b.Context(), componenttest.NewNopHost()))
 
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			ctx := t.Context()
+			ctx := b.Context()
 			for i := 0; i < b.N; i++ {
 				require.NoError(b, fe.consumeTraces(ctx, traces[i%len(traces)]))
 				require.NoError(b, fe.consumeLogs(ctx, logs[i%len(logs)]))
 			}
 		})
 
-		assert.NoError(b, fe.Shutdown(t.Context()))
+		assert.NoError(b, fe.Shutdown(b.Context()))
 	}
 }

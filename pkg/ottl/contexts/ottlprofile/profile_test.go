@@ -4,7 +4,6 @@
 package ottlprofile
 
 import (
-	"context"
 	"slices"
 	"testing"
 	"time"

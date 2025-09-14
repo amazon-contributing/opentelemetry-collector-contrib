@@ -4,7 +4,6 @@
 package ottllog
 
 import (
-	"context"
 	"encoding/hex"
 	"slices"
 	"testing"

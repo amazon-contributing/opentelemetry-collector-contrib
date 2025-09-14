@@ -450,7 +450,7 @@ func BenchmarkAttributes_FilterLogsByName(b *testing.B) {
 		Config:    *createConfig(filterset.Regexp),
 		Resources: []filterconfig.Attribute{{Key: "name", Value: "^apply.*"}},
 	}
-	tp, err := factory.CreateLogs(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, consumertest.NewNop())
+	tp, err := factory.CreateLogs(b.Context(), processortest.NewNopSettings(metadata.Type), cfg, consumertest.NewNop())
 	require.NoError(b, err)
 	require.NotNil(b, tp)
 
@@ -459,7 +459,7 @@ func BenchmarkAttributes_FilterLogsByName(b *testing.B) {
 
 		b.Run(tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				assert.NoError(b, tp.ConsumeLogs(t.Context(), td))
+				assert.NoError(b, tp.ConsumeLogs(b.Context(), td))
 			}
 		})
 

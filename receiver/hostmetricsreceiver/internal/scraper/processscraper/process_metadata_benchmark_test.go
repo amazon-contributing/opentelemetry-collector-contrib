@@ -14,7 +14,7 @@ import (
 )
 
 func BenchmarkGetProcessMetadata(b *testing.B) {
-	ctx := t.Context()
+	ctx := b.Context()
 	config := &Config{}
 
 	scraper, err := newProcessScraper(scraper.Settings{}, config)

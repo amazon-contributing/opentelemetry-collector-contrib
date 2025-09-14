@@ -113,7 +113,7 @@ func BenchmarkConnectorConsumeTraces(b *testing.B) {
 	traces := buildSampleTrace()
 
 	// Test
-	ctx := metadata.NewIncomingContext(t.Context(), nil)
+	ctx := metadata.NewIncomingContext(b.Context(), nil)
 	for n := 0; n < b.N; n++ {
 		assert.NoError(b, conn.ConsumeTraces(ctx, traces))
 	}

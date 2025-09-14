@@ -4,7 +4,6 @@
 package ctxspanevent_test
 
 import (
-	"context"
 	"slices"
 	"testing"
 	"time"

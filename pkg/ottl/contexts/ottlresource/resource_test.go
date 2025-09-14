@@ -4,7 +4,6 @@
 package ottlresource
 
 import (
-	"context"
 	"slices"
 	"testing"
 

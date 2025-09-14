@@ -4,7 +4,6 @@
 package loadbalancingexporter
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -107,7 +106,7 @@ func TestK8sResolve(t *testing.T) {
 					return err
 				}
 				_, err = suiteCtx.clientset.CoreV1().Endpoints(args.namespace).
-					Patch(context.TODO(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
+					Patch(t.Context(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
 				return err
 			},
 			verifyFn: func(ctx *suiteContext, _ args) error {
@@ -141,7 +140,7 @@ func TestK8sResolve(t *testing.T) {
 					return err
 				}
 				_, err = suiteCtx.clientset.CoreV1().Endpoints(args.namespace).
-					Patch(context.TODO(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
+					Patch(t.Context(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
 				return err
 			},
 			onChangeFn: func([]string) {
@@ -180,7 +179,7 @@ func TestK8sResolve(t *testing.T) {
 					return err
 				}
 				_, err = suiteCtx.clientset.CoreV1().Endpoints(args.namespace).
-					Patch(context.TODO(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
+					Patch(t.Context(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
 				return err
 			},
 			verifyFn: func(ctx *suiteContext, _ args) error {
@@ -217,7 +216,7 @@ func TestK8sResolve(t *testing.T) {
 					return err
 				}
 				_, err = suiteCtx.clientset.CoreV1().Endpoints(args.namespace).
-					Patch(context.TODO(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
+					Patch(t.Context(), args.service, types.MergePatchType, data, metav1.PatchOptions{})
 				return err
 			},
 			verifyFn: func(ctx *suiteContext, _ args) error {
@@ -242,7 +241,7 @@ func TestK8sResolve(t *testing.T) {
 			},
 			simulateFn: func(suiteCtx *suiteContext, args args) error {
 				return suiteCtx.clientset.CoreV1().Endpoints(args.namespace).
-					Delete(context.TODO(), args.service, metav1.DeleteOptions{})
+					Delete(t.Context(), args.service, metav1.DeleteOptions{})
 			},
 			verifyFn: func(suiteCtx *suiteContext, _ args) error {
 				if _, err := suiteCtx.resolver.resolve(t.Context()); err != nil {

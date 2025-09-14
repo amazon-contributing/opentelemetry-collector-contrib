@@ -4,7 +4,6 @@
 package traces
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -1379,7 +1378,7 @@ func BenchmarkTwoSpans(b *testing.B) {
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
 				td := constructTraces()
-				_, err = processor.ProcessTraces(t.Context(), td)
+				_, err = processor.ProcessTraces(b.Context(), td)
 				assert.NoError(b, err)
 			}
 		})
@@ -1421,7 +1420,7 @@ func BenchmarkHundredSpans(b *testing.B) {
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
 				td := constructTracesNum(100)
-				_, err = processor.ProcessTraces(t.Context(), td)
+				_, err = processor.ProcessTraces(b.Context(), td)
 				assert.NoError(b, err)
 			}
 		})

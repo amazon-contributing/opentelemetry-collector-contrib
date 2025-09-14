@@ -30,11 +30,11 @@ func BenchmarkBatchGet(b *testing.B) {
 
 	for _, bench := range benchmarks {
 		b.Run(fmt.Sprintf("backend=%s/op=%s/rows=%d", bench.backend, bench.name, bench.records), func(b *testing.B) {
-			client, err := backends[bench.backend].GetClient(t.Context(), component.KindExporter, newTestEntity(bench.name), fmt.Sprintf("%d", bench.records))
+			client, err := backends[bench.backend].GetClient(b.Context(), component.KindExporter, newTestEntity(bench.name), fmt.Sprintf("%d", bench.records))
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer client.Close(t.Context())
+			defer client.Close(b.Context())
 
 			// Populate records and create set of Get Operations
 			ops := getBatchBenchmarkOps(storage.Get, bench.records, bench.singleBatch)
@@ -44,7 +44,7 @@ func BenchmarkBatchGet(b *testing.B) {
 
 			// Run Benchmark
 			for i := 0; i < b.N; i++ {
-				if err := client.Batch(t.Context(), ops...); err != nil {
+				if err := client.Batch(b.Context(), ops...); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -58,11 +58,11 @@ func BenchmarkBatchSet(b *testing.B) {
 
 	for _, bench := range benchmarks {
 		b.Run(fmt.Sprintf("backend=%s/op=%s/rows=%d", bench.backend, bench.name, bench.records), func(b *testing.B) {
-			client, err := backends[bench.backend].GetClient(t.Context(), component.KindExporter, newTestEntity(bench.name), fmt.Sprintf("%d", bench.records))
+			client, err := backends[bench.backend].GetClient(b.Context(), component.KindExporter, newTestEntity(bench.name), fmt.Sprintf("%d", bench.records))
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer client.Close(t.Context())
+			defer client.Close(b.Context())
 
 			// Populate records and create set of Get Operations
 			ops := getBatchBenchmarkOps(storage.Get, bench.records, bench.singleBatch)
@@ -72,7 +72,7 @@ func BenchmarkBatchSet(b *testing.B) {
 
 			// Run Benchmark
 			for i := 0; i < b.N; i++ {
-				if err := client.Batch(t.Context(), ops...); err != nil {
+				if err := client.Batch(b.Context(), ops...); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -86,11 +86,11 @@ func BenchmarkBatchDelete(b *testing.B) {
 
 	for _, bench := range benchmarks {
 		b.Run(fmt.Sprintf("backend=%s/op=%s/rows=%d", bench.backend, bench.name, bench.records), func(b *testing.B) {
-			client, err := backends[bench.backend].GetClient(t.Context(), component.KindExporter, newTestEntity(bench.name), fmt.Sprintf("%d", bench.records))
+			client, err := backends[bench.backend].GetClient(b.Context(), component.KindExporter, newTestEntity(bench.name), fmt.Sprintf("%d", bench.records))
 			if err != nil {
 				b.Fatal(err)
 			}
-			defer client.Close(t.Context())
+			defer client.Close(b.Context())
 
 			// Populate records and create set of Get Operations
 			ops := getBatchBenchmarkOps(storage.Get, bench.records, bench.singleBatch)
@@ -100,7 +100,7 @@ func BenchmarkBatchDelete(b *testing.B) {
 
 			// Run Benchmark
 			for i := 0; i < b.N; i++ {
-				if err := client.Batch(t.Context(), ops...); err != nil {
+				if err := client.Batch(b.Context(), ops...); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -173,7 +173,7 @@ func getBatchBenchExtensions(b *testing.B, batchType string) map[string]storage.
 
 	sePostgreSQL, ctr, err := newPostgresTestExtension()
 	b.Cleanup(func() {
-		if ctrErr := ctr.Terminate(t.Context()); ctrErr != nil {
+		if ctrErr := ctr.Terminate(b.Context()); ctrErr != nil {
 			b.Fatal(ctrErr)
 		}
 	})
@@ -183,12 +183,12 @@ func getBatchBenchExtensions(b *testing.B, batchType string) map[string]storage.
 	backends[driverPostgreSQL] = sePostgreSQL
 
 	for _, se := range backends {
-		err = se.Start(t.Context(), componenttest.NewNopHost())
+		err = se.Start(b.Context(), componenttest.NewNopHost())
 		if err != nil {
 			b.Fatal(err)
 		}
 		b.Cleanup(func() {
-			err = se.Shutdown(t.Context())
+			err = se.Shutdown(b.Context())
 			if err != nil {
 				b.Fatal(err)
 			}

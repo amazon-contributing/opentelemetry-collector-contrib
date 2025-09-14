@@ -4,7 +4,6 @@
 package correlation
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

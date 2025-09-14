@@ -1282,7 +1282,7 @@ func BenchmarkFilterspan_NewSkipExpr(b *testing.B) {
 		b.Run(tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var skip bool
-				skip, err = skipExpr.Eval(t.Context(), tCtx)
+				skip, err = skipExpr.Eval(b.Context(), tCtx)
 				assert.NoError(b, err)
 				assert.Equal(b, tt.skip, skip)
 			}

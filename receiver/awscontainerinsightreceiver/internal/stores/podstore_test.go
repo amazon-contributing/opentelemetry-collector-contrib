@@ -417,11 +417,11 @@ func TestPodStore_decorateNode_withMultipleNeuronPods(t *testing.T) {
 	assert.Equal(t, uint64(26), metric.GetField("node_neuroncore_available_capacity").(uint64))
 }
 
-func TestPodStore_previousCleanupLocking(_ *testing.T) {
+func TestPodStore_previousCleanupLocking(t *testing.T) {
 	podStore := getPodStore()
 	podStore.podClient = &mockPodClient{}
 	pod := getBaseTestPodInfo()
-	ctx := context.TODO()
+	ctx := t.Context()
 
 	tags := map[string]string{ci.MetricType: ci.TypePod, ci.K8sNamespace: "default", ci.K8sPodNameKey: "cpu-limit"}
 	fields := map[string]any{ci.MetricName(ci.TypePod, ci.CPUTotal): float64(1)}

@@ -4,7 +4,6 @@
 package ottlspan
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"slices"

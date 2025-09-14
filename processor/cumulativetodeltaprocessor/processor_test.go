@@ -1362,7 +1362,7 @@ func BenchmarkConsumeMetrics(b *testing.B) {
 		BuildInfo: component.BuildInfo{},
 	}
 	cfg := createDefaultConfig().(*Config)
-	p, err := createMetricsProcessor(t.Context(), params, cfg, c)
+	p, err := createMetricsProcessor(b.Context(), params, cfg, c)
 	require.NoError(b, err)
 
 	metrics := pmetric.NewMetrics()
@@ -1384,11 +1384,11 @@ func BenchmarkConsumeMetrics(b *testing.B) {
 
 	// Load initial value
 	reset()
-	assert.NoError(b, p.ConsumeMetrics(t.Context(), metrics))
+	assert.NoError(b, p.ConsumeMetrics(b.Context(), metrics))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		reset()
-		assert.NoError(b, p.ConsumeMetrics(t.Context(), metrics))
+		assert.NoError(b, p.ConsumeMetrics(b.Context(), metrics))
 	}
 }

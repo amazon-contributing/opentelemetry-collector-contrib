@@ -43,7 +43,7 @@ func TestContextWithRequestCounter(t *testing.T) {
 	assert.Equal(t, uint32(0), GetRequestCount(child), "child context counter was reset")
 
 	// ensure no error when context without counter is passed in to functions
-	todo := context.TODO()
+	todo := t.Context()
 	assert.False(t, counterExists(todo), "plain context shouldn't have a counter")
 	assert.Equal(t, uint32(0), GetRequestCount(todo), "plain context should return count of 0")
 	assert.NotPanics(t, func() { IncrementRequestCount(todo) }, "incrementing a plain counter should not panic")

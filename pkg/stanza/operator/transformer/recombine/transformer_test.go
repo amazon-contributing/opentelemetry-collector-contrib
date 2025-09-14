@@ -763,12 +763,12 @@ func BenchmarkRecombine(b *testing.B) {
 		}
 	}
 
-	ctx := t.Context()
+	ctx := b.Context()
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		for _, e := range entries {
-			require.NoError(b, op.ProcessBatch(t.Context(), []*entry.Entry{e}))
+			require.NoError(b, op.ProcessBatch(b.Context(), []*entry.Entry{e}))
 		}
 		op.(*Transformer).flushAllSources(ctx)
 	}
@@ -802,7 +802,7 @@ func BenchmarkRecombineLimitTrigger(b *testing.B) {
 	next.Timestamp = time.Now()
 	next.Body = "next"
 
-	ctx := t.Context()
+	ctx := b.Context()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		require.NoError(b, op.ProcessBatch(ctx, []*entry.Entry{start, next}))

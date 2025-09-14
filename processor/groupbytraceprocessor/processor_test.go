@@ -571,7 +571,7 @@ func BenchmarkConsumeTracesCompleteOnFirstBatch(b *testing.B) {
 	require.NotNil(b, p)
 	st := newMemoryStorage(p.telemetryBuilder)
 	p.st = st
-	ctx := t.Context()
+	ctx := b.Context()
 	require.NoError(b, p.Start(ctx, nil))
 	defer func() {
 		assert.NoError(b, p.Shutdown(ctx))
@@ -580,7 +580,7 @@ func BenchmarkConsumeTracesCompleteOnFirstBatch(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		traceID := pcommon.TraceID([16]byte{byte(1 + n), 2, 3, 4})
 		trace := simpleTracesWithID(traceID)
-		assert.NoError(b, p.ConsumeTraces(t.Context(), trace))
+		assert.NoError(b, p.ConsumeTraces(b.Context(), trace))
 	}
 }
 

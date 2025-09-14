@@ -25,11 +25,11 @@ func BenchmarkSampling(b *testing.B) {
 		ExpectedNewTracesPerSec: 64,
 		PolicyCfgs:              testPolicy,
 	}
-	sp, _ := newTracesProcessor(t.Context(), processortest.NewNopSettings(metadata.Type), consumertest.NewNop(), cfg)
+	sp, _ := newTracesProcessor(b.Context(), processortest.NewNopSettings(metadata.Type), consumertest.NewNop(), cfg)
 	tsp := sp.(*tailSamplingSpanProcessor)
-	require.NoError(b, tsp.Start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(b, tsp.Start(b.Context(), componenttest.NewNopHost()))
 	defer func() {
-		require.NoError(b, tsp.Shutdown(t.Context()))
+		require.NoError(b, tsp.Shutdown(b.Context()))
 	}()
 	metrics := &policyMetrics{}
 	sampleBatches := make([]*sampling.TraceData, 0, len(batches))

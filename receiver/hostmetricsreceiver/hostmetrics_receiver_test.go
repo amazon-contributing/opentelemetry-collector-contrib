@@ -240,14 +240,14 @@ func benchmarkScrapeMetrics(b *testing.B, cfg *Config) {
 	sink := &notifyingSink{ch: make(chan int, 10)}
 	tickerCh := make(chan time.Time)
 
-	options, err := createAddScraperOptions(t.Context(), cfg, scraperFactories)
+	options, err := createAddScraperOptions(b.Context(), cfg, scraperFactories)
 	require.NoError(b, err)
 	options = append(options, scraperhelper.WithTickerChannel(tickerCh))
 
 	receiver, err := scraperhelper.NewMetricsController(&cfg.ControllerConfig, receivertest.NewNopSettings(metadata.Type), sink, options...)
 	require.NoError(b, err)
 
-	require.NoError(b, receiver.Start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(b, receiver.Start(b.Context(), componenttest.NewNopHost()))
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {

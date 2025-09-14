@@ -4,7 +4,6 @@
 package ottlscope
 
 import (
-	"context"
 	"slices"
 	"testing"
 

@@ -72,7 +72,7 @@ func BenchmarkEmitterToConsumer(b *testing.B) {
 	logsReceiver, err := createNoopReceiver(cl)
 	require.NoError(b, err)
 
-	err = logsReceiver.Start(t.Context(), componenttest.NewNopHost())
+	err = logsReceiver.Start(b.Context(), componenttest.NewNopHost())
 	require.NoError(b, err)
 
 	b.ResetTimer()
@@ -81,7 +81,7 @@ func BenchmarkEmitterToConsumer(b *testing.B) {
 		cl.Reset()
 
 		go func() {
-			ctx := t.Context()
+			ctx := b.Context()
 			for _, e := range entries {
 				_ = logsReceiver.emitter.Process(ctx, e)
 			}
@@ -109,7 +109,7 @@ func BenchmarkEmitterToConsumerScopeGroupping(b *testing.B) {
 	logsReceiver, err := createNoopReceiver(cl)
 	require.NoError(b, err)
 
-	err = logsReceiver.Start(t.Context(), componenttest.NewNopHost())
+	err = logsReceiver.Start(b.Context(), componenttest.NewNopHost())
 	require.NoError(b, err)
 
 	b.ResetTimer()
@@ -118,7 +118,7 @@ func BenchmarkEmitterToConsumerScopeGroupping(b *testing.B) {
 		cl.Reset()
 
 		go func() {
-			ctx := t.Context()
+			ctx := b.Context()
 			for _, e := range entries {
 				_ = logsReceiver.emitter.Process(ctx, e)
 			}
