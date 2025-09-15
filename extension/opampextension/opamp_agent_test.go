@@ -863,6 +863,6 @@ func newTestOpampAgent(cfg *Config, set extension.Settings, mockOpampClient *moc
 		statusAggregator:         sa,
 	}
 
-	o.lifetimeCtx, o.lifetimeCtxCancel = context.WithCancel(t.Context())
+	o.lifetimeCtx, o.lifetimeCtxCancel = context.WithCancel(context.Background())
 	return o
 }

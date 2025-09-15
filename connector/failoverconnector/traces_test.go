@@ -3,6 +3,7 @@
 
 package failoverconnector // import "github.com/open-telemetry/opentelemetry-collector-contrib/connector/failoverconnector"
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -132,7 +133,7 @@ func TestTracesWithFailoverError(t *testing.T) {
 }
 
 func consumeTracesAndCheckStable(conn *tracesFailover, idx int, tr ptrace.Traces) bool {
-	_ = conn.ConsumeTraces(t.Context(), tr)
+	_ = conn.ConsumeTraces(context.Background(), tr)
 	stableIndex := conn.failover.pS.CurrentPipeline()
 	return stableIndex == idx
 }

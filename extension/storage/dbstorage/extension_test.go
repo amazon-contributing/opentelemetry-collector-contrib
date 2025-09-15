@@ -4,6 +4,7 @@
 package dbstorage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -183,7 +184,7 @@ func newSqliteTestExtension(dbPath string) (storage.Extension, error) {
 	cfg.DriverName = driverSQLite
 	cfg.DataSource = fmt.Sprintf("%s?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)", dbPath)
 
-	extension, err := f.Create(t.Context(), extensiontest.NewNopSettings(f.Type()), cfg)
+	extension, err := f.Create(context.Background(), extensiontest.NewNopSettings(f.Type()), cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -217,11 +218,11 @@ func newPostgresTestExtension() (storage.Extension, testcontainers.Container, er
 		Started: true,
 	}
 
-	ctr, err := testcontainers.GenericContainer(t.Context(), req)
+	ctr, err := testcontainers.GenericContainer(context.Background(), req)
 	if err != nil {
 		return nil, nil, err
 	}
-	port, err := ctr.MappedPort(t.Context(), "5432")
+	port, err := ctr.MappedPort(context.Background(), "5432")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -230,7 +231,7 @@ func newPostgresTestExtension() (storage.Extension, testcontainers.Container, er
 	cfg.DriverName = driverPostgreSQL
 	cfg.DataSource = fmt.Sprintf("host=%s port=%s user=%s password=%s database=%s sslmode=disable", "127.0.0.1", port.Port(), "root", "passwd", "db")
 
-	extension, err := f.Create(t.Context(), extensiontest.NewNopSettings(f.Type()), cfg)
+	extension, err := f.Create(context.Background(), extensiontest.NewNopSettings(f.Type()), cfg)
 	if err != nil {
 		return nil, nil, err
 	}

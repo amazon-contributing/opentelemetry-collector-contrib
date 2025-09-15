@@ -4,6 +4,7 @@
 package sigv4authextension
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -161,7 +162,7 @@ func TestCloneRequest(t *testing.T) {
 }
 
 func mockCredentials() *aws.CredentialsProvider {
-	awscfg, _ := awsconfig.LoadDefaultConfig(t.Context())
+	awscfg, _ := awsconfig.LoadDefaultConfig(context.Background())
 	provider := credentials.NewStaticCredentialsProvider(
 		"MOCK_AWS_ACCESS_KEY",
 		"MOCK_AWS_SECRET_ACCESS_KEY",

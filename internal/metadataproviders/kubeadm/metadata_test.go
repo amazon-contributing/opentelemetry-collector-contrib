@@ -4,6 +4,7 @@
 package kubeadm
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -120,7 +121,7 @@ func setupConfigMap(client *fake.Clientset) error {
 			"clusterName": "myClusterName",
 		},
 	}
-	_, err := client.CoreV1().ConfigMaps("ns").Create(t.Context(), cm, metav1.CreateOptions{})
+	_, err := client.CoreV1().ConfigMaps("ns").Create(context.TODO(), cm, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -134,7 +135,7 @@ func setupNamespace(client *fake.Clientset) error {
 			Name: "ns",
 		},
 	}
-	_, err := client.CoreV1().Namespaces().Create(t.Context(), ns, metav1.CreateOptions{})
+	_, err := client.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
