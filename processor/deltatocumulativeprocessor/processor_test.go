@@ -110,10 +110,10 @@ func setup(tb testing.TB, cfg *Config, next consumer.Metrics) (processor.Metrics
 
 	tt := setupTestTelemetry()
 	tb.Cleanup(func() {
-		assert.NoError(tb, tt.Shutdown(t.Context()))
+		assert.NoError(tb, tt.Shutdown(tb.Context()))
 	})
 	proc, err := NewFactory().CreateMetrics(
-		t.Context(),
+		tb.Context(),
 		tt.newSettings(),
 		cfg,
 		next,

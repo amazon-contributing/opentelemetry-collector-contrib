@@ -5,6 +5,7 @@ package jaegerreceiver
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -51,7 +52,7 @@ func TestTraceSource(t *testing.T) {
 }
 
 func jaegerBatchToHTTPBody(b *jaegerthrift.Batch) (*http.Request, error) {
-	body, err := thrift.NewTSerializer().Write(t.Context(), b)
+	body, err := thrift.NewTSerializer().Write(context.Background(), b)
 	if err != nil {
 		return nil, err
 	}
@@ -384,7 +385,7 @@ func TestConsumeThriftTrace(t *testing.T) {
 }
 
 func sendToCollector(endpoint string, batch *jaegerthrift.Batch) error {
-	buf, err := thrift.NewTSerializer().Write(t.Context(), batch)
+	buf, err := thrift.NewTSerializer().Write(context.Background(), batch)
 	if err != nil {
 		return err
 	}

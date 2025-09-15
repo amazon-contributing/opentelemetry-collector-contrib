@@ -514,15 +514,15 @@ func simpleMetrics(count int) pmetric.Metrics {
 }
 
 func mustPushMetricsData(t *testing.T, exporter *metricsExporter, md pmetric.Metrics) {
-	err := exporter.pushMetricsData(b.Context(), md)
+	err := exporter.pushMetricsData(t.Context(), md)
 	require.NoError(t, err)
 }
 
 func newTestMetricsExporter(t *testing.T, dsn string, fns ...func(*Config)) *metricsExporter {
 	exporter, err := newMetricsExporter(zaptest.NewLogger(t), withTestExporterConfig(fns...)(dsn))
 	require.NoError(t, err)
-	require.NoError(t, exporter.start(b.Context(), nil))
+	require.NoError(t, exporter.start(t.Context(), nil))
 
-	t.Cleanup(func() { _ = exporter.shutdown(b.Context()) })
+	t.Cleanup(func() { _ = exporter.shutdown(t.Context()) })
 	return exporter
 }

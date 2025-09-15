@@ -375,11 +375,11 @@ func runExportPipeline(ts *prompb.TimeSeries, endpoint *url.URL) error {
 		return err
 	}
 
-	if err = prwe.Start(t.Context(), componenttest.NewNopHost()); err != nil {
+	if err = prwe.Start(context.Background(), componenttest.NewNopHost()); err != nil {
 		return err
 	}
 
-	return prwe.handleExport(t.Context(), testmap, nil)
+	return prwe.handleExport(context.Background(), testmap, nil)
 }
 
 // Test_PushMetrics checks the number of TimeSeries received by server and the number of metrics dropped is the same as
@@ -1052,7 +1052,7 @@ func TestWALOnExporterRoundTrip(t *testing.T) {
 }
 
 func canceledContext() context.Context {
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	return ctx
 }
@@ -1247,7 +1247,7 @@ func benchmarkExecute(b *testing.B, numSample int) {
 		reqs = append(reqs, req)
 	}
 
-	ctx := t.Context()
+	ctx := b.Context()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for _, req := range reqs {
@@ -1317,7 +1317,7 @@ func benchmarkPushMetrics(b *testing.B, numMetrics, numConsumers int) {
 		metrics = append(metrics, m)
 	}
 
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 	require.NoError(b, exporter.Start(ctx, componenttest.NewNopHost()))
 	defer func() {

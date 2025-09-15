@@ -675,10 +675,10 @@ func TestSpanEventRedacted(t *testing.T) {
 		BlockedValues: []string{"xyzxyz"},
 		Summary:       "debug",
 	}
-	processor, err := newRedaction(b.Context(), config, zaptest.NewLogger(t))
+	processor, err := newRedaction(t.Context(), config, zaptest.NewLogger(t))
 	require.NoError(t, err)
 
-	outTraces, err := processor.processTraces(b.Context(), inBatch)
+	outTraces, err := processor.processTraces(t.Context(), inBatch)
 	require.NoError(t, err)
 
 	attr := outTraces.ResourceSpans().At(0).ScopeSpans().At(0).Spans().At(0).Events().At(0).Attributes()
@@ -735,7 +735,7 @@ func runTest(
 	assert.Equal(t, inBatch.ResourceSpans().At(0).ScopeSpans().At(0).Spans().At(0).Attributes().Len(), length)
 
 	// test
-	ctx := b.Context()
+	ctx := t.Context()
 	processor, err := newRedaction(ctx, cfg.config, zaptest.NewLogger(t))
 	assert.NoError(t, err)
 	outBatch, err := processor.processTraces(ctx, inBatch)
@@ -789,7 +789,7 @@ func runLogsTest(
 	assert.Equal(t, inBatch.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Attributes().Len(), length)
 
 	// test
-	ctx := b.Context()
+	ctx := t.Context()
 	processor, err := newRedaction(ctx, cfg.config, zaptest.NewLogger(t))
 	assert.NoError(t, err)
 	outBatch, err := processor.processLogs(ctx, inBatch)
@@ -863,7 +863,7 @@ func runMetricsTest(
 	assert.Equal(t, length, rl.Resource().Attributes().Len())
 
 	// test
-	ctx := b.Context()
+	ctx := t.Context()
 	processor, err := newRedaction(ctx, cfg.config, zaptest.NewLogger(t))
 	assert.NoError(t, err)
 	outBatch, err := processor.processMetrics(ctx, inBatch)

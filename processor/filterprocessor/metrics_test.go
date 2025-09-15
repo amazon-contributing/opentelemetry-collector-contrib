@@ -453,7 +453,7 @@ func benchmarkFilter(b *testing.B, mp *filterconfig.MetricMatchProperties) {
 	pcfg.Metrics = MetricFilters{
 		Exclude: mp,
 	}
-	ctx := t.Context()
+	ctx := b.Context()
 	proc, _ := factory.CreateMetrics(
 		ctx,
 		processortest.NewNopSettings(metadata.Type),

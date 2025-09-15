@@ -234,7 +234,7 @@ func Benchmark(b *testing.B) {
 		// block until all others have too and recordings are reset
 		<-wait
 
-		ctx := gb.Context()
+		ctx := b.Context()
 		for n := 0; pb.Next(); n++ {
 			for _, m := range ms {
 				// re-using output as input, so reset temporality to delta

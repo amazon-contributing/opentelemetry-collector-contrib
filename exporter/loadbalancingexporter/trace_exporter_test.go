@@ -754,7 +754,7 @@ func benchConsumeTraces(b *testing.B, endpointsCount int, tracesCount int) {
 
 	p.loadBalancer = lb
 
-	err = p.Start(t.Context(), componenttest.NewNopHost())
+	err = p.Start(b.Context(), componenttest.NewNopHost())
 	require.NoError(b, err)
 
 	trace1 := ptrace.NewTraces()
@@ -769,12 +769,12 @@ func benchConsumeTraces(b *testing.B, endpointsCount int, tracesCount int) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		err = p.ConsumeTraces(t.Context(), td)
+		err = p.ConsumeTraces(b.Context(), td)
 		require.NoError(b, err)
 	}
 
 	b.StopTimer()
-	err = p.Shutdown(t.Context())
+	err = p.Shutdown(b.Context())
 	require.NoError(b, err)
 }
 

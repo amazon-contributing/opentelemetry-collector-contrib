@@ -4,6 +4,7 @@
 package k8sclusterreceiver
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -289,7 +290,7 @@ func setupReceiver(
 		Namespace:                  namespace,
 	}
 
-	r, _ := newReceiver(t.Context(), receiver.Settings{ID: component.NewID(metadata.Type), TelemetrySettings: tt.NewTelemetrySettings(), BuildInfo: component.NewDefaultBuildInfo()}, config)
+	r, _ := newReceiver(context.Background(), receiver.Settings{ID: component.NewID(metadata.Type), TelemetrySettings: tt.NewTelemetrySettings(), BuildInfo: component.NewDefaultBuildInfo()}, config)
 	kr := r.(*kubernetesReceiver)
 	kr.metricsConsumer = metricsConsumer
 	kr.resourceWatcher.makeClient = func(_ k8sconfig.APIConfig) (kubernetes.Interface, error) {

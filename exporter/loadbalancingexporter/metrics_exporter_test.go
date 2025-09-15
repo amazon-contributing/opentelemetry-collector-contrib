@@ -914,7 +914,7 @@ func benchConsumeMetrics(b *testing.B, routingKey string, endpointsCount int, rm
 
 	p.loadBalancer = lb
 
-	err = p.Start(t.Context(), componenttest.NewNopHost())
+	err = p.Start(b.Context(), componenttest.NewNopHost())
 	require.NoError(b, err)
 
 	md := randomMetrics(b, rmCount, smCount, mCount, dpCount)
@@ -922,12 +922,12 @@ func benchConsumeMetrics(b *testing.B, routingKey string, endpointsCount int, rm
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		err = p.ConsumeMetrics(t.Context(), md)
+		err = p.ConsumeMetrics(b.Context(), md)
 		require.NoError(b, err)
 	}
 
 	b.StopTimer()
-	err = p.Shutdown(t.Context())
+	err = p.Shutdown(b.Context())
 	require.NoError(b, err)
 }
 

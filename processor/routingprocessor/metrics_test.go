@@ -80,7 +80,7 @@ func TestMetrics_AreCorrectlySplitPerResourceAttributeRouting(t *testing.T) {
 	metric.SetName("cpu_idle")
 	metric.SetEmptyGauge()
 
-	ctx := b.Context()
+	ctx := t.Context()
 	require.NoError(t, exp.Start(ctx, host))
 	require.NoError(t, exp.ConsumeMetrics(ctx, m))
 
@@ -119,7 +119,7 @@ func TestMetrics_RoutingWorks_Context(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, exp.Start(b.Context(), host))
+	require.NoError(t, exp.Start(t.Context(), host))
 
 	m := pmetric.NewMetrics()
 	rm := m.ResourceMetrics().AppendEmpty()
@@ -127,7 +127,7 @@ func TestMetrics_RoutingWorks_Context(t *testing.T) {
 
 	t.Run("grpc metadata: non default route is properly used", func(t *testing.T) {
 		assert.NoError(t, exp.ConsumeMetrics(
-			metadata.NewIncomingContext(b.Context(), metadata.New(map[string]string{
+			metadata.NewIncomingContext(t.Context(), metadata.New(map[string]string{
 				"X-Tenant": "acme",
 			})),
 			m,
@@ -142,7 +142,7 @@ func TestMetrics_RoutingWorks_Context(t *testing.T) {
 
 	t.Run("grpc metadata: default route is taken when no matching route can be found", func(t *testing.T) {
 		assert.NoError(t, exp.ConsumeMetrics(
-			metadata.NewIncomingContext(b.Context(), metadata.New(map[string]string{
+			metadata.NewIncomingContext(t.Context(), metadata.New(map[string]string{
 				"X-Tenant": "some-custom-value1",
 			})),
 			m,
@@ -157,7 +157,7 @@ func TestMetrics_RoutingWorks_Context(t *testing.T) {
 
 	t.Run("client.Info metadata: non default route is properly used", func(t *testing.T) {
 		assert.NoError(t, exp.ConsumeMetrics(
-			client.NewContext(b.Context(),
+			client.NewContext(t.Context(),
 				client.Info{Metadata: client.NewMetadata(map[string][]string{
 					"X-Tenant": {"acme"},
 				})}),
@@ -173,7 +173,7 @@ func TestMetrics_RoutingWorks_Context(t *testing.T) {
 
 	t.Run("client.Info metadata: default route is taken when no matching route can be found", func(t *testing.T) {
 		assert.NoError(t, exp.ConsumeMetrics(
-			client.NewContext(b.Context(),
+			client.NewContext(t.Context(),
 				client.Info{Metadata: client.NewMetadata(map[string][]string{
 					"X-Tenant": {"some-custom-value1"},
 				})}),
@@ -212,14 +212,14 @@ func TestMetrics_RoutingWorks_ResourceAttribute(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, exp.Start(b.Context(), host))
+	require.NoError(t, exp.Start(t.Context(), host))
 
 	t.Run("non default route is properly used", func(t *testing.T) {
 		m := pmetric.NewMetrics()
 		rm := m.ResourceMetrics().AppendEmpty()
 		rm.Resource().Attributes().PutStr("X-Tenant", "acme")
 
-		assert.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+		assert.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 		assert.Empty(t, defaultExp.AllMetrics(),
 			"metric should not be routed to default exporter",
 		)
@@ -233,7 +233,7 @@ func TestMetrics_RoutingWorks_ResourceAttribute(t *testing.T) {
 		rm := m.ResourceMetrics().AppendEmpty()
 		rm.Resource().Attributes().PutStr("X-Tenant", "some-custom-value")
 
-		assert.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+		assert.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 		assert.Len(t, defaultExp.AllMetrics(), 1,
 			"metric should be routed to default exporter",
 		)
@@ -268,14 +268,14 @@ func TestMetrics_RoutingWorks_ResourceAttribute_DropsRoutingAttribute(t *testing
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, exp.Start(b.Context(), host))
+	require.NoError(t, exp.Start(t.Context(), host))
 
 	m := pmetric.NewMetrics()
 	rm := m.ResourceMetrics().AppendEmpty()
 	rm.Resource().Attributes().PutStr("X-Tenant", "acme")
 	rm.Resource().Attributes().PutStr("attr", "acme")
 
-	assert.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+	assert.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 	metrics := mExp.AllMetrics()
 	require.Len(t, metrics, 1, "metric should be routed to non default exporter")
 	require.Equal(t, 1, metrics[0].ResourceMetrics().Len())
@@ -365,7 +365,7 @@ func TestMetricsAreCorrectlySplitPerResourceAttributeRoutingWithOTTL(t *testing.
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, exp.Start(b.Context(), host))
+	require.NoError(t, exp.Start(t.Context(), host))
 
 	t.Run("metric matched by no expressions", func(t *testing.T) {
 		defaultExp.Reset()
@@ -380,7 +380,7 @@ func TestMetricsAreCorrectlySplitPerResourceAttributeRoutingWithOTTL(t *testing.
 		metric.SetEmptyGauge()
 		metric.SetName("cpu")
 
-		require.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+		require.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 
 		assert.Len(t, defaultExp.AllMetrics(), 1)
 		assert.Empty(t, firstExp.AllMetrics())
@@ -400,7 +400,7 @@ func TestMetricsAreCorrectlySplitPerResourceAttributeRoutingWithOTTL(t *testing.
 		metric.SetEmptyGauge()
 		metric.SetName("cpu")
 
-		require.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+		require.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 
 		assert.Empty(t, defaultExp.AllMetrics())
 		assert.Len(t, firstExp.AllMetrics(), 1)
@@ -426,7 +426,7 @@ func TestMetricsAreCorrectlySplitPerResourceAttributeRoutingWithOTTL(t *testing.
 		metric.SetEmptyGauge()
 		metric.SetName("cpu1")
 
-		require.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+		require.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 
 		assert.Empty(t, defaultExp.AllMetrics())
 		assert.Len(t, firstExp.AllMetrics(), 1)
@@ -456,7 +456,7 @@ func TestMetricsAreCorrectlySplitPerResourceAttributeRoutingWithOTTL(t *testing.
 		metric.SetEmptyGauge()
 		metric.SetName("cpu1")
 
-		require.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+		require.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 
 		assert.Len(t, defaultExp.AllMetrics(), 1)
 		assert.Len(t, firstExp.AllMetrics(), 1)
@@ -503,11 +503,11 @@ func TestMetricsAttributeWithOTTLDoesNotCauseCrash(t *testing.T) {
 	metric.SetEmptyGauge()
 	metric.SetName("cpu")
 
-	require.NoError(t, exp.Start(b.Context(), host))
+	require.NoError(t, exp.Start(t.Context(), host))
 
 	// test
 	// before #26464, this would panic
-	require.NoError(t, exp.ConsumeMetrics(b.Context(), m))
+	require.NoError(t, exp.ConsumeMetrics(t.Context(), m))
 
 	// verify
 	assert.Len(t, defaultExp.AllMetrics(), 1)

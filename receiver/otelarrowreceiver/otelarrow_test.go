@@ -486,7 +486,7 @@ loop:
 func exportTraces(cc *grpc.ClientConn, td ptrace.Traces) error {
 	acc := ptraceotlp.NewGRPCClient(cc)
 	req := ptraceotlp.NewExportRequestFromTraces(td)
-	_, err := acc.Export(t.Context(), req)
+	_, err := acc.Export(context.Background(), req)
 
 	return err
 }

@@ -51,7 +51,7 @@ func newTracesProcessor(cfg component.Config, next consumer.Traces, options ...o
 	opts = append(opts, withKubeClientProvider(newFakeClient))
 	set := processortest.NewNopSettings(metadata.Type)
 	return createTracesProcessorWithOptions(
-		t.Context(),
+		context.Background(),
 		set,
 		cfg,
 		next,
@@ -64,7 +64,7 @@ func newMetricsProcessor(cfg component.Config, nextMetricsConsumer consumer.Metr
 	opts = append(opts, withKubeClientProvider(newFakeClient))
 	set := processortest.NewNopSettings(metadata.Type)
 	return createMetricsProcessorWithOptions(
-		t.Context(),
+		context.Background(),
 		set,
 		cfg,
 		nextMetricsConsumer,
@@ -77,7 +77,7 @@ func newLogsProcessor(cfg component.Config, nextLogsConsumer consumer.Logs, opti
 	opts = append(opts, withKubeClientProvider(newFakeClient))
 	set := processortest.NewNopSettings(metadata.Type)
 	return createLogsProcessorWithOptions(
-		t.Context(),
+		context.Background(),
 		set,
 		cfg,
 		nextLogsConsumer,
@@ -90,7 +90,7 @@ func newProfilesProcessor(cfg component.Config, nextProfilesConsumer xconsumer.P
 	opts = append(opts, withKubeClientProvider(newFakeClient))
 	set := processortest.NewNopSettings(metadata.Type)
 	return createProfilesProcessorWithOptions(
-		t.Context(),
+		context.Background(),
 		set,
 		cfg,
 		nextProfilesConsumer,

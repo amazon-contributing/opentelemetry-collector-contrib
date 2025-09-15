@@ -90,7 +90,7 @@ func startSplunk() SplunkContainerConfig {
 		panic(err)
 	}
 
-	conContext := t.Context()
+	conContext := context.Background()
 
 	// Create a new container
 	splunkImage := integrationtestutils.GetConfigVariable("SPLUNK_IMAGE")

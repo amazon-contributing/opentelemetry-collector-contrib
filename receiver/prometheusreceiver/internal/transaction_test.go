@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -53,7 +54,7 @@ var (
 		nil)
 
 	scrapeCtx = scrape.ContextWithMetricMetadataStore(
-		scrape.ContextWithTarget(t.Context(), target),
+		scrape.ContextWithTarget(context.Background(), target),
 		testMetadataStore(testMetadata))
 )
 

@@ -300,12 +300,12 @@ func TestResourceProcessor(t *testing.T) {
 func benchmarkConsumeTraces(b *testing.B, cfg *Config) {
 	factory := NewFactory()
 	sink := new(consumertest.TracesSink)
-	processor, _ := factory.CreateTraces(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
+	processor, _ := factory.CreateTraces(b.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		// TODO use testbed.PerfTestDataProvider here once that includes resources
-		assert.NoError(b, processor.ConsumeTraces(t.Context(), ptrace.NewTraces()))
+		assert.NoError(b, processor.ConsumeTraces(b.Context(), ptrace.NewTraces()))
 	}
 }
 
@@ -322,12 +322,12 @@ func BenchmarkConsumeTracesAll(b *testing.B) {
 func benchmarkConsumeMetrics(b *testing.B, cfg *Config) {
 	factory := NewFactory()
 	sink := new(consumertest.MetricsSink)
-	processor, _ := factory.CreateMetrics(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
+	processor, _ := factory.CreateMetrics(b.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		// TODO use testbed.PerfTestDataProvider here once that includes resources
-		assert.NoError(b, processor.ConsumeMetrics(t.Context(), pmetric.NewMetrics()))
+		assert.NoError(b, processor.ConsumeMetrics(b.Context(), pmetric.NewMetrics()))
 	}
 }
 
@@ -344,12 +344,12 @@ func BenchmarkConsumeMetricsAll(b *testing.B) {
 func benchmarkConsumeLogs(b *testing.B, cfg *Config) {
 	factory := NewFactory()
 	sink := new(consumertest.LogsSink)
-	processor, _ := factory.CreateLogs(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
+	processor, _ := factory.CreateLogs(b.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		// TODO use testbed.PerfTestDataProvider here once that includes resources
-		assert.NoError(b, processor.ConsumeLogs(t.Context(), plog.NewLogs()))
+		assert.NoError(b, processor.ConsumeLogs(b.Context(), plog.NewLogs()))
 	}
 }
 
@@ -366,12 +366,12 @@ func BenchmarkConsumeLogsAll(b *testing.B) {
 func benchmarkConsumeProfiles(b *testing.B, cfg *Config) {
 	factory := NewFactory()
 	sink := new(consumertest.ProfilesSink)
-	processor, _ := factory.(xprocessor.Factory).CreateProfiles(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
+	processor, _ := factory.(xprocessor.Factory).CreateProfiles(b.Context(), processortest.NewNopSettings(metadata.Type), cfg, sink)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		// TODO use testbed.PerfTestDataProvider here once that includes resources
-		assert.NoError(b, processor.ConsumeProfiles(t.Context(), pprofile.NewProfiles()))
+		assert.NoError(b, processor.ConsumeProfiles(b.Context(), pprofile.NewProfiles()))
 	}
 }
 

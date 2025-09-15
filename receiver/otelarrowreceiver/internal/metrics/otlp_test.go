@@ -45,7 +45,7 @@ type testSink struct {
 }
 
 func newTestSink() *testSink {
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(context.Background())
 	return &testSink{
 		Context:    ctx,
 		CancelFunc: cancel,

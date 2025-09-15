@@ -5,6 +5,7 @@ package octrace
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -346,7 +347,7 @@ func makeTraceServiceClient(addr net.Addr) (agenttracepb.TraceService_ExportClie
 	}
 
 	svc := agenttracepb.NewTraceServiceClient(cc)
-	traceClient, err := svc.Export(t.Context())
+	traceClient, err := svc.Export(context.Background())
 	if err != nil {
 		_ = cc.Close()
 		return nil, nil, err

@@ -125,10 +125,10 @@ func (tc *streamTestCase) mustGet() streamWriter {
 }
 
 func (tc *streamTestCase) mustSendAndWait() error {
-	ctx := t.Context()
+	ctx := context.Background()
 	ch := make(chan error, 1)
 	wri := writeItem{
-		producerCtx: t.Context(),
+		producerCtx: context.Background(),
 		records:     twoTraces,
 		errCh:       ch,
 	}

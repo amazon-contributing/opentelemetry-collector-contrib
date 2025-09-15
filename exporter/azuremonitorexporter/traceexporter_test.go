@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	conventions "go.opentelemetry.io/collector/semconv/v1.27.0"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 )
 
 var defaultConfig = createDefaultConfig().(*Config)

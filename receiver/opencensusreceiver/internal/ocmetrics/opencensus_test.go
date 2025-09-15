@@ -5,6 +5,7 @@ package ocmetrics
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -333,7 +334,7 @@ func makeMetricsServiceClient(addr net.Addr) (agentmetricspb.MetricsService_Expo
 	}
 
 	svc := agentmetricspb.NewMetricsServiceClient(cc)
-	metricsClient, err := svc.Export(t.Context())
+	metricsClient, err := svc.Export(context.Background())
 	if err != nil {
 		_ = cc.Close()
 		return nil, nil, err

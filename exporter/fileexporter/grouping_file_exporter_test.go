@@ -239,11 +239,11 @@ func TestGroupingFileLogsExporter(t *testing.T) {
 			}
 			td := testLogs()
 
-			assert.NoError(t, gfe.Start(b.Context(), componenttest.NewNopHost()))
-			require.NoError(t, gfe.consumeLogs(b.Context(), td))
+			assert.NoError(t, gfe.Start(t.Context(), componenttest.NewNopHost()))
+			require.NoError(t, gfe.consumeLogs(t.Context(), td))
 			assert.LessOrEqual(t, gfe.writers.Len(), conf.GroupBy.MaxOpenFiles)
 
-			assert.NoError(t, gfe.Shutdown(b.Context()))
+			assert.NoError(t, gfe.Shutdown(t.Context()))
 
 			// make sure the exporter did not modify any data
 			assert.Equal(t, testLogs(), td)
@@ -317,11 +317,11 @@ func TestGroupingFileMetricsExporter(t *testing.T) {
 			}
 			td := testMetrics()
 
-			assert.NoError(t, gfe.Start(b.Context(), componenttest.NewNopHost()))
-			require.NoError(t, gfe.consumeMetrics(b.Context(), td))
+			assert.NoError(t, gfe.Start(t.Context(), componenttest.NewNopHost()))
+			require.NoError(t, gfe.consumeMetrics(t.Context(), td))
 			assert.LessOrEqual(t, gfe.writers.Len(), conf.GroupBy.MaxOpenFiles)
 
-			assert.NoError(t, gfe.Shutdown(b.Context()))
+			assert.NoError(t, gfe.Shutdown(t.Context()))
 
 			// make sure the exporter did not modify any data
 			assert.Equal(t, testMetrics(), td)

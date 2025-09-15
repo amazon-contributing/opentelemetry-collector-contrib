@@ -32,7 +32,7 @@ func TestExtractorForTraces_FromContext(t *testing.T) {
 		},
 		{
 			name:          "no values from empty context",
-			ctxFunc:       context.Background,
+			ctxFunc:       t.Context,
 			fromAttr:      "X-Tenant",
 			expectedValue: "",
 		},
@@ -80,7 +80,7 @@ func TestExtractorForTraces_FromContext(t *testing.T) {
 		},
 		{
 			name:          "no values from empty context",
-			ctxFunc:       context.Background,
+			ctxFunc:       t.Context,
 			fromAttr:      "X-Tenant",
 			expectedValue: "",
 		},

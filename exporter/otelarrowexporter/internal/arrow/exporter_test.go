@@ -911,7 +911,7 @@ func benchmarkPrioritizer(b *testing.B, numStreams int, pname PrioritizerName) {
 		return tc.returnNewStream(channel)(ctx, opts...)
 	})
 
-	bg, cancel := context.WithCancel(t.Context())
+	bg, cancel := context.WithCancel(b.Context())
 	defer cancel()
 	if err := tc.exporter.Start(bg); err != nil {
 		b.Errorf("start failed: %v", err)

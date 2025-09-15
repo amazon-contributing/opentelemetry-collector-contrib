@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -322,7 +323,7 @@ func thriftExample() ([]byte, error) {
 		},
 	}
 
-	return zipkin2.SerializeThrift(t.Context(), zSpans)
+	return zipkin2.SerializeThrift(context.TODO(), zSpans)
 }
 
 func compressGzip(body []byte) (*bytes.Buffer, error) {

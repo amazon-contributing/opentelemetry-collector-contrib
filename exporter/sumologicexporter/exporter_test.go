@@ -381,7 +381,7 @@ func TestAllMetricsOTLP(t *testing.T) {
 		},
 	)
 
-	err := test.exp.pushMetricsData(b.Context(), metrics)
+	err := test.exp.pushMetricsData(t.Context(), metrics)
 	assert.NoError(t, err)
 }
 
@@ -457,7 +457,7 @@ gauge_metric_name{foo="bar",remote_name="156955",url="http://another_url"} 245 1
 			test.exp.config.MetricFormat = PrometheusFormat
 
 			metrics := tc.metricFunc()
-			err := test.exp.pushMetricsData(b.Context(), metrics)
+			err := test.exp.pushMetricsData(t.Context(), metrics)
 
 			assert.EqualError(t, err, tc.expectedError)
 
@@ -488,7 +488,7 @@ func TestMetricsPrometheusFormatMetadataFilter(t *testing.T) {
 
 	metrics.MarkReadOnly()
 
-	err := test.exp.pushMetricsData(b.Context(), metrics)
+	err := test.exp.pushMetricsData(t.Context(), metrics)
 	assert.NoError(t, err)
 }
 
@@ -544,7 +544,7 @@ func TestSendEmptyLogsOTLP(t *testing.T) {
 	logs := plog.NewLogs()
 	logs.MarkReadOnly()
 
-	err := test.exp.pushLogsData(b.Context(), logs)
+	err := test.exp.pushLogsData(t.Context(), logs)
 	assert.NoError(t, err)
 }
 
@@ -556,7 +556,7 @@ func TestSendEmptyMetricsOTLP(t *testing.T) {
 
 	metrics := metricPairToMetrics()
 
-	err := test.exp.pushMetricsData(b.Context(), metrics)
+	err := test.exp.pushMetricsData(t.Context(), metrics)
 	assert.NoError(t, err)
 }
 
@@ -567,7 +567,7 @@ func TestSendEmptyTraces(t *testing.T) {
 
 	traces := ptrace.NewTraces()
 
-	err := test.exp.pushTracesData(b.Context(), traces)
+	err := test.exp.pushTracesData(t.Context(), traces)
 	assert.NoError(t, err)
 }
 

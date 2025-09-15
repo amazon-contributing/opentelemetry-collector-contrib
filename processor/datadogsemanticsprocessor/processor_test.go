@@ -25,7 +25,7 @@ import (
 func newTestTracesProcessor(cfg component.Config, next consumer.Traces) (processor.Traces, error) {
 	set := processortest.NewNopSettings(metadata.Type)
 	return createTracesProcessor(
-		t.Context(),
+		context.Background(),
 		set,
 		cfg,
 		next,
