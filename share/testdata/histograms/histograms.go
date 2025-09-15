@@ -88,7 +88,7 @@ func TestCases() []HistogramTestCase {
 			Attributes: map[string]string{"service.name": "payment-service"},
 		},
 		func(rnd *rand.Rand, t time.Time) float64 {
-			return telemetry_generator.NormalRandom(rnd, 50, 50) // Generate normal distribution
+			return telemetry_generator.NormalRandom(rnd, 50, 15) // Generate normal distribution
 		},
 	)
 	if err != nil {
