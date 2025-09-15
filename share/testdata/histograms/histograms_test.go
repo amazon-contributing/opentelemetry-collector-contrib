@@ -46,7 +46,7 @@ func TestInvalidHistogramFeasibility(t *testing.T) {
 
 func TestVisualizeHistograms(t *testing.T) {
 	// comment the next line to visualize the input histograms
-	t.Skip("Skip visualization test")
+	// t.Skip("Skip visualization test")
 	testCases := TestCases()
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -289,6 +289,7 @@ func visualizeHistogramWithPercentiles(hi HistogramInput) {
 				bucketLabel = fmt.Sprintf("(-∞, %.1f]", hi.Boundaries[0])
 			}
 		} else if i == len(hi.Boundaries) {
+			// Overflow bucket: show max if defined, otherwise infinity
 			if hi.Max != nil {
 				bucketLabel = fmt.Sprintf("(%.1f, %.2f]", hi.Boundaries[i-1], *hi.Max)
 			} else {

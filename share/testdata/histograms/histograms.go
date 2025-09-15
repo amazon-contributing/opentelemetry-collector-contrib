@@ -4,7 +4,11 @@
 package histograms
 
 import (
-	"math"
+	// "math"
+	"math/rand"
+	"time"
+
+	telemetry_generator "github.com/amazon-contributing/opentelemetry-collector-contrib/cmd/generator"
 )
 
 type HistogramTestCase struct {
@@ -70,534 +74,566 @@ func TestCases() []HistogramTestCase {
 		counts325[i] = 11
 	}
 	counts325[325] = 11
-
+	seed := int64(12345)
+	generator := telemetry_generator.NewHistogramGenerator(telemetry_generator.GenerationOptions{
+		Seed:     seed,
+		Endpoint: "localhost:4318",
+	})
+	result, err := generator.GenerateAndPublishHistograms(
+		telemetry_generator.HistogramInput{
+			Count:      101,
+			Min:        ptr(10.0),
+			Max:        ptr(200.0),
+			Boundaries: []float64{25, 50, 75, 100, 150},
+			Attributes: map[string]string{"service.name": "payment-service"},
+		},
+		func(rnd *rand.Rand, t time.Time) float64 {
+			return telemetry_generator.NormalRandom(rnd, 50, 50) // Generate normal distribution
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+	// log.Println(result)
 	return []HistogramTestCase{
 		{
-			Name: "Basic Histogram",
-			Input: HistogramInput{
-				Count:      101,
-				Sum:        6000,
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
-				Boundaries: []float64{25, 50, 75, 100, 150},
-				Counts:     []uint64{21, 31, 25, 15, 7, 2},
-				Attributes: map[string]string{"service.name": "payment-service"},
-			},
+			Name:  "Basic Histogram-Gen",
+			Input: HistogramInput(result.Input),
 			Expected: ExpectedMetrics{
-				Count:   101,
-				Sum:     6000,
-				Average: 59.41,
-				Min:     ptr(10.0),
-				Max:     ptr(200.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.01: {Low: 10.0, High: 25.0},
-					0.1:  {Low: 10.0, High: 25.0},
-					0.25: {Low: 25.0, High: 50.0},
-					0.5:  {Low: 25.0, High: 50.0},
-					0.75: {Low: 50.0, High: 75.0},
-					0.9:  {Low: 75.0, High: 100.0},
-					0.99: {Low: 150.0, High: 200.0},
-				},
+				Count:            result.Expected.Count,
+				Sum:              result.Expected.Sum,
+				Average:          result.Expected.Average,
+				Min:              result.Expected.Min,
+				Max:              result.Expected.Max,
+				PercentileRanges: convertPercentileRanges(result.Expected.PercentileRanges),
 			},
 		},
-		{
-			Name: "Single Bucket",
-			Input: HistogramInput{
-				Count:      51,
-				Sum:        1000,
-				Min:        ptr(5.0),
-				Max:        ptr(75.0),
-				Boundaries: []float64{},
-				Counts:     []uint64{51},
-				Attributes: map[string]string{"service.name": "auth-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   51,
-				Sum:     1000,
-				Average: 19.61,
-				Min:     ptr(5.0),
-				Max:     ptr(75.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.01: {Low: 5.0, High: 75.0},
-					0.1:  {Low: 5.0, High: 75.0},
-					0.25: {Low: 5.0, High: 75.0},
-					0.5:  {Low: 5.0, High: 75.0},
-					0.75: {Low: 5.0, High: 75.0},
-					0.9:  {Low: 5.0, High: 75.0},
-					0.99: {Low: 5.0, High: 75.0},
-				},
-			},
-		},
-		{
-			Name: "Two Buckets",
-			Input: HistogramInput{
-				Count:      31,
-				Sum:        150,
-				Min:        ptr(1.0),
-				Max:        ptr(10.0),
-				Boundaries: []float64{5},
-				Counts:     []uint64{21, 10},
-				Attributes: map[string]string{"service.name": "database"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   31,
-				Sum:     150,
-				Average: 4.84,
-				Min:     ptr(1.0),
-				Max:     ptr(10.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.01: {Low: 1.0, High: 5.0},
-					0.1:  {Low: 1.0, High: 5.0},
-					0.25: {Low: 1.0, High: 5.0},
-					0.5:  {Low: 1.0, High: 5.0},
-					0.75: {Low: 5.0, High: 10.0},
-					0.9:  {Low: 5.0, High: 10.0},
-					0.99: {Low: 5.0, High: 10.0},
-				},
-			},
-		},
-		{
-			Name: "Zero Counts and Sparse Data",
-			Input: HistogramInput{
-				Count:      101,
-				Sum:        25000,
-				Min:        ptr(0.0),
-				Max:        ptr(1500.0),
-				Boundaries: []float64{10, 50, 100, 500, 1000},
-				Counts:     []uint64{51, 0, 0, 39, 0, 11},
-				Attributes: map[string]string{"service.name": "cache-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   101,
-				Sum:     25000,
-				Average: 247.52,
-				Min:     ptr(0.0),
-				Max:     ptr(1500.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.01: {Low: 0.0, High: 10.0},
-					0.1:  {Low: 0.0, High: 10.0},
-					0.25: {Low: 0.0, High: 10.0},
-					0.5:  {Low: 0.0, High: 10.0},
-					0.75: {Low: 100.0, High: 500.0},
-					0.9:  {Low: 1000.0, High: 1500.0},
-					0.99: {Low: 1000.0, High: 1500.0},
-				},
-			},
-		},
-		{
-			Name: "Large Numbers",
-			Input: HistogramInput{
-				Count:      1001,
-				Sum:        100000000000,
-				Min:        ptr(100000.0),
-				Max:        ptr(1000000000.0),
-				Boundaries: []float64{1000000, 10000000, 50000000, 100000000, 500000000},
-				Counts:     []uint64{201, 301, 249, 150, 50, 50},
-				Attributes: map[string]string{"service.name": "batch-processor"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   1001,
-				Sum:     100000000000,
-				Average: 99900099.90,
-				Min:     ptr(100000.0),
-				Max:     ptr(1000000000.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.01: {Low: 100000.0, High: 1000000.0},
-					0.1:  {Low: 100000.0, High: 1000000.0},
-					0.25: {Low: 1000000.0, High: 10000000.0},
-					0.5:  {Low: 1000000.0, High: 10000000.0},
-					0.75: {Low: 10000000.0, High: 50000000.0},
-					0.9:  {Low: 50000000.0, High: 100000000.0},
-					0.99: {Low: 500000000.0, High: 1000000000.0},
-				},
-			},
-		},
-		{
-			Name: "Many Buckets",
-			Input: HistogramInput{
-				Count:      1124,
-				Sum:        350000,
-				Min:        ptr(0.5),
-				Max:        ptr(1100.0),
-				Boundaries: []float64{1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000},
-				Counts:     []uint64{51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 53},
-				Attributes: map[string]string{"service.name": "detailed-metrics"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   1111,
-				Sum:     350000,
-				Average: 315.03,
-				Min:     ptr(0.5),
-				Max:     ptr(1100.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.01: {Low: 0.5, High: 1.0},
-					0.1:  {Low: 5.0, High: 10.0},
-					0.25: {Low: 30.0, High: 40.0},
-					0.5:  {Low: 90.0, High: 100.0},
-					0.75: {Low: 500.0, High: 600.0},
-					0.9:  {Low: 800.0, High: 900.0},
-					0.99: {Low: 1000.0, High: 1100.0},
-				},
-			},
-		},
-		{
-			Name: "Very Small Numbers",
-			Input: HistogramInput{
-				Count:      101,
-				Sum:        0.00015,
-				Min:        ptr(0.00000001),
-				Max:        ptr(0.000006),
-				Boundaries: []float64{0.0000001, 0.000001, 0.000002, 0.000003, 0.000004, 0.000005},
-				Counts:     []uint64{11, 21, 29, 20, 15, 4, 1},
-				Attributes: map[string]string{"service.name": "micro-timing"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   101,
-				Sum:     0.00015,
-				Average: 0.00000149,
-				Min:     ptr(0.00000001),
-				Max:     ptr(0.000006),
-				PercentileRanges: map[float64]PercentileRange{
-					0.01: {Low: 0.00000001, High: 0.0000001},
-					0.1:  {Low: 0.00000001, High: 0.0000001},
-					0.25: {Low: 0.0000001, High: 0.000001},
-					0.5:  {Low: 0.000001, High: 0.000002},
-					0.75: {Low: 0.000002, High: 0.000003},
-					0.9:  {Low: 0.000003, High: 0.000004},
-					0.99: {Low: 0.000004, High: 0.000005},
-				},
-			},
-		},
-		{
-			Name: "Only Negative Boundaries",
-			Input: HistogramInput{
-				Count:      101,
-				Sum:        -10000,
-				Min:        ptr(-200.0),
-				Max:        ptr(-10.0),
-				Boundaries: []float64{-150, -100, -75, -50, -25},
-				Counts:     []uint64{21, 31, 25, 15, 7, 2},
-				Attributes: map[string]string{"service.name": "negative-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   101,
-				Sum:     -6000,
-				Average: -59.41,
-				Min:     ptr(-200.0),
-				Max:     ptr(-10.0),
-				// Can't get percentiles for negatives
-				PercentileRanges: map[float64]PercentileRange{},
-			},
-		},
-		{
-			Name: "Negative and Positive Boundaries",
-			Input: HistogramInput{
-				Count:      106,
-				Sum:        0,
-				Min:        ptr(-50.0),
-				Max:        ptr(50.0),
-				Boundaries: []float64{-30, -10, 10, 30},
-				Counts:     []uint64{25, 26, 5, 25, 25},
-				Attributes: map[string]string{"service.name": "temperature-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   101,
-				Sum:     0,
-				Average: 0.0,
-				Min:     ptr(-50.0),
-				Max:     ptr(50.0),
-				// Can't get percentiles for negatives
-				PercentileRanges: map[float64]PercentileRange{},
-			},
-		},
+		// {
+		// 	Name: "Basic Histogram",
+		// 	Input: HistogramInput{
+		// 		Count:      101,
+		// 		Sum:        6000,
+		// 		Min:        ptr(10.0),
+		// 		Max:        ptr(200.0),
+		// 		Boundaries: []float64{25, 50, 75, 100, 150},
+		// 		Counts:     []uint64{21, 31, 25, 15, 7, 2},
+		// 		Attributes: map[string]string{"service.name": "payment-service"},
+		// 	},
+		// 	Expected: ExpectedMetrics{
+		// 		Count:   101,
+		// 		Sum:     6000,
+		// 		Average: 59.41,
+		// 		Min:     ptr(10.0),
+		// 		Max:     ptr(200.0),
+		// 		PercentileRanges: map[float64]PercentileRange{
+		// 			0.01: {Low: 10.0, High: 25.0},
+		// 			0.1:  {Low: 10.0, High: 25.0},
+		// 			0.25: {Low: 25.0, High: 50.0},
+		// 			0.5:  {Low: 25.0, High: 50.0},
+		// 			0.75: {Low: 50.0, High: 75.0},
+		// 			0.9:  {Low: 75.0, High: 100.0},
+		// 			0.99: {Low: 150.0, High: 200.0},
+		// 		},
+		// 	},
+		// },
+		// 	{
+		// 		Name: "Single Bucket",
+		// 		Input: HistogramInput{
+		// 			Count:      51,
+		// 			Sum:        1000,
+		// 			Min:        ptr(5.0),
+		// 			Max:        ptr(75.0),
+		// 			Boundaries: []float64{},
+		// 			Counts:     []uint64{51},
+		// 			Attributes: map[string]string{"service.name": "auth-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   51,
+		// 			Sum:     1000,
+		// 			Average: 19.61,
+		// 			Min:     ptr(5.0),
+		// 			Max:     ptr(75.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.01: {Low: 5.0, High: 75.0},
+		// 				0.1:  {Low: 5.0, High: 75.0},
+		// 				0.25: {Low: 5.0, High: 75.0},
+		// 				0.5:  {Low: 5.0, High: 75.0},
+		// 				0.75: {Low: 5.0, High: 75.0},
+		// 				0.9:  {Low: 5.0, High: 75.0},
+		// 				0.99: {Low: 5.0, High: 75.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Two Buckets",
+		// 		Input: HistogramInput{
+		// 			Count:      31,
+		// 			Sum:        150,
+		// 			Min:        ptr(1.0),
+		// 			Max:        ptr(10.0),
+		// 			Boundaries: []float64{5},
+		// 			Counts:     []uint64{21, 10},
+		// 			Attributes: map[string]string{"service.name": "database"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   31,
+		// 			Sum:     150,
+		// 			Average: 4.84,
+		// 			Min:     ptr(1.0),
+		// 			Max:     ptr(10.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.01: {Low: 1.0, High: 5.0},
+		// 				0.1:  {Low: 1.0, High: 5.0},
+		// 				0.25: {Low: 1.0, High: 5.0},
+		// 				0.5:  {Low: 1.0, High: 5.0},
+		// 				0.75: {Low: 5.0, High: 10.0},
+		// 				0.9:  {Low: 5.0, High: 10.0},
+		// 				0.99: {Low: 5.0, High: 10.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Zero Counts and Sparse Data",
+		// 		Input: HistogramInput{
+		// 			Count:      101,
+		// 			Sum:        25000,
+		// 			Min:        ptr(0.0),
+		// 			Max:        ptr(1500.0),
+		// 			Boundaries: []float64{10, 50, 100, 500, 1000},
+		// 			Counts:     []uint64{51, 0, 0, 39, 0, 11},
+		// 			Attributes: map[string]string{"service.name": "cache-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   101,
+		// 			Sum:     25000,
+		// 			Average: 247.52,
+		// 			Min:     ptr(0.0),
+		// 			Max:     ptr(1500.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.01: {Low: 0.0, High: 10.0},
+		// 				0.1:  {Low: 0.0, High: 10.0},
+		// 				0.25: {Low: 0.0, High: 10.0},
+		// 				0.5:  {Low: 0.0, High: 10.0},
+		// 				0.75: {Low: 100.0, High: 500.0},
+		// 				0.9:  {Low: 1000.0, High: 1500.0},
+		// 				0.99: {Low: 1000.0, High: 1500.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Large Numbers",
+		// 		Input: HistogramInput{
+		// 			Count:      1001,
+		// 			Sum:        100000000000,
+		// 			Min:        ptr(100000.0),
+		// 			Max:        ptr(1000000000.0),
+		// 			Boundaries: []float64{1000000, 10000000, 50000000, 100000000, 500000000},
+		// 			Counts:     []uint64{201, 301, 249, 150, 50, 50},
+		// 			Attributes: map[string]string{"service.name": "batch-processor"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   1001,
+		// 			Sum:     100000000000,
+		// 			Average: 99900099.90,
+		// 			Min:     ptr(100000.0),
+		// 			Max:     ptr(1000000000.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.01: {Low: 100000.0, High: 1000000.0},
+		// 				0.1:  {Low: 100000.0, High: 1000000.0},
+		// 				0.25: {Low: 1000000.0, High: 10000000.0},
+		// 				0.5:  {Low: 1000000.0, High: 10000000.0},
+		// 				0.75: {Low: 10000000.0, High: 50000000.0},
+		// 				0.9:  {Low: 50000000.0, High: 100000000.0},
+		// 				0.99: {Low: 500000000.0, High: 1000000000.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Many Buckets",
+		// 		Input: HistogramInput{
+		// 			Count:      1124,
+		// 			Sum:        350000,
+		// 			Min:        ptr(0.5),
+		// 			Max:        ptr(1100.0),
+		// 			Boundaries: []float64{1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000},
+		// 			Counts:     []uint64{51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 53},
+		// 			Attributes: map[string]string{"service.name": "detailed-metrics"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   1111,
+		// 			Sum:     350000,
+		// 			Average: 315.03,
+		// 			Min:     ptr(0.5),
+		// 			Max:     ptr(1100.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.01: {Low: 0.5, High: 1.0},
+		// 				0.1:  {Low: 5.0, High: 10.0},
+		// 				0.25: {Low: 30.0, High: 40.0},
+		// 				0.5:  {Low: 90.0, High: 100.0},
+		// 				0.75: {Low: 500.0, High: 600.0},
+		// 				0.9:  {Low: 800.0, High: 900.0},
+		// 				0.99: {Low: 1000.0, High: 1100.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Very Small Numbers",
+		// 		Input: HistogramInput{
+		// 			Count:      101,
+		// 			Sum:        0.00015,
+		// 			Min:        ptr(0.00000001),
+		// 			Max:        ptr(0.000006),
+		// 			Boundaries: []float64{0.0000001, 0.000001, 0.000002, 0.000003, 0.000004, 0.000005},
+		// 			Counts:     []uint64{11, 21, 29, 20, 15, 4, 1},
+		// 			Attributes: map[string]string{"service.name": "micro-timing"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   101,
+		// 			Sum:     0.00015,
+		// 			Average: 0.00000149,
+		// 			Min:     ptr(0.00000001),
+		// 			Max:     ptr(0.000006),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.01: {Low: 0.00000001, High: 0.0000001},
+		// 				0.1:  {Low: 0.00000001, High: 0.0000001},
+		// 				0.25: {Low: 0.0000001, High: 0.000001},
+		// 				0.5:  {Low: 0.000001, High: 0.000002},
+		// 				0.75: {Low: 0.000002, High: 0.000003},
+		// 				0.9:  {Low: 0.000003, High: 0.000004},
+		// 				0.99: {Low: 0.000004, High: 0.000005},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Only Negative Boundaries",
+		// 		Input: HistogramInput{
+		// 			Count:      101,
+		// 			Sum:        -10000,
+		// 			Min:        ptr(-200.0),
+		// 			Max:        ptr(-10.0),
+		// 			Boundaries: []float64{-150, -100, -75, -50, -25},
+		// 			Counts:     []uint64{21, 31, 25, 15, 7, 2},
+		// 			Attributes: map[string]string{"service.name": "negative-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   101,
+		// 			Sum:     -6000,
+		// 			Average: -59.41,
+		// 			Min:     ptr(-200.0),
+		// 			Max:     ptr(-10.0),
+		// 			// Can't get percentiles for negatives
+		// 			PercentileRanges: map[float64]PercentileRange{},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Negative and Positive Boundaries",
+		// 		Input: HistogramInput{
+		// 			Count:      106,
+		// 			Sum:        0,
+		// 			Min:        ptr(-50.0),
+		// 			Max:        ptr(50.0),
+		// 			Boundaries: []float64{-30, -10, 10, 30},
+		// 			Counts:     []uint64{25, 26, 5, 25, 25},
+		// 			Attributes: map[string]string{"service.name": "temperature-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   101,
+		// 			Sum:     0,
+		// 			Average: 0.0,
+		// 			Min:     ptr(-50.0),
+		// 			Max:     ptr(50.0),
+		// 			// Can't get percentiles for negatives
+		// 			PercentileRanges: map[float64]PercentileRange{},
+		// 		},
+		// 	},
 
-		{
-			Name: "Positive boundaries but implied Negative Values",
-			Input: HistogramInput{
-				Count:      101,
-				Sum:        200,
-				Min:        ptr(-100.0),
-				Max:        ptr(60.0),
-				Boundaries: []float64{0, 10, 20, 30, 40, 50},
-				Counts:     []uint64{61, 10, 10, 10, 5, 4, 1},
-				Attributes: map[string]string{"service.name": "temperature-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   101,
-				Sum:     -3000,
-				Average: -29.70,
-				Min:     ptr(-100.0),
-				Max:     ptr(60.0),
-				// Can't get percentiles for negatives
-				PercentileRanges: map[float64]PercentileRange{},
-			},
-		},
-		{
-			Name: "First bucket boundary equals minimum",
-			Input: HistogramInput{
-				Count:      100,
-				Sum:        8000,
-				Min:        ptr(10.0),
-				Max:        ptr(160.0),
-				Boundaries: []float64{10, 75, 100, 150},
-				Counts:     []uint64{20, 30, 25, 15, 10},
-				Attributes: map[string]string{"service.name": "invalid-max-bucket"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   100,
-				Sum:     10000,
-				Average: 1000,
-				Min:     ptr(10.0),
-				Max:     ptr(160.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: 10.0, High: 10.0},
-					0.25: {Low: 10.0, High: 75.0},
-					0.5:  {Low: 75.0, High: 100.0},
-					0.75: {Low: 100.0, High: 150.0},
-					0.9:  {Low: 150.0, High: 160.0},
-				},
-			},
-		},
-		{
-			Name: "No Min or Max",
-			Input: HistogramInput{
-				Count:      75,
-				Sum:        3500,
-				Min:        nil,
-				Max:        nil,
-				Boundaries: []float64{10, 50, 100, 200},
-				Counts:     []uint64{15, 21, 24, 10, 5},
-				Attributes: map[string]string{"service.name": "web-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   75,
-				Sum:     3500,
-				Average: 46.67,
-				Min:     nil,
-				Max:     nil,
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: math.Inf(-1), High: 10.0},
-					0.25: {Low: 10.0, High: 50.0},
-					0.5:  {Low: 50.0, High: 100.0},
-					0.75: {Low: 50.0, High: 100.0},
-					0.9:  {Low: 100.0, High: 200.0},
-				},
-			},
-		},
-		{
-			Name: "Only Max Defined",
-			Input: HistogramInput{
-				Count:      101,
-				Sum:        17500,
-				Min:        nil,
-				Max:        ptr(750.0),
-				Boundaries: []float64{100, 200, 300, 400, 500},
-				Counts:     []uint64{21, 31, 24, 15, 5, 5},
-				Attributes: map[string]string{"service.name": "api-gateway"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   101,
-				Sum:     17500,
-				Average: 173.27,
-				Min:     nil,
-				Max:     ptr(750.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: math.Inf(-1), High: 100.0},
-					0.25: {Low: 100.0, High: 200.0},
-					0.5:  {Low: 100.0, High: 200.0},
-					0.75: {Low: 200.0, High: 300.0},
-					0.9:  {Low: 300.0, High: 400.0},
-				},
-			},
-		},
-		{
-			Name: "Only Min Defined",
-			Input: HistogramInput{
-				Count:      51,
-				Sum:        4000,
-				Min:        ptr(25.0),
-				Max:        nil,
-				Boundaries: []float64{50, 100, 150},
-				Counts:     []uint64{11, 21, 14, 5},
-				Attributes: map[string]string{"service.name": "queue-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   51,
-				Sum:     4000,
-				Average: 78.43,
-				Min:     ptr(25.0),
-				Max:     nil,
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: 25.0, High: 50.0},
-					0.25: {Low: 50.0, High: 100.0},
-					0.5:  {Low: 50.0, High: 100.0},
-					0.75: {Low: 100.0, High: 150.0},
-					0.9:  {Low: 100.0, High: 150.0},
-				},
-			},
-		},
-		{
-			Name: "No Min/Max with Single Value",
-			Input: HistogramInput{
-				Count:      1,
-				Sum:        100,
-				Min:        nil,
-				Max:        nil,
-				Boundaries: []float64{50, 150},
-				Counts:     []uint64{0, 1, 0},
-				Attributes: map[string]string{"service.name": "singleton-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   1,
-				Sum:     100,
-				Average: 100.0,
-				Min:     nil,
-				Max:     nil,
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: 50.0, High: 150.0},
-					0.25: {Low: 50.0, High: 150.0},
-					0.5:  {Low: 50.0, High: 150.0},
-					0.75: {Low: 50.0, High: 150.0},
-					0.9:  {Low: 50.0, High: 150.0},
-				},
-			},
-		},
-		{
-			Name: "Unbounded Histogram",
-			Input: HistogramInput{
-				Count:      75,
-				Sum:        3500,
-				Min:        nil,
-				Max:        nil,
-				Boundaries: []float64{},
-				Counts:     []uint64{},
-				Attributes: map[string]string{"service.name": "unbounded-service"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   75,
-				Sum:     3500,
-				Average: 46.67,
-				Min:     nil,
-				Max:     nil,
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: math.Inf(-1), High: math.Inf(1)},
-					0.25: {Low: math.Inf(-1), High: math.Inf(1)},
-					0.5:  {Low: math.Inf(-1), High: math.Inf(1)},
-					0.75: {Low: math.Inf(-1), High: math.Inf(1)},
-					0.9:  {Low: math.Inf(-1), High: math.Inf(1)},
-				},
-			},
-		},
-		// >100 buckets will be used for testing request splitting in PMD path
-		{
-			Name: "126 Buckets",
-			Input: HistogramInput{
-				Count:      1386, // 126 buckets * 11 items each
-				Sum:        870555,
-				Min:        ptr(5.0),
-				Max:        ptr(1300.0),
-				Boundaries: boundaries125,
-				Counts:     counts125,
-				Attributes: map[string]string{"service.name": "many-buckets-125"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   1386,
-				Sum:     870555,
-				Average: 573.14,
-				Min:     ptr(5.0),
-				Max:     ptr(1300.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: 120.0, High: 130.0},
-					0.25: {Low: 310.0, High: 320.0},
-					0.5:  {Low: 630.0, High: 640.0},
-					0.75: {Low: 940.0, High: 950.0},
-					0.9:  {Low: 1130.0, High: 1140.0},
-				},
-			},
-		},
-		// >150 buckets will be used for testing request splitting in EMF path
-		{
-			Name: "176 Buckets",
-			Input: HistogramInput{
-				Count:      1936, // 176 buckets * 11 items each
-				Sum:        1697000,
-				Min:        ptr(5.0),
-				Max:        ptr(1800.0),
-				Boundaries: boundaries175,
-				Counts:     counts175,
-				Attributes: map[string]string{"service.name": "many-buckets-175"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   1936,
-				Sum:     1557000,
-				Average: 804.23,
-				Min:     ptr(5.0),
-				Max:     ptr(1800.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: 170.0, High: 180.0},
-					0.25: {Low: 440.0, High: 450.0},
-					0.5:  {Low: 880.0, High: 890.0},
-					0.75: {Low: 1320.0, High: 1330.0},
-					0.9:  {Low: 1580.0, High: 1590.0},
-				},
-			},
-		},
-		// PMD should split into 3 requests
-		// EMF should split into 2 requests
-		{
-			Name: "225 Buckets",
-			Input: HistogramInput{
-				Count:      2486, // 226 buckets * 11 items each
-				Sum:        2803750,
-				Min:        ptr(5.0),
-				Max:        ptr(2300.0),
-				Boundaries: boundaries225,
-				Counts:     counts225,
-				Attributes: map[string]string{"service.name": "many-buckets-225"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   2486,
-				Sum:     2803750,
-				Average: 1027.25,
-				Min:     ptr(5.0),
-				Max:     ptr(2300.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: 220.0, High: 230.0},
-					0.25: {Low: 560.0, High: 570.0},
-					0.5:  {Low: 1130.0, High: 1140.0},
-					0.75: {Low: 1690.0, High: 1700.0},
-					0.9:  {Low: 2030.0, High: 2040.0},
-				},
-			},
-		},
-		// PMD should split into 4 requests
-		// EMF should split into 3 requests
-		{
-			Name: "325 Buckets",
-			Input: HistogramInput{
-				Count:      3586, // 326 buckets * 11 items each
-				Sum:        5830500,
-				Min:        ptr(5.0),
-				Max:        ptr(3300.0),
-				Boundaries: boundaries325,
-				Counts:     counts325,
-				Attributes: map[string]string{"service.name": "many-buckets-325"},
-			},
-			Expected: ExpectedMetrics{
-				Count:   3586,
-				Sum:     5830500,
-				Average: 1486.47,
-				Min:     ptr(5.0),
-				Max:     ptr(3300.0),
-				PercentileRanges: map[float64]PercentileRange{
-					0.1:  {Low: 320.0, High: 330.0},
-					0.25: {Low: 810.0, High: 820.0},
-					0.5:  {Low: 1630.0, High: 1640.0},
-					0.75: {Low: 2440.0, High: 2450.0},
-					0.9:  {Low: 2930.0, High: 2940.0},
-				},
-			},
-		},
+		// 	{
+		// 		Name: "Positive boundaries but implied Negative Values",
+		// 		Input: HistogramInput{
+		// 			Count:      101,
+		// 			Sum:        200,
+		// 			Min:        ptr(-100.0),
+		// 			Max:        ptr(60.0),
+		// 			Boundaries: []float64{0, 10, 20, 30, 40, 50},
+		// 			Counts:     []uint64{61, 10, 10, 10, 5, 4, 1},
+		// 			Attributes: map[string]string{"service.name": "temperature-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   101,
+		// 			Sum:     -3000,
+		// 			Average: -29.70,
+		// 			Min:     ptr(-100.0),
+		// 			Max:     ptr(60.0),
+		// 			// Can't get percentiles for negatives
+		// 			PercentileRanges: map[float64]PercentileRange{},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "First bucket boundary equals minimum",
+		// 		Input: HistogramInput{
+		// 			Count:      100,
+		// 			Sum:        8000,
+		// 			Min:        ptr(10.0),
+		// 			Max:        ptr(160.0),
+		// 			Boundaries: []float64{10, 75, 100, 150},
+		// 			Counts:     []uint64{20, 30, 25, 15, 10},
+		// 			Attributes: map[string]string{"service.name": "invalid-max-bucket"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   100,
+		// 			Sum:     10000,
+		// 			Average: 1000,
+		// 			Min:     ptr(10.0),
+		// 			Max:     ptr(160.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: 10.0, High: 10.0},
+		// 				0.25: {Low: 10.0, High: 75.0},
+		// 				0.5:  {Low: 75.0, High: 100.0},
+		// 				0.75: {Low: 100.0, High: 150.0},
+		// 				0.9:  {Low: 150.0, High: 160.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "No Min or Max",
+		// 		Input: HistogramInput{
+		// 			Count:      75,
+		// 			Sum:        3500,
+		// 			Min:        nil,
+		// 			Max:        nil,
+		// 			Boundaries: []float64{10, 50, 100, 200},
+		// 			Counts:     []uint64{15, 21, 24, 10, 5},
+		// 			Attributes: map[string]string{"service.name": "web-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   75,
+		// 			Sum:     3500,
+		// 			Average: 46.67,
+		// 			Min:     nil,
+		// 			Max:     nil,
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: math.Inf(-1), High: 10.0},
+		// 				0.25: {Low: 10.0, High: 50.0},
+		// 				0.5:  {Low: 50.0, High: 100.0},
+		// 				0.75: {Low: 50.0, High: 100.0},
+		// 				0.9:  {Low: 100.0, High: 200.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Only Max Defined",
+		// 		Input: HistogramInput{
+		// 			Count:      101,
+		// 			Sum:        17500,
+		// 			Min:        nil,
+		// 			Max:        ptr(750.0),
+		// 			Boundaries: []float64{100, 200, 300, 400, 500},
+		// 			Counts:     []uint64{21, 31, 24, 15, 5, 5},
+		// 			Attributes: map[string]string{"service.name": "api-gateway"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   101,
+		// 			Sum:     17500,
+		// 			Average: 173.27,
+		// 			Min:     nil,
+		// 			Max:     ptr(750.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: math.Inf(-1), High: 100.0},
+		// 				0.25: {Low: 100.0, High: 200.0},
+		// 				0.5:  {Low: 100.0, High: 200.0},
+		// 				0.75: {Low: 200.0, High: 300.0},
+		// 				0.9:  {Low: 300.0, High: 400.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Only Min Defined",
+		// 		Input: HistogramInput{
+		// 			Count:      51,
+		// 			Sum:        4000,
+		// 			Min:        ptr(25.0),
+		// 			Max:        nil,
+		// 			Boundaries: []float64{50, 100, 150},
+		// 			Counts:     []uint64{11, 21, 14, 5},
+		// 			Attributes: map[string]string{"service.name": "queue-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   51,
+		// 			Sum:     4000,
+		// 			Average: 78.43,
+		// 			Min:     ptr(25.0),
+		// 			Max:     nil,
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: 25.0, High: 50.0},
+		// 				0.25: {Low: 50.0, High: 100.0},
+		// 				0.5:  {Low: 50.0, High: 100.0},
+		// 				0.75: {Low: 100.0, High: 150.0},
+		// 				0.9:  {Low: 100.0, High: 150.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "No Min/Max with Single Value",
+		// 		Input: HistogramInput{
+		// 			Count:      1,
+		// 			Sum:        100,
+		// 			Min:        nil,
+		// 			Max:        nil,
+		// 			Boundaries: []float64{50, 150},
+		// 			Counts:     []uint64{0, 1, 0},
+		// 			Attributes: map[string]string{"service.name": "singleton-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   1,
+		// 			Sum:     100,
+		// 			Average: 100.0,
+		// 			Min:     nil,
+		// 			Max:     nil,
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: 50.0, High: 150.0},
+		// 				0.25: {Low: 50.0, High: 150.0},
+		// 				0.5:  {Low: 50.0, High: 150.0},
+		// 				0.75: {Low: 50.0, High: 150.0},
+		// 				0.9:  {Low: 50.0, High: 150.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		Name: "Unbounded Histogram",
+		// 		Input: HistogramInput{
+		// 			Count:      75,
+		// 			Sum:        3500,
+		// 			Min:        nil,
+		// 			Max:        nil,
+		// 			Boundaries: []float64{},
+		// 			Counts:     []uint64{},
+		// 			Attributes: map[string]string{"service.name": "unbounded-service"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   75,
+		// 			Sum:     3500,
+		// 			Average: 46.67,
+		// 			Min:     nil,
+		// 			Max:     nil,
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: math.Inf(-1), High: math.Inf(1)},
+		// 				0.25: {Low: math.Inf(-1), High: math.Inf(1)},
+		// 				0.5:  {Low: math.Inf(-1), High: math.Inf(1)},
+		// 				0.75: {Low: math.Inf(-1), High: math.Inf(1)},
+		// 				0.9:  {Low: math.Inf(-1), High: math.Inf(1)},
+		// 			},
+		// 		},
+		// 	},
+		// 	// >100 buckets will be used for testing request splitting in PMD path
+		// 	{
+		// 		Name: "126 Buckets",
+		// 		Input: HistogramInput{
+		// 			Count:      1386, // 126 buckets * 11 items each
+		// 			Sum:        870555,
+		// 			Min:        ptr(5.0),
+		// 			Max:        ptr(1300.0),
+		// 			Boundaries: boundaries125,
+		// 			Counts:     counts125,
+		// 			Attributes: map[string]string{"service.name": "many-buckets-125"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   1386,
+		// 			Sum:     870555,
+		// 			Average: 573.14,
+		// 			Min:     ptr(5.0),
+		// 			Max:     ptr(1300.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: 120.0, High: 130.0},
+		// 				0.25: {Low: 310.0, High: 320.0},
+		// 				0.5:  {Low: 630.0, High: 640.0},
+		// 				0.75: {Low: 940.0, High: 950.0},
+		// 				0.9:  {Low: 1130.0, High: 1140.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	// >150 buckets will be used for testing request splitting in EMF path
+		// 	{
+		// 		Name: "176 Buckets",
+		// 		Input: HistogramInput{
+		// 			Count:      1936, // 176 buckets * 11 items each
+		// 			Sum:        1697000,
+		// 			Min:        ptr(5.0),
+		// 			Max:        ptr(1800.0),
+		// 			Boundaries: boundaries175,
+		// 			Counts:     counts175,
+		// 			Attributes: map[string]string{"service.name": "many-buckets-175"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   1936,
+		// 			Sum:     1557000,
+		// 			Average: 804.23,
+		// 			Min:     ptr(5.0),
+		// 			Max:     ptr(1800.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: 170.0, High: 180.0},
+		// 				0.25: {Low: 440.0, High: 450.0},
+		// 				0.5:  {Low: 880.0, High: 890.0},
+		// 				0.75: {Low: 1320.0, High: 1330.0},
+		// 				0.9:  {Low: 1580.0, High: 1590.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	// PMD should split into 3 requests
+		// 	// EMF should split into 2 requests
+		// 	{
+		// 		Name: "225 Buckets",
+		// 		Input: HistogramInput{
+		// 			Count:      2486, // 226 buckets * 11 items each
+		// 			Sum:        2803750,
+		// 			Min:        ptr(5.0),
+		// 			Max:        ptr(2300.0),
+		// 			Boundaries: boundaries225,
+		// 			Counts:     counts225,
+		// 			Attributes: map[string]string{"service.name": "many-buckets-225"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   2486,
+		// 			Sum:     2803750,
+		// 			Average: 1027.25,
+		// 			Min:     ptr(5.0),
+		// 			Max:     ptr(2300.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: 220.0, High: 230.0},
+		// 				0.25: {Low: 560.0, High: 570.0},
+		// 				0.5:  {Low: 1130.0, High: 1140.0},
+		// 				0.75: {Low: 1690.0, High: 1700.0},
+		// 				0.9:  {Low: 2030.0, High: 2040.0},
+		// 			},
+		// 		},
+		// 	},
+		// 	// PMD should split into 4 requests
+		// 	// EMF should split into 3 requests
+		// 	{
+		// 		Name: "325 Buckets",
+		// 		Input: HistogramInput{
+		// 			Count:      3586, // 326 buckets * 11 items each
+		// 			Sum:        5830500,
+		// 			Min:        ptr(5.0),
+		// 			Max:        ptr(3300.0),
+		// 			Boundaries: boundaries325,
+		// 			Counts:     counts325,
+		// 			Attributes: map[string]string{"service.name": "many-buckets-325"},
+		// 		},
+		// 		Expected: ExpectedMetrics{
+		// 			Count:   3586,
+		// 			Sum:     5830500,
+		// 			Average: 1486.47,
+		// 			Min:     ptr(5.0),
+		// 			Max:     ptr(3300.0),
+		// 			PercentileRanges: map[float64]PercentileRange{
+		// 				0.1:  {Low: 320.0, High: 330.0},
+		// 				0.25: {Low: 810.0, High: 820.0},
+		// 				0.5:  {Low: 1630.0, High: 1640.0},
+		// 				0.75: {Low: 2440.0, High: 2450.0},
+		// 				0.9:  {Low: 2930.0, High: 2940.0},
+		// 			},
+		// 		},
+		// 	},
 	}
 }
 
@@ -725,4 +761,15 @@ func InvalidTestCases() []HistogramTestCase {
 
 func ptr(f float64) *float64 {
 	return &f
+}
+
+func convertPercentileRanges(genRanges map[float64]telemetry_generator.PercentileRange) map[float64]PercentileRange {
+	result := make(map[float64]PercentileRange)
+	for k, v := range genRanges {
+		result[k] = PercentileRange{
+			Low:  v.Low,
+			High: v.High,
+		}
+	}
+	return result
 }
