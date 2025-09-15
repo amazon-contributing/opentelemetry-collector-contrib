@@ -255,7 +255,6 @@ func TestNew(t *testing.T) {
 }
 
 func TestMatcher(t *testing.T) {
-	t.Parallel()
 	cases := []struct {
 		name           string
 		files          []string

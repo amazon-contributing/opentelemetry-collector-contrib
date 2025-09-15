@@ -104,7 +104,7 @@ func TestOTelArrowReceiverGRPCTracesIngestTest(t *testing.T) {
 	td := testdata.GenerateTraces(1)
 
 	tt := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tt.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tt.Shutdown(context.Background())) }) //nolint:usetesting
 
 	sink := &errOrSinkConsumer{TracesSink: new(consumertest.TracesSink)}
 

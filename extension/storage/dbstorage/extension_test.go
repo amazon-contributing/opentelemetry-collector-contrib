@@ -44,7 +44,7 @@ func TestExtensionIntegrityWithPostgres(t *testing.T) {
 	se, ctr, err := newPostgresTestExtension()
 	t.Cleanup(func() {
 		if ctr != nil {
-			require.NoError(t, ctr.Terminate(t.Context()))
+			require.NoError(t, ctr.Terminate(context.Background())) //nolint:usetesting
 		}
 	})
 	require.NoError(t, err)
