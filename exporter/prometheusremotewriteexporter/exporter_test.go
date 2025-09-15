@@ -737,7 +737,7 @@ func Test_PushMetrics(t *testing.T) {
 								},
 							))),
 					)
-					t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+					t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 					set := metadatatest.NewSettings(tel)
 					set.BuildInfo = component.BuildInfo{
 						Description: "OpenTelemetry Collector",

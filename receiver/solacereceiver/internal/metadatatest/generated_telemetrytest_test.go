@@ -3,6 +3,7 @@
 package metadatatest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -72,5 +73,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(t.Context()))
+	require.NoError(t, testTel.Shutdown(context.Background())) //nolint:usetesting
 }

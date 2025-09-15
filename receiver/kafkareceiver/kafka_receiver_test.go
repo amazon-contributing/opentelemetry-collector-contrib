@@ -95,7 +95,7 @@ func TestTracesReceiver_error(t *testing.T) {
 
 func TestTracesConsumerGroupHandler(t *testing.T) {
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 
@@ -165,7 +165,7 @@ func TestTracesConsumerGroupHandler(t *testing.T) {
 
 func TestTracesConsumerGroupHandler_session_done(t *testing.T) {
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 
@@ -212,7 +212,7 @@ func TestTracesConsumerGroupHandler_error_unmarshal(t *testing.T) {
 	obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{ReceiverCreateSettings: receivertest.NewNopSettings(metadata.Type)})
 	require.NoError(t, err)
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 	c := tracesConsumerGroupHandler{
@@ -387,7 +387,7 @@ func TestMetricsReceiver_error(t *testing.T) {
 
 func TestMetricsConsumerGroupHandler(t *testing.T) {
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 
@@ -457,7 +457,7 @@ func TestMetricsConsumerGroupHandler(t *testing.T) {
 
 func TestMetricsConsumerGroupHandler_session_done(t *testing.T) {
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 
@@ -503,7 +503,7 @@ func TestMetricsConsumerGroupHandler_error_unmarshal(t *testing.T) {
 	obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{ReceiverCreateSettings: receivertest.NewNopSettings(metadata.Type)})
 	require.NoError(t, err)
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 	c := metricsConsumerGroupHandler{
@@ -691,7 +691,7 @@ func TestLogsReceiver_error(t *testing.T) {
 
 func TestLogsConsumerGroupHandler(t *testing.T) {
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 
@@ -761,7 +761,7 @@ func TestLogsConsumerGroupHandler(t *testing.T) {
 
 func TestLogsConsumerGroupHandler_session_done(t *testing.T) {
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 
@@ -807,7 +807,7 @@ func TestLogsConsumerGroupHandler_error_unmarshal(t *testing.T) {
 	obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{ReceiverCreateSettings: receivertest.NewNopSettings(metadata.Type)})
 	require.NoError(t, err)
 	tel := componenttest.NewTelemetry()
-	t.Cleanup(func() { require.NoError(t, tel.Shutdown(t.Context())) })
+	t.Cleanup(func() { require.NoError(t, tel.Shutdown(context.Background())) }) //nolint:usetesting
 	telemetryBuilder, err := metadata.NewTelemetryBuilder(tel.NewTelemetrySettings())
 	require.NoError(t, err)
 	c := logsConsumerGroupHandler{
