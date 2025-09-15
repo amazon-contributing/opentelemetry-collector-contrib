@@ -97,6 +97,6 @@ func (h *testHarness) sendNextMetric() {
 	if h.outOfMetrics {
 		return
 	}
-	err := h.sender.ConsumeMetrics(t.Context(), h.currPDM)
+	err := h.sender.ConsumeMetrics(context.Background(), h.currPDM)
 	require.NoError(h.t, err)
 }

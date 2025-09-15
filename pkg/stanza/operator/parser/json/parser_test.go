@@ -304,7 +304,7 @@ func benchmarkOperator(b *testing.B, parser operator.Operator) {
 	e := entry.Entry{Body: string(body)}
 
 	for i := 0; i < b.N; i++ {
-		err := parser.Process(t.Context(), &e)
+		err := parser.Process(b.Context(), &e)
 		require.NoError(b, err)
 	}
 }
