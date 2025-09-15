@@ -20,19 +20,19 @@ func TestSetupTelemetry(t *testing.T) {
 	tb, err := metadata.NewTelemetryBuilder(testTel.NewTelemetrySettings())
 	require.NoError(t, err)
 	defer tb.Shutdown()
-	tb.SolacereceiverDroppedEgressSpans.Add(t.Context(), 1)
-	tb.SolacereceiverDroppedSpanMessages.Add(t.Context(), 1)
-	tb.SolacereceiverFailedReconnections.Add(t.Context(), 1)
-	tb.SolacereceiverFatalUnmarshallingErrors.Add(t.Context(), 1)
-	tb.SolacereceiverNeedUpgrade.Record(t.Context(), 1)
-	tb.SolacereceiverReceivedSpanMessages.Add(t.Context(), 1)
-	tb.SolacereceiverReceiverFlowControlRecentRetries.Record(t.Context(), 1)
-	tb.SolacereceiverReceiverFlowControlStatus.Record(t.Context(), 1)
-	tb.SolacereceiverReceiverFlowControlTotal.Add(t.Context(), 1)
-	tb.SolacereceiverReceiverFlowControlWithSingleSuccessfulRetry.Add(t.Context(), 1)
-	tb.SolacereceiverReceiverStatus.Record(t.Context(), 1)
-	tb.SolacereceiverRecoverableUnmarshallingErrors.Add(t.Context(), 1)
-	tb.SolacereceiverReportedSpans.Add(t.Context(), 1)
+	tb.SolacereceiverDroppedEgressSpans.Add(context.Background(), 1)
+	tb.SolacereceiverDroppedSpanMessages.Add(context.Background(), 1)
+	tb.SolacereceiverFailedReconnections.Add(context.Background(), 1)
+	tb.SolacereceiverFatalUnmarshallingErrors.Add(context.Background(), 1)
+	tb.SolacereceiverNeedUpgrade.Record(context.Background(), 1)
+	tb.SolacereceiverReceivedSpanMessages.Add(context.Background(), 1)
+	tb.SolacereceiverReceiverFlowControlRecentRetries.Record(context.Background(), 1)
+	tb.SolacereceiverReceiverFlowControlStatus.Record(context.Background(), 1)
+	tb.SolacereceiverReceiverFlowControlTotal.Add(context.Background(), 1)
+	tb.SolacereceiverReceiverFlowControlWithSingleSuccessfulRetry.Add(context.Background(), 1)
+	tb.SolacereceiverReceiverStatus.Record(context.Background(), 1)
+	tb.SolacereceiverRecoverableUnmarshallingErrors.Add(context.Background(), 1)
+	tb.SolacereceiverReportedSpans.Add(context.Background(), 1)
 	AssertEqualSolacereceiverDroppedEgressSpans(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -73,5 +73,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(context.Background())) //nolint:usetesting
+	require.NoError(t, testTel.Shutdown(context.Background()))
 }

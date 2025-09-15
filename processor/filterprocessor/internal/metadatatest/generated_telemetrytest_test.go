@@ -3,6 +3,7 @@
 package metadatatest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,9 +20,9 @@ func TestSetupTelemetry(t *testing.T) {
 	tb, err := metadata.NewTelemetryBuilder(testTel.NewTelemetrySettings())
 	require.NoError(t, err)
 	defer tb.Shutdown()
-	tb.ProcessorFilterDatapointsFiltered.Add(t.Context(), 1)
-	tb.ProcessorFilterLogsFiltered.Add(t.Context(), 1)
-	tb.ProcessorFilterSpansFiltered.Add(t.Context(), 1)
+	tb.ProcessorFilterDatapointsFiltered.Add(context.Background(), 1)
+	tb.ProcessorFilterLogsFiltered.Add(context.Background(), 1)
+	tb.ProcessorFilterSpansFiltered.Add(context.Background(), 1)
 	AssertEqualProcessorFilterDatapointsFiltered(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -32,5 +33,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(t.Context()))
+	require.NoError(t, testTel.Shutdown(context.Background()))
 }

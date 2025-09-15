@@ -3,6 +3,7 @@
 package metadatatest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,14 +20,14 @@ func TestSetupTelemetry(t *testing.T) {
 	tb, err := metadata.NewTelemetryBuilder(testTel.NewTelemetrySettings())
 	require.NoError(t, err)
 	defer tb.Shutdown()
-	tb.ProcessorGroupbytraceConfNumTraces.Record(t.Context(), 1)
-	tb.ProcessorGroupbytraceEventLatency.Record(t.Context(), 1)
-	tb.ProcessorGroupbytraceIncompleteReleases.Add(t.Context(), 1)
-	tb.ProcessorGroupbytraceNumEventsInQueue.Record(t.Context(), 1)
-	tb.ProcessorGroupbytraceNumTracesInMemory.Record(t.Context(), 1)
-	tb.ProcessorGroupbytraceSpansReleased.Add(t.Context(), 1)
-	tb.ProcessorGroupbytraceTracesEvicted.Add(t.Context(), 1)
-	tb.ProcessorGroupbytraceTracesReleased.Add(t.Context(), 1)
+	tb.ProcessorGroupbytraceConfNumTraces.Record(context.Background(), 1)
+	tb.ProcessorGroupbytraceEventLatency.Record(context.Background(), 1)
+	tb.ProcessorGroupbytraceIncompleteReleases.Add(context.Background(), 1)
+	tb.ProcessorGroupbytraceNumEventsInQueue.Record(context.Background(), 1)
+	tb.ProcessorGroupbytraceNumTracesInMemory.Record(context.Background(), 1)
+	tb.ProcessorGroupbytraceSpansReleased.Add(context.Background(), 1)
+	tb.ProcessorGroupbytraceTracesEvicted.Add(context.Background(), 1)
+	tb.ProcessorGroupbytraceTracesReleased.Add(context.Background(), 1)
 	AssertEqualProcessorGroupbytraceConfNumTraces(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -52,5 +53,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(t.Context()))
+	require.NoError(t, testTel.Shutdown(context.Background()))
 }

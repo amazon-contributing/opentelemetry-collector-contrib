@@ -3,6 +3,7 @@
 package metadatatest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,14 +20,14 @@ func TestSetupTelemetry(t *testing.T) {
 	tb, err := metadata.NewTelemetryBuilder(testTel.NewTelemetrySettings())
 	require.NoError(t, err)
 	defer tb.Shutdown()
-	tb.KafkaReceiverCurrentOffset.Record(t.Context(), 1)
-	tb.KafkaReceiverMessages.Add(t.Context(), 1)
-	tb.KafkaReceiverOffsetLag.Record(t.Context(), 1)
-	tb.KafkaReceiverPartitionClose.Add(t.Context(), 1)
-	tb.KafkaReceiverPartitionStart.Add(t.Context(), 1)
-	tb.KafkaReceiverUnmarshalFailedLogRecords.Add(t.Context(), 1)
-	tb.KafkaReceiverUnmarshalFailedMetricPoints.Add(t.Context(), 1)
-	tb.KafkaReceiverUnmarshalFailedSpans.Add(t.Context(), 1)
+	tb.KafkaReceiverCurrentOffset.Record(context.Background(), 1)
+	tb.KafkaReceiverMessages.Add(context.Background(), 1)
+	tb.KafkaReceiverOffsetLag.Record(context.Background(), 1)
+	tb.KafkaReceiverPartitionClose.Add(context.Background(), 1)
+	tb.KafkaReceiverPartitionStart.Add(context.Background(), 1)
+	tb.KafkaReceiverUnmarshalFailedLogRecords.Add(context.Background(), 1)
+	tb.KafkaReceiverUnmarshalFailedMetricPoints.Add(context.Background(), 1)
+	tb.KafkaReceiverUnmarshalFailedSpans.Add(context.Background(), 1)
 	AssertEqualKafkaReceiverCurrentOffset(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -52,5 +53,5 @@ func TestSetupTelemetry(t *testing.T) {
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 
-	require.NoError(t, testTel.Shutdown(t.Context()))
+	require.NoError(t, testTel.Shutdown(context.Background()))
 }
