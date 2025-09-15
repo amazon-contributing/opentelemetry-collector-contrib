@@ -4,6 +4,7 @@
 package elasticsearchexporter
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ func TestFactory_CreateLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, exporter)
 
-	require.NoError(t, exporter.Shutdown(t.Context()))
+	require.NoError(t, exporter.Shutdown(context.Background())) //nolint:usetesting
 }
 
 func TestFactory_CreateMetrics(t *testing.T) {
@@ -44,7 +45,7 @@ func TestFactory_CreateMetrics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, exporter)
 
-	require.NoError(t, exporter.Shutdown(t.Context()))
+	require.NoError(t, exporter.Shutdown(context.Background())) //nolint:usetesting
 }
 
 func TestFactory_CreateTraces(t *testing.T) {
@@ -57,5 +58,5 @@ func TestFactory_CreateTraces(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, exporter)
 
-	require.NoError(t, exporter.Shutdown(t.Context()))
+	require.NoError(t, exporter.Shutdown(context.Background())) //nolint:usetesting
 }
