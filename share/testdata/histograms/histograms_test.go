@@ -46,7 +46,7 @@ func TestInvalidHistogramFeasibility(t *testing.T) {
 
 func TestVisualizeHistograms(t *testing.T) {
 	// comment the next line to visualize the input histograms
-	t.Skip("Skip visualization test")
+	//t.Skip("Skip visualization test")
 	testCases := TestCases()
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {

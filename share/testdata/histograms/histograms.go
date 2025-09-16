@@ -324,6 +324,19 @@ func TestCases() []HistogramTestCase {
 			},
 			Expected: ExpectedMetrics{
 				Count:   101,
+				Sum:     200,
+				Average: 1.98,
+				Min:     ptr(-100.0),
+				Max:     ptr(60.0),
+				PercentileRanges: map[float64]PercentileRange{},
+			},
+		},
+	}
+}
+
+func ptr(f float64) *float64 {
+	return &f
+}101,
 				Sum:     -3000,
 				Average: -29.70,
 				Min:     ptr(-100.0),
@@ -470,7 +483,7 @@ func TestCases() []HistogramTestCase {
 				Min:        nil,
 				Max:        nil,
 				Boundaries: []float64{},
-				Counts:     []uint64{},
+				Counts:     []uint64{75},
 				Attributes: map[string]string{"service.name": "unbounded-service"},
 			},
 			Expected: ExpectedMetrics{
