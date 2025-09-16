@@ -550,7 +550,6 @@ func (k *K8sAPIServer) getPersistentVolumeClaimMetrics(clusterName, timestampNs 
 		if k.nodeName != "" {
 			attributes[ci.NodeNameKey] = k.nodeName
 		}
-		attributes[ci.SourcesKey] = "[\"apiserver\"]"
 		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
 		metrics = append(metrics, md)
 	}
