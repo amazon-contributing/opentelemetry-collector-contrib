@@ -115,6 +115,13 @@ All components are designed for easy unit testing with deterministic seeds and d
 ### Extensibility
 New distributions can be added to `distributions.go` without affecting other components.
 
+## Features
+
+- ✅ **Statistical Distributions**: Multiple distribution functions for realistic data
+- ✅ **OTLP Publishing**: Direct integration with OpenTelemetry Protocol endpoints
+- ✅ **Flexible Generation**: Custom value functions and deterministic seeds
+- ✅ **Multiple Metric Types**: Support for Gauge, Sum, and Histogram metrics
+
 ## Future Enhancements
 
 1. **Additional Publishers**: Support for Prometheus, StatsD, etc.
