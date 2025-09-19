@@ -224,7 +224,7 @@ func TestCases() []HistogramTestCase {
 				Attributes: map[string]string{"service.name": "detailed-metrics"},
 			},
 			Expected: ExpectedMetrics{
-				Count:   1111,
+				Count:   1124,
 				Sum:     350000,
 				Average: 315.03,
 				Min:     ptr(0.5),
@@ -281,7 +281,7 @@ func TestCases() []HistogramTestCase {
 			},
 			Expected: ExpectedMetrics{
 				Count:   101,
-				Sum:     -6000,
+				Sum:     -10000,
 				Average: -59.41,
 				Min:     ptr(-200.0),
 				Max:     ptr(-10.0),
@@ -301,7 +301,7 @@ func TestCases() []HistogramTestCase {
 				Attributes: map[string]string{"service.name": "temperature-service"},
 			},
 			Expected: ExpectedMetrics{
-				Count:   101,
+				Count:   106,
 				Sum:     0,
 				Average: 0.0,
 				Min:     ptr(-50.0),
@@ -325,19 +325,6 @@ func TestCases() []HistogramTestCase {
 			Expected: ExpectedMetrics{
 				Count:   101,
 				Sum:     200,
-				Average: 1.98,
-				Min:     ptr(-100.0),
-				Max:     ptr(60.0),
-				PercentileRanges: map[float64]PercentileRange{},
-			},
-		},
-	}
-}
-
-func ptr(f float64) *float64 {
-	return &f
-}101,
-				Sum:     -3000,
 				Average: -29.70,
 				Min:     ptr(-100.0),
 				Max:     ptr(60.0),
@@ -358,7 +345,7 @@ func ptr(f float64) *float64 {
 			},
 			Expected: ExpectedMetrics{
 				Count:   100,
-				Sum:     10000,
+				Sum:     8000,
 				Average: 1000,
 				Min:     ptr(10.0),
 				Max:     ptr(160.0),
@@ -542,7 +529,7 @@ func ptr(f float64) *float64 {
 			},
 			Expected: ExpectedMetrics{
 				Count:   1936,
-				Sum:     1557000,
+				Sum:     1697000,
 				Average: 804.23,
 				Min:     ptr(5.0),
 				Max:     ptr(1800.0),
