@@ -4,6 +4,8 @@
 
 package awsutil // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 
+import "github.com/aws/aws-sdk-go/aws"
+
 // AWSSessionSettings defines the common session configs for AWS components
 type AWSSessionSettings struct {
 	// Maximum number of concurrent calls to AWS X-Ray to upload documents.
@@ -36,6 +38,8 @@ type AWSSessionSettings struct {
 	IMDSRetries int `mapstructure:"imds_retries"`
 	// External ID to verify third party role assumption
 	ExternalID string `mapstructure:"external_id"`
+	// Log Level for AWS SDK API calls
+	LogLevel *aws.LogLevelType `mapstructure:"log_level"`
 }
 
 func CreateDefaultSessionConfig() AWSSessionSettings {

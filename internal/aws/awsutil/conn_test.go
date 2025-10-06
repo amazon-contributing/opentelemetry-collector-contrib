@@ -25,7 +25,7 @@ type mockConn struct {
 	sn *session.Session
 }
 
-func (c *mockConn) getEC2Region(_ *session.Session, _ int) (string, error) {
+func (c *mockConn) getEC2Region(_ *zap.Logger, _ *aws.LogLevelType, _ *session.Session, _ int) (string, error) {
 	args := c.Called(nil)
 	errorStr := args.String(0)
 	var err error
@@ -130,7 +130,7 @@ func TestNewAWSSessionWithErr(t *testing.T) {
 		Region: aws.String("us-east-1"),
 	})
 	assert.NotNil(t, se)
-	_, err = conn.getEC2Region(se, aWSSessionSettings.IMDSRetries)
+	_, err = conn.getEC2Region(logger, nil, se, aWSSessionSettings.IMDSRetries)
 	assert.Error(t, err)
 }
 
