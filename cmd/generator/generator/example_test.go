@@ -6,6 +6,7 @@ package generator_test
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"testing"
 	"time"
 
@@ -616,6 +617,22 @@ func TestEdgeCases(t *testing.T) {
 			t.Error("Expected default boundaries when none provided")
 		}
 	})
+}
+
+func TestGenerateAccuracyDataset(t *testing.T) {
+	rng := rand.New(rand.NewSource(0xFEEDBEEF))
+	datapoints := make([]float64, 10000)
+	for i := range 10000 {
+		datapoints[i] = generator.LogNormalRandom(rng, -4.894, 1.176)
+	}
+	slices.Sort(datapoints)
+	for i, v := range datapoints {
+		if i > 0 {
+			fmt.Print(", ")
+		}
+		fmt.Printf("%.3e", v)
+	}
+	fmt.Println()
 }
 
 // Helper function for absolute value
