@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/cmd/generator/generator"
 	types "github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen/pkg"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen/pkg/metrics"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws/cloudwatch/histograms"
 	"github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -148,21 +147,7 @@ func (c *Config) GetHeaders() map[string]string {
 
 func main() {
 
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{
-		Seed: 12345, // For reproducible results
-	})
-
-	input := generator.HistogramInput{
-		Count:      1000,
-		Min:        ptr(0.0),
-		Max:        ptr(200.0),
-		Boundaries: []float64{25, 50, 75, 100, 150},
-		Attributes: map[string]string{"service.name": "test-service"},
-	}
-
-	result, err := gen.GenerateHistogram(input, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.NormalRandom(rnd, 75, 25) // mean=75, stddev=25
-	})
+	tc := histograms.TestCases()[0]
 
 	exporter, err := createExporter(&Config{
 		UseHTTP:  true,
@@ -179,15 +164,15 @@ func main() {
 
 	for {
 		if err := limiter.Wait(context.Background()); err != nil {
-			log.Printf("limiter wait failed, retry", zap.Error(err))
+			log.Print("limiter wait failed, retry", zap.Error(err))
 		}
 
 		attrs := []attribute.KeyValue{}
-		for k, v := range result.Input.Attributes {
+		for k, v := range tc.Input.Attributes {
 			attrs = append(attrs, attribute.String(k, v))
 		}
-		metrics := []metricdata.Metrics{metricdata.Metrics{
-			Name: "CustomOTLPHistogram",
+		metrics := []metricdata.Metrics{{
+			Name: tc.Name,
 			Data: metricdata.Histogram[float64]{
 				Temporality: metricdata.DeltaTemporality,
 				DataPoints: []metricdata.HistogramDataPoint[float64]{
@@ -195,12 +180,12 @@ func main() {
 						StartTime:    startTime,
 						Time:         time.Now(),
 						Attributes:   attribute.NewSet(attrs...),
-						Count:        result.Input.Count,
-						Sum:          result.Input.Sum,
-						Min:          metricdata.NewExtrema[float64](*result.Input.Min),
-						Max:          metricdata.NewExtrema[float64](*result.Input.Max),
-						Bounds:       result.Input.Boundaries,
-						BucketCounts: result.Input.Counts,
+						Count:        tc.Input.Count,
+						Sum:          tc.Input.Sum,
+						Min:          metricdata.NewExtrema(*tc.Input.Min),
+						Max:          metricdata.NewExtrema(*tc.Input.Max),
+						Bounds:       tc.Input.Boundaries,
+						BucketCounts: tc.Input.Counts,
 					},
 				},
 			},
