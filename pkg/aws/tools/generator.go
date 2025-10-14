@@ -86,20 +86,6 @@ func generateSamples(config DistributionConfig, rng *rand.Rand) []float64 {
 	return data
 }
 
-// gammaRandom generates a random sample from a gamma distribution with the given shape parameter.
-// It uses the Marsaglia and Tsang method (2000) for efficient gamma random number generation.
-//
-// For shape < 1, it uses the transformation property: if X ~ Gamma(shape+1, 1), then
-// X * U^(1/shape) ~ Gamma(shape, 1) where U ~ Uniform(0,1).
-//
-// For shape >= 1, it uses the squeeze acceptance method which is highly efficient
-// with an acceptance rate > 95% for most shape values.
-//
-// Parameters:
-//   - shape: the shape parameter (α) of the gamma distribution, must be > 0
-//   - rng: random number generator for sampling
-//
-// Returns: a random sample from Gamma(shape, 1) distribution
 func gammaRandom(shape float64, rng *rand.Rand) float64 {
 	if shape < 1 {
 		return gammaRandom(shape+1, rng) * math.Pow(rng.Float64(), 1/shape)
