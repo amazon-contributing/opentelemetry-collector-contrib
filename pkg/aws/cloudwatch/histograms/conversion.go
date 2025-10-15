@@ -73,7 +73,15 @@ func ConvertOTelToCloudWatch(dp pmetric.HistogramDataPoint) cloudwatch.Histogram
 		if lenBounds > 1 {
 			bucketWidth = bounds.At(1) - bounds.At(0)
 		}
+
 		em.minimum = bounds.At(0) - bucketWidth
+
+		// if all boundaries are positive, assume all data is positive. this covers use cases where Prometheus histogram
+		// metric for non-zero values like request durations have their first bucket start at 0. for these metrics,
+		// a negative minimum will cause percentile metrics to be unavailable
+		if bounds.At(0) >= 0 {
+			em.minimum = max(em.minimum, 0.0)
+		}
 	}
 
 	if !dp.HasMax() {
