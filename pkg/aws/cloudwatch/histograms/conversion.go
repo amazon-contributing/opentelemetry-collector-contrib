@@ -54,7 +54,7 @@ func ConvertOTelToCloudWatch(dp pmetric.HistogramDataPoint) cloudwatch.Histogram
 	if lenBounds == 0 {
 		em.counts = append(em.counts, float64(bucketCounts.At(0))) // recall that len(bucketCounts) = len(bounds)+1
 		if dp.HasMax() && dp.HasMin() {
-			em.values = append(em.values, em.minimum/2.0+em.maximum/2.0) // overflow safe average calculation
+			em.values = append(em.values, em.minimum/2.0+em.maximum/2.0)
 		} else if dp.HasMax() {
 			em.values = append(em.values, em.maximum) // only data point we have is the maximum
 		} else if dp.HasMin() {
@@ -69,27 +69,58 @@ func ConvertOTelToCloudWatch(dp pmetric.HistogramDataPoint) cloudwatch.Histogram
 	// min and max and their lower and upper bounds respectively. The min and max are optional on the OTel datapoint.
 	// When min and max are not defined, make some reasonable about about what the min/max could be
 	if !dp.HasMin() {
-		bucketWidth := 0.001 // arbitrary width - there's no information about this histogram to make an inference with
-		if lenBounds > 1 {
-			bucketWidth = bounds.At(1) - bounds.At(0)
+
+		// Find the first bucket which contains some data points. The min must be in that bucket
+		minBucketIdx := 0
+		for i := 0; i < lenBucketCounts; i++ {
+			if bucketCounts.At(i) > 0 {
+				minBucketIdx = i
+				break
+			}
 		}
 
-		em.minimum = bounds.At(0) - bucketWidth
+		// take the lower bound of the bucket. lower bound of bucket index n is boundary index n-1
+		if minBucketIdx != 0 {
+			em.minimum = bounds.At(minBucketIdx - 1)
+		} else {
+			bucketWidth := 0.001 // arbitrary width - there's no information about this histogram to make an inference with if there are no bounds
+			if lenBounds > 1 {
+				bucketWidth = bounds.At(1) - bounds.At(0)
+			}
+			em.minimum = bounds.At(0) - bucketWidth
 
-		// if all boundaries are positive, assume all data is positive. this covers use cases where Prometheus histogram
-		// metric for non-zero values like request durations have their first bucket start at 0. for these metrics,
-		// a negative minimum will cause percentile metrics to be unavailable
-		if bounds.At(0) >= 0 {
-			em.minimum = max(em.minimum, 0.0)
+			// if all boundaries are positive, assume all data is positive. this covers use cases where Prometheus
+			// histogram metrics for non-zero values like request durations have their first bucket start at 0. for
+			// these metrics, a negative minimum will cause percentile metrics to be unavailable
+			if bounds.At(0) >= 0 {
+				em.minimum = max(em.minimum, 0.0)
+			}
 		}
+
 	}
 
 	if !dp.HasMax() {
-		bucketWidth := 0.01 // arbitrary width - there's no information about this histogram to make an inference with
-		if lenBounds > 1 {
-			bucketWidth = bounds.At(lenBounds-1) - bounds.At(lenBounds-2)
+
+		// Find the last bucket with some data in it. The max must be in that bucket
+		maxBucketIdx := lenBounds - 1
+		for i := lenBucketCounts - 1; i >= 0; i-- {
+			if bucketCounts.At(i) > 0 {
+				maxBucketIdx = i
+				break
+			}
 		}
-		em.maximum = bounds.At(lenBounds-1) + bucketWidth
+
+		// we want the upper bound of the bucket. the upper bound of bucket index n is boundary index n
+		if maxBucketIdx <= lenBounds-1 {
+			em.maximum = bounds.At(maxBucketIdx)
+		} else {
+			bucketWidth := 0.01 // arbitrary width - there's no information about this histogram to make an inference with
+			if lenBounds > 1 {
+				bucketWidth = bounds.At(lenBounds-1) - bounds.At(lenBounds-2)
+			}
+			em.maximum = bounds.At(lenBounds-1) + bucketWidth
+		}
+
 	}
 
 	// Pre-calculate total output size to avoid dynamic growth
