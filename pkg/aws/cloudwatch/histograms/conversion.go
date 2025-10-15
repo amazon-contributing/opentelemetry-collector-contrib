@@ -87,7 +87,7 @@ func ConvertOTelToCloudWatch(dp pmetric.HistogramDataPoint) cloudwatch.Histogram
 	if !dp.HasMax() {
 		bucketWidth := 0.01 // arbitrary width - there's no information about this histogram to make an inference with
 		if lenBounds > 1 {
-			bucketWidth = bounds.At(lenBounds-2) - bounds.At(lenBounds-1)
+			bucketWidth = bounds.At(lenBounds-1) - bounds.At(lenBounds-2)
 		}
 		em.maximum = bounds.At(lenBounds-1) + bucketWidth
 	}
