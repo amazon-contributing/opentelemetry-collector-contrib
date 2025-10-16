@@ -26,9 +26,11 @@ var filenameReplacer = strings.NewReplacer(
 )
 
 func TestWriteInputHistograms(t *testing.T) {
+	t.Skip("only used to create test data for visualization")
 	for _, tc := range TestCases() {
 		jsonData, err := json.MarshalIndent(tc.Input, "", "  ")
 		require.NoError(t, err)
+		os.Mkdir("testdata/input", os.ModePerm)
 		require.NoError(t, os.WriteFile("testdata/input/"+filenameReplacer.Replace(tc.Name)+".json", jsonData, 0644))
 	}
 }
@@ -43,8 +45,8 @@ func TestConvertOTelToCloudWatch(t *testing.T) {
 
 			// uncomment next lines to write datapoint to JSON file for visual inspection
 			// use histogram_mappings.py to create graphs
-
-			// assert.NoError(t, writeValuesAndCountsToJson(dist, "testdata/exponential/"+filenameReplacer.Replace(tc.Name+".json")))
+			//os.Mkdir("testdata/exponential", os.ModePerm)
+			//assert.NoError(t, writeValuesAndCountsToJson(dist, "testdata/exponential/"+filenameReplacer.Replace(tc.Name+".json")))
 		})
 	}
 
