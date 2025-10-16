@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	types "github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen/pkg"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen/pkg/metrics"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws/cloudwatch/histograms"
 	"github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,7 +18,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.uber.org/zap"
-	"golang.org/x/time/rate"
 )
 
 const (
@@ -71,51 +68,13 @@ func (*KeyValue) Type() string {
 	return "map[string]any"
 }
 
-type ClientAuth struct {
-	Enabled        bool
-	ClientCertFile string
-	ClientKeyFile  string
-}
-
 // Config describes the test scenario.
 type Config struct {
-	WorkerCount           int
-	Rate                  float64
-	TotalDuration         types.DurationWithInf
-	ReportingInterval     time.Duration
-	SkipSettingGRPCLogger bool
-
-	// OTLP config
-	CustomEndpoint      string
-	Insecure            bool
-	InsecureSkipVerify  bool
-	UseHTTP             bool
-	HTTPPath            string
-	Headers             KeyValue
-	ResourceAttributes  KeyValue
-	ServiceName         string
-	TelemetryAttributes KeyValue
-
-	// OTLP TLS configuration
-	CaFile string
-
-	// OTLP mTLS configuration
-	ClientAuth ClientAuth
-
-	// Export behavior configuration
-	AllowExportFailures bool
-
-	// Load testing configuration
-	LoadSize int
-
-	NumMetrics              int
-	MetricName              string
-	MetricType              metrics.MetricType
-	AggregationTemporality  metricdata.Temporality
-	SpanID                  string
-	TraceID                 string
-	EnforceUniqueTimeseries bool
-	UniqueTimelimit         time.Duration
+	CustomEndpoint string
+	Insecure       bool
+	UseHTTP        bool
+	HTTPPath       string
+	Headers        KeyValue
 }
 
 // Endpoint returns the appropriate endpoint URL based on the selected communication mode (gRPC or HTTP)
@@ -147,8 +106,6 @@ func (c *Config) GetHeaders() map[string]string {
 
 func main() {
 
-	tc := histograms.TestCases()[0]
-
 	exporter, err := createExporter(&Config{
 		UseHTTP:  true,
 		Insecure: true,
@@ -158,45 +115,56 @@ func main() {
 	}
 
 	res := resource.NewWithAttributes(semconv.SchemaURL)
-	limiter := rate.NewLimiter(1, 1)
 
 	startTime := time.Now()
 
-	for {
-		if err := limiter.Wait(context.Background()); err != nil {
-			log.Print("limiter wait failed, retry", zap.Error(err))
-		}
+	go func() {
+		testCases := histograms.TestCases()
+		ticker := time.NewTicker(time.Second * 10)
+		for range ticker.C {
+			for _, tc := range testCases {
+				metrics := []metricdata.Metrics{{
+					Name: tc.Name,
+					Data: metricdata.Histogram[float64]{
+						Temporality: metricdata.DeltaTemporality,
+						DataPoints: []metricdata.HistogramDataPoint[float64]{
+							tcToDatapoint(tc, startTime),
+						},
+					},
+				}}
+				rm := metricdata.ResourceMetrics{
+					Resource:     res,
+					ScopeMetrics: []metricdata.ScopeMetrics{{Metrics: metrics}},
+				}
 
-		attrs := []attribute.KeyValue{}
-		for k, v := range tc.Input.Attributes {
-			attrs = append(attrs, attribute.String(k, v))
+				if err := exporter.Export(context.Background(), &rm); err != nil {
+					log.Fatal("exporter failed", zap.Error(err))
+				}
+			}
 		}
-		metrics := []metricdata.Metrics{{
-			Name: tc.Name,
-			Data: metricdata.Histogram[float64]{
-				Temporality: metricdata.DeltaTemporality,
-				DataPoints: []metricdata.HistogramDataPoint[float64]{
-					{
-						StartTime:    startTime,
-						Time:         time.Now(),
-						Attributes:   attribute.NewSet(attrs...),
-						Count:        tc.Input.Count,
-						Sum:          tc.Input.Sum,
-						Min:          metricdata.NewExtrema(*tc.Input.Min),
-						Max:          metricdata.NewExtrema(*tc.Input.Max),
-						Bounds:       tc.Input.Boundaries,
-						BucketCounts: tc.Input.Counts,
+	}()
+
+	ticker := time.NewTicker(time.Second * 10)
+	testCases := histograms.InvalidTestCases()
+	for range ticker.C {
+		for _, tc := range testCases {
+			metrics := []metricdata.Metrics{{
+				Name: tc.Name,
+				Data: metricdata.Histogram[float64]{
+					Temporality: metricdata.DeltaTemporality,
+					DataPoints: []metricdata.HistogramDataPoint[float64]{
+						tcToDatapoint(tc, startTime),
 					},
 				},
-			},
-		}}
-		rm := metricdata.ResourceMetrics{
-			Resource:     res,
-			ScopeMetrics: []metricdata.ScopeMetrics{{Metrics: metrics}},
-		}
+			}}
+			rm := metricdata.ResourceMetrics{
+				Resource:     res,
+				ScopeMetrics: []metricdata.ScopeMetrics{{Metrics: metrics}},
+			}
 
-		if err := exporter.Export(context.Background(), &rm); err != nil {
-			log.Fatal("exporter failed", zap.Error(err))
+			if err := exporter.Export(context.Background(), &rm); err != nil {
+				log.Fatal("exporter failed", zap.Error(err))
+			}
 		}
 	}
 
@@ -242,6 +210,27 @@ func httpExporterOptions(cfg *Config) ([]otlpmetrichttp.Option, error) {
 	return httpExpOpt, nil
 }
 
-func ptr(f float64) *float64 {
-	return &f
+func tcToDatapoint(tc histograms.HistogramTestCase, startTime time.Time) metricdata.HistogramDataPoint[float64] {
+	attrs := []attribute.KeyValue{}
+	for k, v := range tc.Input.Attributes {
+		attrs = append(attrs, attribute.String(k, v))
+	}
+
+	dp := metricdata.HistogramDataPoint[float64]{
+		StartTime:    startTime,
+		Time:         time.Now(),
+		Attributes:   attribute.NewSet(attrs...),
+		Count:        tc.Input.Count,
+		Sum:          tc.Input.Sum,
+		Bounds:       tc.Input.Boundaries,
+		BucketCounts: tc.Input.Counts,
+	}
+
+	if tc.Input.Min != nil {
+		dp.Min = metricdata.NewExtrema(*tc.Input.Min)
+	}
+	if tc.Input.Max != nil {
+		dp.Max = metricdata.NewExtrema(*tc.Input.Max)
+	}
+	return dp
 }
