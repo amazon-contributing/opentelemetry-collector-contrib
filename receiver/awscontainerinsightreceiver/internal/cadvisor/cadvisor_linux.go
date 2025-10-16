@@ -8,6 +8,8 @@ package cadvisor // import "github.com/open-telemetry/opentelemetry-collector-co
 import (
 	"errors"
 	"net/http"
+	"os"
+	"syscall"
 	"time"
 
 	"github.com/google/cadvisor/cache/memory"
@@ -114,6 +116,8 @@ type Cadvisor struct {
 	ecsInfo               EcsInfo
 	containerOrchestrator string
 	metricsExtractors     []extractors.MetricExtractor
+	lastSocketInode       uint64
+	socketPath            string
 }
 
 func init() {
@@ -211,8 +215,18 @@ func (c *Cadvisor) GetMetrics() []pmetric.Metrics {
 
 	containerinfos, err = c.manager.SubcontainersInfo("/", req)
 	if err != nil {
-		c.logger.Warn("GetContainerInfo failed", zap.Error(err))
-		return result
+		// Check if containerd restarted and retry once
+		if c.hasContainerdRestarted() {
+			c.logger.Info("Containerd restart detected, reinitializing manager")
+			if reinitErr := c.initManager(c.createCadvisorManager); reinitErr == nil {
+				containerinfos, err = c.manager.SubcontainersInfo("/", req)
+			}
+		}
+
+		if err != nil {
+			c.logger.Warn("GetContainerInfo failed", zap.Error(err))
+			return result
+		}
 	}
 
 	out := processContainers(containerinfos, c.hostInfo, c.containerOrchestrator, c.logger, c.GetMetricsExtractors())
@@ -281,4 +295,32 @@ func (c *Cadvisor) initManager(createManager createCadvisorManager) error {
 	c.metricsExtractors = append(c.metricsExtractors, extractors.NewFileSystemMetricExtractor(c.logger))
 
 	return nil
+}
+
+// hasContainerdRestarted checks if containerd has restarted by monitoring socket inode
+func (c *Cadvisor) hasContainerdRestarted() bool {
+	if c.socketPath == "" {
+		c.socketPath = "/run/containerd/containerd.sock"
+	}
+
+	stat, err := os.Stat(c.socketPath)
+	if err != nil {
+		return false
+	}
+
+	// Get inode number (works on Linux)
+	if sysStat, ok := stat.Sys().(*syscall.Stat_t); ok {
+		currentInode := sysStat.Ino
+		if c.lastSocketInode == 0 {
+			c.lastSocketInode = currentInode
+			return false
+		}
+
+		if currentInode != c.lastSocketInode {
+			c.lastSocketInode = currentInode
+			return true
+		}
+	}
+
+	return false
 }
