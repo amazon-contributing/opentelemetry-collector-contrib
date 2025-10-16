@@ -45,8 +45,8 @@ func TestConvertOTelToCloudWatch(t *testing.T) {
 
 			// uncomment next lines to write datapoint to JSON file for visual inspection
 			// use histogram_mappings.py to create graphs
-			//os.Mkdir("testdata/exponential", os.ModePerm)
-			//assert.NoError(t, writeValuesAndCountsToJson(dist, "testdata/exponential/"+filenameReplacer.Replace(tc.Name+".json")))
+			os.Mkdir("testdata/exponential", os.ModePerm)
+			assert.NoError(t, writeValuesAndCountsToJson(dist, "testdata/exponential/"+filenameReplacer.Replace(tc.Name+".json")))
 		})
 	}
 
@@ -289,9 +289,10 @@ func verifyDistAccuracy(t *testing.T, newDistFunc func(pmetric.HistogramDataPoin
 func writeValuesAndCountsToJson(dist cloudwatch.HistogramDataPoint, filename string) error {
 	values, counts := dist.ValuesAndCounts()
 
-	data := make(map[string][]float64)
+	data := make(map[string]any)
 	data["values"] = values
 	data["counts"] = counts
+	data["sum"] = dist.Sum()
 
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {

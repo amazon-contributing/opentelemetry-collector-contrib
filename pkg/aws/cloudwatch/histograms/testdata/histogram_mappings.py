@@ -15,6 +15,7 @@ def plot_input_histogram(data, ax, title: str, color: str):
     counts = data['Counts']
     min_val = data.get('Min')
     max_val = data.get('Max')
+    summ = data.get('Sum')
     total_count = sum(counts)
     
     # Handle case with no boundaries (single bucket)
@@ -49,11 +50,11 @@ def plot_input_histogram(data, ax, title: str, color: str):
             widths.append(right - left)
     
     ax.bar(left_edges, counts, width=widths, alpha=0.7, edgecolor='black', linewidth=0.8, color=color, align='edge')
-    ax.set_title(f'{title} (Count: {total_count})')
+    ax.set_title(f'{title} (Count: {total_count}, Sum: {summ})')
     ax.set_ylabel('Counts')
     ax.grid(True, alpha=0.3)
 
-def plot_cw_histogram_bars(histogram: Dict[float, float], histogram_min: float, histogram_max: float, ax, title: str, color: str):
+def plot_cw_histogram_bars(histogram: Dict[float, float], histogram_min: float, histogram_max: float, histogram_sum: float, ax, title: str, color: str):
     """Plot histogram bars on given axes."""
     values = sorted(histogram.keys())
     counts = [histogram[v] for v in values]
@@ -92,7 +93,7 @@ def plot_cw_histogram_bars(histogram: Dict[float, float], histogram_min: float, 
         ax.bar(values, counts, width=widths, alpha=0.7, edgecolor='black', linewidth=0.8, color=color)
     
     ax.scatter(values, counts, color='red', s=50, zorder=5)
-    ax.set_title(f'{title} (Count: {total_count})')
+    ax.set_title(f'{title} (Count: {total_count}, Sum: {histogram_sum})')
     ax.set_ylabel('Counts')
     ax.grid(True, alpha=0.3)
 
@@ -100,7 +101,7 @@ def load_json_data(filepath):
     """Load histogram data from JSON file."""
     with open(filepath, 'r') as f:
         data = json.load(f)
-    return data['values'], data['counts']
+    return data['values'], data['counts'], data['sum']
 
 def load_input_histogram(filepath):
     """Load input histogram format."""
@@ -126,11 +127,11 @@ def plot_all_folders_comparison(json_filename):
                     data = load_input_histogram(filepath)
                     plot_input_histogram(data, ax[i], f'{folder.capitalize()} Mapping', color)
                 else:
-                    values, counts = load_json_data(filepath)
+                    values, counts, summ = load_json_data(filepath)
                     if not values:  # Skip if no values
                         continue
                     hist = {values[j]: counts[j] for j in range(len(values))}
-                    plot_cw_histogram_bars(hist, min(values), max(values), ax[i], f'{folder.capitalize()} Mapping', color)
+                    plot_cw_histogram_bars(hist, min(values), max(values), summ, ax[i], f'{folder.capitalize()} Mapping', color)
             except Exception as e:
                 print(f"Error processing {filepath}: {e}")
     
