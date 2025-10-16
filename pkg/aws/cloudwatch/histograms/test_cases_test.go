@@ -96,6 +96,40 @@ func checkFeasibility(histogramInput HistogramInput) (bool, string) {
 		}
 	}
 
+	if hi.Max != nil {
+		if math.IsNaN(*hi.Max) {
+			return false, "max is NaN"
+		}
+		if math.IsInf(*hi.Max, 0) {
+			return false, "max is +/-inf"
+		}
+	}
+
+	if hi.Max != nil {
+		if math.IsNaN(*hi.Min) {
+			return false, "min is NaN"
+		}
+		if math.IsInf(*hi.Min, 0) {
+			return false, "min is +/-inf"
+		}
+	}
+
+	if math.IsNaN(hi.Sum) {
+		return false, "sum is NaN"
+	}
+	if math.IsInf(hi.Sum, 0) {
+		return false, "sum is +/-inf"
+	}
+
+	for _, bound := range hi.Boundaries {
+		if math.IsNaN(bound) {
+			return false, "boundary is NaN"
+		}
+		if math.IsInf(bound, 0) {
+			return false, "boundary is +/-inf"
+		}
+	}
+
 	// Rest of checks only apply if we have boundaries/counts
 	if lenBoundaries > 0 || lenCounts > 0 {
 		// Check boundaries are in ascending order
