@@ -9,8 +9,8 @@ import pdb
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-def plot_original_histogram(data, ax, title: str, color: str):
-    """Plot original histogram using exact bucket boundaries."""
+def plot_input_histogram(data, ax, title: str, color: str):
+    """Plot input histogram using exact bucket boundaries."""
     boundaries = data.get('Boundaries', [])
     counts = data['Counts']
     min_val = data.get('Min')
@@ -102,8 +102,8 @@ def load_json_data(filepath):
         data = json.load(f)
     return data['values'], data['counts']
 
-def load_original_histogram(filepath):
-    """Load original histogram format."""
+def load_input_histogram(filepath):
+    """Load input histogram format."""
     with open(filepath, 'r') as f:
         data = json.load(f)
     return data
@@ -111,8 +111,8 @@ def load_original_histogram(filepath):
 def plot_all_folders_comparison(json_filename):
     """Plot the same JSON file from all folders for comparison."""
     base_path = Path('.')
-    folders = ['original', 'cwagent', 'even', 'middlepoint', 'exponential', 'exponentialcw']
-    colors = ['black', 'green', 'orange', 'red', 'purple', 'blue']
+    folders = ['input', 'exponential']
+    colors = ['black', 'green']
     
     fig, ax = plt.subplots(len(folders), 1, figsize=(12, 20))
     
@@ -122,9 +122,9 @@ def plot_all_folders_comparison(json_filename):
         filepath = base_path / folder / (json_filename+".json")
         if filepath.exists():
             try:
-                if folder == 'original':
-                    data = load_original_histogram(filepath)
-                    plot_original_histogram(data, ax[i], f'{folder.capitalize()} Mapping', color)
+                if folder == 'input':
+                    data = load_input_histogram(filepath)
+                    plot_input_histogram(data, ax[i], f'{folder.capitalize()} Mapping', color)
                 else:
                     values, counts = load_json_data(filepath)
                     if not values:  # Skip if no values
@@ -144,23 +144,25 @@ if __name__ == "__main__":
     parser.add_argument('dataset', nargs='?', help='Optional dataset name to process')
     args = parser.parse_args()
     
-    original_path = Path('./original')
-    if original_path.exists():
+    os.makedirs('comparisons', exist_ok=True)
+
+    input_path = Path('./input')
+    if input_path.exists():
         if args.dataset:
             # Process specific dataset if provided
-            dataset_file = original_path / f"{args.dataset}.json"
+            dataset_file = input_path / f"{args.dataset}.json"
             if dataset_file.exists():
                 print(f"Processing {args.dataset}...")
                 plot_all_folders_comparison(args.dataset)
             else:
-                print(f"Dataset '{args.dataset}' not found in original folder.")
+                print(f"Dataset '{args.dataset}' not found in input folder.")
         else:
             # Process all datasets if no specific dataset provided
-            json_files = [f.stem for f in original_path.iterdir() if f.suffix == '.json']
+            json_files = [f.stem for f in input_path.iterdir() if f.suffix == '.json']
             for json_file in json_files:
                 print(f"Processing {json_file}...")
                 plot_all_folders_comparison(json_file)
     else:
-        print("Original folder not found.")
+        print("Input folder not found.")
 
     
