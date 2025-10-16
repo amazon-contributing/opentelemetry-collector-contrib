@@ -20,6 +20,19 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
+var filenameReplacer = strings.NewReplacer(
+	" ", "_",
+	"/", "_",
+)
+
+func TestWriteInputHistograms(t *testing.T) {
+	for _, tc := range TestCases() {
+		jsonData, err := json.MarshalIndent(tc.Input, "", "  ")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile("testdata/input/"+filenameReplacer.Replace(tc.Name)+".json", jsonData, 0644))
+	}
+}
+
 func TestConvertOTelToCloudWatch(t *testing.T) {
 
 	for _, tc := range TestCases() {
@@ -30,11 +43,8 @@ func TestConvertOTelToCloudWatch(t *testing.T) {
 
 			// uncomment next lines to write datapoint to JSON file for visual inspection
 			// use histogram_mappings.py to create graphs
-			//var filenameReplacer = strings.NewReplacer(
-			//	" ", "_",
-			//	"/", "_",
-			//)
-			// assert.NoError(t, writeValuesAndCountsToJson(dist, filenameReplacer.Replace(tc.Name+".json")))
+
+			// assert.NoError(t, writeValuesAndCountsToJson(dist, "testdata/exponential/"+filenameReplacer.Replace(tc.Name+".json")))
 		})
 	}
 
