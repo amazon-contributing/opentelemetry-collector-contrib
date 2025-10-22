@@ -46,6 +46,76 @@ func TestCheckValidity(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "min greater than max",
+			dp: func() pmetric.HistogramDataPoint {
+				dp := pmetric.NewHistogramDataPoint()
+				dp.SetCount(100)
+				dp.SetSum(5000)
+				dp.SetMin(200.0)
+				dp.SetMax(10.0)
+				dp.ExplicitBounds().FromRaw([]float64{25, 50, 70, 100, 150})
+				dp.BucketCounts().FromRaw([]uint64{20, 30, 25, 15, 8, 2})
+				return dp
+			}(),
+			valid: false,
+		},
+		{
+			name: "Inf min",
+			dp: func() pmetric.HistogramDataPoint {
+				dp := pmetric.NewHistogramDataPoint()
+				dp.SetCount(100)
+				dp.SetSum(5000)
+				dp.SetMin(math.Inf(-1))
+				dp.SetMax(10.0)
+				dp.ExplicitBounds().FromRaw([]float64{25, 50, 70, 100, 150})
+				dp.BucketCounts().FromRaw([]uint64{20, 30, 25, 15, 8, 2})
+				return dp
+			}(),
+			valid: false,
+		},
+		{
+			name: "NaN min",
+			dp: func() pmetric.HistogramDataPoint {
+				dp := pmetric.NewHistogramDataPoint()
+				dp.SetCount(100)
+				dp.SetSum(5000)
+				dp.SetMin(math.NaN())
+				dp.SetMax(10.0)
+				dp.ExplicitBounds().FromRaw([]float64{25, 50, 70, 100, 150})
+				dp.BucketCounts().FromRaw([]uint64{20, 30, 25, 15, 8, 2})
+				return dp
+			}(),
+			valid: false,
+		},
+		{
+			name: "Inf max",
+			dp: func() pmetric.HistogramDataPoint {
+				dp := pmetric.NewHistogramDataPoint()
+				dp.SetCount(100)
+				dp.SetSum(5000)
+				dp.SetMin(10.0)
+				dp.SetMax(math.Inf(1))
+				dp.ExplicitBounds().FromRaw([]float64{25, 50, 70, 100, 150})
+				dp.BucketCounts().FromRaw([]uint64{20, 30, 25, 15, 8, 2})
+				return dp
+			}(),
+			valid: false,
+		},
+		{
+			name: "NaN max",
+			dp: func() pmetric.HistogramDataPoint {
+				dp := pmetric.NewHistogramDataPoint()
+				dp.SetCount(100)
+				dp.SetSum(5000)
+				dp.SetMin(10.0)
+				dp.SetMax(math.NaN())
+				dp.ExplicitBounds().FromRaw([]float64{25, 50, 70, 100, 150})
+				dp.BucketCounts().FromRaw([]uint64{20, 30, 25, 15, 8, 2})
+				return dp
+			}(),
+			valid: false,
+		},
+		{
 			name: "NaN Sum",
 			dp: func() pmetric.HistogramDataPoint {
 				dp := pmetric.NewHistogramDataPoint()

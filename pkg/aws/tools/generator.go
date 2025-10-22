@@ -6,6 +6,7 @@ package aws // import "github.com/open-telemetry/opentelemetry-collector-contrib
 import (
 	"math"
 	"math/rand/v2"
+	"slices"
 	"sort"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws/cloudwatch/histograms"
@@ -85,6 +86,20 @@ func generateSamples(config DistributionConfig, rng *rand.Rand) []float64 {
 	return data
 }
 
+// gammaRandom generates a random sample from a gamma distribution with the given shape parameter.
+// It uses the Marsaglia and Tsang method (2000) for efficient gamma random number generation.
+//
+// For shape < 1, it uses the transformation property: if X ~ Gamma(shape+1, 1), then
+// X * U^(1/shape) ~ Gamma(shape, 1) where U ~ Uniform(0,1).
+//
+// For shape >= 1, it uses the squeeze acceptance method which is highly efficient
+// with an acceptance rate > 95% for most shape values.
+//
+// Parameters:
+//   - shape: the shape parameter (α) of the gamma distribution, must be > 0
+//   - rng: random number generator for sampling
+//
+// Returns: a random sample from Gamma(shape, 1) distribution
 func gammaRandom(shape float64, rng *rand.Rand) float64 {
 	if shape < 1 {
 		return gammaRandom(shape+1, rng) * math.Pow(rng.Float64(), 1/shape)
@@ -124,7 +139,8 @@ func calculatePercentiles(data []float64, percentiles []float64) map[float64]flo
 }
 
 func createTestCases(name string, data []float64, percentiles map[float64]float64) []histograms.HistogramTestCase {
-	minimum, maximum := minMax(data)
+	minimum := slices.Min(data)
+	maximum := slices.Max(data)
 	sum := sum(data)
 
 	// Create different histogram configurations
@@ -243,19 +259,6 @@ func createPercentileRanges(percentiles map[float64]float64, boundaries []float6
 	}
 
 	return ranges
-}
-
-func minMax(data []float64) (float64, float64) {
-	minimum, maximum := data[0], data[0]
-	for _, v := range data[1:] {
-		if v < minimum {
-			minimum = v
-		}
-		if v > maximum {
-			maximum = v
-		}
-	}
-	return minimum, maximum
 }
 
 func sum(data []float64) float64 {

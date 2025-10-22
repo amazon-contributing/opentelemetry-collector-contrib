@@ -12,7 +12,7 @@ import (
 )
 
 func CheckValidity(dp pmetric.HistogramDataPoint) error {
-	issues := []error{}
+	errs := []error{}
 
 	bounds := dp.ExplicitBounds()
 	bucketCounts := dp.BucketCounts()
@@ -20,56 +20,45 @@ func CheckValidity(dp pmetric.HistogramDataPoint) error {
 	// Check counts length matches boundaries + 1
 	// special case: no bucketCounts and no boundaries is still valid
 	if bucketCounts.Len() != bounds.Len()+1 && bucketCounts.Len() != 0 && bounds.Len() != 0 {
-		issues = append(issues, fmt.Errorf("bucket counts length (%d) doesn't match boundaries length (%d) + 1",
+		errs = append(errs, fmt.Errorf("bucket counts length (%d) doesn't match boundaries length (%d) + 1",
 			bucketCounts.Len(), bounds.Len()))
 	}
 
 	if dp.HasMax() && dp.HasMin() && dp.Min() > dp.Max() {
-		issues = append(issues, fmt.Errorf("min %f is greater than max %f", dp.Min(), dp.Max()))
+		errs = append(errs, fmt.Errorf("min %f is greater than max %f", dp.Min(), dp.Max()))
 	}
 
 	if dp.HasMax() {
-		if math.IsNaN(dp.Max()) {
-			issues = append(issues, errors.New("max is NaN"))
-		}
-		if math.IsInf(dp.Max(), 0) {
-			issues = append(issues, errors.New("max is +/-inf"))
-		}
+		errs = append(errs, checkNanInf(dp.Max(), "max"))
 	}
-
 	if dp.HasMin() {
-		if math.IsNaN(dp.Min()) {
-			issues = append(issues, errors.New("min is NaN"))
-		}
-		if math.IsInf(dp.Min(), 0) {
-			issues = append(issues, errors.New("min is +/-inf"))
-		}
+		errs = append(errs, checkNanInf(dp.Min(), "min"))
 	}
-
 	if dp.HasSum() {
-		if math.IsNaN(dp.Sum()) {
-			issues = append(issues, errors.New("sum is NaN"))
-		}
-		if math.IsInf(dp.Sum(), 0) {
-			issues = append(issues, errors.New("sum is +/-inf"))
-		}
+		errs = append(errs, checkNanInf(dp.Sum(), "sum"))
 	}
 
 	if bounds.Len() > 0 {
 		// Check boundaries are in ascending order
 		for i := 1; i < bounds.Len(); i++ {
 			if bounds.At(i) <= bounds.At(i-1) {
-				issues = append(issues, fmt.Errorf("boundaries not in ascending order: bucket index %d (%v) <= bucket index %d %v",
+				errs = append(errs, fmt.Errorf("boundaries not in ascending order: bucket index %d (%v) <= bucket index %d %v",
 					i, bounds.At(i), i-1, bounds.At(i-1)))
 			}
-			if math.IsNaN(bounds.At(i)) {
-				issues = append(issues, fmt.Errorf("boundary %d is NaN", i))
-			}
-			if math.IsInf(bounds.At(i), 0) {
-				issues = append(issues, fmt.Errorf("boundary %d is +/-inf", i))
-			}
+			errs = append(errs, checkNanInf(bounds.At(i), fmt.Sprintf("boundary %d", i)))
 		}
 	}
 
-	return errors.Join(issues...)
+	return errors.Join(errs...)
+}
+
+func checkNanInf(value float64, name string) error {
+	errs := []error{}
+	if math.IsNaN(value) {
+		errs = append(errs, errors.New(name+" is NaN"))
+	}
+	if math.IsInf(value, 0) {
+		errs = append(errs, errors.New(name+" is +/-inf"))
+	}
+	return errors.Join(errs...)
 }

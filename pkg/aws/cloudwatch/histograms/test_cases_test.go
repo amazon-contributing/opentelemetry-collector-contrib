@@ -46,7 +46,7 @@ func TestInvalidHistogramFeasibility(t *testing.T) {
 }
 
 func TestVisualizeHistograms(t *testing.T) {
-	// comment the next line to visualize the input histograms
+	// uncomment the next line to visualize the input histograms
 	t.Skip("Skip visualization test")
 	testCases := TestCases()
 	for _, tc := range testCases {
@@ -60,146 +60,133 @@ func TestVisualizeHistograms(t *testing.T) {
 	}
 }
 
-func checkFeasibility(hi HistogramInput) (bool, string) {
-	// Special case: empty histogram is valid
-	if len(hi.Boundaries) == 0 && len(hi.Counts) == 0 {
-		return true, ""
-	}
+func checkFeasibility(histogramInput HistogramInput) (bool, string) {
+	lenBoundaries := len(histogramInput.Boundaries)
+	lenCounts := len(histogramInput.Counts)
 
 	// Check counts length matches boundaries + 1
-	if len(hi.Counts) != len(hi.Boundaries)+1 {
+	// Special case: empty histogram is valid
+	if lenBoundaries != 0 && lenCounts != 0 && lenCounts != lenBoundaries+1 {
 		return false, "Can't have counts without boundaries"
 	}
 
-	if hi.Max != nil && hi.Min != nil && *hi.Min > *hi.Max {
-		return false, fmt.Sprintf("min %f is greater than max %f", *hi.Min, *hi.Max)
+	if histogramInput.Max != nil && histogramInput.Min != nil && *histogramInput.Min > *histogramInput.Max {
+		return false, fmt.Sprintf("min %f is greater than max %f", *histogramInput.Min, *histogramInput.Max)
 	}
 
-	if hi.Max != nil {
-		if math.IsNaN(*hi.Max) {
-			return false, "max is NaN"
-		}
-		if math.IsInf(*hi.Max, 0) {
-			return false, "max is +/-inf"
+	if histogramInput.Max != nil {
+		if err := checkNanInf(*histogramInput.Max, "max"); err != nil {
+			return false, err.Error()
 		}
 	}
 
-	if hi.Min != nil {
-		if math.IsNaN(*hi.Min) {
-			return false, "min is NaN"
-		}
-		if math.IsInf(*hi.Min, 0) {
-			return false, "min is +/-inf"
+	if histogramInput.Min != nil {
+		if err := checkNanInf(*histogramInput.Min, "min"); err != nil {
+			return false, err.Error()
 		}
 	}
 
-	if math.IsNaN(hi.Sum) {
-		return false, "sum is NaN"
-	}
-	if math.IsInf(hi.Sum, 0) {
-		return false, "sum is +/-inf"
+	if err := checkNanInf(histogramInput.Sum, "sum"); err != nil {
+		return false, err.Error()
 	}
 
-	for _, bound := range hi.Boundaries {
-		if math.IsNaN(bound) {
-			return false, "boundary is NaN"
-		}
-		if math.IsInf(bound, 0) {
-			return false, "boundary is +/-inf"
+	for _, bound := range histogramInput.Boundaries {
+		if err := checkNanInf(bound, "boundary"); err != nil {
+			return false, err.Error()
 		}
 	}
 
 	// Rest of checks only apply if we have boundaries/counts
-	if len(hi.Boundaries) > 0 || len(hi.Counts) > 0 {
+	if lenBoundaries > 0 || lenCounts > 0 {
 		// Check boundaries are in ascending order
-		for i := 1; i < len(hi.Boundaries); i++ {
-			if hi.Boundaries[i] <= hi.Boundaries[i-1] {
+		for i := 1; i < lenBoundaries; i++ {
+			if histogramInput.Boundaries[i] <= histogramInput.Boundaries[i-1] {
 				return false, fmt.Sprintf("boundaries not in ascending order: %v <= %v",
-					hi.Boundaries[i], hi.Boundaries[i-1])
+					histogramInput.Boundaries[i], histogramInput.Boundaries[i-1])
 			}
 		}
 
 		// Check counts array length
-		if len(hi.Counts) != len(hi.Boundaries)+1 {
+		if lenCounts != lenBoundaries+1 {
 			return false, fmt.Sprintf("counts length (%d) should be boundaries length (%d) + 1",
-				len(hi.Counts), len(hi.Boundaries))
+				lenCounts, lenBoundaries)
 		}
 
 		// Verify total count matches sum of bucket counts
 		var totalCount uint64
-		for _, count := range hi.Counts {
+		for _, count := range histogramInput.Counts {
 			totalCount += count
 		}
-		if totalCount != hi.Count {
+		if totalCount != histogramInput.Count {
 			return false, fmt.Sprintf("sum of counts (%d) doesn't match total count (%d)",
-				totalCount, hi.Count)
+				totalCount, histogramInput.Count)
 		}
 
 		// Check min/max feasibility if defined
-		if hi.Min != nil {
+		if histogramInput.Min != nil {
 			// If there are boundaries, first bucket must have counts > 0 only if min <= first boundary
-			if len(hi.Boundaries) > 0 && hi.Counts[0] > 0 && *hi.Min > hi.Boundaries[0] {
+			if lenBoundaries > 0 && histogramInput.Counts[0] > 0 && *histogramInput.Min > histogramInput.Boundaries[0] {
 				return false, fmt.Sprintf("min (%v) > first boundary (%v) but first bucket has counts",
-					*hi.Min, hi.Boundaries[0])
+					*histogramInput.Min, histogramInput.Boundaries[0])
 			}
 		}
 
-		if hi.Max != nil {
+		if histogramInput.Max != nil {
 			// If there are boundaries, last bucket must have counts > 0 only if max > last boundary
-			if len(hi.Boundaries) > 0 && hi.Counts[len(hi.Counts)-1] > 0 &&
-				*hi.Max <= hi.Boundaries[len(hi.Boundaries)-1] {
+			if lenBoundaries > 0 && histogramInput.Counts[lenCounts-1] > 0 &&
+				*histogramInput.Max <= histogramInput.Boundaries[lenBoundaries-1] {
 				return false, fmt.Sprintf("max (%v) <= last boundary (%v) but overflow bucket has counts",
-					*hi.Max, hi.Boundaries[len(hi.Boundaries)-1])
+					*histogramInput.Max, histogramInput.Boundaries[lenBoundaries-1])
 			}
 		}
 
 		// Check sum feasibility
-		if len(hi.Boundaries) > 0 {
+		if lenBoundaries > 0 {
 			// Calculate minimum possible sum
 			minSum := float64(0)
-			if hi.Min != nil {
+			if histogramInput.Min != nil {
 				// Find which bucket the minimum value belongs to
 				minBucket := 0
-				for i, bound := range hi.Boundaries {
-					if *hi.Min > bound {
+				for i, bound := range histogramInput.Boundaries {
+					if *histogramInput.Min > bound {
 						minBucket = i + 1
 					}
 				}
 				// Apply min value only from its containing bucket
-				for i := minBucket; i < len(hi.Counts); i++ {
+				for i := minBucket; i < lenCounts; i++ {
 					if i == minBucket {
-						minSum += float64(hi.Counts[i]) * *hi.Min
+						minSum += float64(histogramInput.Counts[i]) * *histogramInput.Min
 					} else {
-						minSum += float64(hi.Counts[i]) * hi.Boundaries[i-1]
+						minSum += float64(histogramInput.Counts[i]) * histogramInput.Boundaries[i-1]
 					}
 				}
 			} else {
 				// Without min, use lower bounds
-				for i := 1; i < len(hi.Counts); i++ {
-					minSum += float64(hi.Counts[i]) * hi.Boundaries[i-1]
+				for i := 1; i < lenCounts; i++ {
+					minSum += float64(histogramInput.Counts[i]) * histogramInput.Boundaries[i-1]
 				}
 			}
 
 			// Calculate maximum possible sum
 			maxSum := float64(0)
-			if hi.Max != nil {
+			if histogramInput.Max != nil {
 				// Find which bucket the maximum value belongs to
-				maxBucket := len(hi.Boundaries) // Default to overflow bucket
-				for i, bound := range hi.Boundaries {
-					if *hi.Max <= bound {
+				maxBucket := lenBoundaries // Default to overflow bucket
+				for i, bound := range histogramInput.Boundaries {
+					if *histogramInput.Max <= bound {
 						maxBucket = i
 						break
 					}
 				}
 				// Apply max value only up to its containing bucket
-				for i := 0; i < len(hi.Counts); i++ {
+				for i := 0; i < lenCounts; i++ {
 					switch {
 					case i > maxBucket:
-						maxSum += float64(hi.Counts[i]) * *hi.Max
-					case i == len(hi.Boundaries):
-						maxSum += float64(hi.Counts[i]) * *hi.Max
+						maxSum += float64(histogramInput.Counts[i]) * *histogramInput.Max
+					case i == lenBoundaries:
+						maxSum += float64(histogramInput.Counts[i]) * *histogramInput.Max
 					default:
-						maxSum += float64(hi.Counts[i]) * hi.Boundaries[i]
+						maxSum += float64(histogramInput.Counts[i]) * histogramInput.Boundaries[i]
 					}
 				}
 			} else {
@@ -207,13 +194,13 @@ func checkFeasibility(hi HistogramInput) (bool, string) {
 				maxSum = math.Inf(1)
 			}
 
-			if hi.Sum < minSum {
+			if histogramInput.Sum < minSum {
 				return false, fmt.Sprintf("sum (%v) is less than minimum possible sum (%v)",
-					hi.Sum, minSum)
+					histogramInput.Sum, minSum)
 			}
-			if maxSum != math.Inf(1) && hi.Sum > maxSum {
+			if maxSum != math.Inf(1) && histogramInput.Sum > maxSum {
 				return false, fmt.Sprintf("sum (%v) is greater than maximum possible sum (%v)",
-					hi.Sum, maxSum)
+					histogramInput.Sum, maxSum)
 			}
 		}
 	}
@@ -382,4 +369,12 @@ func visualizeHistogramWithPercentiles(hi HistogramInput) {
 		low, high := calculatePercentileRange(hi, p)
 		fmt.Printf("P%.0f: [%.2f, %.2f]\n", p*100, low, high)
 	}
+}
+
+func errsAsStrings(errs []error) []string {
+	var errStrings []string
+	for _, err := range errs {
+		errStrings = append(errStrings, err.Error())
+	}
+	return errStrings
 }
