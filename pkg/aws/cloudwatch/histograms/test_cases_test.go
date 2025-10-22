@@ -370,11 +370,3 @@ func visualizeHistogramWithPercentiles(hi HistogramInput) {
 		fmt.Printf("P%.0f: [%.2f, %.2f]\n", p*100, low, high)
 	}
 }
-
-func errsAsStrings(errs []error) []string {
-	var errStrings []string
-	for _, err := range errs {
-		errStrings = append(errStrings, err.Error())
-	}
-	return errStrings
-}
