@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/pkg/aws/cloudwatch/histograms"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws/cloudwatch/histograms"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"google.golang.org/protobuf/proto"

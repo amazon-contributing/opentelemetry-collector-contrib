@@ -1,11 +1,11 @@
-module github.com/amazon-contributing/opentelemetry-collector-contrib/cmd/promgen
+module github.com/open-telemetry/opentelemetry-collector-contrib/cmd/promgen
 
 go 1.24.6
 
-replace github.com/amazon-contributing/opentelemetry-collector-contrib/pkg/aws => ../../pkg/aws
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws => ../../pkg/aws
 
 require (
-	github.com/amazon-contributing/opentelemetry-collector-contrib/pkg/aws v0.0.0-00010101000000-000000000000
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	google.golang.org/protobuf v1.36.10

@@ -2,7 +2,10 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/cmd/otlphistgen
 
 go 1.24.6
 
-replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws => ../../pkg/aws
+replace (
+	github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen => ../telemetrygen
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws => ../../pkg/aws
+)
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen v0.137.0
@@ -48,5 +51,3 @@ require (
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen => ../telemetrygen
