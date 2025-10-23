@@ -1,3 +1,6 @@
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
@@ -5,7 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"sync"
 	"time"
@@ -56,7 +59,7 @@ func NewGenerator() *Generator {
 	return &Generator{
 		metrics:  make(map[string]Metric),
 		registry: prometheus.NewRegistry(),
-		rand:     rand.New(rand.NewSource(0xFEEDBEEF)), // for deterministic results
+		rand:     rand.New(rand.NewPCG(0xFEEDBEEF, 0xFEEDBEEF)), // for deterministic results
 	}
 }
 
@@ -118,7 +121,7 @@ func (g *Generator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveJSON serves metrics in JSON format
-func (g *Generator) serveJSON(w http.ResponseWriter, r *http.Request) {
+func (g *Generator) serveJSON(w http.ResponseWriter, _ *http.Request) {
 	metrics, err := g.registry.Gather()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -126,11 +129,15 @@ func (g *Generator) serveJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(metrics)
+	err = json.NewEncoder(w).Encode(metrics)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // serveProtobuf serves metrics in Protobuf format
-func (g *Generator) serveProtobuf(w http.ResponseWriter, r *http.Request) {
+func (g *Generator) serveProtobuf(w http.ResponseWriter, _ *http.Request) {
 	metrics, err := g.registry.Gather()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -138,7 +145,7 @@ func (g *Generator) serveProtobuf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/vnd.google.protobuf")
-	
+
 	// Write each MetricFamily as a separate protobuf message
 	for _, metricFamily := range metrics {
 		data, err := proto.Marshal(metricFamily)
@@ -146,7 +153,11 @@ func (g *Generator) serveProtobuf(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(data)
+		_, err = w.Write(data)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -217,8 +228,7 @@ func GammaRandom(rand *rand.Rand, shape, scale float64) float64 {
 	c := 1.0 / math.Sqrt(9.0*d)
 
 	for {
-		x := 0.0
-		v := 0.0
+		var x, v float64
 		for {
 			x = rand.NormFloat64()
 			v = 1.0 + c*x

@@ -1,3 +1,6 @@
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
@@ -21,7 +24,7 @@ import (
 const updatePeriod = time.Second
 
 func main() {
-	var readFile = flag.String("read", "", "Path to protobuf file to read and display")
+	readFile := flag.String("read", "", "Path to protobuf file to read and display")
 	flag.Parse()
 
 	if *readFile != "" {
@@ -38,7 +41,7 @@ func main() {
 		Name: "monotonic_counter",
 		Type: TypeCounter,
 		Help: "A counter that increases forever",
-		Update: func(collector prometheus.Collector, timestamp time.Time) error {
+		Update: func(collector prometheus.Collector, _ time.Time) error {
 			counter, err := collector.(*prometheus.CounterVec).GetMetricWith(prometheus.Labels{})
 			if err != nil {
 				return err
@@ -75,7 +78,7 @@ func main() {
 		Name: "gamma_histogram",
 		Type: TypeHistogram,
 		Help: "A histogram whose values follow a gamma distribution",
-		Update: func(collector prometheus.Collector, timestamp time.Time) error {
+		Update: func(collector prometheus.Collector, _ time.Time) error {
 			histogram, err := collector.(*prometheus.HistogramVec).GetMetricWith(prometheus.Labels{})
 			if err != nil {
 				return err
@@ -96,7 +99,7 @@ func main() {
 		Name: "exponential_summary",
 		Type: TypeSummary,
 		Help: "A summary whose values follow an exponential distribution",
-		Update: func(collector prometheus.Collector, timestamp time.Time) error {
+		Update: func(collector prometheus.Collector, _ time.Time) error {
 			summary, err := collector.(*prometheus.SummaryVec).GetMetricWith(prometheus.Labels{})
 			if err != nil {
 				return err
@@ -117,7 +120,7 @@ func main() {
 		Name: "gamma_native_histogram",
 		Type: TypeNativeHistogram,
 		Help: "A native histogram whose values follow a gamma distribution",
-		Update: func(collector prometheus.Collector, timestamp time.Time) error {
+		Update: func(collector prometheus.Collector, _ time.Time) error {
 			histogram, err := collector.(*prometheus.HistogramVec).GetMetricWith(prometheus.Labels{})
 			if err != nil {
 				return err
@@ -157,7 +160,7 @@ func main() {
 					slices.Collect(maps.Keys(tc.Input.Attributes)),
 				), nil
 			},
-			Update: func(collector prometheus.Collector, timestamp time.Time) error {
+			Update: func(collector prometheus.Collector, _ time.Time) error {
 				// Only update once
 				if time.Since(start) > 2*updatePeriod {
 					return nil
@@ -192,7 +195,12 @@ func main() {
 	// Start HTTP server
 	http.Handle("/metrics", generator)
 	log.Printf("Starting server on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	server := &http.Server{
+		Addr:         ":8080",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	log.Fatal(server.ListenAndServe())
 }
 
 func generateDatapoints(in histograms.HistogramInput) []float64 {
@@ -209,17 +217,18 @@ func generateDatapoints(in histograms.HistogramInput) []float64 {
 		}
 
 		var bucketValue float64
-		if len(in.Boundaries) == 0 {
+		switch {
+		case len(in.Boundaries) == 0:
 			bucketValue = in.Sum / float64(in.Count)
-		} else if i == 0 {
+		case i == 0:
 			if in.Min != nil {
 				bucketValue = (*in.Min + in.Boundaries[0]) / 2
 			} else {
 				bucketValue = in.Boundaries[0] - 1
 			}
-		} else if i < len(in.Boundaries) {
+		case i < len(in.Boundaries):
 			bucketValue = (in.Boundaries[i-1] + in.Boundaries[i]) / 2
-		} else {
+		default:
 			if in.Max != nil {
 				bucketValue = (in.Boundaries[len(in.Boundaries)-1] + *in.Max) / 2
 			} else {
@@ -255,31 +264,31 @@ func readProtobufFile(filename string) error {
 
 	for offset < len(data) {
 		foundMessage := false
-		
+
 		// Try to find the next complete message by growing the slice
 		for end := offset + 10; end <= len(data); end++ {
 			var message dto.MetricFamily
 			if err := proto.Unmarshal(data[offset:end], &message); err == nil && message.GetName() != "" {
 				// Check if we have a valid message
-				if end < len(data) {
-					// Try parsing one more byte to see if message changes
-					var nextMessage dto.MetricFamily
-					if err := proto.Unmarshal(data[offset:end+1], &nextMessage); err != nil || 
-						nextMessage.GetName() != message.GetName() || 
-						len(nextMessage.GetMetric()) != len(message.GetMetric()) {
-						// Message boundary found
-						if count == 0 {
-							fmt.Printf("Successfully parsed MetricFamily messages:\n")
-						}
-						fmt.Printf("\n=== MetricFamily %d: %s ===\n", count+1, message.GetName())
-						printMetricFamily(&message)
-						count++
-						offset = end
-						foundMessage = true
-						break
-					}
-				} else {
+				if end >= len(data) {
 					// End of data
+					if count == 0 {
+						fmt.Printf("Successfully parsed MetricFamily messages:\n")
+					}
+					fmt.Printf("\n=== MetricFamily %d: %s ===\n", count+1, message.GetName())
+					printMetricFamily(&message)
+					count++
+					offset = end
+					foundMessage = true
+					break
+				}
+
+				// Try parsing one more byte to see if message changes
+				var nextMessage dto.MetricFamily
+				if err := proto.Unmarshal(data[offset:end+1], &nextMessage); err != nil ||
+					nextMessage.GetName() != message.GetName() ||
+					len(nextMessage.GetMetric()) != len(message.GetMetric()) {
+					// Message boundary found
 					if count == 0 {
 						fmt.Printf("Successfully parsed MetricFamily messages:\n")
 					}
@@ -292,7 +301,7 @@ func readProtobufFile(filename string) error {
 				}
 			}
 		}
-		
+
 		if !foundMessage {
 			break
 		}
