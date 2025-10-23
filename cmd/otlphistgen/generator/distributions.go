@@ -5,7 +5,7 @@ package generator
 
 import (
 	"math"
-	"math/rand"
+	rand "math/rand/v2"
 	"time"
 )
 

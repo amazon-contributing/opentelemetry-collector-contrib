@@ -5,7 +5,7 @@ package generator
 
 import (
 	"math"
-	"math/rand"
+	rand "math/rand/v2"
 	"sort"
 	"time"
 )
@@ -18,7 +18,7 @@ type HistogramGenerator struct {
 
 // NewHistogramGenerator creates a new histogram generator with deterministic seed
 func NewHistogramGenerator(opt ...GenerationOptions) *HistogramGenerator {
-	var seed int64 = time.Now().UnixNano()
+	seed := time.Now().UnixNano()
 	var endpoint string
 
 	if len(opt) > 0 {
@@ -29,7 +29,7 @@ func NewHistogramGenerator(opt ...GenerationOptions) *HistogramGenerator {
 	}
 
 	return &HistogramGenerator{
-		rand:     rand.New(rand.NewSource(seed)),
+		rand:     rand.New(rand.NewPCG(uint64(seed), uint64(seed))),
 		endpoint: endpoint,
 	}
 }
@@ -206,16 +206,16 @@ func (g *HistogramGenerator) calculatePercentileRangesFromValues(sortedValues []
 }
 
 // generateBoundariesBetween creates evenly spaced boundaries between min and max
-func generateBoundariesBetween(min, max float64, numBuckets int) []float64 {
+func generateBoundariesBetween(minimum, maximum float64, numBuckets int) []float64 {
 	if numBuckets <= 0 {
 		numBuckets = 10
 	}
 
 	boundaries := make([]float64, numBuckets-1)
-	step := (max - min) / float64(numBuckets)
+	step := (maximum - minimum) / float64(numBuckets)
 
 	for i := 0; i < numBuckets-1; i++ {
-		boundaries[i] = min + float64(i+1)*step
+		boundaries[i] = minimum + float64(i+1)*step
 	}
 
 	return boundaries

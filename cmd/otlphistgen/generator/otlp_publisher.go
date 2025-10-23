@@ -22,12 +22,12 @@ func NewOTLPPublisher(endpoint string) *OTLPPublisher {
 }
 
 // SendHistogramMetric sends a histogram metric using telemetrygen
-func (p *OTLPPublisher) SendHistogramMetric(metricName string, result HistogramResult) error {
+func (p *OTLPPublisher) SendHistogramMetric(metricName string, _ HistogramResult) error {
 	return p.SendMetric(metricName, "Histogram", 0) // Histogram value doesn't matter for telemetrygen
 }
 
 // SendMetric sends a metric using telemetrygen with the specified type and value
-func (p *OTLPPublisher) SendMetric(metricName string, metricType string, value float64) error {
+func (p *OTLPPublisher) SendMetric(metricName string, metricType string, _ float64) error {
 	// Create telemetrygen config
 	cfg := metrics.NewConfig()
 	cfg.CustomEndpoint = p.endpoint
@@ -52,7 +52,7 @@ func (p *OTLPPublisher) SendMetric(metricName string, metricType string, value f
 	// Start the metrics generation
 	err := metrics.Start(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to send metric via telemetrygen: %v", err)
+		return fmt.Errorf("failed to send metric via telemetrygen: %w", err)
 	}
 
 	return nil

@@ -1,6 +1,6 @@
 module github.com/amazon-contributing/opentelemetry-collector-contrib/cmd/promgen
 
-go 1.25.0
+go 1.24.6
 
 replace github.com/amazon-contributing/opentelemetry-collector-contrib/pkg/aws => ../../pkg/aws
 

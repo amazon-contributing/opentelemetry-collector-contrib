@@ -1,16 +1,16 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package generator_test
+package generator
 
 import (
 	"fmt"
-	"math/rand"
+	rand "math/rand/v2"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/amazon-contributing/opentelemetry-collector-contrib/cmd/generator"
+	"github.com/stretchr/testify/require"
 )
 
 // TestHistogramGenerator_GenerateHistogram_Example demonstrates basic histogram generation
@@ -19,12 +19,12 @@ func TestHistogramGenerator_GenerateHistogram_Example(t *testing.T) {
 	fmt.Println("=== CURRENT GOAL: Statistical Histogram Data Generation ===")
 
 	// Create a generator with a fixed seed for reproducible results
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{
+	gen := NewHistogramGenerator(GenerationOptions{
 		Seed: 12345,
 	})
 
 	// Define histogram input parameters
-	input := generator.HistogramInput{
+	input := HistogramInput{
 		Count:      1000,
 		Min:        ptr(10.0),
 		Max:        ptr(200.0),
@@ -36,13 +36,10 @@ func TestHistogramGenerator_GenerateHistogram_Example(t *testing.T) {
 	}
 
 	// Generate histogram using normal distribution
-	result, err := gen.GenerateHistogram(input, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.NormalRandom(rnd, 75, 25) // mean=75, stddev=25
+	result, err := gen.GenerateHistogram(input, func(rnd *rand.Rand, _ time.Time) float64 {
+		return NormalRandom(rnd, 75, 25) // mean=75, stddev=25
 	})
-
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	fmt.Printf("✅ Generated %d samples with sum=%.2f, avg=%.2f\n",
 		result.Expected.Count, result.Expected.Sum, result.Expected.Average)
@@ -61,12 +58,12 @@ func TestHistogramGenerator_GenerateAndPublishHistograms_Example(t *testing.T) {
 	fmt.Println("=== CURRENT GOAL: Basic OTLP Publishing via Telemetrygen ===")
 
 	// Create a generator with OTLP endpoint
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{
+	gen := NewHistogramGenerator(GenerationOptions{
 		Seed:     time.Now().UnixNano(),
 		Endpoint: "localhost:4318", // OTLP HTTP endpoint
 	})
 
-	input := generator.HistogramInput{
+	input := HistogramInput{
 		Count:      500,
 		Boundaries: []float64{10, 50, 100, 500, 1000},
 		Attributes: map[string]string{
@@ -77,10 +74,9 @@ func TestHistogramGenerator_GenerateAndPublishHistograms_Example(t *testing.T) {
 	}
 
 	// Generate and publish using exponential distribution
-	result, err := gen.GenerateAndPublishHistograms(input, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.ExponentialRandom(rnd, 0.01) // rate=0.01
+	result, err := gen.GenerateAndPublishHistograms(input, func(rnd *rand.Rand, _ time.Time) float64 {
+		return ExponentialRandom(rnd, 0.01) // rate=0.01
 	})
-
 	if err != nil {
 		fmt.Printf("❌ Error (expected - telemetrygen limitations): %v\n", err)
 		return
@@ -98,7 +94,7 @@ func TestOTLPPublisher_SendSumMetric_Example(t *testing.T) {
 	t.Skip()
 	fmt.Println("=== CURRENT GOAL: Basic Metric Types via Telemetrygen ===")
 
-	publisher := generator.NewOTLPPublisher("localhost:4318")
+	publisher := NewOTLPPublisher("localhost:4318")
 
 	// ✅ WORKING: Basic metric types supported by telemetrygen
 	err := publisher.SendSumMetric("requests_total", 100)
@@ -131,65 +127,65 @@ func TestOTLPPublisher_SendSumMetric_Example(t *testing.T) {
 
 // TestAllDistributions_Example demonstrates all available statistical distributions
 // CURRENT CAPABILITY: Complete statistical distribution library
-func TestAllDistributions_Example(t *testing.T) {
+func TestAllDistributions_Example(_ *testing.T) {
 	fmt.Println("=== CURRENT CAPABILITY: All Statistical Distributions ===")
 
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 42})
+	gen := NewHistogramGenerator(GenerationOptions{Seed: 42})
 	boundaries := []float64{10, 25, 50, 75, 100, 150, 200}
 	attributes := map[string]string{"test": "distributions"}
 
 	fmt.Println("\n📊 PROBABILITY DISTRIBUTIONS:")
 
 	// Normal Distribution
-	result, _ := gen.GenerateHistogram(generator.HistogramInput{
+	result, _ := gen.GenerateHistogram(HistogramInput{
 		Count: 1000, Boundaries: boundaries, Attributes: attributes,
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.NormalRandom(rnd, 75, 20) // mean=75, stddev=20
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return NormalRandom(rnd, 75, 20) // mean=75, stddev=20
 	})
 	fmt.Printf("✅ Normal (μ=75, σ=20): avg=%.1f, samples=%d\n",
 		result.Expected.Average, result.Expected.Count)
 
 	// Exponential Distribution
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count: 1000, Boundaries: boundaries, Attributes: attributes,
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.ExponentialRandom(rnd, 0.02) // rate=0.02
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return ExponentialRandom(rnd, 0.02) // rate=0.02
 	})
 	fmt.Printf("✅ Exponential (λ=0.02): avg=%.1f, samples=%d\n",
 		result.Expected.Average, result.Expected.Count)
 
 	// Log-Normal Distribution
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count: 1000, Boundaries: boundaries, Attributes: attributes,
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.LogNormalRandom(rnd, 3.5, 0.8) // mu=3.5, sigma=0.8
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return LogNormalRandom(rnd, 3.5, 0.8) // mu=3.5, sigma=0.8
 	})
 	fmt.Printf("✅ Log-Normal (μ=3.5, σ=0.8): avg=%.1f, samples=%d\n",
 		result.Expected.Average, result.Expected.Count)
 
 	// Gamma Distribution
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count: 1000, Boundaries: boundaries, Attributes: attributes,
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.GammaRandom(rnd, 2.0, 25.0) // shape=2, scale=25
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return GammaRandom(rnd, 2.0, 25.0) // shape=2, scale=25
 	})
 	fmt.Printf("✅ Gamma (α=2, β=25): avg=%.1f, samples=%d\n",
 		result.Expected.Average, result.Expected.Count)
 
 	// Weibull Distribution
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count: 1000, Boundaries: boundaries, Attributes: attributes,
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.WeibullRandom(rnd, 2.5, 80) // shape=2.5, scale=80
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return WeibullRandom(rnd, 2.5, 80) // shape=2.5, scale=80
 	})
 	fmt.Printf("✅ Weibull (k=2.5, λ=80): avg=%.1f, samples=%d\n",
 		result.Expected.Average, result.Expected.Count)
 
 	// Beta Distribution
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count: 1000, Boundaries: boundaries, Attributes: attributes,
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.BetaRandom(rnd, 2, 5) * 200 // scale to 0-200 range
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return BetaRandom(rnd, 2, 5) * 200 // scale to 0-200 range
 	})
 	fmt.Printf("✅ Beta (α=2, β=5) scaled: avg=%.1f, samples=%d\n",
 		result.Expected.Average, result.Expected.Count)
@@ -197,38 +193,38 @@ func TestAllDistributions_Example(t *testing.T) {
 
 // TestTimeBasedPatterns_Example demonstrates time-based value generation
 // CURRENT CAPABILITY: Dynamic time-based patterns for realistic metrics
-func TestTimeBasedPatterns_Example(t *testing.T) {
+func TestTimeBasedPatterns_Example(_ *testing.T) {
 	fmt.Println("\n=== CURRENT CAPABILITY: Time-Based Patterns ===")
 
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 123})
+	gen := NewHistogramGenerator(GenerationOptions{Seed: 123})
 	boundaries := []float64{20, 40, 60, 80, 100, 120}
 	attributes := map[string]string{"pattern": "time-based"}
 
 	fmt.Println("\n🕐 TIME-BASED FUNCTIONS:")
 
 	// Sinusoidal Pattern (daily cycle)
-	result, _ := gen.GenerateHistogram(generator.HistogramInput{
+	result, _ := gen.GenerateHistogram(HistogramInput{
 		Count: 500, Boundaries: boundaries, Attributes: attributes,
 	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.SinusoidalValue(rnd, t, 30, 86400, 0, 60) // 24-hour cycle
+		return SinusoidalValue(rnd, t, 30, 86400, 0, 60) // 24-hour cycle
 	})
 	fmt.Printf("✅ Sinusoidal (24h cycle): avg=%.1f, range=[%.1f-%.1f]\n",
 		result.Expected.Average, *result.Expected.Min, *result.Expected.Max)
 
 	// Spiky Pattern (occasional bursts)
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count: 500, Boundaries: boundaries, Attributes: attributes,
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.SpikyValue(rnd, 50, 100, 0.1) // 10% spike probability
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return SpikyValue(rnd, 50, 100, 0.1) // 10% spike probability
 	})
 	fmt.Printf("✅ Spiky (10%% spikes): avg=%.1f, range=[%.1f-%.1f]\n",
 		result.Expected.Average, *result.Expected.Min, *result.Expected.Max)
 
 	// Trending Pattern (gradual increase)
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count: 500, Boundaries: boundaries, Attributes: attributes,
 	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.TrendingValue(rnd, t, 40, 0.0001, 8) // slow upward trend
+		return TrendingValue(rnd, t, 40, 0.0001, 8) // slow upward trend
 	})
 	fmt.Printf("✅ Trending (upward): avg=%.1f, range=[%.1f-%.1f]\n",
 		result.Expected.Average, *result.Expected.Min, *result.Expected.Max)
@@ -236,10 +232,10 @@ func TestTimeBasedPatterns_Example(t *testing.T) {
 
 // TestAdvancedHistogramFeatures_Example shows advanced histogram generation capabilities
 // CURRENT CAPABILITY: Custom buckets, attributes, statistical validation
-func TestAdvancedHistogramFeatures_Example(t *testing.T) {
+func TestAdvancedHistogramFeatures_Example(_ *testing.T) {
 	fmt.Println("\n=== CURRENT CAPABILITY: Advanced Histogram Features ===")
 
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 999})
+	gen := NewHistogramGenerator(GenerationOptions{Seed: 999})
 
 	fmt.Println("\n🔧 ADVANCED FEATURES:")
 
@@ -248,7 +244,7 @@ func TestAdvancedHistogramFeatures_Example(t *testing.T) {
 	sizeBoundaries := []float64{1024, 4096, 16384, 65536, 262144, 1048576, 4194304}
 
 	// Latency histogram with log-normal distribution
-	result, _ := gen.GenerateHistogram(generator.HistogramInput{
+	result, _ := gen.GenerateHistogram(HistogramInput{
 		Count:      2000,
 		Min:        ptr(0.5),
 		Max:        ptr(10000.0),
@@ -259,15 +255,15 @@ func TestAdvancedHistogramFeatures_Example(t *testing.T) {
 			"method":       "GET",
 			"status_code":  "200",
 		},
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.LogNormalRandom(rnd, 3.0, 1.2) // realistic latency distribution
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return LogNormalRandom(rnd, 3.0, 1.2) // realistic latency distribution
 	})
 	fmt.Printf("✅ Latency histogram: %d samples, avg=%.1fms\n",
 		result.Expected.Count, result.Expected.Average)
 	fmt.Printf("   Buckets: %v\n", result.Input.Counts)
 
 	// File size histogram with exponential distribution
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count:      1500,
 		Boundaries: sizeBoundaries,
 		Attributes: map[string]string{
@@ -275,25 +271,25 @@ func TestAdvancedHistogramFeatures_Example(t *testing.T) {
 			"compression": "jpeg",
 			"quality":     "high",
 		},
-	}, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.ExponentialRandom(rnd, 0.000001) // file size distribution
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
+		return ExponentialRandom(rnd, 0.000001) // file size distribution
 	})
 	fmt.Printf("✅ File size histogram: %d samples, avg=%.0f bytes\n",
 		result.Expected.Count, result.Expected.Average)
 
 	// Multi-modal distribution (combining two normals)
-	result, _ = gen.GenerateHistogram(generator.HistogramInput{
+	result, _ = gen.GenerateHistogram(HistogramInput{
 		Count:      1000,
 		Boundaries: []float64{10, 30, 50, 70, 90, 110, 130, 150},
 		Attributes: map[string]string{
 			"distribution": "bimodal",
 			"use_case":     "response_time",
 		},
-	}, func(rnd *rand.Rand, t time.Time) float64 {
+	}, func(rnd *rand.Rand, _ time.Time) float64 {
 		if rnd.Float64() < 0.7 {
-			return generator.NormalRandom(rnd, 40, 10) // fast responses (70%)
+			return NormalRandom(rnd, 40, 10) // fast responses (70%)
 		}
-		return generator.NormalRandom(rnd, 120, 15) // slow responses (30%)
+		return NormalRandom(rnd, 120, 15) // slow responses (30%)
 	})
 	fmt.Printf("✅ Bimodal distribution: avg=%.1f (fast+slow responses)\n",
 		result.Expected.Average)
@@ -306,7 +302,7 @@ func TestCurrentPublishingCapabilities_Example(t *testing.T) {
 	t.Skip()
 	fmt.Println("\n=== CURRENT CAPABILITY: OTLP Publishing ===")
 
-	publisher := generator.NewOTLPPublisher("localhost:4318")
+	publisher := NewOTLPPublisher("localhost:4318")
 
 	fmt.Println("\n📡 WORKING METRIC TYPES:")
 
@@ -363,16 +359,15 @@ func TestShowCapabilities(t *testing.T) {
 
 	TestCurrentPublishingCapabilities_Example(t)
 	fmt.Println()
-
 }
 
 // TestHistogramGenerator_GenerateHistogram tests the core histogram generation functionality
 func TestHistogramGenerator_GenerateHistogram(t *testing.T) {
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{
+	gen := NewHistogramGenerator(GenerationOptions{
 		Seed: 12345, // Fixed seed for reproducible tests
 	})
 
-	input := generator.HistogramInput{
+	input := HistogramInput{
 		Count:      1000,
 		Min:        ptr(10.0),
 		Max:        ptr(200.0),
@@ -382,10 +377,9 @@ func TestHistogramGenerator_GenerateHistogram(t *testing.T) {
 		},
 	}
 
-	result, err := gen.GenerateHistogram(input, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.NormalRandom(rnd, 75, 25) // mean=75, stddev=25
+	result, err := gen.GenerateHistogram(input, func(rnd *rand.Rand, _ time.Time) float64 {
+		return NormalRandom(rnd, 75, 25) // mean=75, stddev=25
 	})
-
 	// Test basic functionality
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
@@ -428,9 +422,9 @@ func TestHistogramGenerator_GenerateHistogram(t *testing.T) {
 
 // TestHistogramGenerator_Distributions tests all statistical distributions
 func TestHistogramGenerator_Distributions(t *testing.T) {
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 42})
+	gen := NewHistogramGenerator(GenerationOptions{Seed: 42})
 	boundaries := []float64{10, 25, 50, 75, 100}
-	input := generator.HistogramInput{
+	input := HistogramInput{
 		Count: 1000, Boundaries: boundaries,
 	}
 
@@ -442,22 +436,22 @@ func TestHistogramGenerator_Distributions(t *testing.T) {
 	}{
 		{
 			name: "Normal",
-			valueFunc: func(rnd *rand.Rand, t time.Time) float64 {
-				return generator.NormalRandom(rnd, 50, 10)
+			valueFunc: func(rnd *rand.Rand, _ time.Time) float64 {
+				return NormalRandom(rnd, 50, 10)
 			},
 			minAvg: 40, maxAvg: 60,
 		},
 		{
 			name: "Exponential",
-			valueFunc: func(rnd *rand.Rand, t time.Time) float64 {
-				return generator.ExponentialRandom(rnd, 0.02)
+			valueFunc: func(rnd *rand.Rand, _ time.Time) float64 {
+				return ExponentialRandom(rnd, 0.02)
 			},
 			minAvg: 30, maxAvg: 70,
 		},
 		{
 			name: "Gamma",
-			valueFunc: func(rnd *rand.Rand, t time.Time) float64 {
-				return generator.GammaRandom(rnd, 2.0, 25.0)
+			valueFunc: func(rnd *rand.Rand, _ time.Time) float64 {
+				return GammaRandom(rnd, 2.0, 25.0)
 			},
 			minAvg: 40, maxAvg: 60,
 		},
@@ -466,7 +460,6 @@ func TestHistogramGenerator_Distributions(t *testing.T) {
 	for _, dist := range distributions {
 		t.Run(dist.name, func(t *testing.T) {
 			result, err := gen.GenerateHistogram(input, dist.valueFunc)
-
 			if err != nil {
 				t.Fatalf("Distribution %s failed: %v", dist.name, err)
 			}
@@ -486,7 +479,7 @@ func TestHistogramGenerator_Distributions(t *testing.T) {
 // TestOTLPPublisher_Creation tests OTLP publisher creation
 func TestOTLPPublisher_Creation(t *testing.T) {
 	t.Skip()
-	publisher := generator.NewOTLPPublisher("localhost:4318")
+	publisher := NewOTLPPublisher("localhost:4318")
 
 	if publisher == nil {
 		t.Fatal("Expected publisher to be created, got nil")
@@ -499,17 +492,17 @@ func TestOTLPPublisher_Creation(t *testing.T) {
 // TestGenerationOptions tests the generation options
 func TestGenerationOptions(t *testing.T) {
 	// Test with seed
-	gen1 := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 123})
-	gen2 := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 123})
+	gen1 := NewHistogramGenerator(GenerationOptions{Seed: 123})
+	gen2 := NewHistogramGenerator(GenerationOptions{Seed: 123})
 
-	input := generator.HistogramInput{Count: 100, Boundaries: []float64{50, 100}}
+	input := HistogramInput{Count: 100, Boundaries: []float64{50, 100}}
 
-	result1, err1 := gen1.GenerateHistogram(input, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.NormalRandom(rnd, 75, 10)
+	result1, err1 := gen1.GenerateHistogram(input, func(rnd *rand.Rand, _ time.Time) float64 {
+		return NormalRandom(rnd, 75, 10)
 	})
 
-	result2, err2 := gen2.GenerateHistogram(input, func(rnd *rand.Rand, t time.Time) float64 {
-		return generator.NormalRandom(rnd, 75, 10)
+	result2, err2 := gen2.GenerateHistogram(input, func(rnd *rand.Rand, _ time.Time) float64 {
+		return NormalRandom(rnd, 75, 10)
 	})
 
 	if err1 != nil || err2 != nil {
@@ -525,8 +518,8 @@ func TestGenerationOptions(t *testing.T) {
 
 // TestTimeBasedPatterns tests time-based value functions
 func TestTimeBasedPatterns(t *testing.T) {
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 999})
-	input := generator.HistogramInput{Count: 100, Boundaries: []float64{25, 50, 75, 100}}
+	gen := NewHistogramGenerator(GenerationOptions{Seed: 999})
+	input := HistogramInput{Count: 100, Boundaries: []float64{25, 50, 75, 100}}
 
 	patterns := []struct {
 		name      string
@@ -535,19 +528,19 @@ func TestTimeBasedPatterns(t *testing.T) {
 		{
 			name: "Sinusoidal",
 			valueFunc: func(rnd *rand.Rand, t time.Time) float64 {
-				return generator.SinusoidalValue(rnd, t, 20, 3600, 0, 50)
+				return SinusoidalValue(rnd, t, 20, 3600, 0, 50)
 			},
 		},
 		{
 			name: "Spiky",
-			valueFunc: func(rnd *rand.Rand, t time.Time) float64 {
-				return generator.SpikyValue(rnd, 50, 100, 0.1)
+			valueFunc: func(rnd *rand.Rand, _ time.Time) float64 {
+				return SpikyValue(rnd, 50, 100, 0.1)
 			},
 		},
 		{
 			name: "Trending",
 			valueFunc: func(rnd *rand.Rand, t time.Time) float64 {
-				return generator.TrendingValue(rnd, t, 40, 0.001, 5)
+				return TrendingValue(rnd, t, 40, 0.001, 5)
 			},
 		},
 	}
@@ -555,7 +548,6 @@ func TestTimeBasedPatterns(t *testing.T) {
 	for _, pattern := range patterns {
 		t.Run(pattern.name, func(t *testing.T) {
 			result, err := gen.GenerateHistogram(input, pattern.valueFunc)
-
 			if err != nil {
 				t.Fatalf("Pattern %s failed: %v", pattern.name, err)
 			}
@@ -575,12 +567,11 @@ func TestTimeBasedPatterns(t *testing.T) {
 
 // TestEdgeCases tests edge cases and error conditions
 func TestEdgeCases(t *testing.T) {
-	gen := generator.NewHistogramGenerator(generator.GenerationOptions{Seed: 1})
+	gen := NewHistogramGenerator(GenerationOptions{Seed: 1})
 
 	t.Run("ZeroCount", func(t *testing.T) {
-		input := generator.HistogramInput{Count: 0}
+		input := HistogramInput{Count: 0}
 		result, err := gen.GenerateHistogram(input, nil)
-
 		if err != nil {
 			t.Fatalf("Expected no error with zero count, got %v", err)
 		}
@@ -592,9 +583,8 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("NilValueFunc", func(t *testing.T) {
-		input := generator.HistogramInput{Count: 10}
+		input := HistogramInput{Count: 10}
 		result, err := gen.GenerateHistogram(input, nil)
-
 		if err != nil {
 			t.Fatalf("Expected no error with nil value func, got %v", err)
 		}
@@ -605,9 +595,8 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("EmptyBoundaries", func(t *testing.T) {
-		input := generator.HistogramInput{Count: 10, Boundaries: []float64{}}
+		input := HistogramInput{Count: 10, Boundaries: []float64{}}
 		result, err := gen.GenerateHistogram(input, nil)
-
 		if err != nil {
 			t.Fatalf("Expected no error with empty boundaries, got %v", err)
 		}
@@ -619,11 +608,11 @@ func TestEdgeCases(t *testing.T) {
 	})
 }
 
-func TestGenerateAccuracyDataset(t *testing.T) {
-	rng := rand.New(rand.NewSource(0xFEEDBEEF))
+func TestGenerateAccuracyDataset(_ *testing.T) {
+	rng := rand.New(rand.NewPCG(0xFEEDBEEF, 0xFEEDBEEF))
 	datapoints := make([]float64, 10000)
 	for i := range 10000 {
-		datapoints[i] = generator.LogNormalRandom(rng, -4.894, 1.176)
+		datapoints[i] = LogNormalRandom(rng, -4.894, 1.176)
 	}
 	slices.Sort(datapoints)
 	for i, v := range datapoints {

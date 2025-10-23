@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws/cloudwatch/histograms"
 	"github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -21,6 +20,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws/cloudwatch/histograms"
 )
 
 const (
@@ -108,7 +109,6 @@ func (c *Config) GetHeaders() map[string]string {
 }
 
 func main() {
-
 	exporter, err := createExporter(&Config{
 		UseHTTP:  true,
 		Insecure: true,
@@ -170,33 +170,27 @@ func main() {
 			}
 		}
 	}
-
 }
 
 func createExporter(cfg *Config) (sdkmetric.Exporter, error) {
 	var exp sdkmetric.Exporter
 	var err error
 	if cfg.UseHTTP {
-		var exporterOpts []otlpmetrichttp.Option
-
 		log.Print("starting HTTP exporter")
-		exporterOpts, err = httpExporterOptions(cfg)
-		if err != nil {
-			return nil, err
-		}
+		exporterOpts := httpExporterOptions(cfg)
 		exp, err = otlpmetrichttp.New(context.Background(), exporterOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to obtain OTLP HTTP exporter: %w", err)
 		}
 	} else {
-		return nil, fmt.Errorf("NotYetImplemented")
+		return nil, errors.New("NotYetImplemented")
 	}
 	return exp, err
 }
 
 // httpExporterOptions creates the configuration options for an HTTP-based OTLP metric exporter.
 // It configures the exporter with the provided endpoint, URL path, connection security settings, and headers.
-func httpExporterOptions(cfg *Config) ([]otlpmetrichttp.Option, error) {
+func httpExporterOptions(cfg *Config) []otlpmetrichttp.Option {
 	httpExpOpt := []otlpmetrichttp.Option{
 		otlpmetrichttp.WithEndpoint(cfg.Endpoint()),
 		otlpmetrichttp.WithURLPath(cfg.HTTPPath),
@@ -210,7 +204,7 @@ func httpExporterOptions(cfg *Config) ([]otlpmetrichttp.Option, error) {
 		httpExpOpt = append(httpExpOpt, otlpmetrichttp.WithHeaders(cfg.GetHeaders()))
 	}
 
-	return httpExpOpt, nil
+	return httpExpOpt
 }
 
 func tcToDatapoint(tc histograms.HistogramTestCase, startTime time.Time) metricdata.HistogramDataPoint[float64] {
