@@ -78,7 +78,7 @@ func TestHistogramGenerator_GenerateAndPublishHistograms_Example(t *testing.T) {
 		return ExponentialRandom(rnd, 0.01) // rate=0.01
 	})
 	if err != nil {
-		fmt.Printf("❌ Error (expected - telemetrygen limitations): %v\n", err)
+		fmt.Printf("❌ Error: %v\n", err)
 		return
 	}
 
