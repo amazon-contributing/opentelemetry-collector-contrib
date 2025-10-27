@@ -121,6 +121,7 @@ type Cadvisor struct {
 	metricsExtractors     []extractors.MetricExtractor
 	lastSocketInode       uint64
 	socketPath            string
+	periodicCheckCounter  int
 }
 
 func init() {
@@ -218,17 +219,40 @@ func (c *Cadvisor) GetMetrics() []pmetric.Metrics {
 
 	containerinfos, err = c.manager.SubcontainersInfo("/", req)
 	if err != nil {
+		c.logger.Error("SubcontainersInfo failed", zap.Error(err))
+		
 		// Check if containerd restarted and retry once
 		if c.hasContainerdRestarted() {
 			c.logger.Info("Containerd restart detected, reinitializing manager")
 			if reinitErr := c.initManager(c.createCadvisorManager); reinitErr == nil {
 				containerinfos, err = c.manager.SubcontainersInfo("/", req)
+				if err != nil {
+					c.logger.Error("SubcontainersInfo still failed after restart recovery", zap.Error(err))
+				} else {
+					c.logger.Info("SubcontainersInfo succeeded after restart recovery")
+				}
+			} else {
+				c.logger.Error("Failed to reinitialize manager after restart", zap.Error(reinitErr))
 			}
+		} else {
+			c.logger.Info("Error occurred but containerd restart not detected")
 		}
 
 		if err != nil {
 			c.logger.Warn("GetContainerInfo failed", zap.Error(err))
 			return result
+		}
+	} else {
+		// Even if no error, periodically check for restart (every 10th call)
+		// This helps catch cases where containerd restarted but cadvisor hasn't failed yet
+		if c.shouldPerformPeriodicRestartCheck() {
+			c.logger.Info("RESTART CHECK")
+			if c.hasContainerdRestarted() {
+				c.logger.Info("Containerd restart detected during periodic check, reinitializing manager")
+				if reinitErr := c.initManager(c.createCadvisorManager); reinitErr != nil {
+					c.logger.Error("Failed to reinitialize manager during periodic check", zap.Error(reinitErr))
+				}
+			}
 		}
 	}
 
@@ -439,4 +463,15 @@ func (c *Cadvisor) canConnectToSocket(socketPath string) bool {
 	
 	c.logger.Debug("Successfully connected to socket", zap.String("path", socketPath))
 	return true
+}
+// shouldPerformPeriodicRestartCheck determines if we should check for restart even when no error occurred
+// This helps catch cases where containerd restarted but cadvisor hasn't failed yet
+func (c *Cadvisor) shouldPerformPeriodicRestartCheck() bool {
+	c.periodicCheckCounter++
+	// Check every 10th call (adjust frequency as needed)
+	if c.periodicCheckCounter >= 1 {
+		c.periodicCheckCounter = 0
+		return true
+	}
+	return false
 }
