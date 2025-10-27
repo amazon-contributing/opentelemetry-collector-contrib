@@ -297,30 +297,143 @@ func (c *Cadvisor) initManager(createManager createCadvisorManager) error {
 	return nil
 }
 
-// hasContainerdRestarted checks if containerd has restarted by monitoring socket inode
+// hasContainerdRestarted checks if containerd has restarted using multiple detection methods
 func (c *Cadvisor) hasContainerdRestarted() bool {
-	if c.socketPath == "" {
-		c.socketPath = "/run/containerd/containerd.sock"
+	c.logger.Info("=== CONTAINERD RESTART CHECK START ===")
+	
+	// Check multiple socket paths that containerd might use
+	socketPaths := []string{
+		"/run/containerd/containerd.sock",
+		"/var/run/containerd/containerd.sock",
+		"/run/docker/containerd/containerd.sock",
 	}
 
-	stat, err := os.Stat(c.socketPath)
+	// If we have a specific socket path, prioritize it
+	if c.socketPath != "" {
+		socketPaths = append([]string{c.socketPath}, socketPaths...)
+	} else {
+		c.socketPath = socketPaths[0] // Default to first path
+	}
+
+	c.logger.Info("Checking containerd restart status", zap.Strings("socket_paths", socketPaths))
+
+	// Method 1: Check if any socket is accessible
+	socketAccessible := false
+	var workingSocket string
+	for _, path := range socketPaths {
+		if c.isSocketAccessible(path) {
+			socketAccessible = true
+			workingSocket = path
+			c.socketPath = path // Update to working socket
+			break
+		}
+	}
+
+	if !socketAccessible {
+		c.logger.Info("No containerd socket accessible - assuming restart needed")
+		c.logger.Info("=== CONTAINERD RESTART CHECK END (no accessible socket) ===")
+		return true
+	}
+
+	c.logger.Info("Found accessible socket", zap.String("socket_path", workingSocket))
+
+	// Method 2: Check inode changes (original method)
+	stat, err := os.Stat(workingSocket)
 	if err != nil {
-		return false
+		c.logger.Error("Failed to stat containerd socket", 
+			zap.String("socket_path", workingSocket),
+			zap.Error(err))
+		c.logger.Info("=== CONTAINERD RESTART CHECK END (stat failed) ===")
+		return true // Assume restart if we can't stat
 	}
 
 	// Get inode number (works on Linux)
 	if sysStat, ok := stat.Sys().(*syscall.Stat_t); ok {
 		currentInode := sysStat.Ino
+		c.logger.Info("Socket inode information",
+			zap.Uint64("current_inode", currentInode),
+			zap.Uint64("last_inode", c.lastSocketInode))
+
 		if c.lastSocketInode == 0 {
+			c.logger.Info("First time checking socket, storing inode")
 			c.lastSocketInode = currentInode
+			c.logger.Info("=== CONTAINERD RESTART CHECK END (first check) ===")
 			return false
 		}
 
 		if currentInode != c.lastSocketInode {
+			c.logger.Info("CONTAINERD RESTART DETECTED - inode changed!",
+				zap.Uint64("old_inode", c.lastSocketInode),
+				zap.Uint64("new_inode", currentInode))
 			c.lastSocketInode = currentInode
+			c.logger.Info("=== CONTAINERD RESTART CHECK END (restart detected) ===")
 			return true
 		}
+
+		c.logger.Info("Socket inode unchanged")
 	}
 
+	// Method 3: Check if containerd process is running
+	if !c.isContainerdRunning() {
+		c.logger.Info("CONTAINERD RESTART DETECTED - process not running!")
+		c.logger.Info("=== CONTAINERD RESTART CHECK END (process not running) ===")
+		return true
+	}
+
+	// Method 4: Test actual connectivity to the socket
+	if !c.canConnectToSocket(workingSocket) {
+		c.logger.Info("CONTAINERD RESTART DETECTED - cannot connect to socket!")
+		c.logger.Info("=== CONTAINERD RESTART CHECK END (connection failed) ===")
+		return true
+	}
+
+	c.logger.Info("All checks passed - no restart detected")
+	c.logger.Info("=== CONTAINERD RESTART CHECK END (no restart) ===")
 	return false
+}
+
+// isSocketAccessible checks if a socket file exists and has proper permissions
+func (c *Cadvisor) isSocketAccessible(socketPath string) bool {
+	stat, err := os.Stat(socketPath)
+	if err != nil {
+		c.logger.Debug("Socket not accessible", zap.String("path", socketPath), zap.Error(err))
+		return false
+	}
+
+	// Check if it's actually a socket
+	if stat.Mode()&os.ModeSocket == 0 {
+		c.logger.Debug("File is not a socket", zap.String("path", socketPath))
+		return false
+	}
+
+	c.logger.Debug("Socket is accessible", zap.String("path", socketPath))
+	return true
+}
+
+// isContainerdRunning checks if containerd process is running
+func (c *Cadvisor) isContainerdRunning() bool {
+	cmd := exec.Command("pgrep", "-f", "containerd")
+	output, err := cmd.Output()
+	if err != nil {
+		c.logger.Debug("Failed to check containerd process", zap.Error(err))
+		return false
+	}
+
+	pids := strings.TrimSpace(string(output))
+	isRunning := pids != ""
+	c.logger.Debug("Containerd process check", zap.Bool("running", isRunning), zap.String("pids", pids))
+	return isRunning
+}
+
+// canConnectToSocket tests if we can actually connect to the socket
+func (c *Cadvisor) canConnectToSocket(socketPath string) bool {
+	conn, err := net.DialTimeout("unix", socketPath, 2*time.Second)
+	if err != nil {
+		c.logger.Debug("Cannot connect to socket", zap.String("path", socketPath), zap.Error(err))
+		return false
+	}
+	defer conn.Close()
+	
+	c.logger.Debug("Successfully connected to socket", zap.String("path", socketPath))
+	return true
 }
