@@ -9,6 +9,8 @@ module-sets:
       - github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws
       - github.com/open-telemetry/opentelemetry-collector-contrib
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/opampsupervisor
+      - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/otlphistgen
+      - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/promgen
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen
       - github.com/open-telemetry/opentelemetry-collector-contrib/confmap/provider/aesprovider
       - github.com/open-telemetry/opentelemetry-collector-contrib/confmap/provider/s3provider
@@ -152,6 +154,7 @@ module-sets:
       - github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent
       - github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk
       - github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery
+      - github.com/open-telemetry/opentelemetry-collector-contrib/pkg/aws
       - github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchperresourceattr
       - github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchpersignal
       - github.com/open-telemetry/opentelemetry-collector-contrib/pkg/core/xidutils
