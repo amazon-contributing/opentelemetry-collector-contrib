@@ -7,8 +7,11 @@ package cadvisor // import "github.com/open-telemetry/opentelemetry-collector-co
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
