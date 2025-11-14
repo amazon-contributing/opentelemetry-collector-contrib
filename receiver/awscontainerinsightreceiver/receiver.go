@@ -353,6 +353,30 @@ func (acir *awsContainerInsightReceiver) initNVMeEbsScraper(ctx context.Context,
 	acir.nvmeScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
 	return err
 }
+func (acir *awsContainerInsightReceiver) initNVMeLisScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, localNodeDecorator stores.Decorator) error {
+	decoConsumer := decoratorconsumer.DecorateConsumer{
+		ContainerOrchestrator: ci.EKS,
+		NextConsumer:          acir.nextConsumer,
+		MetricType:            ci.TypeNodeNVME,
+		MetricToUnitMap:       nvme.MetricToUnit,
+		K8sDecorator:          localNodeDecorator,
+		Logger:                acir.settings.Logger,
+	}
+
+	scraperOpts := prometheusscraper.SimplePrometheusScraperOpts{
+		Ctx:               ctx,
+		TelemetrySettings: acir.settings,
+		Consumer:          &decoConsumer,
+		Host:              host,
+		ScraperConfigs:    nvme.GetLisScraperConfig(hostInfo),
+		HostInfoProvider:  hostInfo,
+		Logger:            acir.settings.Logger,
+	}
+
+	var err error
+	acir.nvmeScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
+	return err
+}
 
 func (acir *awsContainerInsightReceiver) initPodResourcesStore() error {
 	var err error
