@@ -32,13 +32,11 @@ const (
 	attributeLocalInstanceStore     = "ci_lis"
 )
 
-var (
-	// Map of NVMe feature attributes to their corresponding metric prefixes
-	featureMetricPrefixes = map[string]string{
-		attributeEBS:                "node_diskio_ebs",
-		attributeLocalInstanceStore: "node_diskio_instance_store",
-	}
-)
+// Map of NVMe feature attributes to their corresponding metric prefixes
+var featureMetricPrefixes = map[string]string{
+	attributeEBS:                "node_diskio_ebs",
+	attributeLocalInstanceStore: "node_diskio_instance_store",
+}
 
 type UserAgent struct {
 	mu          sync.RWMutex
