@@ -21,6 +21,7 @@ const (
 	lisJobName                   = "containerInsightsNVMeLisExporterScraper"
 	lisScraperMetricsPath        = "/metrics"
 	lisScraperK8sServiceSelector = "app=nvme-csi-plugin"
+	lisNamespaceDiscoveryName    = "kube-system"
 )
 
 func GetLisScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig {
@@ -36,7 +37,7 @@ func GetLisScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig
 			&kubernetes.SDConfig{
 				Role: kubernetes.RoleService,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
-					Names: []string{"kube-system"},
+					Names: []string{lisNamespaceDiscoveryName},
 				},
 				Selectors: []kubernetes.SelectorConfig{
 					{
@@ -64,7 +65,13 @@ func getLisMetricRelabelConfig(hostInfoProvider hostInfoProvider) []*relabel.Con
 			Regex:        relabel.MustNewRegexp(".*_bucket|.*_sum|.*_count.*"),
 			Action:       relabel.Drop,
 		},
-		// Hacky way to inject static values (clusterName/instanceId/nodeName/volumeID)
+		// Below metrics are NVMe data collection metrics which are not supported to maintain parity with EBS NVMe metrics
+		{
+			SourceLabels: model.LabelNames{"__name__"},
+			Regex:        relabel.MustNewRegexp(".*_nvme_collector_.*"),
+			Action:       relabel.Drop,
+		},
+		// Inject static values (clusterName/instanceId/nodeName/volumeID)
 		{
 			SourceLabels: model.LabelNames{"instance_id"},
 			TargetLabel:  ci.NodeNameKey,

@@ -216,6 +216,10 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start NVME EBS scraper", zap.Error(err))
 		}
+		err = acir.initNVMeLisScraper(ctx, host, hostInfo, localNodeDecorator)
+		if err != nil {
+			acir.settings.Logger.Debug("Unable to start NVME LIS scraper", zap.Error(err))
+		}
 		err = acir.initPodResourcesStore()
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start pod resources store", zap.Error(err))
