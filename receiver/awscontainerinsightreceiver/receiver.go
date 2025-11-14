@@ -216,6 +216,10 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start NVME EBS scraper", zap.Error(err))
 		}
+		err = acir.initNVMeLisScraper(ctx, host, hostInfo, localNodeDecorator)
+		if err != nil {
+			acir.settings.Logger.Debug("Unable to start NVME LIS scraper", zap.Error(err))
+		}
 		err = acir.initPodResourcesStore()
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start pod resources store", zap.Error(err))
@@ -345,6 +349,30 @@ func (acir *awsContainerInsightReceiver) initNVMeEbsScraper(ctx context.Context,
 		Consumer:          &decoConsumer,
 		Host:              host,
 		ScraperConfigs:    nvme.GetScraperConfig(hostInfo),
+		HostInfoProvider:  hostInfo,
+		Logger:            acir.settings.Logger,
+	}
+
+	var err error
+	acir.nvmeScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
+	return err
+}
+func (acir *awsContainerInsightReceiver) initNVMeLisScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, localNodeDecorator stores.Decorator) error {
+	decoConsumer := decoratorconsumer.DecorateConsumer{
+		ContainerOrchestrator: ci.EKS,
+		NextConsumer:          acir.nextConsumer,
+		MetricType:            ci.TypeNodeNVME,
+		MetricToUnitMap:       nvme.MetricToUnit,
+		K8sDecorator:          localNodeDecorator,
+		Logger:                acir.settings.Logger,
+	}
+
+	scraperOpts := prometheusscraper.SimplePrometheusScraperOpts{
+		Ctx:               ctx,
+		TelemetrySettings: acir.settings,
+		Consumer:          &decoConsumer,
+		Host:              host,
+		ScraperConfigs:    nvme.GetLisScraperConfig(hostInfo),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
 	}
