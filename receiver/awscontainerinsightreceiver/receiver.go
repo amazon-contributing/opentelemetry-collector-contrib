@@ -60,7 +60,8 @@ type awsContainerInsightReceiver struct {
 	prometheusScraper        *k8sapiserver.PrometheusScraper
 	podResourcesStore        *stores.PodResourcesStore
 	dcgmScraper              *prometheusscraper.SimplePrometheusScraper
-	nvmeScraper              *prometheusscraper.SimplePrometheusScraper
+	nvmeEbsScraper           *prometheusscraper.SimplePrometheusScraper
+	nvmeLisScraper           *prometheusscraper.SimplePrometheusScraper
 	neuronMonitorScraper     *prometheusscraper.SimplePrometheusScraper
 	efaSysfsScraper          *efa.Scraper
 }
@@ -354,14 +355,15 @@ func (acir *awsContainerInsightReceiver) initNVMeEbsScraper(ctx context.Context,
 	}
 
 	var err error
-	acir.nvmeScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
+	acir.nvmeEbsScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
 	return err
 }
+
 func (acir *awsContainerInsightReceiver) initNVMeLisScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, localNodeDecorator stores.Decorator) error {
 	decoConsumer := decoratorconsumer.DecorateConsumer{
 		ContainerOrchestrator: ci.EKS,
 		NextConsumer:          acir.nextConsumer,
-		MetricType:            ci.TypeNodeNVME,
+		MetricType:            ci.TypeNodeLISNVME,
 		MetricToUnitMap:       nvme.MetricToUnit,
 		K8sDecorator:          localNodeDecorator,
 		Logger:                acir.settings.Logger,
@@ -378,7 +380,7 @@ func (acir *awsContainerInsightReceiver) initNVMeLisScraper(ctx context.Context,
 	}
 
 	var err error
-	acir.nvmeScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
+	acir.nvmeLisScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
 	return err
 }
 
@@ -473,8 +475,11 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.neuronMonitorScraper != nil {
 		acir.neuronMonitorScraper.Shutdown()
 	}
-	if acir.nvmeScraper != nil {
-		acir.nvmeScraper.Shutdown()
+	if acir.nvmeEbsScraper != nil {
+		acir.nvmeEbsScraper.Shutdown()
+	}
+	if acir.nvmeLisScraper != nil {
+		acir.nvmeLisScraper.Shutdown()
 	}
 	if acir.efaSysfsScraper != nil {
 		acir.efaSysfsScraper.Shutdown()
@@ -523,8 +528,12 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 		acir.neuronMonitorScraper.GetMetrics()
 	}
 
-	if acir.nvmeScraper != nil {
-		acir.nvmeScraper.GetMetrics()
+	if acir.nvmeEbsScraper != nil {
+		acir.nvmeEbsScraper.GetMetrics()
+	}
+
+	if acir.nvmeLisScraper != nil {
+		acir.nvmeLisScraper.GetMetrics()
 	}
 
 	if acir.efaSysfsScraper != nil {
