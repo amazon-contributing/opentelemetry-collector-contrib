@@ -357,11 +357,12 @@ func (acir *awsContainerInsightReceiver) initNVMeEbsScraper(ctx context.Context,
 	acir.nvmeScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
 	return err
 }
+
 func (acir *awsContainerInsightReceiver) initNVMeLisScraper(ctx context.Context, host component.Host, hostInfo *hostinfo.Info, localNodeDecorator stores.Decorator) error {
 	decoConsumer := decoratorconsumer.DecorateConsumer{
 		ContainerOrchestrator: ci.EKS,
 		NextConsumer:          acir.nextConsumer,
-		MetricType:            ci.TypeNodeNVME,
+		MetricType:            ci.TypeNodeLISNVME,
 		MetricToUnitMap:       nvme.MetricToUnit,
 		K8sDecorator:          localNodeDecorator,
 		Logger:                acir.settings.Logger,
