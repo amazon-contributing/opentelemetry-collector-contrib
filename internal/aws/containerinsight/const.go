@@ -223,7 +223,6 @@ const (
 	TypeNodeEFA         = "NodeEFA"
 	TypeHyperPodNode    = "HyperPodNode"
 	TypeNodeNVME        = "NodeNVME"
-	TypeNodeLISNVME     = "NodeInstanceStore"
 
 	// unit
 	UnitBytes       = "Bytes"
