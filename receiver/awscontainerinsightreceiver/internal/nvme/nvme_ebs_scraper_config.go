@@ -29,7 +29,7 @@ type hostInfoProvider interface {
 	GetInstanceType() string
 }
 
-func GetScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig {
+func GetEbsScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig {
 	return &config.ScrapeConfig{
 		ScrapeInterval:         model.Duration(collectionInterval),
 		ScrapeTimeout:          model.Duration(collectionInterval),

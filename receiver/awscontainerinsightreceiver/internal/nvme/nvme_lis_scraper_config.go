@@ -18,7 +18,7 @@ import (
 
 const (
 	lisCollectionInterval        = 60 * time.Second
-	lisJobName                   = "containerInsightsNVMeLisExporterScraper"
+	lisJobName                   = "containerInsightsNVMeLISScraper"
 	lisScraperMetricsPath        = "/metrics"
 	lisScraperK8sServiceSelector = "app=nvme-csi-plugin"
 	lisNamespaceDiscoveryName    = "kube-system"

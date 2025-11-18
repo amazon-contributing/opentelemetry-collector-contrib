@@ -148,7 +148,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 			strings.HasPrefix(serviceName.Str(), "containerInsightsNeuronMonitorScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsKueueMetricsScraper") ||
 			strings.HasPrefix(serviceName.Str(), "containerInsightsNVMeEBSScraper") ||
-			strings.HasPrefix(serviceName.Str(), "containerInsightsNVMeLisExporterScraper") {
+			strings.HasPrefix(serviceName.Str(), "containerInsightsNVMeLISScraper") {
 			// the prometheus metrics that come from the container insight receiver need to be clearly tagged as coming from container insights
 			metricReceiver = containerInsightsReceiver
 		}

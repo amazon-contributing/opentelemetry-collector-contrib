@@ -141,7 +141,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 		Consumer:          mConsumer,
 		Host:              componenttest.NewNopHost(),
 		HostInfoProvider:  mockHostInfoProvider{},
-		ScraperConfigs:    GetScraperConfig(mockHostInfoProvider{}),
+		ScraperConfigs:    GetEbsScraperConfig(mockHostInfoProvider{}),
 		Logger:            settings.Logger,
 	})
 	assert.NoError(t, err)

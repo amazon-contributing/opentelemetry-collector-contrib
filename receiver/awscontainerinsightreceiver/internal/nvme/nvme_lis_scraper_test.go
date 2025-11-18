@@ -279,5 +279,5 @@ func TestLisNvmeScraperJobName(t *testing.T) {
 
 	mockProvider := mockHostInfoProvider{}
 	config := GetLisScraperConfig(mockProvider)
-	assert.Equal(t, "containerInsightsNVMeLisExporterScraper", config.JobName)
+	assert.Equal(t, "containerInsightsNVMeLISScraper", config.JobName)
 }
