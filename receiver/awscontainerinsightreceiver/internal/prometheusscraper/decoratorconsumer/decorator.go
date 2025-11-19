@@ -50,7 +50,6 @@ func (dc *DecorateConsumer) ConsumeMetrics(ctx context.Context, md pmetric.Metri
 	dc.Logger.Info("DEBUG: NVME metrics received in DecorateConsumer", zap.Int("metric_count", metricCount), zap.Strings("metric_names", metricNames))
 
 	resourceTags := make(map[string]string)
-	rms := md.ResourceMetrics()
 	for i := 0; i < rms.Len(); i++ {
 		// get resource attributes
 		ras := rms.At(i).Resource().Attributes()
