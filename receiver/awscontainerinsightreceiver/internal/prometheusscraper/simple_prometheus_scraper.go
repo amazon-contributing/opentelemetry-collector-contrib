@@ -45,7 +45,7 @@ type HostInfoProvider interface {
 }
 
 func NewSimplePrometheusScraper(opts SimplePrometheusScraperOpts) (*SimplePrometheusScraper, error) {
-	opts.Logger.Info("DEBUG: Creating SimplePrometheusScraper", zap.String("job_name", opts.ScraperConfigs.JobName))
+	opts.Logger.Debug("Creating SimplePrometheusScraper", zap.String("job_name", opts.ScraperConfigs.JobName))
 	if opts.Consumer == nil {
 		return nil, errors.New("consumer cannot be nil")
 	}
@@ -94,14 +94,15 @@ func (ds *SimplePrometheusScraper) GetMetrics() []pmetric.Metrics {
 	// This method will ensure the scraper is running
 
 	if !ds.running {
-		ds.Settings.Logger.Info("DEBUG: Starting prometheus receiver for NVME scraper")
+		ds.Settings.Logger.Info("The scraper is not running, starting up the scraper")
 		err := ds.PrometheusReceiver.Start(ds.Ctx, ds.host)
 		if err != nil {
 			ds.Settings.Logger.Error("Unable to start PrometheusReceiver", zap.Error(err))
 		}
 		ds.running = err == nil
 	}
-	ds.Settings.Logger.Info("DEBUG: NVME scraper already running")
+
+	ds.Settings.Logger.Debug("The scraper is running", zap.String("job_name", ds.ScraperConfigs.JobName))
 
 	return nil
 }
