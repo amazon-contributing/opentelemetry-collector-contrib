@@ -381,8 +381,12 @@ func (acir *awsContainerInsightReceiver) initNVMeLISScraper(ctx context.Context,
 		Logger:            acir.settings.Logger,
 	}
 
+	acir.settings.Logger.Info("DEBUG: configuring the NVMELISScraper")
+
 	var err error
 	acir.nvmeLISScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
+	acir.settings.Logger.Info("DEBUG: successfully configured the NVMELISScraper")
+
 	return err
 }
 
@@ -480,7 +484,11 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.nvmeEBSScraper != nil {
 		acir.nvmeEBSScraper.Shutdown()
 	}
+	acir.settings.Logger.Info("DEBUG: checking on shutdown for the NVMELISScraper")
+
 	if acir.nvmeLISScraper != nil {
+		acir.settings.Logger.Info("DEBUG: shutting down nvmelisscraper")
+
 		acir.nvmeLISScraper.Shutdown()
 	}
 	if acir.efaSysfsScraper != nil {
@@ -534,6 +542,7 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 		acir.nvmeEBSScraper.GetMetrics()
 	}
 
+	acir.settings.Logger.Info("DEBUG: check the status of NVMELISScraper")
 	if acir.nvmeLISScraper != nil {
 		acir.settings.Logger.Info("DEBUG: Calling GetMetrics() on NVME LIS scraper")
 		acir.nvmeLISScraper.GetMetrics()

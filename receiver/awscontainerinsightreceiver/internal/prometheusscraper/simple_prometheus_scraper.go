@@ -101,6 +101,8 @@ func (ds *SimplePrometheusScraper) GetMetrics() []pmetric.Metrics {
 		}
 		ds.running = err == nil
 	}
+	ds.Settings.Logger.Info("DEBUG: NVME scraper already running")
+
 	return nil
 }
 
