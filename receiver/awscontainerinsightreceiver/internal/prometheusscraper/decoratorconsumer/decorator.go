@@ -32,6 +32,23 @@ func (dc *DecorateConsumer) Capabilities() consumer.Capabilities {
 }
 
 func (dc *DecorateConsumer) ConsumeMetrics(ctx context.Context, md pmetric.Metrics) error {
+	// Debug logging for NVME metrics
+	var metricNames []string
+	metricCount := 0
+	rms := md.ResourceMetrics()
+	for i := 0; i < rms.Len(); i++ {
+		ilms := rms.At(i).ScopeMetrics()
+		for j := 0; j < ilms.Len(); j++ {
+			ms := ilms.At(j).Metrics()
+			for k := 0; k < ms.Len(); k++ {
+				m := ms.At(k)
+				metricNames = append(metricNames, m.Name())
+				metricCount++
+			}
+		}
+	}
+	dc.Logger.Info("DEBUG: NVME metrics received in DecorateConsumer", zap.Int("metric_count", metricCount), zap.Strings("metric_names", metricNames))
+
 	resourceTags := make(map[string]string)
 	rms := md.ResourceMetrics()
 	for i := 0; i < rms.Len(); i++ {
