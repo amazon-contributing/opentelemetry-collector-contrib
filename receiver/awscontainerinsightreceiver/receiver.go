@@ -219,7 +219,9 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 		}
 		err = acir.initNVMeLISScraper(ctx, host, hostInfo, localNodeDecorator)
 		if err != nil {
-			acir.settings.Logger.Debug("Unable to start NVME LIS scraper", zap.Error(err))
+			acir.settings.Logger.Warn("Unable to start NVME LIS scraper", zap.Error(err))
+		} else {
+			acir.settings.Logger.Info("DEBUG: NVME LIS scraper initialized successfully")
 		}
 		err = acir.initPodResourcesStore()
 		if err != nil {
@@ -533,6 +535,7 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 	}
 
 	if acir.nvmeLISScraper != nil {
+		acir.settings.Logger.Info("DEBUG: Calling GetMetrics() on NVME LIS scraper")
 		acir.nvmeLISScraper.GetMetrics()
 	}
 
