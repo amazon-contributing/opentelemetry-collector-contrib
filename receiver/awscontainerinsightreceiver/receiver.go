@@ -381,7 +381,7 @@ func (acir *awsContainerInsightReceiver) initNVMeLISScraper(ctx context.Context,
 
 	var err error
 	acir.nvmeLISScraper, err = prometheusscraper.NewSimplePrometheusScraper(scraperOpts)
-	acir.settings.Logger.Info("DEBUG: successfully configured the NVMELISScraper")
+	acir.settings.Logger.Info("DEBUG: pink_unicorn successfully configured the NVMELISScraper")
 
 	return err
 }
