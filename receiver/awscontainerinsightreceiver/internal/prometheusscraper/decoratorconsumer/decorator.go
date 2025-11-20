@@ -46,11 +46,6 @@ func (dc *DecorateConsumer) ConsumeMetrics(ctx context.Context, md pmetric.Metri
 			ms := ilms.At(j).Metrics()
 			for k := 0; k < ms.Len(); k++ {
 				m := ms.At(k)
-				jobName := resourceTags["job"]
-				if jobName == "" {
-					jobName = "unknown"
-				}
-				dc.Logger.Debug("DecorateConsumer processing metric", zap.String("metric_name", m.Name()), zap.String("job_name", jobName))
 				converted := ci.ConvertToFieldsAndTags(m, dc.Logger)
 				var rcis []*stores.CIMetricImpl
 				for _, pair := range converted {
