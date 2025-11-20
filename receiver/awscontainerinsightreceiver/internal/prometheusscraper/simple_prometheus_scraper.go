@@ -93,6 +93,8 @@ func (ds *SimplePrometheusScraper) GetMetrics() []pmetric.Metrics {
 	// This method will never return metrics because the metrics are collected by the scraper.
 	// This method will ensure the scraper is running
 
+	ds.Settings.Logger.Debug("GetMetrics() called", zap.String("job_name", ds.ScraperConfigs.JobName), zap.Bool("running", ds.running))
+
 	if !ds.running {
 		ds.Settings.Logger.Info("The scraper is not running, starting up the scraper")
 		err := ds.PrometheusReceiver.Start(ds.Ctx, ds.host)
@@ -100,6 +102,7 @@ func (ds *SimplePrometheusScraper) GetMetrics() []pmetric.Metrics {
 			ds.Settings.Logger.Error("Unable to start PrometheusReceiver", zap.Error(err))
 		}
 		ds.running = err == nil
+		ds.Settings.Logger.Debug("Scraper start attempt completed", zap.String("job_name", ds.ScraperConfigs.JobName), zap.Bool("running", ds.running), zap.Error(err))
 	}
 
 	ds.Settings.Logger.Debug("The scraper is running", zap.String("job_name", ds.ScraperConfigs.JobName))
