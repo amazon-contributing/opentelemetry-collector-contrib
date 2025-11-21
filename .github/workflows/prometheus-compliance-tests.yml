@@ -27,7 +27,7 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
       - uses: actions/checkout@v4
-        with:
+      - run: ./.github/workflows/scripts/free-disk-space.sh        with:
           path: opentelemetry-collector-contrib
       - uses: actions/setup-go@v5
         with:
@@ -50,7 +50,7 @@ jobs:
         working-directory: opentelemetry-collector-contrib
       - name: Checkout compliance repo
         uses: actions/checkout@v4
-        with:
+      - run: ./.github/workflows/scripts/free-disk-space.sh        with:
           repository: prometheus/compliance
           path: compliance
       - name: Copy binary to compliance directory
@@ -65,3 +65,4 @@ jobs:
           set -o pipefail && \
           go test -v --tags=compliance -run "TestRemoteWrite/otel/.+" ./ |& tee ./test-report.txt
         working-directory: compliance/remotewrite/sender
+      - run: ./.github/workflows/scripts/check-disk-space.sh

@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
+      - run: ./.github/workflows/scripts/free-disk-space.sh        with:
           fetch-depth: 0
       - name: Did windows files changed
         run: echo "changed=$(./.github/workflows/scripts/is_changed_file_windows.sh )" >> "$GITHUB_OUTPUT"
@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
+      - run: ./.github/workflows/scripts/free-disk-space.sh      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
         with:
           go-version: "1.24.9"
           cache: false
@@ -78,7 +78,7 @@ jobs:
     needs: [collector-build]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
+      - run: ./.github/workflows/scripts/free-disk-space.sh      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
         with:
           go-version: "1.24.9"
           cache: false
@@ -115,7 +115,7 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Setup Go
+      - run: ./.github/workflows/scripts/free-disk-space.sh      - name: Setup Go
         uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
         with:
           go-version: "1.24.9"
@@ -151,4 +151,4 @@ jobs:
         if: always()
         run: |
           Remove-Service opampsupervisor
-          Remove-Item HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\opampsupervisor
+          Remove-Item HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\opampsupervisor      - run: ./.github/workflows/scripts/check-disk-space.sh

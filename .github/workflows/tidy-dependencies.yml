@@ -17,7 +17,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'dependency-major-update') && (github.actor == 'renovate[bot]' || contains(github.event.pull_request.labels.*.name, 'renovatebot')) }}
     steps:
       - uses: actions/checkout@v4
-        with:
+      - run: ./.github/workflows/scripts/free-disk-space.sh        with:
           ref: ${{ github.head_ref }}
       - uses: actions/setup-go@v5
         with:
@@ -50,3 +50,4 @@ jobs:
       - uses: actions-ecosystem/action-remove-labels@v1
         with:
           labels: renovatebot
+      - run: ./.github/workflows/scripts/check-disk-space.sh

@@ -19,7 +19,7 @@ jobs:
       go_tests: ${{ steps.changes.outputs.go_tests }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
+      - run: ./.github/workflows/scripts/free-disk-space.sh        with:
           fetch-depth: 0
 
       - name: Get changes
@@ -67,7 +67,7 @@ jobs:
           echo "go_sources: ${{ needs.changedfiles.outputs.go_sources }}"
           echo "go_tests: ${{ needs.changedfiles.outputs.go_tests }}"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
+      - run: ./.github/workflows/scripts/free-disk-space.sh      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
         with:
           go-version: "1.24.9"
           cache: false
@@ -104,3 +104,4 @@ jobs:
           CHANGED_GOLANG_SOURCES: ${{ needs.changedfiles.outputs.go_sources }}
         run: |
           make for-affected-components CMD="make"
+      - run: ./.github/workflows/scripts/check-disk-space.sh
