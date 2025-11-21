@@ -22,4 +22,5 @@ jobs:
         run: ./.github/workflows/scripts/generate-component-labels.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: ./.github/workflows/scripts/check-disk-space.sh
 
