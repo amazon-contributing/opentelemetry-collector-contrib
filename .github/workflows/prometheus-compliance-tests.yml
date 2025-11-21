@@ -65,3 +65,4 @@ jobs:
           set -o pipefail && \
           go test -v --tags=compliance -run "TestRemoteWrite/otel/.+" ./ |& tee ./test-report.txt
         working-directory: compliance/remotewrite/sender
+      - run: opentelemetry-collector-contrib/.github/workflows/scripts/check-disk-space.sh
