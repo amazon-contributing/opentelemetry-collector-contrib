@@ -28,6 +28,7 @@ jobs:
       loadtest_matrix: ${{ steps.splitloadtest.outputs.loadtest_matrix }}
     steps:
       - uses: actions/checkout@v4
+      - run: ./.github/workflows/scripts/free-disk-space.sh
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.9"
