@@ -33,6 +33,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - run: ./.github/workflows/scripts/free-disk-space.sh
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.9"
@@ -52,6 +53,7 @@ jobs:
       - name: Install Tools
         if: steps.go-cache.outputs.cache-hit != 'true'
         run: make install-tools
+      - run: ./.github/workflows/scripts/check-disk-space.sh
       - name: Build test binaries
         env:
           GOTESTARCH: amd64
