@@ -155,4 +155,5 @@ jobs:
         if: always()
         run: |
           Remove-Service opampsupervisor
-          Remove-Item HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\opampsupervisor      - run: ./.github/workflows/scripts/check-disk-space.sh
+          Remove-Item HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\opampsupervisor
+      - run: ./.github/workflows/scripts/check-disk-space.sh
