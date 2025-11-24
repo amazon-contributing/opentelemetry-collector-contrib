@@ -197,4 +197,3 @@ jobs:
             echo "One or more matrix jobs failed."
             false
           fi
-      - run: ./.github/workflows/scripts/check-disk-space.sh
