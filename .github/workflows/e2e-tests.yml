@@ -24,7 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - run: ./.github/workflows/scripts/free-disk-space.sh      - uses: actions/setup-go@v5
+      - run: ./.github/workflows/scripts/free-disk-space.sh
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.24.9"
           cache: false
@@ -55,7 +56,8 @@ jobs:
     needs: collector-build
     steps:
       - uses: actions/checkout@v4
-      - run: ./.github/workflows/scripts/free-disk-space.sh      - uses: actions/setup-go@v5
+      - run: ./.github/workflows/scripts/free-disk-space.sh
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.24.9"
           cache: false
@@ -87,7 +89,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - run: ./.github/workflows/scripts/free-disk-space.sh      - uses: actions/setup-go@v5
+      - run: ./.github/workflows/scripts/free-disk-space.sh
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.24.9"
           cache: false
@@ -135,7 +138,8 @@ jobs:
     needs: docker-build
     steps:
       - uses: actions/checkout@v4
-      - run: ./.github/workflows/scripts/free-disk-space.sh      - uses: actions/setup-go@v5
+      - run: ./.github/workflows/scripts/free-disk-space.sh
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.24.9"
           cache: false
