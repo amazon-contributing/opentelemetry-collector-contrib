@@ -5,7 +5,7 @@ go 1.24.9
 require (
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/sys v0.32.0
+	golang.org/x/sys v0.39.0
 )
 
 require (
