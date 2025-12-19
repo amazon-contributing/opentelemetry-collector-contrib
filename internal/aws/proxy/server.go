@@ -75,6 +75,12 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 		return nil, err
 	}
 
+	// Validate and build API route map
+	apiRouteMap, err := buildAPIRouteMap(cfg.AdditionalRoutingRules)
+	if err != nil {
+		return nil, fmt.Errorf("invalid routing rules: %w", err)
+	}
+
 	// Reverse proxy handler
 	handler := &httputil.ReverseProxy{
 		Transport: transport,
@@ -90,10 +96,47 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			// resulting in a signed header being missing from the request.
 			req.Header.Del(connHeader)
 
-			// Set req url to xray endpoint
-			req.URL.Scheme = awsURL.Scheme
-			req.URL.Host = awsURL.Host
-			req.Host = awsURL.Host
+			apiName := req.URL.Path
+			// strip the "/" from the request path
+			if len(apiName) > 0 && apiName[0] == '/' {
+				apiName = apiName[1:]
+			}
+			serviceConfig := apiRouteMap[apiName]
+			serviceName := cfg.ServiceName
+			region := *awsCfg.Region
+			endpoint := awsEndPoint
+
+			if serviceConfig != nil {
+				// Defensive checks - these fields are validated at startup but we check anyway
+				if serviceConfig.ServiceName != "" {
+					serviceName = serviceConfig.ServiceName
+				}
+				if serviceConfig.Region != "" {
+					region = serviceConfig.Region
+				}
+				if serviceConfig.AWSEndpoint != "" {
+					endpoint = serviceConfig.AWSEndpoint
+				} else {
+					// Resolve endpoint from service name and region
+					resolved, err := getServiceEndpoint(&aws.Config{Region: &region}, serviceName)
+					if err != nil {
+						logger.Error("Unable to resolve endpoint for service", zap.String("service", serviceName), zap.String("region", region), zap.Error(err))
+					} else {
+						endpoint = resolved
+					}
+				}
+			}
+
+			targetURL, err := url.Parse(endpoint)
+			if err != nil {
+				logger.Error("Unable to parse endpoint", zap.Error(err))
+				targetURL = awsURL
+			}
+
+			// Set req url to target endpoint
+			req.URL.Scheme = targetURL.Scheme
+			req.URL.Host = targetURL.Host
+			req.Host = targetURL.Host
 
 			// Consume body and convert to io.ReadSeeker for signer to consume
 			body, err := consume(req.Body)
@@ -105,7 +148,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			}
 
 			// Sign request. signer.Sign() also repopulates the request body.
-			_, err = signer.Sign(req, body, cfg.ServiceName, *awsCfg.Region, time.Now())
+			_, err = signer.Sign(req, body, serviceName, region, time.Now())
 			if err != nil {
 				logger.Error("Unable to sign request", zap.Error(err))
 			}
@@ -160,4 +203,22 @@ func setResolverConfig() func(*endpoints.Options) {
 	return func(p *endpoints.Options) {
 		p.ResolveUnknownService = true
 	}
+}
+
+// creates a map of API name references to service config.
+func buildAPIRouteMap(routes []ServiceConfig) (map[string]*ServiceConfig, error) {
+	apiMap := make(map[string]*ServiceConfig)
+	for i, route := range routes {
+		if route.ServiceName == "" {
+			return nil, fmt.Errorf("route[%d]: service_name is required", i)
+		}
+		for _, apiName := range route.APIs {
+			// Technically duplicate API names shouldn't happen, but if the same API is configured
+			// for multiple services, the first service wins.
+			if _, exists := apiMap[apiName]; !exists {
+				apiMap[apiName] = &route
+			}
+		}
+	}
+	return apiMap, nil
 }

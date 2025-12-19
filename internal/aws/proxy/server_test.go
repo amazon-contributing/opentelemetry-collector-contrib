@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"strings"
 	"testing"
 	"time"
@@ -243,4 +244,325 @@ func (m *mockReadCloser) Read(_ []byte) (n int, err error) {
 
 func (m *mockReadCloser) Close() error {
 	return nil
+}
+
+func TestBuildAPIRouteMapEmpty(t *testing.T) {
+	apiMap, err := buildAPIRouteMap(nil)
+	assert.NoError(t, err)
+	assert.Empty(t, apiMap)
+}
+
+func TestBuildAPIRouteMapValid(t *testing.T) {
+	routes := []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents", "CreateLogGroup"},
+			ServiceName: "logs",
+			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+		{
+			APIs:        []string{"PutTraceSegments"},
+			ServiceName: "xray",
+			AWSEndpoint: "https://xray.us-west-2.amazonaws.com",
+		},
+	}
+
+	apiMap, err := buildAPIRouteMap(routes)
+	assert.NoError(t, err)
+	assert.Len(t, apiMap, 3)
+	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
+	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
+	assert.Equal(t, "xray", apiMap["PutTraceSegments"].ServiceName)
+}
+
+func TestBuildAPIRouteMapMissingServiceName(t *testing.T) {
+	routes := []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents"},
+			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+	}
+
+	_, err := buildAPIRouteMap(routes)
+	assert.Error(t, err)
+}
+
+func TestBuildAPIRouteMapMissingEndpoint(t *testing.T) {
+	routes := []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents"},
+			ServiceName: "logs",
+			Region:      "us-east-1",
+			// AWSEndpoint will be resolved from service name and region
+		},
+	}
+
+	apiMap, err := buildAPIRouteMap(routes)
+	assert.NoError(t, err)
+	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
+}
+
+func TestNewServerWithRoutingRules(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.AdditionalRoutingRules = []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents"},
+			ServiceName: "logs",
+			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+	}
+
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed with routing rules")
+	assert.NotNil(t, srv)
+}
+
+func TestNewServerWithInvalidRoutingRules(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.AdditionalRoutingRules = []ServiceConfig{
+		{
+			APIs: []string{"PutLogEvents"},
+			// Missing ServiceName - this is required
+		},
+	}
+
+	_, err := NewServer(cfg, logger)
+	assert.Error(t, err, "NewServer should fail with invalid routing rules")
+}
+
+func TestBuildAPIRouteMapWithLeadingSlash(t *testing.T) {
+	routes := []ServiceConfig{
+		{
+			APIs:        []string{"/PutLogEvents", "CreateLogGroup"},
+			ServiceName: "logs",
+			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+	}
+
+	apiMap, err := buildAPIRouteMap(routes)
+	assert.NoError(t, err)
+	assert.Len(t, apiMap, 2)
+	assert.Equal(t, "logs", apiMap["/PutLogEvents"].ServiceName)
+	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
+}
+
+func TestBuildAPIRouteMapDuplicateAPIs(t *testing.T) {
+	routes := []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents"},
+			ServiceName: "logs",
+			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+		{
+			APIs:        []string{"PutLogEvents"},
+			ServiceName: "xray",
+			AWSEndpoint: "https://xray.us-west-2.amazonaws.com",
+		},
+	}
+
+	apiMap, err := buildAPIRouteMap(routes)
+	assert.NoError(t, err)
+	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName, "first route should win")
+}
+
+func TestHandlerRoutingWithMultipleServices(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.AdditionalRoutingRules = []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents", "CreateLogGroup"},
+			ServiceName: "logs",
+			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
+			Region:      "us-east-1",
+		},
+		{
+			APIs:        []string{"PutTraceSegments"},
+			ServiceName: "xray",
+			AWSEndpoint: "https://xray.us-west-2.amazonaws.com",
+			Region:      "us-west-2",
+		},
+	}
+
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	// Replace transport with mock
+	mockTrans := &mockTransport{}
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy.Transport = mockTrans
+
+	testCases := []struct {
+		apiPath      string
+		expectedHost string
+	}{
+		{"/PutLogEvents", "logs.us-east-1.amazonaws.com"},
+		{"/CreateLogGroup", "logs.us-east-1.amazonaws.com"},
+		{"/PutTraceSegments", "xray.us-west-2.amazonaws.com"},
+		{"/UnmatchedAPI", "xray.us-west-2.amazonaws.com"}, // fallback to default
+	}
+
+	for _, tc := range testCases {
+		mockTrans.capturedRequests = nil
+		req := httptest.NewRequest(http.MethodPost, "https://example.com"+tc.apiPath, strings.NewReader(`{}`))
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		assert.Len(t, mockTrans.capturedRequests, 1, "should have captured one request for %s", tc.apiPath)
+		capturedReq := mockTrans.capturedRequests[0]
+		assert.Equal(t, tc.expectedHost, capturedReq.Host, "API %s should route to %s", tc.apiPath, tc.expectedHost)
+	}
+}
+
+type mockTransport struct {
+	capturedRequests []*http.Request
+}
+
+func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.capturedRequests = append(m.capturedRequests, req)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       http.NoBody,
+		Header:     make(http.Header),
+	}, nil
+}
+
+func TestHandlerRoutingWithAutoResolvedEndpoint(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.AdditionalRoutingRules = []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents", "CreateLogGroup"},
+			ServiceName: "logs",
+			Region:      "us-east-1",
+		},
+		{
+			APIs:        []string{"PutMetricData"},
+			ServiceName: "monitoring",
+			Region:      "eu-west-1",
+		},
+		{
+			APIs:        []string{"PutServiceLevelObjective"},
+			ServiceName: "applicationsignals",
+			Region:      "ap-south-1",
+		},
+		{
+			APIs:        []string{"SendMessage"},
+			ServiceName: "sqs",
+			Region:      "us-west-2",
+		},
+	}
+
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	mockTrans := &mockTransport{}
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy.Transport = mockTrans
+
+	testCases := []struct {
+		apiPath      string
+		expectedHost string
+	}{
+		{"/PutLogEvents", "logs.us-east-1.amazonaws.com"},
+		{"/CreateLogGroup", "logs.us-east-1.amazonaws.com"},
+		{"/PutMetricData", "monitoring.eu-west-1.amazonaws.com"},
+		{"/PutServiceLevelObjective", "applicationsignals.ap-south-1.amazonaws.com"},
+		{"/SendMessage", "sqs.us-west-2.amazonaws.com"},
+	}
+
+	for _, tc := range testCases {
+		mockTrans.capturedRequests = nil
+		req := httptest.NewRequest(http.MethodPost, "http://localhost:2000"+tc.apiPath, strings.NewReader(`{}`))
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		assert.Len(t, mockTrans.capturedRequests, 1, "should have captured one request for %s", tc.apiPath)
+		capturedReq := mockTrans.capturedRequests[0]
+		assert.Equal(t, tc.expectedHost, capturedReq.Host, "API %s should auto-resolve to %s", tc.apiPath, tc.expectedHost)
+	}
+}
+
+func TestHandlerRoutingFallbackToTopLevelConfig(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.ServiceName = "xray"
+	cfg.Region = "us-west-2"
+	cfg.AWSEndpoint = "https://xray.us-west-2.amazonaws.com"
+	cfg.AdditionalRoutingRules = []ServiceConfig{
+		{
+			APIs:        []string{"PutLogEvents"},
+			ServiceName: "logs",
+			// Region should fall back to top-level us-west-2
+			// AWSEndpoint should auto-resolve using logs + us-west-2
+		},
+		{
+			APIs:        []string{"PutMetricData"},
+			ServiceName: "monitoring",
+			Region:      "eu-west-1",
+			AWSEndpoint: "https://monitoring.eu-west-1.amazonaws.com",
+			//no fallback
+		},
+	}
+
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	mockTrans := &mockTransport{}
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy.Transport = mockTrans
+
+	testCases := []struct {
+		apiPath      string
+		expectedHost string
+		description  string
+	}{
+		{"/PutLogEvents", "logs.us-west-2.amazonaws.com", "logs service with fallback region"},
+		{"/PutMetricData", "monitoring.eu-west-1.amazonaws.com", "all fields explicitly set"},
+	}
+
+	for _, tc := range testCases {
+		mockTrans.capturedRequests = nil
+		req := httptest.NewRequest(http.MethodPost, "http://localhost:2000"+tc.apiPath, strings.NewReader(`{}`))
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		assert.Len(t, mockTrans.capturedRequests, 1, "should have captured one request for %s", tc.apiPath)
+		capturedReq := mockTrans.capturedRequests[0]
+		assert.Equal(t, tc.expectedHost, capturedReq.Host, "%s: %s", tc.apiPath, tc.description)
+	}
 }

@@ -62,6 +62,30 @@ type Config struct {
 	// ServiceName determines which service the requests are sent to.
 	// will be default to `xray`. This is mandatory for SigV4
 	ServiceName string `mapstructure:"service_name"`
+
+	// AdditionalRoutingRules defines optional routing rules for multi-service support.
+	// Each route can override service name, region, role, and endpoint.
+	// If a field is not provided, defaults to the top level configuration.
+	AdditionalRoutingRules []ServiceConfig `mapstructure:"additional_routing_rules,omitempty"`
+}
+
+// ServiceConfig defines routing configuration for a specific service.
+type ServiceConfig struct {
+	// APIs is a list of exact API names to match against the request path.
+	// Example: "PutLogEvents", "DescribeLogGroups"
+	APIs []string `mapstructure:"apis"`
+
+	// ServiceName is the AWS service name for signing (e.g., "logs", "applicationsignals").
+	ServiceName string `mapstructure:"service_name"`
+
+	// Region overrides the default region for this service.
+	Region string `mapstructure:"region"`
+
+	// RoleARN overrides the default IAM role for this service.
+	RoleARN string `mapstructure:"role_arn"`
+
+	// AWSEndpoint overrides the default AWS endpoint for this service.
+	AWSEndpoint string `mapstructure:"aws_endpoint"`
 }
 
 func DefaultConfig() *Config {
