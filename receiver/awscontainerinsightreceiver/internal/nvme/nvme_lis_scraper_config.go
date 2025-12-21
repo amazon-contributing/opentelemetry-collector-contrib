@@ -20,7 +20,7 @@ const (
 	lisCollectionInterval        = 60 * time.Second
 	lisJobName                   = "containerInsightsNVMeLISScraper"
 	lisScraperMetricsPath        = "/metrics"
-	lisScraperK8sServiceSelector = "app=nvme-csi-plugin"
+	lisScraperK8sServiceSelector = "app=instance-store-plugin"
 	lisNamespaceDiscoveryName    = "kube-system"
 )
 
