@@ -35,6 +35,14 @@ func logSetup() (*zap.Logger, *observer.ObservedLogs) {
 	return zap.New(core), recorded
 }
 
+func setupTestEnv(t *testing.T) (*zap.Logger, *observer.ObservedLogs) {
+	t.Helper()
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	return logSetup()
+}
+
 func TestHappyCase(t *testing.T) {
 	logger, recordedLogs := logSetup()
 
@@ -66,11 +74,7 @@ func TestHappyCase(t *testing.T) {
 }
 
 func TestHandlerHappyCase(t *testing.T) {
-	logger, _ := logSetup()
-
-	t.Setenv(regionEnvVarName, regionEnvVar)
-	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	logger, _ := setupTestEnv(t)
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -91,11 +95,7 @@ func TestHandlerHappyCase(t *testing.T) {
 }
 
 func TestHandlerIoReadSeekerCreationFailed(t *testing.T) {
-	logger, recordedLogs := logSetup()
-
-	t.Setenv(regionEnvVarName, regionEnvVar)
-	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	logger, recordedLogs := setupTestEnv(t)
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -120,11 +120,7 @@ func TestHandlerIoReadSeekerCreationFailed(t *testing.T) {
 }
 
 func TestHandlerNilBodyIsOk(t *testing.T) {
-	logger, recordedLogs := logSetup()
-
-	t.Setenv(regionEnvVarName, regionEnvVar)
-	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	logger, recordedLogs := setupTestEnv(t)
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -377,11 +373,7 @@ func TestBuildAPIRouteMapDuplicateAPIs(t *testing.T) {
 }
 
 func TestHandlerRoutingWithMultipleServices(t *testing.T) {
-	logger, _ := logSetup()
-
-	t.Setenv(regionEnvVarName, regionEnvVar)
-	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	logger, _ := setupTestEnv(t)
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -446,11 +438,7 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestHandlerRoutingWithAutoResolvedEndpoint(t *testing.T) {
-	logger, _ := logSetup()
-
-	t.Setenv(regionEnvVarName, regionEnvVar)
-	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	logger, _ := setupTestEnv(t)
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -510,11 +498,7 @@ func TestHandlerRoutingWithAutoResolvedEndpoint(t *testing.T) {
 }
 
 func TestHandlerRoutingFallbackToTopLevelConfig(t *testing.T) {
-	logger, _ := logSetup()
-
-	t.Setenv(regionEnvVarName, regionEnvVar)
-	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	logger, _ := setupTestEnv(t)
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -565,4 +549,38 @@ func TestHandlerRoutingFallbackToTopLevelConfig(t *testing.T) {
 		capturedReq := mockTrans.capturedRequests[0]
 		assert.Equal(t, tc.expectedHost, capturedReq.Host, "%s: %s", tc.apiPath, tc.description)
 	}
+}
+
+func TestHandlerPreservesURLPath(t *testing.T) {
+	logger, _ := setupTestEnv(t)
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.AdditionalRoutingRules = []ServiceConfig{
+		{
+			APIs:        []string{"slos"},
+			ServiceName: "application-signals",
+			Region:      "us-east-1",
+			AWSEndpoint: "https://application-signals.us-east-1.api.aws",
+		},
+	}
+
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	mockTrans := &mockTransport{}
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy.Transport = mockTrans
+
+	req := httptest.NewRequest(http.MethodPost, "http://localhost:2000/slos?MaxResults=1", strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, req)
+
+	assert.Len(t, mockTrans.capturedRequests, 1)
+	capturedReq := mockTrans.capturedRequests[0]
+	assert.Equal(t, "application-signals.us-east-1.api.aws", capturedReq.Host)
+	assert.Equal(t, "/slos", capturedReq.URL.Path, "URL path should be preserved")
+	assert.Equal(t, "MaxResults=1", capturedReq.URL.RawQuery, "query string should be preserved")
 }
