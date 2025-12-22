@@ -518,7 +518,7 @@ func TestHandlerRoutingFallbackToTopLevelConfig(t *testing.T) {
 			ServiceName: "monitoring",
 			Region:      "eu-west-1",
 			AWSEndpoint: "https://monitoring.eu-west-1.amazonaws.com",
-			//no fallback
+			// no fallback
 		},
 	}
 

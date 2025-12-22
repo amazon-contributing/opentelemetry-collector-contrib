@@ -205,18 +205,18 @@ func setResolverConfig() func(*endpoints.Options) {
 	}
 }
 
-// creates a map of API name references to service config.
+// creates a map of path references to service config.
 func buildAPIRouteMap(routes []ServiceConfig) (map[string]*ServiceConfig, error) {
 	apiMap := make(map[string]*ServiceConfig)
 	for i, route := range routes {
 		if route.ServiceName == "" {
 			return nil, fmt.Errorf("route[%d]: service_name is required", i)
 		}
-		for _, apiName := range route.APIs {
-			// Technically duplicate API names shouldn't happen, but if the same API is configured
+		for _, path := range route.APIs {
+			// Technically duplicate paths shouldn't happen, but if the same path is configured
 			// for multiple services, the first service wins.
-			if _, exists := apiMap[apiName]; !exists {
-				apiMap[apiName] = &route
+			if _, exists := apiMap[path]; !exists {
+				apiMap[path] = &route
 			}
 		}
 	}
