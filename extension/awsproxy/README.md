@@ -35,7 +35,7 @@ extensions:
     local_mode: false
     service_name: "xray"
     additional_routing_rules:
-      - apis: ["slos"]
+      - paths: ["slos"]
         service_name: "application-signals"
         region: "us-east-1"
         aws_endpoint: "https://application-signals.us-east-1.api.aws"
@@ -74,10 +74,10 @@ The AWS service endpoint which this proxy forwards requests to. If not set, will
 The AWS service name which this proxy forwards requests to. If not set, will default to "xray"
 
 ### additional_routing_rules (Optional)
-A list of routing rules to forward requests to different AWS services based on the API operation. Each rule will override the service name, region, role ARN, and endpoint for specific APIs if specified, other wise it will default to the top level config.
+A list of routing rules to forward requests to different AWS services based on the operation. Each rule will override the service name, region, role ARN, and endpoint for specific APIs if specified, other wise it will default to the top level config.
 
 Each routing rule supports:
-- `apis`: List of API operation names to match (e.g., `["slos"]` for REST APIs, `["GetSamplingRules"]` for X-Ray)
+- `paths`: List of URL paths to match (e.g., `["slos"]` for REST APIs, `["GetSamplingRules"]` for X-Ray)
 - `service_name`: AWS service name for these APIs (e.g., `"application-signals"`, `"logs"`)
 - `region`: AWS region for these APIs (optional, falls back to top-level `region`)
 - `role_arn`: IAM role ARN for these APIs (optional)

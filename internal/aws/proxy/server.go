@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -70,15 +71,17 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 		Credentials: sess.Config.Credentials,
 	}
 
-	transport, err := awsutil.ProxyServerTransport(logger, sessionCfg)
+	// Creates an API route map and create a map for each unique role to an associated AWS signer.
+	// Each additional routing rule can define its own role_arn to authenticate with different AWS credentials.
+	// We create signers at startup for all unique roles so we can select the appropriate signer at request time.
+	apiRouteMap, signerMap, err := buildRoutingMaps(cfg.AdditionalRoutingRules, cfg.RoleARN, signer, sessionCfg, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	// Validate and build API route map
-	apiRouteMap, err := buildAPIRouteMap(cfg.AdditionalRoutingRules)
+	transport, err := awsutil.ProxyServerTransport(logger, sessionCfg)
 	if err != nil {
-		return nil, fmt.Errorf("invalid routing rules: %w", err)
+		return nil, err
 	}
 
 	// Reverse proxy handler
@@ -96,28 +99,27 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			// resulting in a signed header being missing from the request.
 			req.Header.Del(connHeader)
 
-			apiName := req.URL.Path
-			// strip the "/" from the request path
-			if len(apiName) > 0 && apiName[0] == '/' {
-				apiName = apiName[1:]
-			}
-			serviceConfig := apiRouteMap[apiName]
+			apiName := strings.TrimPrefix(req.URL.Path, "/")
 			serviceName := cfg.ServiceName
 			region := *awsCfg.Region
 			endpoint := awsEndPoint
 
-			if serviceConfig != nil {
-				// Defensive checks - these fields are validated at startup but we check anyway
+			// Check for custom routing rules
+			if serviceConfig := apiRouteMap[apiName]; serviceConfig != nil {
 				if serviceConfig.ServiceName != "" {
 					serviceName = serviceConfig.ServiceName
 				}
 				if serviceConfig.Region != "" {
 					region = serviceConfig.Region
 				}
+				if serviceConfig.RoleARN != "" {
+					if roleSigner, ok := signerMap[serviceConfig.RoleARN]; ok {
+						signer = roleSigner
+					}
+				}
 				if serviceConfig.AWSEndpoint != "" {
 					endpoint = serviceConfig.AWSEndpoint
 				} else {
-					// Resolve endpoint from service name and region
 					resolved, err := getServiceEndpoint(&aws.Config{Region: &region}, serviceName)
 					if err != nil {
 						logger.Error("Unable to resolve endpoint for service", zap.String("service", serviceName), zap.String("region", region), zap.Error(err))
@@ -205,20 +207,45 @@ func setResolverConfig() func(*endpoints.Options) {
 	}
 }
 
-// creates a map of path references to service config.
-func buildAPIRouteMap(routes []ServiceConfig) (map[string]*ServiceConfig, error) {
+// creates two maps: one mapping API names to their service configurations,
+// and another mapping role ARNs to their corresponding AWS signers.
+func buildRoutingMaps(routes []ServiceConfig, defaultRoleARN string, defaultSigner *v4.Signer, sessionCfg *awsutil.AWSSessionSettings, logger *zap.Logger) (map[string]*ServiceConfig, map[string]*v4.Signer, error) {
 	apiMap := make(map[string]*ServiceConfig)
+	signerMap := make(map[string]*v4.Signer)
+
+	// Add default signer to map
+	if defaultRoleARN != "" {
+		signerMap[defaultRoleARN] = defaultSigner
+	}
+
 	for i, route := range routes {
 		if route.ServiceName == "" {
-			return nil, fmt.Errorf("route[%d]: service_name is required", i)
+			return nil, nil, fmt.Errorf("route[%d]: service_name is required", i)
 		}
-		for _, path := range route.APIs {
-			// Technically duplicate paths shouldn't happen, but if the same path is configured
-			// for multiple services, the first service wins.
+
+		// Create signer for this role if it doesn't exist
+		if route.RoleARN != "" {
+			if _, exists := signerMap[route.RoleARN]; !exists {
+				roleSessionCfg := *sessionCfg
+				roleSessionCfg.RoleARN = route.RoleARN
+				_, roleSess, err := awsutil.GetAWSConfigSession(logger, &awsutil.Conn{}, &roleSessionCfg)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to create session for role %s: %w", route.RoleARN, err)
+				}
+				signerMap[route.RoleARN] = &v4.Signer{
+					Credentials: roleSess.Config.Credentials,
+				}
+			}
+		}
+
+		// Map request paths to service config.
+		// Paths should be configured without a leading slash (e.g., "GetSamplingRules", "slos")
+		// to match the trimmed request paths from the Director function.
+		for _, path := range route.Paths {
 			if _, exists := apiMap[path]; !exists {
 				apiMap[path] = &route
 			}
 		}
 	}
-	return apiMap, nil
+	return apiMap, signerMap, nil
 }

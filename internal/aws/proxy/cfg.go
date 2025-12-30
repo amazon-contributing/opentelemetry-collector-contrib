@@ -71,9 +71,9 @@ type Config struct {
 
 // ServiceConfig defines routing configuration for a specific service.
 type ServiceConfig struct {
-	// APIs is a list of API names to match against the request.
+	// Paths is a list of URL paths to match against the request.
 	// Example: "slos", "GetSamplingRules", "DescribeLogStreams"
-	APIs []string `mapstructure:"path"`
+	Paths []string `mapstructure:"paths"`
 
 	// ServiceName is the AWS service name for signing (e.g., "logs", "application-signals").
 	ServiceName string `mapstructure:"service_name"`
