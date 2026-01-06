@@ -75,7 +75,7 @@ type RoutingRule struct {
 	// Example: "slos", "GetSamplingRules", "DescribeLogStreams"
 	Paths []string `mapstructure:"paths"`
 
-	// ServiceName is the AWS service name for signing (e.g., "logs", "application-signals").
+	// ServiceName is the AWS service name. Required.
 	ServiceName string `mapstructure:"service_name"`
 
 	// Region is the AWS region for this service. Falls back to top-level region if not set.

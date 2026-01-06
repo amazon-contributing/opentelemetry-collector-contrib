@@ -244,8 +244,7 @@ func (m *mockReadCloser) Close() error {
 }
 
 func TestBuildRoutingMapsEmpty(t *testing.T) {
-	apiMap, signerMap, err := buildRoutingMaps(nil, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
-	assert.NoError(t, err)
+	apiMap, signerMap := buildRoutingMaps(nil, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Empty(t, apiMap)
 	assert.Empty(t, signerMap)
 }
@@ -264,8 +263,7 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 		},
 	}
 
-	apiMap, signerMap, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
-	assert.NoError(t, err)
+	apiMap, signerMap := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Len(t, apiMap, 3)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -273,16 +271,62 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 	assert.Empty(t, signerMap)
 }
 
-func TestBuildRoutingMapsMissingServiceName(t *testing.T) {
+func TestBuildRoutingMapsInvalidRules(t *testing.T) {
+	logger, _ := setupTestEnv(t)
+
 	routes := []RoutingRule{
+		// Missing service_name
 		{
-			Paths:       []string{"PutLogEvents"},
+			Paths:       []string{"MissingServiceName"},
 			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
+		},
+		// Valid rule
+		{
+			Paths:       []string{"ValidRule"},
+			ServiceName: "xray",
+			AWSEndpoint: "https://xray.us-west-2.amazonaws.com",
 		},
 	}
 
-	_, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
-	assert.Error(t, err)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, logger)
+
+	// Invalid rule (missing service_name) is mapped to nil
+	assert.Nil(t, apiMap["MissingServiceName"], "missing service_name should map to nil")
+
+	// Valid rule is mapped correctly
+	assert.NotNil(t, apiMap["ValidRule"])
+	assert.Equal(t, "xray", apiMap["ValidRule"].ServiceName)
+}
+
+func TestInvalidRoutingRuleSkipsSigning(t *testing.T) {
+	logger, _ := setupTestEnv(t)
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.AdditionalRoutingRules = []RoutingRule{
+		{
+			Paths: []string{"InvalidPath"},
+			// Missing service_name - invalid rule
+		},
+	}
+
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err)
+
+	mockTrans := &mockTransport{}
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy.Transport = mockTrans
+
+	req := httptest.NewRequest(http.MethodPost, "http://localhost:2000/InvalidPath", strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, req)
+
+	assert.Len(t, mockTrans.capturedRequests, 1)
+	capturedReq := mockTrans.capturedRequests[0]
+	// Request should NOT have Authorization header (not signed)
+	assert.Empty(t, capturedReq.Header.Get("Authorization"), "invalid route should not be signed")
 }
 
 func TestBuildRoutingMapsMissingEndpoint(t *testing.T) {
@@ -295,8 +339,7 @@ func TestBuildRoutingMapsMissingEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
-	assert.NoError(t, err)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 }
 
@@ -309,8 +352,7 @@ func TestBuildRoutingMapsResolvesEndpointAtStartup(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
-	assert.NoError(t, err)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should be resolved at startup")
 }
 
@@ -323,10 +365,9 @@ func TestBuildRoutingMapsFailsOnInvalidRegion(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	// With empty region and no default endpoint, AWSEndpoint stays empty
-	assert.NoError(t, err)
-	assert.Equal(t, "", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should remain empty when region is not set")
+	assert.Empty(t, apiMap["PutLogEvents"].AWSEndpoint, "endpoint should remain empty when region is not set")
 }
 
 func TestBuildRoutingMapsFallsBackToDefaultEndpoint(t *testing.T) {
@@ -339,8 +380,7 @@ func TestBuildRoutingMapsFallsBackToDefaultEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, "https://custom.endpoint.com", &awsutil.AWSSessionSettings{}, nil)
-	assert.NoError(t, err)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "https://custom.endpoint.com", &awsutil.AWSSessionSettings{}, nil)
 	assert.Equal(t, "https://custom.endpoint.com", apiMap["PutLogEvents"].AWSEndpoint, "should fall back to default endpoint")
 }
 
@@ -365,25 +405,6 @@ func TestNewServerWithRoutingRules(t *testing.T) {
 	assert.NotNil(t, srv)
 }
 
-func TestNewServerWithInvalidRoutingRules(t *testing.T) {
-	logger, _ := logSetup()
-
-	t.Setenv(regionEnvVarName, regionEnvVar)
-
-	cfg := DefaultConfig()
-	tcpAddr := testutil.GetAvailableLocalAddress(t)
-	cfg.Endpoint = tcpAddr
-	cfg.AdditionalRoutingRules = []RoutingRule{
-		{
-			Paths: []string{"PutLogEvents"},
-			// Missing ServiceName - this is required
-		},
-	}
-
-	_, err := NewServer(cfg, logger)
-	assert.Error(t, err, "NewServer should fail with invalid routing rules")
-}
-
 func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 	routes := []RoutingRule{
 		{
@@ -393,8 +414,7 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
-	assert.NoError(t, err)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Len(t, apiMap, 2)
 	assert.Equal(t, "logs", apiMap["/PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -414,8 +434,7 @@ func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
-	assert.NoError(t, err)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName, "first route should win")
 }
 

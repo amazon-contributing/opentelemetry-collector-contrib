@@ -78,7 +78,7 @@ A list of routing rules to forward requests to different AWS services based on t
 
 Each routing rule supports:
 - `paths`: List of URL paths to match (e.g., `["slos"]` for REST APIs, `["GetSamplingRules"]` for X-Ray)
-- `service_name`: AWS service name for these APIs (e.g., `"application-signals"`, `"logs"`)
+- `service_name`: (Required) AWS service name for these APIs (e.g., `"application-signals"`, `"logs"`)
 - `region`: AWS region for these APIs (optional, falls back to top-level `region`)
 - `role_arn`: IAM role ARN for these APIs (optional)
 - `aws_endpoint`: Custom endpoint URL for these APIs (optional, auto-resolved from service name and region if not provided)
