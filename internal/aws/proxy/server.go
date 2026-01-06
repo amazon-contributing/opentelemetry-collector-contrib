@@ -74,7 +74,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 	// Creates an API route map and create a map for each unique role to an associated AWS signer.
 	// Each additional routing rule can define its own role_arn to authenticate with different AWS credentials.
 	// We create signers at startup for all unique roles so we can select the appropriate signer at request time.
-	apiRouteMap, signerMap, err := buildRoutingMaps(cfg.AdditionalRoutingRules, cfg.RoleARN, signer, sessionCfg, logger)
+	apiRouteMap, signerMap, err := buildRoutingMaps(cfg.AdditionalRoutingRules, cfg.RoleARN, signer, cfg.AWSEndpoint, sessionCfg, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -119,13 +119,6 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 				}
 				if serviceConfig.AWSEndpoint != "" {
 					endpoint = serviceConfig.AWSEndpoint
-				} else {
-					resolved, err := getServiceEndpoint(&aws.Config{Region: &region}, serviceName)
-					if err != nil {
-						logger.Error("Unable to resolve endpoint for service", zap.String("service", serviceName), zap.String("region", region), zap.Error(err))
-					} else {
-						endpoint = resolved
-					}
 				}
 			}
 
@@ -209,8 +202,8 @@ func setResolverConfig() func(*endpoints.Options) {
 
 // creates two maps: one mapping API names to their service configurations,
 // and another mapping role ARNs to their corresponding AWS signers.
-func buildRoutingMaps(routes []ServiceConfig, defaultRoleARN string, defaultSigner *v4.Signer, sessionCfg *awsutil.AWSSessionSettings, logger *zap.Logger) (map[string]*ServiceConfig, map[string]*v4.Signer, error) {
-	apiMap := make(map[string]*ServiceConfig)
+func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner *v4.Signer, defaultAWSEndpoint string, sessionCfg *awsutil.AWSSessionSettings, logger *zap.Logger) (map[string]*RoutingRule, map[string]*v4.Signer, error) {
+	apiMap := make(map[string]*RoutingRule)
 	signerMap := make(map[string]*v4.Signer)
 
 	// Add default signer to map
@@ -218,9 +211,22 @@ func buildRoutingMaps(routes []ServiceConfig, defaultRoleARN string, defaultSign
 		signerMap[defaultRoleARN] = defaultSigner
 	}
 
-	for i, route := range routes {
+	for i := range routes {
+		route := &routes[i]
 		if route.ServiceName == "" {
 			return nil, nil, fmt.Errorf("route[%d]: service_name is required", i)
+		}
+
+		if route.AWSEndpoint == "" {
+			if defaultAWSEndpoint != "" {
+				route.AWSEndpoint = defaultAWSEndpoint
+			} else if route.Region != "" {
+				resolved, err := getServiceEndpoint(&aws.Config{Region: &route.Region}, route.ServiceName)
+				if err != nil {
+					return nil, nil, fmt.Errorf("route[%d]: failed to resolve endpoint for service %s in region %s: %w", i, route.ServiceName, route.Region, err)
+				}
+				route.AWSEndpoint = resolved
+			}
 		}
 
 		// Create signer for this role if it doesn't exist
@@ -243,7 +249,7 @@ func buildRoutingMaps(routes []ServiceConfig, defaultRoleARN string, defaultSign
 		// to match the trimmed request paths from the Director function.
 		for _, path := range route.Paths {
 			if _, exists := apiMap[path]; !exists {
-				apiMap[path] = &route
+				apiMap[path] = route
 			}
 		}
 	}

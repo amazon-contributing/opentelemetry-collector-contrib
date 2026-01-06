@@ -74,7 +74,7 @@ The AWS service endpoint which this proxy forwards requests to. If not set, will
 The AWS service name which this proxy forwards requests to. If not set, will default to "xray"
 
 ### additional_routing_rules (Optional)
-A list of routing rules to forward requests to different AWS services based on the operation. Each rule can override the service name, region, role ARN, and endpoint if specified, other wise it will default to the top level config.
+A list of routing rules to forward requests to different AWS services based on the request path. Each rule can specify its own service name, region, role ARN, and endpoint. If not specified, values fall back to the top-level configuration.
 
 Each routing rule supports:
 - `paths`: List of URL paths to match (e.g., `["slos"]` for REST APIs, `["GetSamplingRules"]` for X-Ray)

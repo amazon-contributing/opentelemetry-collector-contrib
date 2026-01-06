@@ -244,14 +244,14 @@ func (m *mockReadCloser) Close() error {
 }
 
 func TestBuildRoutingMapsEmpty(t *testing.T) {
-	apiMap, signerMap, err := buildRoutingMaps(nil, "", nil, &awsutil.AWSSessionSettings{}, nil)
+	apiMap, signerMap, err := buildRoutingMaps(nil, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.NoError(t, err)
 	assert.Empty(t, apiMap)
 	assert.Empty(t, signerMap)
 }
 
 func TestBuildRoutingMapsValid(t *testing.T) {
-	routes := []ServiceConfig{
+	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents", "CreateLogGroup"},
 			ServiceName: "logs",
@@ -264,7 +264,7 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 		},
 	}
 
-	apiMap, signerMap, err := buildRoutingMaps(routes, "", nil, &awsutil.AWSSessionSettings{}, nil)
+	apiMap, signerMap, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.NoError(t, err)
 	assert.Len(t, apiMap, 3)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
@@ -274,19 +274,19 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 }
 
 func TestBuildRoutingMapsMissingServiceName(t *testing.T) {
-	routes := []ServiceConfig{
+	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			AWSEndpoint: "https://logs.us-east-1.amazonaws.com",
 		},
 	}
 
-	_, _, err := buildRoutingMaps(routes, "", nil, &awsutil.AWSSessionSettings{}, nil)
+	_, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Error(t, err)
 }
 
 func TestBuildRoutingMapsMissingEndpoint(t *testing.T) {
-	routes := []ServiceConfig{
+	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -295,9 +295,53 @@ func TestBuildRoutingMapsMissingEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
+}
+
+func TestBuildRoutingMapsResolvesEndpointAtStartup(t *testing.T) {
+	routes := []RoutingRule{
+		{
+			Paths:       []string{"PutLogEvents"},
+			ServiceName: "logs",
+			Region:      "us-east-1",
+		},
+	}
+
+	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should be resolved at startup")
+}
+
+func TestBuildRoutingMapsFailsOnInvalidRegion(t *testing.T) {
+	routes := []RoutingRule{
+		{
+			Paths:       []string{"PutLogEvents"},
+			ServiceName: "logs",
+			Region:      "", // empty region with no default endpoint should not auto-resolve
+		},
+	}
+
+	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	// With empty region and no default endpoint, AWSEndpoint stays empty
+	assert.NoError(t, err)
+	assert.Equal(t, "", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should remain empty when region is not set")
+}
+
+func TestBuildRoutingMapsFallsBackToDefaultEndpoint(t *testing.T) {
+	routes := []RoutingRule{
+		{
+			Paths:       []string{"PutLogEvents"},
+			ServiceName: "logs",
+			Region:      "us-east-1",
+			// No AWSEndpoint - should fall back to defaultAWSEndpoint
+		},
+	}
+
+	apiMap, _, err := buildRoutingMaps(routes, "", nil, "https://custom.endpoint.com", &awsutil.AWSSessionSettings{}, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "https://custom.endpoint.com", apiMap["PutLogEvents"].AWSEndpoint, "should fall back to default endpoint")
 }
 
 func TestNewServerWithRoutingRules(t *testing.T) {
@@ -308,7 +352,7 @@ func TestNewServerWithRoutingRules(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -329,7 +373,7 @@ func TestNewServerWithInvalidRoutingRules(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths: []string{"PutLogEvents"},
 			// Missing ServiceName - this is required
@@ -341,7 +385,7 @@ func TestNewServerWithInvalidRoutingRules(t *testing.T) {
 }
 
 func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
-	routes := []ServiceConfig{
+	routes := []RoutingRule{
 		{
 			Paths:       []string{"/PutLogEvents", "CreateLogGroup"},
 			ServiceName: "logs",
@@ -349,7 +393,7 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.NoError(t, err)
 	assert.Len(t, apiMap, 2)
 	assert.Equal(t, "logs", apiMap["/PutLogEvents"].ServiceName)
@@ -357,7 +401,7 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 }
 
 func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
-	routes := []ServiceConfig{
+	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -370,7 +414,7 @@ func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
 		},
 	}
 
-	apiMap, _, err := buildRoutingMaps(routes, "", nil, &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _, err := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName, "first route should win")
 }
@@ -381,7 +425,7 @@ func TestHandlerRoutingWithMultipleServices(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents", "CreateLogGroup"},
 			ServiceName: "logs",
@@ -446,7 +490,7 @@ func TestHandlerRoutingWithAutoResolvedEndpoint(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents", "CreateLogGroup"},
 			ServiceName: "logs",
@@ -509,12 +553,12 @@ func TestHandlerRoutingFallbackToTopLevelConfig(t *testing.T) {
 	cfg.ServiceName = "xray"
 	cfg.Region = "us-west-2"
 	cfg.AWSEndpoint = "https://xray.us-west-2.amazonaws.com"
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
 			// Region should fall back to top-level us-west-2
-			// AWSEndpoint should auto-resolve using logs + us-west-2
+			// AWSEndpoint should fall back to top-level endpoint
 		},
 		{
 			Paths:       []string{"PutMetricData"},
@@ -538,7 +582,7 @@ func TestHandlerRoutingFallbackToTopLevelConfig(t *testing.T) {
 		expectedHost string
 		description  string
 	}{
-		{"/PutLogEvents", "logs.us-west-2.amazonaws.com", "logs service with fallback region"},
+		{"/PutLogEvents", "xray.us-west-2.amazonaws.com", "logs service falls back to top-level endpoint"},
 		{"/PutMetricData", "monitoring.eu-west-1.amazonaws.com", "all fields explicitly set"},
 	}
 
@@ -560,7 +604,7 @@ func TestHandlerPreservesURLPath(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"slos"},
 			ServiceName: "application-signals",
@@ -595,7 +639,7 @@ func TestNewServerWithMultipleRoles(t *testing.T) {
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	cfg.RoleARN = "arn:aws:iam::123456789012:role/DefaultRole"
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -622,7 +666,7 @@ func TestNewServerWithDuplicateRoles(t *testing.T) {
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	cfg.RoleARN = "arn:aws:iam::123456789012:role/SharedRole"
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -647,7 +691,7 @@ func TestNewServerWithDefaultRoleInRoutingRules(t *testing.T) {
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	cfg.RoleARN = "arn:aws:iam::123456789012:role/DefaultRole"
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -671,7 +715,7 @@ func TestNewServerWithEmptyRoleARN(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -691,7 +735,7 @@ func TestNewServerWithMixedRoleConfiguration(t *testing.T) {
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	cfg.RoleARN = "arn:aws:iam::123456789012:role/DefaultRole"
-	cfg.AdditionalRoutingRules = []ServiceConfig{
+	cfg.AdditionalRoutingRules = []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
@@ -712,4 +756,58 @@ func TestNewServerWithMixedRoleConfiguration(t *testing.T) {
 	srv, err := NewServer(cfg, logger)
 	assert.NoError(t, err, "NewServer should succeed with mixed role configuration")
 	assert.NotNil(t, srv)
+}
+
+func TestHandlerRoutingUsesTopLevelEndpointWhenRuleHasNoEndpoint(t *testing.T) {
+	logger, _ := setupTestEnv(t)
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	cfg.ServiceName = "application-signals"
+	cfg.Region = "us-west-2"
+	cfg.AWSEndpoint = "https://application-signals-gamma.us-west-2.api.aws"
+	cfg.AdditionalRoutingRules = []RoutingRule{
+		{
+			Paths:       []string{"slos"},
+			ServiceName: "application-signals",
+			Region:      "us-west-2",
+			AWSEndpoint: "https://application-signals-gamma.us-west-2.api.aws",
+		},
+		{
+			Paths:       []string{"GetSamplingRules", "SamplingTargets"},
+			ServiceName: "xray",
+			Region:      "us-west-2",
+			// No AWSEndpoint - should fall back to top-level aws_endpoint
+		},
+	}
+
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	mockTrans := &mockTransport{}
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy.Transport = mockTrans
+
+	testCases := []struct {
+		apiPath      string
+		expectedHost string
+		description  string
+	}{
+		{"/slos", "application-signals-gamma.us-west-2.api.aws", "rule with explicit endpoint"},
+		{"/GetSamplingRules", "application-signals-gamma.us-west-2.api.aws", "rule without endpoint falls back to top-level"},
+		{"/SamplingTargets", "application-signals-gamma.us-west-2.api.aws", "rule without endpoint falls back to top-level"},
+	}
+
+	for _, tc := range testCases {
+		mockTrans.capturedRequests = nil
+		req := httptest.NewRequest(http.MethodPost, "http://localhost:2000"+tc.apiPath, strings.NewReader(`{}`))
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+
+		assert.Len(t, mockTrans.capturedRequests, 1, "should have captured one request for %s", tc.apiPath)
+		capturedReq := mockTrans.capturedRequests[0]
+		assert.Equal(t, tc.expectedHost, capturedReq.Host, "%s: %s", tc.apiPath, tc.description)
+	}
 }

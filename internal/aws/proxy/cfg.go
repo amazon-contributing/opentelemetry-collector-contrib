@@ -64,13 +64,13 @@ type Config struct {
 	ServiceName string `mapstructure:"service_name"`
 
 	// AdditionalRoutingRules defines optional routing rules for multi-service support.
-	// Each route can override service name, region, role, and endpoint.
+	// Each route can specify its own service name, region, role, and endpoint.
 	// If a field is not provided, defaults to the top level configuration.
-	AdditionalRoutingRules []ServiceConfig `mapstructure:"additional_routing_rules,omitempty"`
+	AdditionalRoutingRules []RoutingRule `mapstructure:"additional_routing_rules,omitempty"`
 }
 
-// ServiceConfig defines routing configuration for a specific service.
-type ServiceConfig struct {
+// RoutingRule defines routing configuration for a specific service.
+type RoutingRule struct {
 	// Paths is a list of URL paths to match against the request.
 	// Example: "slos", "GetSamplingRules", "DescribeLogStreams"
 	Paths []string `mapstructure:"paths"`
@@ -78,13 +78,14 @@ type ServiceConfig struct {
 	// ServiceName is the AWS service name for signing (e.g., "logs", "application-signals").
 	ServiceName string `mapstructure:"service_name"`
 
-	// Region overrides the default region for this service.
+	// Region is the AWS region for this service. Falls back to top-level region if not set.
 	Region string `mapstructure:"region"`
 
-	// RoleARN overrides the default IAM role for this service.
+	// RoleARN is the IAM role for this service. Falls back to top-level role_arn if not set.
 	RoleARN string `mapstructure:"role_arn"`
 
-	// AWSEndpoint overrides the default AWS endpoint for this service.
+	// AWSEndpoint is the AWS endpoint for this service. Falls back to top-level aws_endpoint if not set,
+	// or auto-resolves from service_name and region.
 	AWSEndpoint string `mapstructure:"aws_endpoint"`
 }
 
