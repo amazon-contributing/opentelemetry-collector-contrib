@@ -239,7 +239,7 @@ func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner
 		if isValidRoute && route.AWSEndpoint == "" {
 			if defaultAWSEndpoint != "" {
 				route.AWSEndpoint = defaultAWSEndpoint
-			} else if route.Region != "" {
+			} else {
 				resolved, err := getServiceEndpoint(&aws.Config{Region: &route.Region}, route.ServiceName)
 				if err != nil {
 					logger.Warn("Skipping routing rule: failed to auto resolve endpoint",
