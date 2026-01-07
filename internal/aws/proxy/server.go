@@ -224,10 +224,16 @@ func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner
 				zap.Strings("paths", route.Paths))
 			isValidRoute = false
 		}
-
 		// Fall back to top-level region if not specified in rule
-		if isValidRoute && route.Region == "" && defaultRegion != "" {
-			route.Region = defaultRegion
+		if isValidRoute && route.Region == "" {
+			if defaultRegion != "" {
+				route.Region = defaultRegion
+			} else {
+				logger.Warn("Skipping routing rule: region could not be resolved",
+					zap.Int("route_index", i),
+					zap.Strings("paths", route.Paths))
+				isValidRoute = false
+			}
 		}
 
 		if isValidRoute && route.AWSEndpoint == "" {

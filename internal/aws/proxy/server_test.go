@@ -250,6 +250,8 @@ func TestBuildRoutingMapsEmpty(t *testing.T) {
 }
 
 func TestBuildRoutingMapsValid(t *testing.T) {
+	logger, _ := logSetup()
+
 	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents", "CreateLogGroup"},
@@ -263,7 +265,7 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 		},
 	}
 
-	apiMap, signerMap := buildRoutingMaps(routes, "", nil, "", "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, signerMap := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 3)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -288,7 +290,7 @@ func TestBuildRoutingMapsInvalidRules(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 
 	// Invalid rule (missing service_name) is mapped to nil
 	assert.Nil(t, apiMap["MissingServiceName"], "missing service_name should map to nil")
@@ -356,18 +358,18 @@ func TestBuildRoutingMapsResolvesEndpointAtStartup(t *testing.T) {
 	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should be resolved at startup")
 }
 
-func TestBuildRoutingMapsFailsOnInvalidRegion(t *testing.T) {
+func TestBuildRoutingMapsFallsBackToDefaultRegion(t *testing.T) {
 	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
-			Region:      "", // empty region with no default endpoint should not auto-resolve
+			// No Region - should fall back to defaultRegion
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "", &awsutil.AWSSessionSettings{}, nil)
-	// With empty region and no default endpoint, AWSEndpoint stays empty
-	assert.Empty(t, apiMap["PutLogEvents"].AWSEndpoint, "endpoint should remain empty when region is not set")
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, nil)
+	assert.NotNil(t, apiMap["PutLogEvents"])
+	assert.Equal(t, "us-west-2", apiMap["PutLogEvents"].Region, "should fall back to default region")
 }
 
 func TestBuildRoutingMapsFallsBackToDefaultEndpoint(t *testing.T) {
@@ -406,6 +408,8 @@ func TestNewServerWithRoutingRules(t *testing.T) {
 }
 
 func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
+	logger, _ := logSetup()
+
 	routes := []RoutingRule{
 		{
 			Paths:       []string{"/PutLogEvents", "CreateLogGroup"},
@@ -414,13 +418,15 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 2)
 	assert.Equal(t, "logs", apiMap["/PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
 }
 
 func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
+	logger, _ := logSetup()
+
 	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
@@ -434,7 +440,7 @@ func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName, "first route should win")
 }
 
