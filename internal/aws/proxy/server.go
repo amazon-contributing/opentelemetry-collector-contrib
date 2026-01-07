@@ -75,7 +75,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 	// Each additional routing rule can define its own role_arn to authenticate with different AWS credentials.
 	// We create signers at startup for all unique roles so we can select the appropriate signer at request time.
 	// Invalid rules paths are stored as nil.
-	apiRouteMap, signerMap := buildRoutingMaps(cfg.AdditionalRoutingRules, cfg.RoleARN, signer, cfg.AWSEndpoint, sessionCfg, logger)
+	apiRouteMap, signerMap := buildRoutingMaps(cfg.AdditionalRoutingRules, cfg.RoleARN, signer, cfg.AWSEndpoint, *awsCfg.Region, sessionCfg, logger)
 
 	transport, err := awsutil.ProxyServerTransport(logger, sessionCfg)
 	if err != nil {
@@ -207,7 +207,7 @@ func setResolverConfig() func(*endpoints.Options) {
 
 // buildRoutingMaps creates maps for routing API requests to their service configurations and signers.
 // Invalid rules are mapped to nil, indicating an issue resolving components needed for signing.
-func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner *v4.Signer, defaultAWSEndpoint string, sessionCfg *awsutil.AWSSessionSettings, logger *zap.Logger) (map[string]*RoutingRule, map[string]*v4.Signer) {
+func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner *v4.Signer, defaultAWSEndpoint string, defaultRegion string, sessionCfg *awsutil.AWSSessionSettings, logger *zap.Logger) (map[string]*RoutingRule, map[string]*v4.Signer) {
 	apiMap := make(map[string]*RoutingRule)
 	signerMap := make(map[string]*v4.Signer)
 	if defaultRoleARN != "" {
@@ -223,6 +223,11 @@ func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner
 				zap.Int("route_index", i),
 				zap.Strings("paths", route.Paths))
 			isValidRoute = false
+		}
+
+		// Fall back to top-level region if not specified in rule
+		if isValidRoute && route.Region == "" && defaultRegion != "" {
+			route.Region = defaultRegion
 		}
 
 		if isValidRoute && route.AWSEndpoint == "" {
