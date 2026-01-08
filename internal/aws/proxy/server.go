@@ -108,6 +108,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			serviceName := cfg.ServiceName
 			region := *awsCfg.Region
 			endpoint := awsEndPoint
+			reqSigner := signer
 
 			// Check for custom routing rules
 			if serviceConfig := apiRouteMap[apiName]; serviceConfig != nil {
@@ -119,7 +120,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 				}
 				if serviceConfig.RoleARN != "" {
 					if roleSigner, ok := signerMap[serviceConfig.RoleARN]; ok {
-						signer = roleSigner
+						reqSigner = roleSigner
 					}
 				}
 				if serviceConfig.AWSEndpoint != "" {
@@ -147,8 +148,8 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 				return
 			}
 
-			// Sign request. signer.Sign() also repopulates the request body.
-			_, err = signer.Sign(req, body, serviceName, region, time.Now())
+			// Sign request. reqSigner.Sign() also repopulates the request body.
+			_, err = reqSigner.Sign(req, body, serviceName, region, time.Now())
 			if err != nil {
 				logger.Error("Unable to sign request", zap.Error(err))
 			}
