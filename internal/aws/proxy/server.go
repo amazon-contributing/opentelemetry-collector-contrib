@@ -75,7 +75,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 	// Each additional routing rule can define its own role_arn to authenticate with different AWS credentials.
 	// We create signers at startup for all unique roles so we can select the appropriate signer at request time.
 	// Invalid rules paths are stored as nil.
-	apiRouteMap, signerMap := buildRoutingMaps(cfg.AdditionalRoutingRules, cfg.RoleARN, signer, cfg.AWSEndpoint, *awsCfg.Region, sessionCfg, logger)
+	apiRouteMap, signerMap := buildRoutingMaps(cfg.AdditionalRoutingRules, cfg.RoleARN, signer, *awsCfg.Region, sessionCfg, logger)
 
 	transport, err := awsutil.ProxyServerTransport(logger, sessionCfg)
 	if err != nil {
@@ -207,7 +207,7 @@ func setResolverConfig() func(*endpoints.Options) {
 
 // buildRoutingMaps creates maps for routing API requests to their service configurations and signers.
 // Invalid rules are mapped to nil, indicating an issue resolving components needed for signing.
-func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner *v4.Signer, defaultAWSEndpoint string, defaultRegion string, sessionCfg *awsutil.AWSSessionSettings, logger *zap.Logger) (map[string]*RoutingRule, map[string]*v4.Signer) {
+func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner *v4.Signer, defaultRegion string, sessionCfg *awsutil.AWSSessionSettings, logger *zap.Logger) (map[string]*RoutingRule, map[string]*v4.Signer) {
 	apiMap := make(map[string]*RoutingRule)
 	signerMap := make(map[string]*v4.Signer)
 	if defaultRoleARN != "" {
@@ -237,23 +237,20 @@ func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner
 		}
 
 		if isValidRoute && route.AWSEndpoint == "" {
-			if defaultAWSEndpoint != "" {
-				route.AWSEndpoint = defaultAWSEndpoint
+			resolved, err := getServiceEndpoint(&aws.Config{Region: &route.Region}, route.ServiceName)
+			if err != nil {
+				logger.Warn("Skipping routing rule: failed to auto resolve endpoint",
+					zap.Int("route_index", i),
+					zap.String("service_name", route.ServiceName),
+					zap.String("region", route.Region),
+					zap.Error(err))
+				isValidRoute = false
 			} else {
-				resolved, err := getServiceEndpoint(&aws.Config{Region: &route.Region}, route.ServiceName)
-				if err != nil {
-					logger.Warn("Skipping routing rule: failed to auto resolve endpoint",
-						zap.Int("route_index", i),
-						zap.String("service_name", route.ServiceName),
-						zap.String("region", route.Region),
-						zap.Error(err))
-					isValidRoute = false
-				} else {
-					route.AWSEndpoint = resolved
-				}
+				route.AWSEndpoint = resolved
 			}
 		}
 
+		// Create signer for role_arn if specified; otherwise uses default signer (top-level credentials)
 		if isValidRoute && route.RoleARN != "" {
 			if _, exists := signerMap[route.RoleARN]; !exists {
 				roleSessionCfg := *sessionCfg

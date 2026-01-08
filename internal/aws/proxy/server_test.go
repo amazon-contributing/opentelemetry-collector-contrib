@@ -244,7 +244,7 @@ func (m *mockReadCloser) Close() error {
 }
 
 func TestBuildRoutingMapsEmpty(t *testing.T) {
-	apiMap, signerMap := buildRoutingMaps(nil, "", nil, "", "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, signerMap := buildRoutingMaps(nil, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Empty(t, apiMap)
 	assert.Empty(t, signerMap)
 }
@@ -265,7 +265,7 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 		},
 	}
 
-	apiMap, signerMap := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, signerMap := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 3)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -290,7 +290,7 @@ func TestBuildRoutingMapsInvalidRules(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 
 	// Invalid rule (missing service_name) is mapped to nil
 	assert.Nil(t, apiMap["MissingServiceName"], "missing service_name should map to nil")
@@ -341,7 +341,7 @@ func TestBuildRoutingMapsMissingEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 }
 
@@ -354,7 +354,7 @@ func TestBuildRoutingMapsResolvesEndpointAtStartup(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
 	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should be resolved at startup")
 }
 
@@ -367,23 +367,22 @@ func TestBuildRoutingMapsFallsBackToDefaultRegion(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, nil)
 	assert.NotNil(t, apiMap["PutLogEvents"])
 	assert.Equal(t, "us-west-2", apiMap["PutLogEvents"].Region, "should fall back to default region")
 }
 
-func TestBuildRoutingMapsFallsBackToDefaultEndpoint(t *testing.T) {
+func TestBuildRoutingMapsAutoResolvesEndpoint(t *testing.T) {
 	routes := []RoutingRule{
 		{
 			Paths:       []string{"PutLogEvents"},
 			ServiceName: "logs",
 			Region:      "us-east-1",
-			// No AWSEndpoint - should fall back to defaultAWSEndpoint
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "https://custom.endpoint.com", "", &awsutil.AWSSessionSettings{}, nil)
-	assert.Equal(t, "https://custom.endpoint.com", apiMap["PutLogEvents"].AWSEndpoint, "should fall back to default endpoint")
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "should auto-resolve endpoint from service_name and region")
 }
 
 func TestNewServerWithRoutingRules(t *testing.T) {
@@ -418,7 +417,7 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 2)
 	assert.Equal(t, "logs", apiMap["/PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -440,7 +439,7 @@ func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName, "first route should win")
 }
 
@@ -780,7 +779,7 @@ func TestHandlerRoutingFallsBackToTopLevelRegion(t *testing.T) {
 	}
 }
 
-func TestHandlerRoutingUsesTopLevelEndpointWhenRuleHasNoEndpoint(t *testing.T) {
+func TestHandlerRoutingAutoResolvesEndpointWhenRuleHasNoEndpoint(t *testing.T) {
 	logger, _ := setupTestEnv(t)
 
 	cfg := DefaultConfig()
@@ -800,7 +799,6 @@ func TestHandlerRoutingUsesTopLevelEndpointWhenRuleHasNoEndpoint(t *testing.T) {
 			Paths:       []string{"GetSamplingRules", "SamplingTargets"},
 			ServiceName: "xray",
 			Region:      "us-west-2",
-			// No AWSEndpoint - should fall back to top-level aws_endpoint
 		},
 	}
 
@@ -818,8 +816,8 @@ func TestHandlerRoutingUsesTopLevelEndpointWhenRuleHasNoEndpoint(t *testing.T) {
 		description  string
 	}{
 		{"/slos", "application-signals-gamma.us-west-2.api.aws", "rule with explicit endpoint"},
-		{"/GetSamplingRules", "application-signals-gamma.us-west-2.api.aws", "rule without endpoint falls back to top-level"},
-		{"/SamplingTargets", "application-signals-gamma.us-west-2.api.aws", "rule without endpoint falls back to top-level"},
+		{"/GetSamplingRules", "xray.us-west-2.amazonaws.com", "rule without endpoint auto-resolves from service_name and region"},
+		{"/SamplingTargets", "xray.us-west-2.amazonaws.com", "rule without endpoint auto-resolves from service_name and region"},
 	}
 
 	for _, tc := range testCases {
