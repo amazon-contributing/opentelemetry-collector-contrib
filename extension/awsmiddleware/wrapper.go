@@ -6,10 +6,10 @@ package awsmiddleware // import "github.com/amazon-contributing/opentelemetry-co
 import (
 	"context"
 
-	sdkmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/smithy-go/middleware"
-	"github.com/aws/smithy-go/transport/http"
+	smithymiddleware "github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/google/uuid"
 )
 
@@ -37,20 +37,20 @@ type requestMiddleware struct {
 	RequestHandler
 }
 
-var _ middleware.BuildMiddleware = (*requestMiddleware)(nil)
+var _ smithymiddleware.BuildMiddleware = (*requestMiddleware)(nil)
 
-func (r requestMiddleware) HandleBuild(ctx context.Context, in middleware.BuildInput, next middleware.BuildHandler) (out middleware.BuildOutput, metadata middleware.Metadata, err error) {
-	req, ok := in.Request.(*http.Request)
+func (r requestMiddleware) HandleBuild(ctx context.Context, in smithymiddleware.BuildInput, next smithymiddleware.BuildHandler) (out smithymiddleware.BuildOutput, metadata smithymiddleware.Metadata, err error) {
+	req, ok := in.Request.(*smithyhttp.Request)
 	if ok {
 		ctx = mustRequestID(ctx)
-		ctx = setOperationName(ctx, sdkmiddleware.GetOperationName(ctx))
+		ctx = setOperationName(ctx, middleware.GetOperationName(ctx))
 		r.HandleRequest(ctx, req.Request)
 	}
 	return next.HandleBuild(ctx, in)
 }
 
-func withBuildOption(rmw *requestMiddleware, position middleware.RelativePosition) func(stack *middleware.Stack) error {
-	return func(stack *middleware.Stack) error {
+func withBuildOption(rmw *requestMiddleware, position smithymiddleware.RelativePosition) func(stack *smithymiddleware.Stack) error {
+	return func(stack *smithymiddleware.Stack) error {
 		return stack.Build.Add(rmw, position)
 	}
 }
@@ -59,19 +59,19 @@ type responseMiddleware struct {
 	ResponseHandler
 }
 
-var _ middleware.DeserializeMiddleware = (*responseMiddleware)(nil)
+var _ smithymiddleware.DeserializeMiddleware = (*responseMiddleware)(nil)
 
-func (r responseMiddleware) HandleDeserialize(ctx context.Context, in middleware.DeserializeInput, next middleware.DeserializeHandler) (out middleware.DeserializeOutput, metadata middleware.Metadata, err error) {
+func (r responseMiddleware) HandleDeserialize(ctx context.Context, in smithymiddleware.DeserializeInput, next smithymiddleware.DeserializeHandler) (out smithymiddleware.DeserializeOutput, metadata smithymiddleware.Metadata, err error) {
 	out, metadata, err = next.HandleDeserialize(ctx, in)
-	res, ok := out.RawResponse.(*http.Response)
+	res, ok := out.RawResponse.(*smithyhttp.Response)
 	if ok {
 		r.HandleResponse(ctx, res.Response)
 	}
 	return
 }
 
-func withDeserializeOption(rmw *responseMiddleware, position middleware.RelativePosition) func(stack *middleware.Stack) error {
-	return func(stack *middleware.Stack) error {
+func withDeserializeOption(rmw *responseMiddleware, position smithymiddleware.RelativePosition) func(stack *smithymiddleware.Stack) error {
+	return func(stack *smithymiddleware.Stack) error {
 		return stack.Deserialize.Add(rmw, position)
 	}
 }
