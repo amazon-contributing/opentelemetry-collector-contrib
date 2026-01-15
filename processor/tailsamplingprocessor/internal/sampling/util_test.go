@@ -9,11 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor/pkg/samplingpolicy"
 )
 
 func TestSetAttrOnScopeSpans_Empty(_ *testing.T) {
 	traces := ptrace.NewTraces()
-	traceData := &TraceData{
+	traceData := &samplingpolicy.TraceData{
 		ReceivedBatches: traces,
 	}
 
@@ -21,7 +23,7 @@ func TestSetAttrOnScopeSpans_Empty(_ *testing.T) {
 }
 
 func TestSetAttrOnScopeSpans_Many(t *testing.T) {
-	assertAttrExists := func(t *testing.T, attrs pcommon.Map, key string, value string) {
+	assertAttrExists := func(t *testing.T, attrs pcommon.Map, key, value string) {
 		v, ok := attrs.Get(key)
 		assert.True(t, ok)
 		assert.Equal(t, value, v.AsString())
@@ -39,7 +41,7 @@ func TestSetAttrOnScopeSpans_Many(t *testing.T) {
 	ss3 := rs2.ScopeSpans().AppendEmpty()
 	span4 := ss3.Spans().AppendEmpty()
 
-	traceData := &TraceData{
+	traceData := &samplingpolicy.TraceData{
 		ReceivedBatches: traces,
 	}
 
@@ -60,10 +62,11 @@ func TestSetAttrOnScopeSpans_Many(t *testing.T) {
 }
 
 func BenchmarkSetAttrOnScopeSpans(b *testing.B) {
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
+		b.StopTimer()
 		traces := ptrace.NewTraces()
 
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			rs := traces.ResourceSpans().AppendEmpty()
 			ss1 := rs.ScopeSpans().AppendEmpty()
 			ss1.Spans().AppendEmpty()
@@ -78,12 +81,11 @@ func BenchmarkSetAttrOnScopeSpans(b *testing.B) {
 			ss3.Spans().AppendEmpty()
 		}
 
-		traceData := &TraceData{
+		traceData := &samplingpolicy.TraceData{
 			ReceivedBatches: traces,
 		}
 
 		b.StartTimer()
 		SetAttrOnScopeSpans(traceData, "test.attr", "value")
-		b.StopTimer()
 	}
 }

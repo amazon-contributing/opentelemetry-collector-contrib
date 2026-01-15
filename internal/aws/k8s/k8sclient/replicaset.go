@@ -30,7 +30,7 @@ type ReplicaSetClient interface {
 
 type noOpReplicaSetClient struct{}
 
-func (nc *noOpReplicaSetClient) ReplicaSetToDeployment() map[string]string {
+func (*noOpReplicaSetClient) ReplicaSetToDeployment() map[string]string {
 	return map[string]string{}
 }
 
@@ -38,7 +38,7 @@ func (nc *noOpReplicaSetClient) ReplicaSetInfos() []*ReplicaSetInfo {
 	return []*ReplicaSetInfo{}
 }
 
-func (nc *noOpReplicaSetClient) shutdown() {
+func (*noOpReplicaSetClient) shutdown() {
 }
 
 type replicaSetClientOption func(*replicaSetClient)
@@ -82,12 +82,11 @@ func (c *replicaSetClient) refresh() {
 	for _, obj := range objsList {
 		replicaSet := obj.(*ReplicaSetInfo)
 		if len(replicaSet.Owners) > 0 {
-		ownerLoop:
-			for _, owner := range replicaSet.Owners {
-				if owner.kind == deployment && owner.name != "" {
-					tmpMap[replicaSet.Name] = owner.name
-					break ownerLoop
-				}
+            for _, owner := range replicaSet.Owners {
+                if owner.kind == deployment && owner.name != "" {
+                    tmpMap[replicaSet.Name] = owner.name
+                    break
+                }
 			}
 		} else {
 			// replicaSet without owner reference is not part of a deployment

@@ -6,7 +6,6 @@ package splunkhecreceiver // import "github.com/open-telemetry/opentelemetry-col
 import (
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,9 +15,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	jsoniter "github.com/json-iterator/go"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componentstatus"
 	"go.opentelemetry.io/collector/consumer"
@@ -106,7 +105,7 @@ func newReceiver(settings receiver.Settings, config Config) (*splunkReceiver, er
 	}
 
 	transport := "http"
-	if config.TLSSetting != nil {
+	if config.TLS.HasValue() {
 		transport = "https"
 	}
 
@@ -167,7 +166,7 @@ func (r *splunkReceiver) Start(ctx context.Context, host component.Host) error {
 		return fmt.Errorf("failed to bind to address %s: %w", r.config.Endpoint, err)
 	}
 
-	r.server, err = r.config.ToServer(ctx, host, r.settings.TelemetrySettings, mx)
+	r.server, err = r.config.ToServer(ctx, host.GetExtensions(), r.settings.TelemetrySettings, mx)
 	if err != nil {
 		return err
 	}
@@ -203,10 +202,10 @@ func (r *splunkReceiver) processSuccessResponseWithAck(resp http.ResponseWriter,
 
 	ackID := r.ackExt.ProcessEvent(channelID)
 	r.ackExt.Ack(channelID, ackID)
-	return r.processSuccessResponse(resp, []byte(fmt.Sprintf(responseOKWithAckID, ackID)))
+	return r.processSuccessResponse(resp, fmt.Appendf(nil, responseOKWithAckID, ackID))
 }
 
-func (r *splunkReceiver) processSuccessResponse(resp http.ResponseWriter, bodyContent []byte) error {
+func (*splunkReceiver) processSuccessResponse(resp http.ResponseWriter, bodyContent []byte) error {
 	resp.Header().Set(httpContentTypeHeader, httpJSONTypeHeader)
 	resp.WriteHeader(http.StatusOK)
 	_, err := resp.Write(bodyContent)
@@ -253,7 +252,7 @@ func (r *splunkReceiver) handleAck(resp http.ResponseWriter, req *http.Request) 
 
 	queriedAcks := r.ackExt.QueryAcks(channelID, ackRequest.Acks)
 	ackString, _ := json.Marshal(queriedAcks)
-	if err := r.processSuccessResponse(resp, []byte(fmt.Sprintf(ackResponse, ackString))); err != nil {
+	if err := r.processSuccessResponse(resp, fmt.Appendf(nil, ackResponse, ackString)); err != nil {
 		r.failRequest(resp, http.StatusInternalServerError, errInternalServerError, err)
 	}
 }
@@ -330,7 +329,7 @@ func (r *splunkReceiver) handleRawReq(resp http.ResponseWriter, req *http.Reques
 		r.failRequest(resp, http.StatusInternalServerError, errInternalServerError, consumerErr)
 	} else {
 		var ackErr error
-		if len(channelID) > 0 && r.ackExt != nil {
+		if channelID != "" && r.ackExt != nil {
 			ackErr = r.processSuccessResponseWithAck(resp, channelID)
 		} else {
 			ackErr = r.processSuccessResponse(resp, okRespBody)
@@ -343,7 +342,7 @@ func (r *splunkReceiver) handleRawReq(resp http.ResponseWriter, req *http.Reques
 	}
 }
 
-func (r *splunkReceiver) extractChannel(req *http.Request) (string, bool) {
+func (*splunkReceiver) extractChannel(req *http.Request) (string, bool) {
 	// check header
 	for k, v := range req.Header {
 		if strings.EqualFold(k, splunk.HTTPSplunkChannelHeader) {
@@ -360,8 +359,8 @@ func (r *splunkReceiver) extractChannel(req *http.Request) (string, bool) {
 	return "", false
 }
 
-func (r *splunkReceiver) validateChannelHeader(channelID string) error {
-	if len(channelID) == 0 {
+func (*splunkReceiver) validateChannelHeader(channelID string) error {
+	if channelID == "" {
 		return errors.New(responseErrDataChannelMissing)
 	}
 
@@ -414,32 +413,71 @@ func (r *splunkReceiver) handleReq(resp http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	dec := jsoniter.NewDecoder(bodyReader)
+	dec := json.NewDecoder(bodyReader)
 
-	var events []*splunk.Event
-	var metricEvents []*splunk.Event
+	var unfiltered []*splunk.Event
+	var firstEvent any
+	firstErr := dec.Decode(&firstEvent)
 
-	for dec.More() {
-		var msg splunk.Event
-		err := dec.Decode(&msg)
-		if err != nil {
+	if firstErr != nil {
+		r.failRequest(resp, http.StatusBadRequest, invalidFormatRespBody, firstErr)
+		return
+	}
+
+	switch v := firstEvent.(type) {
+	case []any:
+		// Array of events
+		eventBytes, _ := json.Marshal(v)
+		var events []splunk.Event
+		if err := json.Unmarshal(eventBytes, &events); err != nil {
 			r.failRequest(resp, http.StatusBadRequest, invalidFormatRespBody, err)
 			return
 		}
 
+		if len(events) == 0 {
+			r.failRequest(resp, http.StatusBadRequest, noDataRespBody, nil)
+			return
+		}
+
+		// If event is JSON array, there should be no more tokens after the first one
+		if dec.More() {
+			r.failRequest(resp, http.StatusBadRequest, invalidFormatRespBody, nil)
+			return
+		}
+
+		for _, item := range events {
+			unfiltered = append(unfiltered, &item)
+		}
+	default:
+		// Single event
+		eventBytes, _ := json.Marshal(v)
+		var event splunk.Event
+		if err := json.Unmarshal(eventBytes, &event); err != nil {
+			r.failRequest(resp, http.StatusBadRequest, invalidFormatRespBody, err)
+			return
+		}
+		unfiltered = append(unfiltered, &event)
+	}
+
+	var events []*splunk.Event
+	var metricEvents []*splunk.Event
+
+	for len(unfiltered) > 0 {
+		msg := unfiltered[0]
+
 		for _, v := range msg.Fields {
 			if !isFlatJSONField(v) {
-				r.failRequest(resp, http.StatusBadRequest, []byte(fmt.Sprintf(responseErrHandlingIndexedFields, len(events)+len(metricEvents))), nil)
+				r.failRequest(resp, http.StatusBadRequest, fmt.Appendf(nil, responseErrHandlingIndexedFields, len(events)+len(metricEvents)), nil)
 				return
 			}
 		}
 
 		if msg.IsMetric() {
 			if r.metricsConsumer == nil {
-				r.failRequest(resp, http.StatusBadRequest, errUnsupportedMetricEvent, err)
+				r.failRequest(resp, http.StatusBadRequest, errUnsupportedMetricEvent, nil)
 				return
 			}
-			metricEvents = append(metricEvents, &msg)
+			metricEvents = append(metricEvents, msg)
 		} else {
 			if msg.Event == nil {
 				r.failRequest(resp, http.StatusBadRequest, eventRequiredRespBody, nil)
@@ -452,11 +490,23 @@ func (r *splunkReceiver) handleReq(resp http.ResponseWriter, req *http.Request) 
 			}
 
 			if r.logsConsumer == nil {
-				r.failRequest(resp, http.StatusBadRequest, errUnsupportedLogEvent, err)
+				r.failRequest(resp, http.StatusBadRequest, errUnsupportedLogEvent, nil)
 				return
 			}
-			events = append(events, &msg)
+			events = append(events, msg)
 		}
+
+		if dec.More() {
+			var msg splunk.Event
+			err := dec.Decode(&msg)
+			if err != nil {
+				r.failRequest(resp, http.StatusBadRequest, invalidFormatRespBody, err)
+				return
+			}
+			unfiltered = append(unfiltered, &msg)
+		}
+
+		unfiltered = unfiltered[1:]
 	}
 	resourceCustomizer := r.createResourceCustomizer(req)
 	if r.logsConsumer != nil && len(events) > 0 {
@@ -485,7 +535,7 @@ func (r *splunkReceiver) handleReq(resp http.ResponseWriter, req *http.Request) 
 	}
 
 	var ackErr error
-	if len(channelID) > 0 && r.ackExt != nil {
+	if channelID != "" && r.ackExt != nil {
 		ackErr = r.processSuccessResponseWithAck(resp, channelID)
 	} else {
 		ackErr = r.processSuccessResponse(resp, okRespBody)
@@ -535,7 +585,7 @@ func (r *splunkReceiver) failRequest(
 	}
 }
 
-func (r *splunkReceiver) handleHealthReq(writer http.ResponseWriter, _ *http.Request) {
+func (*splunkReceiver) handleHealthReq(writer http.ResponseWriter, _ *http.Request) {
 	writer.Header().Add("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	_, _ = writer.Write([]byte(responseHecHealthy))

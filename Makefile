@@ -8,6 +8,7 @@ OTEL_STABLE_VERSION=main
 VERSION=$(shell git describe --always --match "v[0-9]*" HEAD)
 TRIMMED_VERSION=$(shell grep -o 'v[^-]*' <<< "$(VERSION)" | cut -c 2-)
 CORE_VERSIONS=$(SRC_PARENT_DIR)/opentelemetry-collector/versions.yaml
+GO_COMPAT_VERSION=$(shell grep '^go ' go.mod | awk '{print $$2}')
 
 COMP_REL_PATH=cmd/otelcontribcol/components.go
 MOD_NAME=github.com/open-telemetry/opentelemetry-collector-contrib
@@ -46,7 +47,7 @@ PKG_MODS := $(shell find ./pkg/* $(FIND_MOD_ARGS) -exec $(TO_MOD_DIR) )
 CMD_MODS_0 := $(shell find ./cmd/[a-z]* $(FIND_MOD_ARGS) -not -path "./cmd/otel*col/*" -exec $(TO_MOD_DIR) )
 CMD_MODS := $(CMD_MODS_0)
 OTHER_MODS := $(shell find . $(EX_COMPONENTS) $(EX_INTERNAL) $(EX_PKG) $(EX_CMD) $(FIND_MOD_ARGS) -exec $(TO_MOD_DIR) )
-ALL_MODS := $(RECEIVER_MODS) $(PROCESSOR_MODS) $(EXPORTER_MODS) $(EXTENSION_MODS) $(CONNECTOR_MODS) $(INTERNAL_MODS) $(PKG_MODS) $(CMD_MODS) $(OTHER_MODS)
+export ALL_MODS := $(RECEIVER_MODS) $(PROCESSOR_MODS) $(EXPORTER_MODS) $(EXTENSION_MODS) $(CONNECTOR_MODS) $(INTERNAL_MODS) $(PKG_MODS) $(CMD_MODS) $(OTHER_MODS)
 
 CGO_MODS := ./receiver/hostmetricsreceiver
 
@@ -139,6 +140,27 @@ gotidy:
 		(cd $$dir && rm -f go.sum && $(GOCMD) mod tidy -compat=1.24.11) || exit $$?; \
 	done
 
+.PHONY: bump-go-version
+bump-go-version:
+ifndef VERSION
+	$(error VERSION is required. Usage: make bump-go-version VERSION=1.24.11)
+endif
+	@echo "Bumping Go version to $(VERSION)..."
+
+	# Update main go.mod
+	@echo "Updating main go.mod..."
+	@sed -i '' -E 's/^go [0-9]+\.[0-9]+.*/go $(VERSION)/' go.mod
+
+	# Update all module go.mod files
+	@echo "Updating all module go.mod files..."
+	@find . -name "go.mod" -type f -not -path "./go.mod" -exec sed -i '' -E 's/^go [0-9]+\.[0-9]+\.[0-9]+/go $(VERSION)/g' {} \;
+
+	@echo ""
+	@echo "✓ Successfully bumped golang version to $(VERSION)"
+	@echo ""
+	@echo "Note: GitHub Actions workflows use 'oldstable' regardless of the Go version in go.mod"
+	@echo "Next: Optionally run 'make gotidy' (takes ~5-10 minutes)"
+
 .PHONY: remove-toolchain
 remove-toolchain:
 	$(MAKE) $(FOR_GROUP_TARGET) TARGET="toolchain"
@@ -199,7 +221,7 @@ goporto: $(PORTO)
 
 .PHONY: for-all
 for-all:
-	@set -e; for dir in $(ALL_MODS); do \
+	@set -e; for dir in $$ALL_MODS; do \
 	  (cd "$${dir}" && \
 	  	echo "running $${CMD} in $${dir}" && \
 	 	$${CMD} ); \
@@ -317,9 +339,9 @@ run:
 
 .PHONY: docker-component # Not intended to be used directly
 docker-component: check-component
-	GOOS=linux GOARCH=amd64 $(MAKE) $(COMPONENT)
-	cp ./bin/$(COMPONENT)_linux_amd64 ./cmd/$(COMPONENT)/$(COMPONENT)
-	docker build -t $(COMPONENT) ./cmd/$(COMPONENT)/
+	GOOS=linux GOARCH=$(GOARCH) $(MAKE) $(COMPONENT)
+	cp ./bin/$(COMPONENT)_linux_$(GOARCH) ./cmd/$(COMPONENT)/$(COMPONENT)
+	docker build --platform linux/$(GOARCH) -t $(COMPONENT) ./cmd/$(COMPONENT)/
 	rm ./cmd/$(COMPONENT)/$(COMPONENT)
 
 .PHONY: check-component
@@ -332,6 +354,10 @@ endif
 docker-otelcontribcol:
 	COMPONENT=otelcontribcol $(MAKE) docker-component
 
+.PHONY: docker-supervisor-otelcontribcol
+docker-supervisor-otelcontribcol: docker-otelcontribcol
+	COMPONENT=opampsupervisor $(MAKE) docker-component
+
 .PHONY: docker-telemetrygen
 docker-telemetrygen:
 	GOOS=linux GOARCH=$(GOARCH) $(MAKE) telemetrygen
@@ -339,10 +365,13 @@ docker-telemetrygen:
 	cd cmd/telemetrygen && docker build --platform linux/$(GOARCH) --build-arg="TARGETOS=$(GOOS)" --build-arg="TARGETARCH=$(GOARCH)" -t telemetrygen:latest .
 	rm cmd/telemetrygen/telemetrygen_*
 
-.PHONY: generate
-generate: install-tools
-	PATH="$(ROOT_DIR).tools:$$PATH" $(MAKE) for-all CMD="$(GOCMD) generate ./..."
-	$(MAKE) gofmt
+.PHONY: docker-golden
+docker-golden:
+	GOOS=linux GOARCH=$(GOARCH) $(MAKE) golden
+	cp bin/golden_* cmd/golden/
+	cd cmd/golden && docker build --platform linux/$(GOARCH) --build-arg="TARGETOS=$(GOOS)" --build-arg="TARGETARCH=$(GOARCH)" -t golden:latest .
+	rm cmd/golden/golden_*
+
 
 .PHONY: gengithub
 gengithub: $(GITHUBGEN)
@@ -352,6 +381,17 @@ gengithub: $(GITHUBGEN)
 gendistributions: $(GITHUBGEN)
 	$(GITHUBGEN) distributions
 
+gencodecov: $(CODECOVGEN)
+	$(CODECOVGEN) --base-prefix github.com/open-telemetry/opentelemetry-collector-contrib --skipped-modules **/*test,**/examples/**,pkg/**,cmd/**,internal/**,*/encoding/**
+
+
+.PHONY: gencodeowners
+gencodeowners: install-tools
+	$(GITHUBGEN) -skipgithub
+
+.PHONY: generate-chloggen-components
+generate-chloggen-components: $(GITHUBGEN)
+	$(GITHUBGEN) chloggen-components
 
 FILENAME?=$(shell git branch --show-current)
 .PHONY: chlog-new
@@ -430,6 +470,18 @@ telemetrygenlite:
 	cd ./cmd/telemetrygen && GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -trimpath -o ../../bin/telemetrygen_$(GOOS)_$(GOARCH)$(EXTENSION) \
 		-tags $(GO_BUILD_TAGS) -ldflags $(GO_BUILD_LDFLAGS) .
 
+# Build the Supervisor executable.
+.PHONY: opampsupervisor
+opampsupervisor:
+	cd ./cmd/opampsupervisor && GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -trimpath -o ../../bin/opampsupervisor_$(GOOS)_$(GOARCH)$(EXTENSION) \
+		-tags $(GO_BUILD_TAGS) .
+
+# Build the golden executable.
+.PHONY: golden
+golden:
+	cd ./cmd/golden && GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -trimpath -o ../../bin/golden_$(GOOS)_$(GOARCH)$(EXTENSION) \
+		-tags $(GO_BUILD_TAGS) .
+
 MODULES="internal/buildscripts/modules"
 .PHONY: update-core-modules
 update-core-module-list:
@@ -488,7 +540,7 @@ update-otel:$(MULTIMOD)
 	# Tidy again after generating code
 	$(MAKE) gotidy
 	$(MAKE) remove-toolchain
-	git add . && git commit -s -m "[chore] mod and toolchain tidy" ; \
+	git add . && git commit -s -m "[chore] mod and toolchain tidy" --allow-empty ; \
 
 .PHONY: otel-from-tree
 otel-from-tree:
@@ -500,12 +552,30 @@ otel-from-tree:
 	# 2. Run `make otel-from-tree` (only need to run it once to remap go modules)
 	# 3. You can now build contrib and it will use your local otel core changes.
 	# 4. Before committing/pushing your contrib changes, undo by running `make otel-from-lib`.
-	$(MAKE) for-all CMD="$(GOCMD) mod edit -replace go.opentelemetry.io/collector=$(SRC_PARENT_DIR)/opentelemetry-collector"
+	@source $(MODULES) && \
+	replace_args=""; \
+	echo "# BEGIN otel-from-tree" >> "./cmd/otelcontribcol/builder-config.yaml"; \
+	echo "# BEGIN otel-from-tree" >> "./cmd/oteltestbedcol/builder-config.yaml"; \
+	for module in "$${beta_modules[@]}" "$${stable_modules[@]}"; do \
+		subpath=$${module#go.opentelemetry.io/collector}; \
+		if [ "$${subpath}" = "$${module}" ]; then subpath=""; fi; \
+		replace_args="$${replace_args} -replace $${module}=$(SRC_PARENT_DIR)/opentelemetry-collector$${subpath}"; \
+		echo "  - $${module} => $(SRC_PARENT_DIR)/opentelemetry-collector$${subpath}" >> "./cmd/otelcontribcol/builder-config.yaml"; \
+		echo "  - $${module} => $(SRC_PARENT_DIR)/opentelemetry-collector$${subpath}" >> "./cmd/oteltestbedcol/builder-config.yaml"; \
+	done; \
+	$(MAKE) for-all CMD="$(GOCMD) mod edit $${replace_args}"
 
 .PHONY: otel-from-lib
 otel-from-lib:
 	# Sets opentelemetry core to be not be pulled from local source tree. (Undoes otel-from-tree.)
-	$(MAKE) for-all CMD="$(GOCMD) mod edit -dropreplace go.opentelemetry.io/collector"
+	@source $(MODULES) && \
+	dropreplace_args=""; \
+	for module in "$${beta_modules[@]}" "$${stable_modules[@]}"; do \
+		dropreplace_args="$${dropreplace_args} -dropreplace $${module}"; \
+	done; \
+	sed -i '' '/# BEGIN otel-from-tree/,$$d' "./cmd/otelcontribcol/builder-config.yaml"; \
+	sed -i '' '/# BEGIN otel-from-tree/,$$d' "./cmd/oteltestbedcol/builder-config.yaml"; \
+	$(MAKE) for-all CMD="$(GOCMD) mod edit $${dropreplace_args}"
 
 .PHONY: build-examples
 build-examples:
@@ -575,8 +645,7 @@ $(1)
 endef
 
 # List of directories where certificates are stored for unit tests.
-CERT_DIRS := receiver/sapmreceiver/testdata \
-             receiver/signalfxreceiver/testdata \
+CERT_DIRS := receiver/signalfxreceiver/testdata \
              receiver/splunkhecreceiver/testdata \
              receiver/mongodbatlasreceiver/testdata/alerts/cert \
              receiver/mongodbreceiver/testdata/certs \
@@ -606,6 +675,10 @@ multimod-sync: $(MULTIMOD)
 crosslink: $(CROSSLINK)
 	@echo "Executing crosslink"
 	$(CROSSLINK) --root=$(shell pwd) --prune
+
+.PHONY: actionlint
+actionlint: $(ACTIONLINT)
+	$(ACTIONLINT) -config-file .github/actionlint.yaml -color $(filter-out $(wildcard .github/workflows/*windows.y*), $(wildcard .github/workflows/*.y*))
 
 .PHONY: clean
 clean:

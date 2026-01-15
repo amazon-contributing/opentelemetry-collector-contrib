@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
-	conventions "go.opentelemetry.io/collector/semconv/v1.27.0"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk"
@@ -24,7 +23,7 @@ var defaultTestingHecConfig = &Config{
 		Source:     splunk.DefaultSourceLabel,
 		SourceType: splunk.DefaultSourceTypeLabel,
 		Index:      splunk.DefaultIndexLabel,
-		Host:       conventions.AttributeHostName,
+		Host:       "host.name",
 	},
 }
 
@@ -330,7 +329,7 @@ func Test_SplunkHecToLogData(t *testing.T) {
 	n := len(tests)
 	for _, tt := range tests[n-1:] {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := splunkHecToLogData(zap.NewNop(), tt.events, func(_ pcommon.Resource) {}, tt.hecConfig)
+			result, err := splunkHecToLogData(zap.NewNop(), tt.events, func(pcommon.Resource) {}, tt.hecConfig)
 			assert.Equal(t, tt.wantErr, err)
 			require.Equal(t, tt.output.Len(), result.ResourceLogs().Len())
 			for i := 0; i < result.ResourceLogs().Len(); i++ {

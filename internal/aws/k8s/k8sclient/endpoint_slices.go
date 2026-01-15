@@ -89,13 +89,13 @@ func (c *epClient) refresh() {
 
 	for _, obj := range objsList {
 		ep := obj.(*endpointInfo)
-		serviceName := ep.serviceName
+		serviceName := ep.name
 		namespace := ep.namespace
 
 		// each obj should be a uniq service.
 		// ignore the service which has 0 pods.
 		if len(ep.podKeyList) > 0 {
-			serviceToPodNumMapNew[NewService(serviceName, namespace)] += len(ep.podKeyList)
+			serviceToPodNumMapNew[NewService(serviceName, namespace)] = len(ep.podKeyList)
 		}
 
 		for _, podKey := range ep.podKeyList {
@@ -132,7 +132,7 @@ func newEpClient(clientSet kubernetes.Interface, logger *zap.Logger, options ...
 	}
 
 	c.store = NewObjStore(transformFuncEndpoint, logger)
-	lw := c.createEndpointSlicesListWatch(clientSet, metav1.NamespaceAll)
+	lw := c.createEndpointListWatch(clientSet, metav1.NamespaceAll)
 	reflector := cache.NewReflector(lw, &discoveryv1.EndpointSlice{}, c.store, 0)
 
 	go reflector.Run(c.stopChan)
@@ -153,31 +153,38 @@ func (c *epClient) shutdown() {
 func transformFuncEndpoint(obj any) (any, error) {
 	endpointSlice, ok := obj.(*discoveryv1.EndpointSlice)
 	if !ok {
-		return nil, fmt.Errorf("input obj %v is not Endpoint type", obj)
+		return nil, fmt.Errorf("input obj %v is not EndpointSlice type", obj)
 	}
 	info := new(endpointInfo)
-	if serviceName := endpointSlice.Labels["kubernetes.io/service-name"]; serviceName != "" {
-		info.serviceName = serviceName
+	// EndpointSlice uses a label to reference the service
+	if serviceName, ok := endpointSlice.Labels[discoveryv1.LabelServiceName]; ok {
+		info.name = serviceName
+	} else {
+		// Fallback to the EndpointSlice name if label is not present
+		info.name = endpointSlice.Name
 	}
 	info.namespace = endpointSlice.Namespace
 	info.podKeyList = []string{}
-	if endpoints := endpointSlice.Endpoints; endpoints != nil {
-		for _, endpoint := range endpoints {
-			if addresses := endpoint.Addresses; addresses != nil {
-				if targetRef := endpoint.TargetRef; targetRef != nil && targetRef.Kind == typePod {
-					podKey := k8sutil.CreatePodKey(targetRef.Namespace, targetRef.Name)
-					if podKey == "" {
-						continue
-					}
-					info.podKeyList = append(info.podKeyList, podKey)
-				}
+
+	// EndpointSlice has Endpoints field (not Subsets like old Endpoints)
+	for _, endpoint := range endpointSlice.Endpoints {
+		// Check if endpoint is ready
+		if endpoint.Conditions.Ready != nil && !*endpoint.Conditions.Ready {
+			continue
+		}
+
+		if endpoint.TargetRef != nil && endpoint.TargetRef.Kind == typePod {
+			podKey := k8sutil.CreatePodKey(endpoint.TargetRef.Namespace, endpoint.TargetRef.Name)
+			if podKey == "" {
+				continue
 			}
+			info.podKeyList = append(info.podKeyList, podKey)
 		}
 	}
 	return info, nil
 }
 
-func (c *epClient) createEndpointSlicesListWatch(client kubernetes.Interface, ns string) cache.ListerWatcher {
+func (*epClient) createEndpointListWatch(client kubernetes.Interface, ns string) cache.ListerWatcher {
 	ctx := context.Background()
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {

@@ -30,16 +30,16 @@ import (
 func TestNewExporter(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	c := &Config{
-		Auth: &Authentication{
+		Auth: Authentication{
 			Type:             ConnectionString,
 			ConnectionString: "DefaultEndpointsProtocol=https;AccountName=fakeaccount;AccountKey=ZmFrZWtleQ==;EndpointSuffix=core.windows.net",
 		},
-		Container: &Container{
+		Container: TelemetryConfig{
 			Metrics: "metrics",
 			Logs:    "logs",
 			Traces:  "traces",
 		},
-		BlobNameFormat: &BlobNameFormat{
+		BlobNameFormat: BlobNameFormat{
 			MetricsFormat:  "2006/01/02/metrics_15_04_05.json",
 			LogsFormat:     "2006/01/02/logs_15_04_05.json",
 			TracesFormat:   "2006/01/02/traces_15_04_05.json",
@@ -47,7 +47,7 @@ func TestNewExporter(t *testing.T) {
 			Params:         map[string]string{},
 		},
 		FormatType: "json",
-		Encodings:  &Encodings{},
+		Encodings:  Encodings{},
 	}
 
 	me := newAzureBlobExporter(c, logger, pipeline.SignalMetrics)
@@ -138,29 +138,112 @@ func TestGenerateBlobName(t *testing.T) {
 	t.Parallel()
 
 	c := &Config{
-		BlobNameFormat: &BlobNameFormat{
-			MetricsFormat:  "2006/01/02/metrics_15_04_05.json",
-			LogsFormat:     "2006/01/02/logs_15_04_05.json",
-			TracesFormat:   "2006/01/02/traces_15_04_05.json",
-			SerialNumRange: 10000,
-			Params:         map[string]string{},
+		BlobNameFormat: BlobNameFormat{
+			MetricsFormat:     "2006/01/02/metrics_15_04_05.json",
+			LogsFormat:        "2006/01/02/logs_15_04_05.json",
+			TracesFormat:      "2006/01/02/traces_15_04_05.json",
+			SerialNumEnabled:  true,
+			SerialNumRange:    10000,
+			TimeParserEnabled: true,
+			Params:            map[string]string{},
 		},
 	}
 
 	ae := newAzureBlobExporter(c, zaptest.NewLogger(t), pipeline.SignalMetrics)
 
 	now := time.Now()
-	metricsBlobName, err := ae.generateBlobName(pipeline.SignalMetrics)
+	metricsBlobName, err := ae.generateBlobName(pipeline.SignalMetrics, nil)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(metricsBlobName, now.Format(c.BlobNameFormat.MetricsFormat)))
 
-	logsBlobName, err := ae.generateBlobName(pipeline.SignalLogs)
+	logsBlobName, err := ae.generateBlobName(pipeline.SignalLogs, nil)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(logsBlobName, now.Format(c.BlobNameFormat.LogsFormat)))
 
-	tracesBlobName, err := ae.generateBlobName(pipeline.SignalTraces)
+	tracesBlobName, err := ae.generateBlobName(pipeline.SignalTraces, nil)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(tracesBlobName, now.Format(c.BlobNameFormat.TracesFormat)))
+}
+
+func TestGenerateBlobNameSerialNumBefore(t *testing.T) {
+	t.Parallel()
+
+	c := &Config{
+		BlobNameFormat: BlobNameFormat{
+			MetricsFormat:            "2006/01/02/metrics_15_04_05.json",
+			LogsFormat:               "2006/01/02/logs_15_04_05.json",
+			TracesFormat:             "2006/01/02/traces_15_04_05", // no extension
+			SerialNumEnabled:         true,
+			SerialNumRange:           10000,
+			SerialNumBeforeExtension: true,
+			TimeParserEnabled:        true,
+			Params:                   map[string]string{},
+		},
+	}
+
+	ae := newAzureBlobExporter(c, zaptest.NewLogger(t), pipeline.SignalMetrics)
+
+	assertFormat := func(blobName, format string) {
+		ext := filepath.Ext(format)
+		formatWithoutExt := strings.TrimSuffix(format, ext)
+		assert.True(t, strings.HasPrefix(blobName, formatWithoutExt))
+		assert.True(t, strings.HasSuffix(blobName, ext))
+	}
+
+	now := time.Now()
+	metricsBlobName, err := ae.generateBlobName(pipeline.SignalMetrics, nil)
+	assert.NoError(t, err)
+	assertFormat(metricsBlobName, now.Format(c.BlobNameFormat.MetricsFormat))
+
+	logsBlobName, err := ae.generateBlobName(pipeline.SignalLogs, nil)
+	assert.NoError(t, err)
+	assertFormat(logsBlobName, now.Format(c.BlobNameFormat.LogsFormat))
+
+	tracesBlobName, err := ae.generateBlobName(pipeline.SignalTraces, nil)
+	assert.NoError(t, err)
+	assertFormat(tracesBlobName, now.Format(c.BlobNameFormat.TracesFormat))
+}
+
+func TestGenerateBlobNameWithTemplate(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig()
+	c := cfg.(*Config)
+	c.BlobNameFormat = BlobNameFormat{
+		TemplateEnabled: true,
+		MetricsFormat:   `{{ getResourceMetricAttr . 0 "service.name" }}/2006/01/02/metrics.json`,
+		LogsFormat:      `{{ getScopeLogAttr . 0 0 "scope.name" }}/2006/01/02/logs.json`,
+		TracesFormat:    `{{ (getSpan . 0 0 0).Name }}/2006/01/02/traces.json`,
+		SerialNumRange:  10000,
+	}
+	c.Auth.ConnectionString = "DefaultEndpointsProtocol=https;AccountName=fakeaccount;AccountKey=ZmFrZWtleQ==;EndpointSuffix=core.windows.net"
+
+	ae := newAzureBlobExporter(c, zaptest.NewLogger(t), pipeline.SignalMetrics)
+	err := ae.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+
+	// Test metrics
+	metrics := testdata.GenerateMetricsTwoMetrics()
+	metrics.ResourceMetrics().At(0).Resource().Attributes().PutStr("service.name", "test-metrics-service")
+	metricsBlobName, err := ae.generateBlobName(pipeline.SignalMetrics, metrics)
+	assert.NoError(t, err)
+	assert.Contains(t, metricsBlobName, "test-metrics-service")
+	assert.Contains(t, metricsBlobName, "metrics.json")
+
+	// Test logs
+	logs := testdata.GenerateLogsTwoLogRecordsSameResource()
+	logs.ResourceLogs().At(0).ScopeLogs().At(0).Scope().Attributes().PutStr("scope.name", "test-scope")
+	logsBlobName, err := ae.generateBlobName(pipeline.SignalLogs, logs)
+	assert.NoError(t, err)
+	assert.Contains(t, logsBlobName, "test-scope")
+	assert.Contains(t, logsBlobName, "logs.json")
+
+	// Test traces
+	traces := testdata.GenerateTracesTwoSpansSameResource()
+	traces.ResourceSpans().At(0).ScopeSpans().At(0).Spans().At(0).SetName("test-span")
+	tracesBlobName, err := ae.generateBlobName(pipeline.SignalTraces, traces)
+	assert.NoError(t, err)
+	assert.Contains(t, tracesBlobName, "test-span")
+	assert.Contains(t, tracesBlobName, "traces.json")
 }
 
 func getMockAzBlobClient() *mockAzBlobClient {
@@ -181,12 +264,12 @@ func (_m *mockAzBlobClient) URL() string {
 	return _m.url
 }
 
-func (_m *mockAzBlobClient) UploadStream(ctx context.Context, containerName string, blobName string, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error) {
+func (_m *mockAzBlobClient) UploadStream(ctx context.Context, containerName, blobName string, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error) {
 	args := _m.Called(ctx, containerName, blobName, body, o)
 	return args.Get(0).(azblob.UploadStreamResponse), args.Error(1)
 }
 
-func (_m *mockAzBlobClient) AppendBlock(ctx context.Context, containerName string, blobName string, data []byte, o *appendblob.AppendBlockOptions) error {
+func (_m *mockAzBlobClient) AppendBlock(ctx context.Context, containerName, blobName string, data []byte, o *appendblob.AppendBlockOptions) error {
 	args := _m.Called(ctx, containerName, blobName, data, o)
 	return args.Error(0)
 }
@@ -194,27 +277,27 @@ func (_m *mockAzBlobClient) AppendBlock(ctx context.Context, containerName strin
 func TestExporterAppendBlob(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	c := &Config{
-		Auth: &Authentication{
+		Auth: Authentication{
 			Type:             ConnectionString,
 			ConnectionString: "DefaultEndpointsProtocol=https;AccountName=fakeaccount;AccountKey=ZmFrZWtleQ==;EndpointSuffix=core.windows.net",
 		},
-		Container: &Container{
+		Container: TelemetryConfig{
 			Metrics: "metrics",
 			Logs:    "logs",
 			Traces:  "traces",
 		},
-		BlobNameFormat: &BlobNameFormat{
+		BlobNameFormat: BlobNameFormat{
 			MetricsFormat:  "2006/01/02/metrics_15_04_05.json",
 			LogsFormat:     "2006/01/02/logs_15_04_05.json",
 			TracesFormat:   "2006/01/02/traces_15_04_05.json",
 			SerialNumRange: 10000,
 		},
 		FormatType: formatTypeJSON,
-		AppendBlob: &AppendBlob{
+		AppendBlob: AppendBlob{
 			Enabled:   true,
 			Separator: "\n",
 		},
-		Encodings: &Encodings{},
+		Encodings: Encodings{},
 	}
 
 	ae := newAzureBlobExporter(c, logger, pipeline.SignalLogs)
@@ -245,27 +328,27 @@ func TestExporterAppendBlob(t *testing.T) {
 func TestExporterAppendBlobError(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	c := &Config{
-		Auth: &Authentication{
+		Auth: Authentication{
 			Type:             ConnectionString,
 			ConnectionString: "DefaultEndpointsProtocol=https;AccountName=fakeaccount;AccountKey=ZmFrZWtleQ==;EndpointSuffix=core.windows.net",
 		},
-		Container: &Container{
+		Container: TelemetryConfig{
 			Metrics: "metrics",
 			Logs:    "logs",
 			Traces:  "traces",
 		},
-		BlobNameFormat: &BlobNameFormat{
+		BlobNameFormat: BlobNameFormat{
 			MetricsFormat:  "2006/01/02/metrics_15_04_05.json",
 			LogsFormat:     "2006/01/02/logs_15_04_05.json",
 			TracesFormat:   "2006/01/02/traces_15_04_05.json",
 			SerialNumRange: 10000,
 		},
 		FormatType: formatTypeJSON,
-		AppendBlob: &AppendBlob{
+		AppendBlob: AppendBlob{
 			Enabled:   true,
 			Separator: "\n",
 		},
-		Encodings: &Encodings{},
+		Encodings: Encodings{},
 	}
 
 	ae := newAzureBlobExporter(c, logger, pipeline.SignalLogs)
@@ -280,4 +363,64 @@ func TestExporterAppendBlobError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to upload data: append error")
 	mockClient.AssertExpectations(t)
+}
+
+func TestGenerateBlobNameSerialNumberDisabled(t *testing.T) {
+	t.Parallel()
+
+	c := &Config{
+		BlobNameFormat: BlobNameFormat{
+			MetricsFormat:     "static/metrics.json",
+			SerialNumEnabled:  false,
+			SerialNumRange:    100,
+			TimeParserEnabled: true,
+		},
+	}
+
+	ae := newAzureBlobExporter(c, zaptest.NewLogger(t), pipeline.SignalMetrics)
+
+	blobName, err := ae.generateBlobName(pipeline.SignalMetrics, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "static/metrics.json", blobName)
+}
+
+func TestGenerateBlobNameTimeParserDisabled(t *testing.T) {
+	t.Parallel()
+
+	layout := "2006/01/02/metrics_15_04_05.json"
+	c := &Config{
+		BlobNameFormat: BlobNameFormat{
+			MetricsFormat:     layout,
+			SerialNumEnabled:  false,
+			SerialNumRange:    100,
+			TimeParserEnabled: false,
+		},
+	}
+
+	ae := newAzureBlobExporter(c, zaptest.NewLogger(t), pipeline.SignalMetrics)
+
+	blobName, err := ae.generateBlobName(pipeline.SignalMetrics, nil)
+	require.NoError(t, err)
+	assert.Equal(t, layout, blobName)
+}
+
+func TestGenerateBlobNameTimeParserDisabledWithSerialNumber(t *testing.T) {
+	t.Parallel()
+
+	layout := "2006/01/02/metrics_15_04_05.json"
+	c := &Config{
+		BlobNameFormat: BlobNameFormat{
+			MetricsFormat:            layout,
+			SerialNumEnabled:         true,
+			SerialNumRange:           100,
+			SerialNumBeforeExtension: false,
+			TimeParserEnabled:        false,
+		},
+	}
+
+	ae := newAzureBlobExporter(c, zaptest.NewLogger(t), pipeline.SignalMetrics)
+
+	blobName, err := ae.generateBlobName(pipeline.SignalMetrics, nil)
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(blobName, layout+"_"))
 }

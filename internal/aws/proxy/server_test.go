@@ -15,24 +15,20 @@ import (
 	"testing"
 	"time"
 
+	//nolint:staticcheck // SA1019: WIP in https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/36699
 	"github.com/aws/aws-sdk-go/aws"
+	//nolint:staticcheck // SA1019: WIP in https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/36699
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/testutil"
 )
 
 const (
-	regionEnvVarName = "AWS_REGION"
+	regionEnvVarName = "AWS_DEFAULT_REGION"
 	regionEnvVar     = "us-west-2"
 )
-
-func logSetup() (*zap.Logger, *observer.ObservedLogs) {
-	core, recorded := observer.New(zapcore.DebugLevel)
-	return zap.New(core), recorded
-}
 
 func TestHappyCase(t *testing.T) {
 	logger, recordedLogs := logSetup()
@@ -133,7 +129,7 @@ func TestHandlerNilBodyIsOk(t *testing.T) {
 
 	handler := srv.(*http.Server).Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
-		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", nil)
+		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", http.NoBody)
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -145,13 +141,11 @@ func TestHandlerNilBodyIsOk(t *testing.T) {
 }
 
 func TestHandlerSignerErrorsOut(t *testing.T) {
-	// Note: this may fail if you have a local credentials file (e.g. ~/.aws/credentials)
 	logger, recordedLogs := logSetup()
 
 	t.Setenv(regionEnvVarName, regionEnvVar)
 
 	cfg := DefaultConfig()
-	cfg.Endpoint = "0.0.0.0:2000"
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	srv, err := NewServer(cfg, logger)
@@ -179,6 +173,28 @@ func TestTCPEndpointInvalid(t *testing.T) {
 	cfg.Endpoint = "invalid\n"
 	_, err := NewServer(cfg, logger)
 	assert.Error(t, err, "NewServer should fail")
+}
+
+func TestCantGetAWSConfigSession(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+
+	origSession := newAWSSession
+	defer func() {
+		newAWSSession = origSession
+	}()
+
+	expectedErr := errors.New("expected newAWSSessionError")
+	newAWSSession = func(string, string, *zap.Logger) (*session.Session, error) {
+		return nil, expectedErr
+	}
+	_, err := NewServer(cfg, logger)
+	assert.EqualError(t, err, expectedErr.Error())
 }
 
 func TestCantGetServiceEndpoint(t *testing.T) {
@@ -222,7 +238,7 @@ func TestCanCreateTransport(t *testing.T) {
 
 	_, err := NewServer(cfg, logger)
 	assert.Error(t, err, "NewServer should fail")
-	assert.ErrorContains(t, err, "invalid control character in URL")
+	assert.ErrorContains(t, err, "failed to parse proxy URL")
 }
 
 func TestGetServiceEndpointInvalidAWSConfig(t *testing.T) {
@@ -241,6 +257,6 @@ func (m *mockReadCloser) Read(_ []byte) (n int, err error) {
 	return 0, nil
 }
 
-func (m *mockReadCloser) Close() error {
+func (*mockReadCloser) Close() error {
 	return nil
 }

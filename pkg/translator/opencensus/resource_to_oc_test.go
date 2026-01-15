@@ -15,7 +15,6 @@ import (
 	"go.opencensus.io/resource/resourcekeys"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	conventions "go.opentelemetry.io/collector/semconv/v1.6.1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -72,12 +71,12 @@ func TestResourceToOC(t *testing.T) {
 
 func TestContainerResourceToOC(t *testing.T) {
 	resource := pcommon.NewResource()
-	resource.Attributes().PutStr(conventions.AttributeK8SClusterName, "cluster1")
-	resource.Attributes().PutStr(conventions.AttributeK8SPodName, "pod1")
-	resource.Attributes().PutStr(conventions.AttributeK8SNamespaceName, "namespace1")
-	resource.Attributes().PutStr(conventions.AttributeContainerName, "container-name1")
-	resource.Attributes().PutStr(conventions.AttributeCloudAccountID, "proj1")
-	resource.Attributes().PutStr(conventions.AttributeCloudAvailabilityZone, "zone1")
+	resource.Attributes().PutStr("k8s.cluster.name", "cluster1")
+	resource.Attributes().PutStr("k8s.pod.name", "pod1")
+	resource.Attributes().PutStr("k8s.namespace.name", "namespace1")
+	resource.Attributes().PutStr("container.name", "container-name1")
+	resource.Attributes().PutStr("cloud.account.id", "proj1")
+	resource.Attributes().PutStr("cloud.availability_zone", "zone1")
 
 	want := &ocresource.Resource{
 		Type: resourcekeys.ContainerType, // Inferred type
@@ -121,12 +120,12 @@ func TestInferResourceType(t *testing.T) {
 		{
 			name: "container",
 			labels: map[string]string{
-				conventions.AttributeK8SClusterName:        "cluster1",
-				conventions.AttributeK8SPodName:            "pod1",
-				conventions.AttributeK8SNamespaceName:      "namespace1",
-				conventions.AttributeContainerName:         "container-name1",
-				conventions.AttributeCloudAccountID:        "proj1",
-				conventions.AttributeCloudAvailabilityZone: "zone1",
+				"k8s.cluster.name":        "cluster1",
+				"k8s.pod.name":            "pod1",
+				"k8s.namespace.name":      "namespace1",
+				"container.name":          "container-name1",
+				"cloud.account.id":        "proj1",
+				"cloud.availability_zone": "zone1",
 			},
 			wantResourceType: resourcekeys.ContainerType,
 			wantOk:           true,
@@ -134,10 +133,10 @@ func TestInferResourceType(t *testing.T) {
 		{
 			name: "pod",
 			labels: map[string]string{
-				conventions.AttributeK8SClusterName:        "cluster1",
-				conventions.AttributeK8SPodName:            "pod1",
-				conventions.AttributeK8SNamespaceName:      "namespace1",
-				conventions.AttributeCloudAvailabilityZone: "zone1",
+				"k8s.cluster.name":        "cluster1",
+				"k8s.pod.name":            "pod1",
+				"k8s.namespace.name":      "namespace1",
+				"cloud.availability_zone": "zone1",
 			},
 			wantResourceType: resourcekeys.K8SType,
 			wantOk:           true,
@@ -145,9 +144,9 @@ func TestInferResourceType(t *testing.T) {
 		{
 			name: "host",
 			labels: map[string]string{
-				conventions.AttributeK8SClusterName:        "cluster1",
-				conventions.AttributeCloudAvailabilityZone: "zone1",
-				conventions.AttributeHostName:              "node1",
+				"k8s.cluster.name":        "cluster1",
+				"cloud.availability_zone": "zone1",
+				"host.name":               "node1",
 			},
 			wantResourceType: resourcekeys.HostType,
 			wantOk:           true,
@@ -155,9 +154,9 @@ func TestInferResourceType(t *testing.T) {
 		{
 			name: "gce",
 			labels: map[string]string{
-				conventions.AttributeCloudProvider:         "gcp",
-				conventions.AttributeHostID:                "inst1",
-				conventions.AttributeCloudAvailabilityZone: "zone1",
+				"cloud.provider":          "gcp",
+				"host.id":                 "inst1",
+				"cloud.availability_zone": "zone1",
 			},
 			wantResourceType: resourcekeys.CloudType,
 			wantOk:           true,
@@ -204,8 +203,8 @@ func TestResourceToOCAndBack(t *testing.T) {
 				assert.True(t, ok)
 				switch v.Type() {
 				case pcommon.ValueTypeInt:
-					// conventions.AttributeProcessID is special because we preserve the type for this.
-					if k == conventions.AttributeProcessPID {
+					// "process.pid" is special because we preserve the type for this.
+					if k == "process.pid" {
 						assert.Equal(t, v.Int(), a.Int())
 					} else {
 						assert.Equal(t, strconv.FormatInt(v.Int(), 10), a.Str())
@@ -222,8 +221,7 @@ func TestResourceToOCAndBack(t *testing.T) {
 func BenchmarkInternalResourceToOC(b *testing.B) {
 	resource := generateResourceWithOcNodeAndResource()
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		ocNode, _ := internalResourceToOC(resource)
 		if ocNode.Identifier.Pid != 123 {
 			b.Fail()
@@ -238,8 +236,7 @@ func BenchmarkOcResourceNodeMarshal(b *testing.B) {
 		Resource: generateOcResource(),
 	}
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		if _, err := proto.Marshal(oc); err != nil {
 			b.Fail()
 		}

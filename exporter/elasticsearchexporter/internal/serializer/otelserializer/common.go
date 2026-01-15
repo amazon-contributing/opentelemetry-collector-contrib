@@ -58,8 +58,17 @@ func writeAttributes(v *json.Visitor, attributes pcommon.Map, stringifyMapValues
 	_ = v.OnKey("attributes")
 	_ = v.OnObjectStart(-1, structform.AnyType)
 	for k, val := range attributes.All() {
+		// Exclude well-known, Elastic-specific attributes
+		// from the document. These are handled elsewhere.
 		switch k {
-		case elasticsearch.DataStreamType, elasticsearch.DataStreamDataset, elasticsearch.DataStreamNamespace, elasticsearch.MappingHintsAttrKey, elasticsearch.DocumentIDAttributeName, elasticsearch.DocumentPipelineAttributeName, elasticsearch.IndexAttributeName:
+		case elasticsearch.DataStreamType,
+			elasticsearch.DataStreamDataset,
+			elasticsearch.DataStreamNamespace,
+			elasticsearch.MappingHintsAttrKey,
+			elasticsearch.MappingModeAttributeName,
+			elasticsearch.DocumentIDAttributeName,
+			elasticsearch.DocumentPipelineAttributeName,
+			elasticsearch.IndexAttributeName:
 			continue
 		}
 		if isGeoAttribute(k, val) {
@@ -154,6 +163,11 @@ func writeTimestampField(v *json.Visitor, key string, timestamp pcommon.Timestam
 	msec := nsec / 1e6
 	nsec -= msec * 1e6
 	_ = v.OnString(strconv.FormatUint(msec, 10) + "." + strconv.FormatUint(nsec, 10))
+}
+
+func writeTimestampEpochMillisField(v *json.Visitor, key string, timestamp pcommon.Timestamp) {
+	_ = v.OnKey(key)
+	_ = v.OnUint64(uint64(timestamp) / 1e6)
 }
 
 func writeUIntField(v *json.Visitor, key string, i uint64) {
