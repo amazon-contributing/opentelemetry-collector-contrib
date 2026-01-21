@@ -34,7 +34,7 @@ jobs:
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
         with:
           secret-ids: |
-            ACCOUNT_ID, otlp-region-account/gamma-us-east-1
+            ACCOUNT_ID, otlp-region-account/prod-us-east-1
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -102,7 +102,7 @@ jobs:
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
         with:
           secret-ids: |
-            ACCOUNT_ID, otlp-region-account/gamma-us-east-1
+            ACCOUNT_ID, otlp-region-account/prod-us-east-1
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
