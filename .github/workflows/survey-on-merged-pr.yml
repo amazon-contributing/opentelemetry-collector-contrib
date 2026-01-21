@@ -25,10 +25,6 @@ jobs:
 
       - name: Add survey comment if author is not a member or bot
         run: |
-          USERNAME="${{ github.event.pull_request.user.login }}"
-          USER_TYPE="${{ github.event.pull_request.user.type }}"
-          ORG="${{ github.repository_owner }}"
-          
           # Skip if user is a bot
           if [[ "$USER_TYPE" == "Bot" ]]; then
             echo "Skipping survey for bot user: $USERNAME"
@@ -43,6 +39,10 @@ jobs:
           
           # Add survey comment for external contributor
           echo "Adding survey comment for external contributor: $USERNAME"
-          gh pr comment "${PR_NUM}" --repo ${{ github.repository }} --body "Thank you for your contribution @${USERNAME}! 🎉 We would like to hear from you about your experience contributing to OpenTelemetry by taking a few minutes to fill out this [survey](${SURVEY_URL}). If you are getting started contributing, you can also join the CNCF Slack channel [#opentelemetry-new-contributors](https://cloud-native.slack.com/archives/C09H3MNMBQV) to ask for guidance and get help."
+          gh pr comment "${PR_NUM}" --repo "$REPO" --body "Thank you for your contribution @${USERNAME}! 🎉 We would like to hear from you about your experience contributing to OpenTelemetry by taking a few minutes to fill out this [survey](${SURVEY_URL}). If you are getting started contributing, you can also join the CNCF Slack channel [#opentelemetry-new-contributors](https://cloud-native.slack.com/archives/C09H3MNMBQV) to ask for guidance and get help."
         env:
           GH_TOKEN: ${{ steps.otelbot-token.outputs.token }}
+          USERNAME: ${{ github.event.pull_request.user.login }}
+          USER_TYPE: ${{ github.event.pull_request.user.type }}
+          ORG: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
