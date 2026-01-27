@@ -6,10 +6,10 @@ package main
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go/aws"                                //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/aws/session"                        //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/service/dynamodb"                   //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 

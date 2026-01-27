@@ -10,7 +10,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/request" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"go.uber.org/zap"
 )
 

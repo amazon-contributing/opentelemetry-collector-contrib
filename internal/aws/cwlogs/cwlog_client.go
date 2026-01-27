@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/aws"                    //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/aws/awserr"             //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/aws/request"            //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/aws/session"            //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
@@ -222,7 +222,7 @@ func (client *Client) CreateStream(logGroup, streamName *string) error {
 	return nil
 }
 
-func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName string, componentName string, clientConfig *cwLogClientConfig) request.NamedHandler {
+func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName, componentName string, clientConfig *cwLogClientConfig) request.NamedHandler {
 	extraStrs := []string{componentName}
 	extraStrs = append(extraStrs, clientConfig.userAgentExtras...)
 

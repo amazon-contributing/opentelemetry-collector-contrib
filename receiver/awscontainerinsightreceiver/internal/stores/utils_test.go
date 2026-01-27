@@ -22,7 +22,7 @@ type mockCIMetric struct {
 	fields map[string]any
 }
 
-func (m *mockCIMetric) GetMetricType() string {
+func (*mockCIMetric) GetMetricType() string {
 	return "dummy_type"
 }
 
@@ -64,7 +64,7 @@ func (m *mockCIMetric) RemoveTag(key string) {
 
 type mockNodeInfoProvider struct{}
 
-func (m *mockNodeInfoProvider) NodeToCapacityMap() map[string]v1.ResourceList {
+func (*mockNodeInfoProvider) NodeToCapacityMap() map[string]v1.ResourceList {
 	return map[string]v1.ResourceList{
 		"testNode1": {
 			"pods":                        *resource.NewQuantity(5, resource.DecimalSI),
@@ -80,7 +80,7 @@ func (m *mockNodeInfoProvider) NodeToCapacityMap() map[string]v1.ResourceList {
 	}
 }
 
-func (m *mockNodeInfoProvider) NodeToAllocatableMap() map[string]v1.ResourceList {
+func (*mockNodeInfoProvider) NodeToAllocatableMap() map[string]v1.ResourceList {
 	return map[string]v1.ResourceList{
 		"testNode1": {
 			"pods":                        *resource.NewQuantity(15, resource.DecimalSI),
@@ -96,7 +96,7 @@ func (m *mockNodeInfoProvider) NodeToAllocatableMap() map[string]v1.ResourceList
 	}
 }
 
-func (m *mockNodeInfoProvider) NodeToLabelsMap() map[string]map[k8sclient.Label]int8 {
+func (*mockNodeInfoProvider) NodeToLabelsMap() map[string]map[k8sclient.Label]int8 {
 	return map[string]map[k8sclient.Label]int8{
 		"hyperpod-testNode1": {
 			k8sclient.SageMakerNodeHealthStatus: int8(k8sutil.Schedulable),
@@ -105,7 +105,7 @@ func (m *mockNodeInfoProvider) NodeToLabelsMap() map[string]map[k8sclient.Label]
 	}
 }
 
-func (m *mockNodeInfoProvider) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus {
+func (*mockNodeInfoProvider) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus {
 	return map[string]map[v1.NodeConditionType]v1.ConditionStatus{
 		"testNode1": {
 			v1.NodeReady:              v1.ConditionTrue,

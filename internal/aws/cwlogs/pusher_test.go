@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/aws"                    //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -88,7 +88,7 @@ func TestLogEventBatch_sortLogEvents(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < totalEvents; i++ {
+	for i := range totalEvents {
 		timestamp := rand.Int()
 		logEvent := NewEvent(
 			int64(timestamp),
@@ -150,7 +150,7 @@ func TestPusher_addLogEventBatch(t *testing.T) {
 	c := cap(p.logEventBatch.putLogEventsInput.LogEvents)
 	logEvent := NewEvent(timestampMs, msg)
 
-	for i := 0; i < c; i++ {
+	for range c {
 		p.logEventBatch.putLogEventsInput.LogEvents = append(p.logEventBatch.putLogEventsInput.LogEvents, logEvent.InputLogEvent)
 	}
 
@@ -363,7 +363,7 @@ func TestBatchSizeLogic_CorrectLimitUsed(t *testing.T) {
 	smallMessage := strings.Repeat("a", messageSize)
 
 	// Add 10 events (10 * ~102KB = ~1024KB = exactly 1MB)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		event := NewEvent(time.Now().UnixMilli(), smallMessage)
 		event.GeneratedTime = time.Now()
 		assert.False(t, batch.exceedsLimit(event.eventPayloadBytes()), "Event %d should fit", i)

@@ -65,6 +65,19 @@ type PrometheusScraper struct {
 	running             bool
 }
 
+// Exported getters for testing
+func (ps *PrometheusScraper) GetSettings() component.TelemetrySettings {
+	return ps.settings
+}
+
+func (ps *PrometheusScraper) GetContext() context.Context {
+	return ps.ctx
+}
+
+func (ps *PrometheusScraper) SetPrometheusReceiver(r receiver.Metrics) {
+	ps.prometheusReceiver = r
+}
+
 type PrometheusScraperOpts struct {
 	Ctx                 context.Context
 	TelemetrySettings   component.TelemetrySettings

@@ -129,9 +129,11 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 				acir.start(ctx)
 			}()
 		} else {
+			//nolint:gocritic // sloppyReassign: Keeping existing error handling pattern
 			if err = checkKubelet(client); err != nil {
 				return err
 			}
+			//nolint:gocritic // sloppyReassign: Keeping existing error handling pattern
 			if err = acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
 				return err
 			}

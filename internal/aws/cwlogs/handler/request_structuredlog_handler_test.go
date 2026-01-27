@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/request" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAddUserAgentCWAgent(t *testing.T) {
-	httpReq, _ := http.NewRequest(http.MethodPost, "", nil)
+	httpReq, _ := http.NewRequest(http.MethodPost, "", http.NoBody)
 	r := &request.Request{
 		HTTPRequest: httpReq,
 		Body:        nil,

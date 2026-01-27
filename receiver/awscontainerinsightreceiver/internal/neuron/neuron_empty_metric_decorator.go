@@ -49,7 +49,7 @@ type EmptyMetricDecorator struct {
 	Logger       *zap.Logger
 }
 
-func (ed *EmptyMetricDecorator) Capabilities() consumer.Capabilities {
+func (*EmptyMetricDecorator) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: true,
 	}
@@ -80,7 +80,7 @@ func (ed *EmptyMetricDecorator) ConsumeMetrics(ctx context.Context, md pmetric.M
 	return ed.NextConsumer.ConsumeMetrics(ctx, md)
 }
 
-func (ed *EmptyMetricDecorator) addEmptyMetrics(hardwareInfo pmetric.Metric, metrics pmetric.MetricSlice) {
+func (*EmptyMetricDecorator) addEmptyMetrics(hardwareInfo pmetric.Metric, metrics pmetric.MetricSlice) {
 	metricFoundMap := make(map[string]bool)
 	for k := range attributeConfig {
 		metricFoundMap[k] = false
@@ -196,7 +196,7 @@ func (ed *EmptyMetricDecorator) addNeuronCorePerDeviceAttribute(metrics pmetric.
 	}
 }
 
-func (ed *EmptyMetricDecorator) addAttributeToNumberDataPoints(dataPoints pmetric.NumberDataPointSlice, attributeValue string) {
+func (*EmptyMetricDecorator) addAttributeToNumberDataPoints(dataPoints pmetric.NumberDataPointSlice, attributeValue string) {
 	for j := 0; j < dataPoints.Len(); j++ {
 		dataPoints.At(j).Attributes().PutStr(neuronCorePerDeviceKey, attributeValue)
 	}

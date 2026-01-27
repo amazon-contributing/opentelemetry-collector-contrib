@@ -286,6 +286,7 @@ func (c *CIMetricImpl) GetMetricType() string {
 }
 
 func (c *CIMetricImpl) AddTags(tags map[string]string) {
+	//nolint:modernize // mapsloop: Keeping existing pattern for clarity
 	for k, v := range tags {
 		c.Tags[k] = v
 	}

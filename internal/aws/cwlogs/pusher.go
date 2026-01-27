@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/aws"                    //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"go.uber.org/zap"
 )
 
@@ -70,7 +70,7 @@ func (logEvent *Event) Validate(logger *zap.Logger) error {
 	if *logEvent.InputLogEvent.Timestamp == int64(0) {
 		logEvent.InputLogEvent.Timestamp = aws.Int64(logEvent.GeneratedTime.UnixNano() / int64(time.Millisecond))
 	}
-	if len(*logEvent.InputLogEvent.Message) == 0 {
+	if *logEvent.InputLogEvent.Message == "" {
 		return errors.New("empty log event message")
 	}
 

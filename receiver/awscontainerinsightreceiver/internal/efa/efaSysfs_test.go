@@ -45,19 +45,19 @@ func (m *mockHostInfo) GetNetworkInterfaceID(macAddress string) (string, error) 
 	return eniID, nil
 }
 
-func (r mockSysfsReader) EfaDataExists() (bool, error) {
+func (mockSysfsReader) EfaDataExists() (bool, error) {
 	return true, nil
 }
 
-func (r mockSysfsReader) ListDevices() ([]efaDeviceName, error) {
+func (mockSysfsReader) ListDevices() ([]efaDeviceName, error) {
 	return []efaDeviceName{"efa0", "efa1"}, nil
 }
 
-func (r mockSysfsReader) ListPorts(_ efaDeviceName) ([]string, error) {
+func (mockSysfsReader) ListPorts(_ efaDeviceName) ([]string, error) {
 	return []string{"1", "2"}, nil
 }
 
-func (r mockSysfsReader) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
+func (mockSysfsReader) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
 	switch deviceName {
 	case "efa0":
 		return "00:00:00:00:00:01", nil
@@ -81,7 +81,7 @@ var mockCounterValues = map[string]uint64{
 	counterImpairedRemoteConnEvents: 11,
 }
 
-func (r mockSysfsReader) ReadCounter(deviceName efaDeviceName, port string, counter string) (uint64, error) {
+func (r mockSysfsReader) ReadCounter(deviceName efaDeviceName, port, counter string) (uint64, error) {
 	key := fmt.Sprintf("%s/%s/%s", deviceName, port, counter)
 	value := mockCounterValues[counter] * (r.scrapeCounts[key] + 1)
 	r.scrapeCounts[key]++
@@ -92,12 +92,12 @@ type mockDecorator struct{}
 
 var _ stores.Decorator = (*mockDecorator)(nil)
 
-func (d mockDecorator) Decorate(metric stores.CIMetric) stores.CIMetric {
+func (mockDecorator) Decorate(metric stores.CIMetric) stores.CIMetric {
 	metric.AddTag("decorated", "true")
 	return metric
 }
 
-func (d mockDecorator) Shutdown() error {
+func (mockDecorator) Shutdown() error {
 	return nil
 }
 
@@ -105,9 +105,9 @@ type mockPodResourcesStore struct{}
 
 var _ podResourcesStore = (*mockPodResourcesStore)(nil)
 
-func (p mockPodResourcesStore) AddResourceName(_ string) {}
+func (mockPodResourcesStore) AddResourceName(_ string) {}
 
-func (p mockPodResourcesStore) GetContainerInfo(deviceID string, _ string) *stores.ContainerInfo {
+func (mockPodResourcesStore) GetContainerInfo(deviceID, _ string) *stores.ContainerInfo {
 	switch deviceID {
 	case "efa0":
 		return &stores.ContainerInfo{
@@ -317,9 +317,9 @@ type mockPodResourcesStoreMissingOneDevice struct{}
 
 var _ podResourcesStore = (*mockPodResourcesStoreMissingOneDevice)(nil)
 
-func (p mockPodResourcesStoreMissingOneDevice) AddResourceName(_ string) {}
+func (mockPodResourcesStoreMissingOneDevice) AddResourceName(_ string) {}
 
-func (p mockPodResourcesStoreMissingOneDevice) GetContainerInfo(deviceID string, _ string) *stores.ContainerInfo {
+func (mockPodResourcesStoreMissingOneDevice) GetContainerInfo(deviceID, _ string) *stores.ContainerInfo {
 	if deviceID == "efa0" {
 		return &stores.ContainerInfo{
 			PodName:       "pod0",
@@ -361,7 +361,9 @@ func checkExpectations(t *testing.T, expected []expectation, actual []pmetric.Me
 		return compareStrings(aVal.Str(), bVal.Str())
 	})
 
+	//nolint:modernize // rangeint: Keeping existing loop pattern for clarity
 	for i := 0; i < len(expected); i++ {
+		//nolint:gosec // G602: Loop bounds ensure slice access is safe
 		expectedMetric := expected[i]
 		actualMetric := actual[i]
 		checkExpectation(t, expectedMetric.fields, expectedMetric.tags, actualMetric)
@@ -467,89 +469,89 @@ func TestScrape(t *testing.T) {
 
 type mockSysfsReaderError1 struct{}
 
-func (r mockSysfsReaderError1) EfaDataExists() (bool, error) {
+func (mockSysfsReaderError1) EfaDataExists() (bool, error) {
 	return false, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderError1) ListDevices() ([]efaDeviceName, error) {
+func (mockSysfsReaderError1) ListDevices() ([]efaDeviceName, error) {
 	return []efaDeviceName{"efa0"}, nil
 }
 
-func (r mockSysfsReaderError1) ListPorts(_ efaDeviceName) ([]string, error) {
+func (mockSysfsReaderError1) ListPorts(_ efaDeviceName) ([]string, error) {
 	return []string{}, nil
 }
 
-func (r mockSysfsReaderError1) ReadCounter(_ efaDeviceName, _ string, _ string) (uint64, error) {
+func (mockSysfsReaderError1) ReadCounter(_ efaDeviceName, _, _ string) (uint64, error) {
 	return 0, nil
 }
 
-func (r mockSysfsReaderError1) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
+func (mockSysfsReaderError1) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "00:00:00:00:00:01", nil
 }
 
 type mockSysfsReaderError2 struct{}
 
-func (r mockSysfsReaderError2) EfaDataExists() (bool, error) {
+func (mockSysfsReaderError2) EfaDataExists() (bool, error) {
 	return true, nil
 }
 
-func (r mockSysfsReaderError2) ListDevices() ([]efaDeviceName, error) {
+func (mockSysfsReaderError2) ListDevices() ([]efaDeviceName, error) {
 	return nil, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderError2) ListPorts(_ efaDeviceName) ([]string, error) {
+func (mockSysfsReaderError2) ListPorts(_ efaDeviceName) ([]string, error) {
 	return []string{}, nil
 }
 
-func (r mockSysfsReaderError2) ReadCounter(_ efaDeviceName, _ string, _ string) (uint64, error) {
+func (mockSysfsReaderError2) ReadCounter(_ efaDeviceName, _, _ string) (uint64, error) {
 	return 0, nil
 }
 
-func (r mockSysfsReaderError2) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
+func (mockSysfsReaderError2) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "", errors.New("mocked error")
 }
 
 type mockSysfsReaderError3 struct{}
 
-func (r mockSysfsReaderError3) EfaDataExists() (bool, error) {
+func (mockSysfsReaderError3) EfaDataExists() (bool, error) {
 	return true, nil
 }
 
-func (r mockSysfsReaderError3) ListDevices() ([]efaDeviceName, error) {
+func (mockSysfsReaderError3) ListDevices() ([]efaDeviceName, error) {
 	return []efaDeviceName{"efa0"}, nil
 }
 
-func (r mockSysfsReaderError3) ListPorts(_ efaDeviceName) ([]string, error) {
+func (mockSysfsReaderError3) ListPorts(_ efaDeviceName) ([]string, error) {
 	return nil, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderError3) ReadCounter(_ efaDeviceName, _ string, _ string) (uint64, error) {
+func (mockSysfsReaderError3) ReadCounter(_ efaDeviceName, _, _ string) (uint64, error) {
 	return 0, nil
 }
 
-func (r mockSysfsReaderError3) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
+func (mockSysfsReaderError3) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "00:00:00:00:00:01", nil
 }
 
 type mockSysfsReaderError4 struct{}
 
-func (r mockSysfsReaderError4) EfaDataExists() (bool, error) {
+func (mockSysfsReaderError4) EfaDataExists() (bool, error) {
 	return true, nil
 }
 
-func (r mockSysfsReaderError4) ListDevices() ([]efaDeviceName, error) {
+func (mockSysfsReaderError4) ListDevices() ([]efaDeviceName, error) {
 	return []efaDeviceName{"efa0"}, nil
 }
 
-func (r mockSysfsReaderError4) ListPorts(_ efaDeviceName) ([]string, error) {
+func (mockSysfsReaderError4) ListPorts(_ efaDeviceName) ([]string, error) {
 	return []string{"1"}, nil
 }
 
-func (r mockSysfsReaderError4) ReadCounter(_ efaDeviceName, _ string, _ string) (uint64, error) {
+func (mockSysfsReaderError4) ReadCounter(_ efaDeviceName, _, _ string) (uint64, error) {
 	return 1, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderError4) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
+func (mockSysfsReaderError4) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "00:00:00:00:00:01", nil
 }
 
@@ -566,23 +568,23 @@ func TestScrapeErrors(t *testing.T) {
 
 type mockSysfsReaderNoEfaData struct{}
 
-func (r mockSysfsReaderNoEfaData) EfaDataExists() (bool, error) {
+func (mockSysfsReaderNoEfaData) EfaDataExists() (bool, error) {
 	return false, nil
 }
 
-func (r mockSysfsReaderNoEfaData) ListDevices() ([]efaDeviceName, error) {
+func (mockSysfsReaderNoEfaData) ListDevices() ([]efaDeviceName, error) {
 	return nil, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderNoEfaData) ListPorts(_ efaDeviceName) ([]string, error) {
+func (mockSysfsReaderNoEfaData) ListPorts(_ efaDeviceName) ([]string, error) {
 	return nil, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderNoEfaData) ReadCounter(_ efaDeviceName, _ string, _ string) (uint64, error) {
+func (mockSysfsReaderNoEfaData) ReadCounter(_ efaDeviceName, _, _ string) (uint64, error) {
 	return 0, errors.New("mocked error")
 }
 
-func (r mockSysfsReaderNoEfaData) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
+func (mockSysfsReaderNoEfaData) GetMACAddressFromDeviceName(_ efaDeviceName) (string, error) {
 	return "", errors.New("mocked error")
 }
 

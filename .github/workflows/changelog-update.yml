@@ -4,47 +4,54 @@ on:
   pull_request:
     types:
       - closed
+
+permissions: read-all
+
+env:
+  # Make sure to exit early if cache segment download times out after 2 minutes.
+  # We limit cache download as a whole to 5 minutes.
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
+
 jobs:
   update:
     runs-on: ubuntu-latest
-
     permissions:
       # Give the default GITHUB_TOKEN write permission to commit and push the
       # updated CHANGELOG-AWS.md back to the repository.
       # https://github.blog/changelog/2023-02-02-github-actions-updating-the-default-github_token-permissions-to-read-only/
       contents: write
+    if: github.event.pull_request.merged == true
     steps:
-      - name: Checkout action
-        uses: actions/checkout@v3
-      - run: ./.github/workflows/scripts/free-disk-space.sh
-      - name : checkout
-        run : |
-          git config --global user.name 'Github Action'
-          git config --global user.email 'action@github.com'
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
-          go-version: "1.24.11"
-          cache: false
-      - name: make update changelog
+          ref: aws-cwa-dev
+      - run: ./.github/workflows/scripts/free-disk-space.sh
+      - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6
+        id: go-setup
+        with:
+          go-version: oldstable
+          cache-dependency-path: "**/*.sum"
+      - name: Install dependencies
+        if: steps.go-setup.outputs.cache-hit != 'true'
+        run: make -j2 gomoddownload
+      - name: Configure git
+        run: |
+          git config user.name 'Github Action'
+          git config user.email 'action@github.com'
+      - name: Update changelog
         run: make chlog-update-aws
-      - name: switching from HTTPS to SSH
-        run: git remote set-url origin https://github.com/amazon-contributing/opentelemetry-collector-contrib.git
-      - name: check for changes
+      - name: Check for changes
+        id: check-changes
         run: |
-          git branch
-          git status
-      - name: stage changed files
-        run: git add ./CHANGELOG-AWS.md
-      - name: commit changed files
+          if git diff --quiet ./CHANGELOG-AWS.md; then
+            echo "has-changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-changes=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.has-changes == 'true'
         run: |
-          git config --global user.name 'Github Action'
-          git config --global user.email 'action@github.com'
-          git commit -m "Auto updating changelog-aws.md"
-      - name: pull from master
-        run: |
-          git remote -v
-          git pull
-      - name: push code to aws-cwa-dev
-        run: git push origin aws-cwa-dev
+          git add ./CHANGELOG-AWS.md
+          git commit -m "Auto updating CHANGELOG-AWS.md"
+          git push origin aws-cwa-dev
       - run: ./.github/workflows/scripts/check-disk-space.sh

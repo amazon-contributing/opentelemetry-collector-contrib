@@ -3,7 +3,7 @@
 
 package handler // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs/handler"
 
-import "github.com/aws/aws-sdk-go/aws/request"
+import "github.com/aws/aws-sdk-go/aws/request" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 
 // RequestStructuredLogHandler emf header
 var RequestStructuredLogHandler = request.NamedHandler{Name: "RequestStructuredLogHandler", Fn: AddStructuredLogHeader}

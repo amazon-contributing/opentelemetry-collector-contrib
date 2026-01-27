@@ -38,13 +38,13 @@ type ConnAttr interface {
 // Conn implements connAttr interface.
 type Conn struct{}
 
-func (c *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
+func (*Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
 	region, err := ec2metadata.New(s, &aws.Config{
 		Retryer:                   override.NewIMDSRetryer(imdsRetries),
 		EC2MetadataEnableFallback: aws.Bool(false),
 	}).Region()
 	if err == nil {
-		return region, err
+		return region, nil
 	}
 	return ec2metadata.New(s, &aws.Config{}).Region()
 }
@@ -94,8 +94,8 @@ const (
 )
 
 // newHTTPClient returns new HTTP client instance with provided configuration.
-func newHTTPClient(logger *zap.Logger, maxIdle int, requestTimeout int, noVerify bool,
-	proxyAddress string, certificateFilePath string,
+func newHTTPClient(logger *zap.Logger, maxIdle, requestTimeout int, noVerify bool,
+	proxyAddress, certificateFilePath string,
 ) (*http.Client, error) {
 	logger.Debug("Using proxy address: ",
 		zap.String("proxyAddr", proxyAddress),
@@ -263,7 +263,7 @@ func ProxyServerTransport(logger *zap.Logger, config *AWSSessionSettings) (*http
 	return transport, nil
 }
 
-func (c *Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region string) (*session.Session, error) {
+func (*Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region string) (*session.Session, error) {
 	var s *session.Session
 	var err error
 	if cfg.RoleARN == "" {
@@ -341,7 +341,7 @@ func getSTSCredsFromRegionEndpoint(logger *zap.Logger, sess *session.Session, re
 // getSTSCredsFromPrimaryRegionEndpoint fetches STS credentials for provided roleARN from primary region endpoint in
 // the respective partition.
 func getSTSCredsFromPrimaryRegionEndpoint(logger *zap.Logger, t *session.Session, roleArn string,
-	region string, externalID string,
+	region, externalID string,
 ) *credentials.Credentials {
 	logger.Info("Credentials for provided RoleARN being fetched from STS primary region endpoint.")
 	partitionID := getPartition(region)
@@ -415,7 +415,7 @@ func GetDefaultSession(logger *zap.Logger, cfg *AWSSessionSettings) (*session.Se
 
 func getRootCredentials(cfg *AWSSessionSettings) *credentials.Credentials {
 	credentialProviderChain := getCredentialProviderChain(cfg)
-	for i := 0; i < len(credentialProviderChain); i++ {
+	for i := range len(credentialProviderChain) {
 		if credentialProviderChain[i] != nil {
 			return credentials.NewCredentials(credentialProviderChain[i])
 		}
@@ -465,7 +465,7 @@ func getCredentialProviderChain(cfg *AWSSessionSettings) []credentials.Provider 
 	return credProviders
 }
 
-func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *credentials.Credentials {
+func newStsCredentials(c client.ConfigProvider, roleARN, region string) *credentials.Credentials {
 	regional := &stscreds.AssumeRoleProvider{
 		Client: newStsClient(c, &aws.Config{
 			Region:              aws.String(region),

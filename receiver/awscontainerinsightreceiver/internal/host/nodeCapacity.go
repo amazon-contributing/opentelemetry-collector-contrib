@@ -94,6 +94,7 @@ func (nc *nodeCapacity) parseCPU(ctx context.Context) {
 func (nc *nodeCapacity) parseCPUWindows(ctx context.Context) {
 	if cpuInfos, err := nc.cpuInfo(ctx); err == nil {
 		var coreCount int32
+		//nolint:gocritic // rangeValCopy: Copying is acceptable here for simplicity
 		for _, cpuInfo := range cpuInfos {
 			coreCount += cpuInfo.Cores
 		}
