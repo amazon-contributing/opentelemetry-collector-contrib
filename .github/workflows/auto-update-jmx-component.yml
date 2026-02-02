@@ -12,7 +12,7 @@ permissions:
 jobs:
   check-jmx-metrics-version:
     if: github.repository == 'open-telemetry/opentelemetry-collector-contrib'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     outputs:
       latest-version: ${{ steps.check-jmx-metrics-version.outputs.latest-version }}
       already-added: ${{ steps.check-jmx-metrics-version.outputs.already-added }}
@@ -56,7 +56,7 @@ jobs:
   update-jmx-metrics-component:
     permissions:
       contents: write # required for pushing changes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     if: |
       github.repository == 'open-telemetry/opentelemetry-collector-contrib' &&
       needs.check-jmx-metrics-version.outputs.already-added != 'true' &&
@@ -130,7 +130,7 @@ jobs:
           git push
 
   check-jmx-scraper-version:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     if: github.repository == 'open-telemetry/opentelemetry-collector-contrib'
     outputs:
       latest-version: ${{ steps.check-jmx-scraper-version.outputs.latest-version }}
@@ -175,7 +175,7 @@ jobs:
   update-jmx-scraper-component:
     permissions:
       contents: write # required for pushing changes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     if: |
       github.repository == 'open-telemetry/opentelemetry-collector-contrib' &&
       needs.check-jmx-scraper-version.outputs.already-added != 'true' &&

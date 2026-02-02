@@ -10,7 +10,7 @@ jobs:
   mark-issues-as-stale:
     permissions:
       issues: write # required for marking issues as stale
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'open-telemetry' }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
