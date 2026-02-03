@@ -88,7 +88,6 @@ func createTestResourceMetricsHelper(numMetrics int) pmetric.ResourceMetrics {
 	q2.SetQuantile(1)
 	q2.SetValue(5)
 
-	//todo
 	for i := 1; i < numMetrics; i++ {
 		m = sm.Metrics().AppendEmpty()
 		m.SetName("spanCounter")

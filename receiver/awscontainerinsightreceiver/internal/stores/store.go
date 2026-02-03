@@ -45,7 +45,7 @@ type K8sDecorator struct {
 
 func NewK8sDecorator(ctx context.Context, kubeletClient *kubeletutil.KubeletClient, tagService, prefFullPodName,
 	addFullPodNameMetricLabel, addContainerNameMetricLabel, includeEnhancedMetrics, enableAcceleratedComputeMetrics bool,
-	kubeConfigPath string, hostName string, isSystemd bool, logger *zap.Logger,
+	kubeConfigPath, hostName string, isSystemd bool, logger *zap.Logger,
 ) (*K8sDecorator, error) {
 	k := &K8sDecorator{
 		ctx:                         ctx,

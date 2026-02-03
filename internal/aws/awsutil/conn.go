@@ -95,7 +95,7 @@ const (
 
 // newHTTPClient returns new HTTP client instance with provided configuration.
 func newHTTPClient(logger *zap.Logger, maxIdle, requestTimeout int, noVerify bool,
-	proxyAddress string, certificateFilePath string,
+	proxyAddress, certificateFilePath string,
 ) (*http.Client, error) {
 	logger.Debug("Using proxy address: ",
 		zap.String("proxyAddr", proxyAddress),
@@ -341,7 +341,7 @@ func getSTSCredsFromRegionEndpoint(logger *zap.Logger, sess *session.Session, re
 // getSTSCredsFromPrimaryRegionEndpoint fetches STS credentials for provided roleARN from primary region endpoint in
 // the respective partition.
 func getSTSCredsFromPrimaryRegionEndpoint(logger *zap.Logger, t *session.Session, roleArn string,
-	region string, externalID string,
+	region, externalID string,
 ) *credentials.Credentials {
 	logger.Info("Credentials for provided RoleARN being fetched from STS primary region endpoint.")
 	partitionID := getPartition(region)
@@ -465,7 +465,7 @@ func getCredentialProviderChain(cfg *AWSSessionSettings) []credentials.Provider 
 	return credProviders
 }
 
-func newStsCredentials(c client.ConfigProvider, roleARN string, region string) *credentials.Credentials {
+func newStsCredentials(c client.ConfigProvider, roleARN, region string) *credentials.Credentials {
 	regional := &stscreds.AssumeRoleProvider{
 		Client: newStsClient(c, &aws.Config{
 			Region:              aws.String(region),

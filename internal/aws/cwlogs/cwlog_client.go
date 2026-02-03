@@ -222,7 +222,7 @@ func (client *Client) CreateStream(logGroup, streamName *string) error {
 	return nil
 }
 
-func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName string, componentName string, clientConfig *cwLogClientConfig) request.NamedHandler {
+func newCollectorUserAgentHandler(buildInfo component.BuildInfo, logGroupName, componentName string, clientConfig *cwLogClientConfig) request.NamedHandler {
 	extraStrs := []string{componentName}
 	extraStrs = append(extraStrs, clientConfig.userAgentExtras...)
 
