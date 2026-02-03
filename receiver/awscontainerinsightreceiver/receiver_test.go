@@ -160,40 +160,40 @@ func TestCollectDataWithSystemd(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// MockHost is a mock implementation of component.Host
-type MockHost struct {
+// mockHost is a mock implementation of component.Host
+type mockHost struct {
 	mock.Mock
 }
 
-func (m *MockHost) GetExtensions() map[component.ID]component.Component {
+func (m *mockHost) GetExtensions() map[component.ID]component.Component {
 	args := m.Called()
 	return args.Get(0).(map[component.ID]component.Component)
 }
 
-// MockConfigurer is a mock implementation of awsmiddleware.Configurer
-type MockConfigurer struct {
+// mockConfigurer is a mock implementation of awsmiddleware.Configurer
+type mockConfigurer struct {
 	mock.Mock
 }
 
-func (m *MockConfigurer) Start(context.Context, component.Host) error {
+func (m *mockConfigurer) Start(context.Context, component.Host) error {
 	return nil
 }
 
-func (m *MockConfigurer) Shutdown(context.Context) error {
+func (m *mockConfigurer) Shutdown(context.Context) error {
 	return nil
 }
 
-func (m *MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
+func (m *mockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
 	return nil
 }
 
 func TestAWSContainerInsightReceiverStart(t *testing.T) {
 	// Create a mock host
-	mockHost := new(MockHost)
+	mockHost := new(mockHost)
 	testType, _ := component.NewType("awsmiddleware")
 
 	// Create a mock configurer
-	mockConfigurer := new(MockConfigurer)
+	mockConfigurer := new(mockConfigurer)
 	agenthealth, _ := component.NewType("agenthealth")
 	// Set up the mock host to return a map with the mock configurer
 	mockHost.On("GetExtensions").Return(map[component.ID]component.Component{
