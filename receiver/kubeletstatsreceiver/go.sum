@@ -130,8 +130,8 @@ github.com/onsi/ginkgo/v2 v2.21.0 h1:7rg/4f3rB88pb5obDgNZrNHrQ4e6WpjonchcpuBRnZM
 github.com/onsi/ginkgo/v2 v2.21.0/go.mod h1:7Du3c42kxCUegi0IImZ1wUQzMBVecgIHjR1C+NkhLQo=
 github.com/onsi/gomega v1.35.1 h1:Cwbd75ZBPxFSuZ6T+rN/WCb/gOc6YgFBXLlZLhC7Ds4=
 github.com/onsi/gomega v1.35.1/go.mod h1:PvZbdDc8J6XJEpDK4HCuRBm8a6Fzp9/DmhC9C7yFlog=
-github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.144.0 h1:siGuTL7zAnuH3MipXuoH6Bq6cOQ1Qr1JENoZ3OSpSWA=
-github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.144.0/go.mod h1:cwm9qvdOpgX5aL6pWvRltXj9YEHEAqe1GQ0H/Iq5MNg=
+github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.143.0 h1:psg/TyjUNhvgrewfNMqUVqNrOtufWnjZFlCLsMzQT5Y=
+github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight v0.143.0/go.mod h1:pNvt43SsmVu4/kOyQfa+na6qTB0ycGfE/U3F81Y5UnQ=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.0-rc4 h1:oOxKUJWnFC4YGHCCMNql1x4YaDfYBTS5Y4x/Cgeo1E0=
