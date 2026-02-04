@@ -125,9 +125,9 @@ func TestLoadTargetAllocatorConfig(t *testing.T) {
 	require.NoError(t, xconfmap.Validate(cfg))
 
 	r3 := cfg.(*Config)
-	assert.Equal(t, "https://target-allocator-service:80", r3.TargetAllocator.Endpoint)
-	assert.Equal(t, 30*time.Second, r3.TargetAllocator.Interval)
-	assert.Equal(t, "collector-1", r3.TargetAllocator.CollectorID)
+	assert.Equal(t, "https://target-allocator-service:80", r3.TargetAllocator.Get().Endpoint)
+	assert.Equal(t, 30*time.Second, r3.TargetAllocator.Get().Interval)
+	assert.Equal(t, "collector-1", r3.TargetAllocator.Get().CollectorID)
 	assert.Equal(t, promModel.Duration(15*time.Second), r3.PrometheusConfig.GlobalConfig.ScrapeInterval)
 	assert.Equal(t, promModel.Duration(10*time.Second), r3.PrometheusConfig.GlobalConfig.ScrapeTimeout)
 }

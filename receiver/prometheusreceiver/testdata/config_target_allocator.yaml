@@ -29,3 +29,4 @@ prometheus/k8Setup:
   target_allocator:
     endpoint: https://target-allocator-service:80
     interval: 30s
+    collector_id: collector-1
