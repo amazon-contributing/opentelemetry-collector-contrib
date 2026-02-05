@@ -35,13 +35,13 @@ type MockKubeletProvider struct {
 	t      *testing.T
 }
 
-func (m *MockHCSClient) GetContainerStats(_ string) (hcsshim.Statistics, error) {
+func (*MockHCSClient) GetContainerStats(_ string) (hcsshim.Statistics, error) {
 	return hcsshim.Statistics{
 		Timestamp: time.Now(),
 	}, nil
 }
 
-func (m *MockHCSClient) GetEndpointList() ([]hcsshim.HNSEndpoint, error) {
+func (*MockHCSClient) GetEndpointList() ([]hcsshim.HNSEndpoint, error) {
 	return []hcsshim.HNSEndpoint{{
 		Id:               "endpointId123456c6asdfasdf4354545",
 		Name:             "cid-adfklq3qr43lj523l4daf",
@@ -49,7 +49,7 @@ func (m *MockHCSClient) GetEndpointList() ([]hcsshim.HNSEndpoint, error) {
 	}}, nil
 }
 
-func (m *MockHCSClient) GetEndpointStat(_ string) (hcsshim.HNSEndpointStats, error) {
+func (*MockHCSClient) GetEndpointStat(_ string) (hcsshim.HNSEndpointStats, error) {
 	return hcsshim.HNSEndpointStats{
 		BytesReceived:          44340,
 		BytesSent:              3432,
@@ -63,7 +63,7 @@ func (m *MockKubeletProvider) GetSummary() (*stats.Summary, error) {
 	return testutils.LoadKubeletSummary(m.t, "./../extractors/testdata/CurSingleKubeletSummary.json"), nil
 }
 
-func (m *MockKubeletProvider) GetPods() ([]corev1.Pod, error) {
+func (*MockKubeletProvider) GetPods() ([]corev1.Pod, error) {
 	mockPods := []corev1.Pod{}
 
 	mockPods = append(mockPods, corev1.Pod{

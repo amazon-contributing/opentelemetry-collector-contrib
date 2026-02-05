@@ -23,7 +23,7 @@ type CPUMetricExtractor struct {
 	rateCalculator awsmetrics.MetricCalculator
 }
 
-func (c *CPUMetricExtractor) HasValue(rawMetric RawMetric) bool {
+func (*CPUMetricExtractor) HasValue(rawMetric RawMetric) bool {
 	return !rawMetric.Time.IsZero()
 }
 

@@ -21,7 +21,7 @@ type NetMetricExtractor struct {
 	rateCalculator awsmetrics.MetricCalculator
 }
 
-func (n *NetMetricExtractor) HasValue(rawMetric RawMetric) bool {
+func (*NetMetricExtractor) HasValue(rawMetric RawMetric) bool {
 	return !rawMetric.Time.IsZero()
 }
 

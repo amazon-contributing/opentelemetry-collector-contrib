@@ -19,7 +19,7 @@ type FileSystemMetricExtractor struct {
 	rateCalculator awsmetrics.MetricCalculator
 }
 
-func (f *FileSystemMetricExtractor) HasValue(rawMetric RawMetric) bool {
+func (*FileSystemMetricExtractor) HasValue(rawMetric RawMetric) bool {
 	return !rawMetric.Time.IsZero()
 }
 

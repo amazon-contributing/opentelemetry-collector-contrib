@@ -37,11 +37,12 @@ func New(logger *zap.Logger, decorator *stores.K8sDecorator, hostInfo host.Info)
 		return nil, errors.New("missing environment variable HOST_NAME. Please check your deployment YAML config")
 	}
 
-	metricsExtractors := []extractors.MetricExtractor{}
-	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(logger))
-	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(logger))
-	metricsExtractors = append(metricsExtractors, extractors.NewFileSystemMetricExtractor(logger))
-	metricsExtractors = append(metricsExtractors, extractors.NewNetMetricExtractor(logger))
+	metricsExtractors := []extractors.MetricExtractor{
+		extractors.NewCPUMetricExtractor(logger),
+		extractors.NewMemMetricExtractor(logger),
+		extractors.NewFileSystemMetricExtractor(logger),
+		extractors.NewNetMetricExtractor(logger),
+	}
 
 	ksp, err := kubeletsummaryprovider.New(logger, &hostInfo, metricsExtractors)
 	if err != nil {

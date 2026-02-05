@@ -78,7 +78,8 @@ func (sp *SummaryProvider) GetMetrics() ([]*stores.CIMetricImpl, error) {
 func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*stores.CIMetricImpl, error) { //nolint:unparam
 	var metrics []*stores.CIMetricImpl
 
-	for _, container := range pod.Containers {
+	for i := range pod.Containers {
+		container := &pod.Containers[i]
 		tags := map[string]string{}
 
 		tags[ci.PodIDKey] = pod.PodRef.UID
@@ -112,7 +113,8 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*stores.CIMe
 		return metrics, nil
 	}
 
-	for _, pod := range summary.Pods {
+	for i := range summary.Pods {
+		pod := &summary.Pods[i]
 		var metricsPerPod []*stores.CIMetricImpl
 
 		tags := map[string]string{}
