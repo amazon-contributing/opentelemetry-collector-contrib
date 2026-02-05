@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/request" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	backoff "github.com/cenkalti/backoff/v5"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/featuregate"

@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/request" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -37,7 +37,7 @@ type mockMetadata struct {
 	isAvailable bool
 }
 
-func (mm mockMetadata) GetHandlers() *request.Handlers {
+func (mockMetadata) GetHandlers() *request.Handlers {
 	panic("implement me")
 }
 

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/request" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -487,7 +487,7 @@ type mockDetectorWithHandler struct {
 	handlersCalled bool
 }
 
-func (m *mockDetectorWithHandler) Detect(_ context.Context) (resource pcommon.Resource, schemaURL string, err error) {
+func (*mockDetectorWithHandler) Detect(_ context.Context) (resource pcommon.Resource, schemaURL string, err error) {
 	return pcommon.NewResource(), "", nil
 }
 
@@ -499,11 +499,11 @@ func (m *mockDetectorWithHandler) ExposeHandlers() *request.Handlers {
 // mockExtension implements component.Component
 type mockExtension struct{}
 
-func (m *mockExtension) Start(context.Context, component.Host) error {
+func (*mockExtension) Start(context.Context, component.Host) error {
 	return nil
 }
 
-func (m *mockExtension) Shutdown(context.Context) error {
+func (*mockExtension) Shutdown(context.Context) error {
 	return nil
 }
 
@@ -515,7 +515,7 @@ type mockHost struct {
 // simpleMockDetector is a basic detector that doesn't implement HandlerProvider
 type simpleMockDetector struct{}
 
-func (m *simpleMockDetector) Detect(_ context.Context) (resource pcommon.Resource, schemaURL string, err error) {
+func (*simpleMockDetector) Detect(_ context.Context) (resource pcommon.Resource, schemaURL string, err error) {
 	return pcommon.NewResource(), "", nil
 }
 
@@ -532,9 +532,9 @@ func (m *mockHost) GetExtension(id component.ID) (component.Component, error) {
 	return nil, nil
 }
 
-func (m *mockHost) ReportFatalError(_ error) {}
+func (*mockHost) ReportFatalError(_ error) {}
 
-func (m *mockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
+func (*mockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
 	return nil
 }
 
