@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awserr" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -60,7 +60,7 @@ type mockHost struct {
 	component.Host
 }
 
-func (m *mockHost) GetExtensions() map[component.ID]component.Component {
+func (*mockHost) GetExtensions() map[component.ID]component.Component {
 	return nil
 }
 
