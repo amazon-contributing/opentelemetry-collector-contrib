@@ -84,16 +84,16 @@ func (*mockK8sClient) ShutdownNodeClient() {
 func (*mockK8sClient) ShutdownPodClient() {
 }
 
-func (m *mockK8sClient) ShutdownDeploymentClient() {
+func (*mockK8sClient) ShutdownDeploymentClient() {
 }
 
-func (m *mockK8sClient) ShutdownDaemonSetClient() {
+func (*mockK8sClient) ShutdownDaemonSetClient() {
 }
 
-func (m *mockK8sClient) ShutdownStatefulSetClient() {
+func (*mockK8sClient) ShutdownStatefulSetClient() {
 }
 
-func (m *mockK8sClient) ShutdownReplicaSetClient() {
+func (*mockK8sClient) ShutdownReplicaSetClient() {
 }
 
 type MockClient struct {

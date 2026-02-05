@@ -157,6 +157,6 @@ func (d *LocalNodeDecorator) addECSResources(m CIMetric) {
 	TagMetricSource(m)
 }
 
-func (d *LocalNodeDecorator) Shutdown() error {
+func (*LocalNodeDecorator) Shutdown() error {
 	return nil
 }

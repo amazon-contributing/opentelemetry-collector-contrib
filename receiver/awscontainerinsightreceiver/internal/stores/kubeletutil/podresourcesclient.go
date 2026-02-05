@@ -39,7 +39,7 @@ func NewPodResourcesClient() (*PodResourcesClient, error) {
 	return podResourcesClient, nil
 }
 
-func (p *PodResourcesClient) connectToServer(socket string) (*grpc.ClientConn, error) {
+func (*PodResourcesClient) connectToServer(socket string) (*grpc.ClientConn, error) {
 	err := validateSocket(socket)
 	if err != nil {
 		return nil, err

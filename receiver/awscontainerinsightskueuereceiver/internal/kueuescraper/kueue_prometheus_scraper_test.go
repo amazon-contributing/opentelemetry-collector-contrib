@@ -35,7 +35,7 @@ type mockKueueConsumer struct {
 	activeWorkloadCount  *bool
 }
 
-func (m mockKueueConsumer) Capabilities() consumer.Capabilities {
+func (mockKueueConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: false,
 	}

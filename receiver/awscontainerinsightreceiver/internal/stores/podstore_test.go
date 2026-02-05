@@ -443,6 +443,7 @@ func TestPodStore_previousCleanupLocking(t *testing.T) {
 		}
 	}()
 
+	//nolint:modernize // rangeint: Keeping existing loop pattern for clarity
 	for i := 0; i < 1000; i++ {
 		// status metrics push things to the previous list
 		podStore.addStatus(metric, pod)

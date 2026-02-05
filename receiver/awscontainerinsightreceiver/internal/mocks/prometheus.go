@@ -79,6 +79,7 @@ func SetupMockPrometheus(tds ...*TestData) (*MockPrometheus, *prometheusreceiver
 	mp := newMockPrometheus(endpoints)
 
 	u, _ := url.Parse(mp.Srv.URL)
+	//nolint:modernize // rangeint: Keeping existing loop pattern for clarity
 	for i := 0; i < len(tds); i++ {
 		job := make(map[string]any)
 		job["job_name"] = tds[i].Name

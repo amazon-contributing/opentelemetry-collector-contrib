@@ -728,7 +728,7 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 	}
 }
 
-func (p *PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
+func (*PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
 	for _, metricName := range PodPhaseMetricNames {
 		metric.AddField(metricName, 0)
 	}
@@ -739,7 +739,7 @@ func (p *PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
 	}
 }
 
-func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
+func (*PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
 	for _, metricName := range PodConditionMetricNames {
 		metric.AddField(metricName, 0)
 	}
@@ -760,12 +760,13 @@ func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
 	}
 }
 
-func (p *PodStore) addPodContainerStatusMetrics(metric CIMetric, pod *corev1.Pod) {
+func (*PodStore) addPodContainerStatusMetrics(metric CIMetric, pod *corev1.Pod) {
 	possibleStatuses := map[string]int{
 		ci.StatusContainerRunning:    0,
 		ci.StatusContainerWaiting:    0,
 		ci.StatusContainerTerminated: 0,
 	}
+	//nolint:gocritic // rangeValCopy: Copying is acceptable here for simplicity
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		switch {
 		case containerStatus.State.Running != nil:

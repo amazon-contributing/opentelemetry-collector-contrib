@@ -35,11 +35,17 @@ func IPv6LinkLocalToMAC(ipv6Addr string) (string, error) {
 
 	// Reconstruct MAC address
 	mac := make(net.HardwareAddr, 6)
+	//nolint:gosec // G602: Slice bounds are checked above (len(interfaceID) != 8)
 	mac[0] = interfaceID[0] ^ 0x02 // XOR with 0b00000010 to invert Universal/Local bit
+	//nolint:gosec // G602: Slice bounds are checked above
 	mac[1] = interfaceID[1]
+	//nolint:gosec // G602: Slice bounds are checked above
 	mac[2] = interfaceID[2]
+	//nolint:gosec // G602: Slice bounds are checked above
 	mac[3] = interfaceID[5]
+	//nolint:gosec // G602: Slice bounds are checked above
 	mac[4] = interfaceID[6]
+	//nolint:gosec // G602: Slice bounds are checked above
 	mac[5] = interfaceID[7]
 
 	return mac.String(), nil

@@ -24,7 +24,7 @@ var (
 
 type mockPodResourcesStore struct{}
 
-func (m mockPodResourcesStore) GetContainerInfo(_, _ string) *stores.ContainerInfo {
+func (mockPodResourcesStore) GetContainerInfo(_, _ string) *stores.ContainerInfo {
 	return &stores.ContainerInfo{
 		PodName:       dummyPodName,
 		ContainerName: dummyContainerName,
@@ -34,7 +34,7 @@ func (m mockPodResourcesStore) GetContainerInfo(_, _ string) *stores.ContainerIn
 
 type mockPodResourcesStoreWithAltResourceName struct{}
 
-func (m mockPodResourcesStoreWithAltResourceName) GetContainerInfo(_, resourceName string) *stores.ContainerInfo {
+func (mockPodResourcesStoreWithAltResourceName) GetContainerInfo(_, resourceName string) *stores.ContainerInfo {
 	if resourceName == neuronDeviceResourceNameAlt {
 		return &stores.ContainerInfo{
 			PodName:       dummyPodNameForAltResource,

@@ -44,7 +44,7 @@ type MockConsumer struct {
 	AdditionalLabels []string
 }
 
-func (m MockConsumer) Capabilities() consumer.Capabilities {
+func (MockConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: false,
 	}

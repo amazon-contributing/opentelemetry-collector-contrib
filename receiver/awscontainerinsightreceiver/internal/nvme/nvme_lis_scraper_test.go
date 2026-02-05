@@ -48,7 +48,7 @@ type mockLisConsumer struct {
 	}
 }
 
-func (m mockLisConsumer) Capabilities() consumer.Capabilities {
+func (mockLisConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: false,
 	}

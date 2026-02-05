@@ -415,7 +415,7 @@ func (r *sysfsReaderImpl) EfaDataExists() (bool, error) {
 	return true, nil
 }
 
-func (r *sysfsReaderImpl) ListDevices() ([]efaDeviceName, error) {
+func (*sysfsReaderImpl) ListDevices() ([]efaDeviceName, error) {
 	dirs, err := os.ReadDir(efaPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list EFA devices at %q: %w", efaPath, err)
@@ -432,7 +432,7 @@ func (r *sysfsReaderImpl) ListDevices() ([]efaDeviceName, error) {
 	return result, nil
 }
 
-func (r *sysfsReaderImpl) ListPorts(deviceName efaDeviceName) ([]string, error) {
+func (*sysfsReaderImpl) ListPorts(deviceName efaDeviceName) ([]string, error) {
 	portsPath := filepath.Join(efaPath, string(deviceName), "ports")
 	portDirs, err := os.ReadDir(portsPath)
 	if err != nil {
@@ -450,12 +450,12 @@ func (r *sysfsReaderImpl) ListPorts(deviceName efaDeviceName) ([]string, error) 
 	return result, nil
 }
 
-func (r *sysfsReaderImpl) ReadCounter(deviceName efaDeviceName, port, counter string) (uint64, error) {
+func (*sysfsReaderImpl) ReadCounter(deviceName efaDeviceName, port, counter string) (uint64, error) {
 	path := filepath.Join(efaPath, string(deviceName), "ports", port, "hw_counters", counter)
 	return readUint64ValueFromFile(path)
 }
 
-func (r *sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
+func (*sysfsReaderImpl) GetMACAddressFromDeviceName(deviceName efaDeviceName) (string, error) {
 	// Construct sysfs path for GID
 	gidPath := fmt.Sprintf("/sys/class/infiniband/%s/ports/1/gids/0", string(deviceName))
 

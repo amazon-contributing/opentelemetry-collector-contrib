@@ -205,6 +205,7 @@ func (k *K8sAPIServer) getNamespaceMetrics(clusterName, timestampNs string) []pm
 			attributes["NodeName"] = k.nodeName
 		}
 		attributes[ci.SourcesKey] = "[\"apiserver\"]"
+		//nolint:gocritic // sprintfQuotedString: Keeping existing format for consistency
 		attributes[ci.Kubernetes] = fmt.Sprintf("{\"namespace_name\":\"%s\"}", namespace)
 		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
 		metrics = append(metrics, md)
@@ -359,6 +360,7 @@ func (k *K8sAPIServer) getPendingPodStatusMetrics(clusterName, timestampNs strin
 	podKeyToServiceNamesMap := k.leaderElection.epClient.PodKeyToServiceNames()
 
 	for _, podInfo := range podsList {
+		//nolint:gocritic // nestingReduce: Keeping existing structure for readability
 		if podInfo.Phase == v1.PodPending {
 			fields := map[string]any{}
 
@@ -412,6 +414,7 @@ func (k *K8sAPIServer) getKubernetesBlob(pod *k8sclient.PodInfo, kubernetesBlob 
 	var owners []any
 	podName := ""
 	for _, owner := range pod.OwnerReferences {
+		//nolint:gocritic // nestingReduce: Keeping existing structure for readability
 		if owner.Kind != "" && owner.Name != "" {
 			kind := owner.Kind
 			name := owner.Name
@@ -452,6 +455,7 @@ func (k *K8sAPIServer) getKubernetesBlob(pod *k8sclient.PodInfo, kubernetesBlob 
 	}
 
 	labels := make(map[string]string)
+	//nolint:modernize // mapsloop: Keeping existing pattern for clarity
 	for k, v := range pod.Labels {
 		labels[k] = v
 	}
