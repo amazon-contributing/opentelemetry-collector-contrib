@@ -38,13 +38,13 @@ type ConnAttr interface {
 // Conn implements connAttr interface.
 type Conn struct{}
 
-func (c *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
+func (_ *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
 	region, err := ec2metadata.New(s, &aws.Config{
 		Retryer:                   override.NewIMDSRetryer(imdsRetries),
 		EC2MetadataEnableFallback: aws.Bool(false),
 	}).Region()
 	if err == nil {
-		return region, err
+		return region, nil
 	}
 	return ec2metadata.New(s, &aws.Config{}).Region()
 }
@@ -263,7 +263,7 @@ func ProxyServerTransport(logger *zap.Logger, config *AWSSessionSettings) (*http
 	return transport, nil
 }
 
-func (c *Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region string) (*session.Session, error) {
+func (_ *Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region string) (*session.Session, error) {
 	var s *session.Session
 	var err error
 	if cfg.RoleARN == "" {
@@ -415,7 +415,7 @@ func GetDefaultSession(logger *zap.Logger, cfg *AWSSessionSettings) (*session.Se
 
 func getRootCredentials(cfg *AWSSessionSettings) *credentials.Credentials {
 	credentialProviderChain := getCredentialProviderChain(cfg)
-	for i := 0; i < len(credentialProviderChain); i++ {
+	for i := range len(credentialProviderChain) {
 		if credentialProviderChain[i] != nil {
 			return credentials.NewCredentials(credentialProviderChain[i])
 		}

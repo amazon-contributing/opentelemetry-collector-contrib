@@ -223,7 +223,6 @@ func (c *Cadvisor) GetMetrics() []pmetric.Metrics {
 	}
 
 	if c.containerOrchestrator == ci.ECS {
-		results = out
 		c.addECSMetrics(results)
 	}
 
