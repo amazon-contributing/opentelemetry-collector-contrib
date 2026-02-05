@@ -89,7 +89,7 @@ func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*stores.CI
 		containerID := fmt.Sprintf("%s-%s", pod.PodRef.UID, container.Name)
 		tags[ci.ContainerIDkey] = containerID
 
-		rawMetric := extractors.ConvertContainerToRaw(*container, *pod)
+		rawMetric := extractors.ConvertContainerToRaw(*container, pod)
 		tags[ci.Timestamp] = strconv.FormatInt(rawMetric.Time.UnixNano(), 10)
 
 		for _, extractor := range sp.metricExtractors {

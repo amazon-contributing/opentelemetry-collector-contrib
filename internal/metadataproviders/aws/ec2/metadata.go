@@ -10,7 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/request" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 )
 
 type Provider interface {
@@ -64,7 +64,7 @@ func (c *metadataClient) Get(ctx context.Context) (imds.InstanceIdentityDocument
 	return output.InstanceIdentityDocument, nil
 }
 
-func (c *metadataClient) GetHandlers() *request.Handlers {
+func (*metadataClient) GetHandlers() *request.Handlers {
 	handlers := &request.Handlers{}
 	return handlers
 }
