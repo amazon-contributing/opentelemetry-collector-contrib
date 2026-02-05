@@ -183,7 +183,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.mongodb.org/mongo-driver v1.17.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/collector v0.143.0 // indirect
+	go.opentelemetry.io/collector/client v1.49.0 // indirect
 	go.opentelemetry.io/collector/component/componentstatus v0.143.0 // indirect
 	go.opentelemetry.io/collector/config/configauth v1.49.0 // indirect
 	go.opentelemetry.io/collector/config/configcompression v1.49.0 // indirect
