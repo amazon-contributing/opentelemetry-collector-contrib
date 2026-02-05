@@ -40,7 +40,7 @@ func TestCases() []HistogramTestCase {
 	// Create large bucket arrays with 11 items per bucket
 	boundaries125 := make([]float64, 125)
 	counts125 := make([]uint64, 126)
-	for i := 0; i < 125; i++ {
+	for i := range 125 {
 		boundaries125[i] = float64(i+1) * 10
 		counts125[i] = 11
 	}
@@ -48,7 +48,7 @@ func TestCases() []HistogramTestCase {
 
 	boundaries175 := make([]float64, 175)
 	counts175 := make([]uint64, 176)
-	for i := 0; i < 175; i++ {
+	for i := range 175 {
 		boundaries175[i] = float64(i+1) * 10
 		counts175[i] = 11
 	}
@@ -56,7 +56,7 @@ func TestCases() []HistogramTestCase {
 
 	boundaries225 := make([]float64, 225)
 	counts225 := make([]uint64, 226)
-	for i := 0; i < 225; i++ {
+	for i := range 225 {
 		boundaries225[i] = float64(i+1) * 10
 		counts225[i] = 11
 	}
@@ -64,7 +64,7 @@ func TestCases() []HistogramTestCase {
 
 	boundaries325 := make([]float64, 325)
 	counts325 := make([]uint64, 326)
-	for i := 0; i < 325; i++ {
+	for i := range 325 {
 		boundaries325[i] = float64(i+1) * 10
 		counts325[i] = 11
 	}

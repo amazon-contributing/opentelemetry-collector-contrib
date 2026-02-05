@@ -190,7 +190,7 @@ func BenchmarkCheckValidity(b *testing.B) {
 	dp.BucketCounts().FromRaw([]uint64{20, 30, 25, 15, 8, 2})
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		assert.NoError(b, CheckValidity(dp))
 	}
 }
