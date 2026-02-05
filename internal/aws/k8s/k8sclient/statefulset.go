@@ -24,11 +24,11 @@ type StatefulSetClient interface {
 
 type noOpStatefulSetClient struct{}
 
-func (nd *noOpStatefulSetClient) StatefulSetInfos() []*StatefulSetInfo {
+func (*noOpStatefulSetClient) StatefulSetInfos() []*StatefulSetInfo {
 	return []*StatefulSetInfo{}
 }
 
-func (nd *noOpStatefulSetClient) shutdown() {
+func (*noOpStatefulSetClient) shutdown() {
 }
 
 type statefulSetClientOption func(*statefulSetClient)

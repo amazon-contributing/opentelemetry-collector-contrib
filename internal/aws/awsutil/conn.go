@@ -38,7 +38,7 @@ type ConnAttr interface {
 // Conn implements connAttr interface.
 type Conn struct{}
 
-func (_ *Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
+func (*Conn) getEC2Region(s *session.Session, imdsRetries int) (string, error) {
 	region, err := ec2metadata.New(s, &aws.Config{
 		Retryer:                   override.NewIMDSRetryer(imdsRetries),
 		EC2MetadataEnableFallback: aws.Bool(false),
@@ -263,7 +263,7 @@ func ProxyServerTransport(logger *zap.Logger, config *AWSSessionSettings) (*http
 	return transport, nil
 }
 
-func (_ *Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region string) (*session.Session, error) {
+func (*Conn) newAWSSession(logger *zap.Logger, cfg *AWSSessionSettings, region string) (*session.Session, error) {
 	var s *session.Session
 	var err error
 	if cfg.RoleARN == "" {
