@@ -76,7 +76,8 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 		// the target allocator is disabled
 		return nil
 	}
-	if err := m.setHTTPClient(ctx); err != nil {
+	err = m.setHTTPClient(ctx)
+	if err != nil {
 		return err
 	}
 	m.settings.Logger.Info("Starting target allocator discovery")
