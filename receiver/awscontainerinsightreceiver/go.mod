@@ -28,8 +28,8 @@ require (
 	go.opentelemetry.io/collector/confmap/xconfmap v0.143.0
 	go.opentelemetry.io/collector/consumer v1.49.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.143.0
-	go.opentelemetry.io/collector/featuregate v1.50.0
-	go.opentelemetry.io/collector/pdata v1.50.0
+	go.opentelemetry.io/collector/featuregate v1.49.0
+	go.opentelemetry.io/collector/pdata v1.49.0
 	go.opentelemetry.io/collector/receiver v1.49.0
 	go.opentelemetry.io/collector/receiver/receivertest v0.143.0
 	go.uber.org/goleak v1.3.0
