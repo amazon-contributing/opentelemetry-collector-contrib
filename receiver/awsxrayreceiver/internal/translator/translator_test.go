@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/xray"
+	"github.com/aws/aws-sdk-go/aws"          //nolint:staticcheck // AWS SDK v1 migration tracked separately
+	"github.com/aws/aws-sdk-go/service/xray" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"

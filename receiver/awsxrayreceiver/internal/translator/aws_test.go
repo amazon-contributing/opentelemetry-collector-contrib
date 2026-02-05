@@ -6,7 +6,7 @@ package translator
 import (
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws" //nolint:staticcheck // AWS SDK v1 migration tracked separately
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 
