@@ -89,7 +89,7 @@ func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*stores.CI
 		containerID := fmt.Sprintf("%s-%s", pod.PodRef.UID, container.Name)
 		tags[ci.ContainerIDkey] = containerID
 
-		rawMetric := extractors.ConvertContainerToRaw(container, pod)
+		rawMetric := extractors.ConvertContainerToRaw(*container, *pod)
 		tags[ci.Timestamp] = strconv.FormatInt(rawMetric.Time.UnixNano(), 10)
 
 		for _, extractor := range sp.metricExtractors {
@@ -123,7 +123,7 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*stores.CIMe
 		tags[ci.K8sPodNameKey] = pod.PodRef.Name
 		tags[ci.K8sNamespace] = pod.PodRef.Namespace
 
-		rawMetric := extractors.ConvertPodToRaw(pod)
+		rawMetric := extractors.ConvertPodToRaw(*pod)
 		tags[ci.Timestamp] = strconv.FormatInt(rawMetric.Time.UnixNano(), 10)
 
 		for _, extractor := range sp.metricExtractors {
@@ -136,7 +136,7 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*stores.CIMe
 		}
 		metrics = append(metrics, metricsPerPod...)
 
-		containerMetrics, err := sp.getContainerMetrics(pod)
+		containerMetrics, err := sp.getContainerMetrics(*pod)
 		if err != nil {
 			sp.logger.Error("failed to get container metrics, ", zap.Error(err))
 			return containerMetrics, err

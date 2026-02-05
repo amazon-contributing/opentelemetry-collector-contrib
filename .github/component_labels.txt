@@ -74,6 +74,7 @@ exporter/tinybirdexporter exporter/tinybird
 exporter/zipkinexporter exporter/zipkin
 extension/ackextension extension/ack
 extension/asapauthextension extension/asapauth
+extension/awsmiddleware extension/awsmiddleware
 extension/awsproxy extension/awsproxy
 extension/azureauthextension extension/azureauth
 extension/basicauthextension extension/basicauth
@@ -143,6 +144,7 @@ internal/sharedcomponent internal/sharedcomponent
 internal/splunk internal/splunk
 internal/sqlquery internal/sqlquery
 internal/tools internal/tools
+override/aws override/aws
 pkg/batchperresourceattr pkg/batchperresourceattr
 pkg/batchpersignal pkg/batchpersignal
 pkg/core/xidutils pkg/core/xidutils
@@ -220,6 +222,7 @@ receiver/apachereceiver receiver/apache
 receiver/apachesparkreceiver receiver/apachespark
 receiver/awscloudwatchreceiver receiver/awscloudwatch
 receiver/awscontainerinsightreceiver receiver/awscontainerinsight
+receiver/awscontainerinsightskueuereceiver receiver/awscontainerinsightskueue
 receiver/awsecscontainermetricsreceiver receiver/awsecscontainermetrics
 receiver/awsfirehosereceiver receiver/awsfirehose
 receiver/awslambdareceiver receiver/awslambda
