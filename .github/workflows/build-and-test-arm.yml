@@ -106,7 +106,7 @@ jobs:
       - run: ./.github/workflows/scripts/check-disk-space.sh
   arm-unittest:
     if: ${{ github.actor != 'dependabot[bot]' && (!contains(github.event.pull_request.labels.*.name, 'Skip ARM') || github.event_name == 'push' || github.event_name == 'merge_group') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [arm-unittest-matrix]
     steps:
       - name: Print result
@@ -122,7 +122,7 @@ jobs:
           fi
   flakytests-generate-issues:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [arm-unittest-matrix]
     permissions:
       issues: write

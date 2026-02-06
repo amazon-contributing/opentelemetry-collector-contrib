@@ -178,7 +178,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-2025, windows-11-arm]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [windows-unittest-matrix]
     permissions:
       issues: write

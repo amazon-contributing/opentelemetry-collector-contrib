@@ -18,7 +18,7 @@ jobs:
     permissions:
       issues: write # required for creating and managing issue labels
       pull-requests: write # required for creating and managing PR labels
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ github.repository_owner == 'open-telemetry' }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6

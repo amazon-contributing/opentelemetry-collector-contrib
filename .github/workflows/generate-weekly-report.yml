@@ -15,7 +15,7 @@ jobs:
   get_issues:
     permissions:
       issues: write # required for creating weekly report issues
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ github.repository_owner == 'open-telemetry' }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6

@@ -26,7 +26,7 @@ concurrency:
 jobs:
   setup-environment:
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -44,7 +44,7 @@ jobs:
         run: make install-tools
       - run: ./.github/workflows/scripts/check-disk-space.sh
   check-collector-module-version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -75,7 +75,7 @@ jobs:
           - pkg
           - cmd-0
           - other
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -96,7 +96,7 @@ jobs:
       - run: ./.github/workflows/scripts/check-disk-space.sh
   lint:
     if: ${{ github.actor != 'dependabot[bot]' && always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment, lint-matrix]
     steps:
       - name: Print result
@@ -130,7 +130,7 @@ jobs:
           - internal
           - pkg
           - cmd-0
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [setup-environment]
     steps:
@@ -152,7 +152,7 @@ jobs:
         run: make -j2 gogovulncheck GROUP=${{ matrix.group }}
       - run: ./.github/workflows/scripts/check-disk-space.sh
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -227,7 +227,7 @@ jobs:
       fail-fast: false
       matrix:
         go-version: [stable, oldstable]
-        runner: [ubuntu-latest]
+        runner: [ubuntu-24.04]
         group:
           - receiver-0
           - receiver-1
@@ -309,7 +309,7 @@ jobs:
 
   unittest:
     if: ${{ github.actor != 'dependabot[bot]' && always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment, unittest-matrix]
     steps:
       - name: Print result
@@ -324,7 +324,7 @@ jobs:
             false
           fi
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [unittest]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -357,7 +357,7 @@ jobs:
           - internal
           - pkg
           - cmd-0
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -387,7 +387,7 @@ jobs:
           # its integration tests `go test -exec sudo -run Sudo -tags=integration`
           - extension/cgroupruntimeextension
           - receiver/icmpcheckreceiver
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -411,7 +411,7 @@ jobs:
 
   integration-tests:
     if: ${{ github.actor != 'dependabot[bot]' && always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment, integration-tests-matrix, integration-sudo-tests-matrix]
     steps:
       - name: Print result
@@ -427,7 +427,7 @@ jobs:
           fi
 
   correctness-traces:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -447,7 +447,7 @@ jobs:
         run: make -C testbed run-correctness-traces-tests
       - run: ./.github/workflows/scripts/check-disk-space.sh
   correctness-metrics:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -468,7 +468,7 @@ jobs:
       - run: ./.github/workflows/scripts/check-disk-space.sh
 
   build-examples:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -479,7 +479,7 @@ jobs:
       - run: ./.github/workflows/scripts/check-disk-space.sh
 
   cross-compile:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [setup-environment]
     strategy:
       fail-fast: false
@@ -545,7 +545,7 @@ jobs:
       - run: ./.github/workflows/scripts/check-disk-space.sh
 
   publish-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [lint, unittest, integration-tests]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -562,7 +562,7 @@ jobs:
         id: check
         run: ./.github/workflows/scripts/verify-dist-files-exist.sh
   publish-dev:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [lint, unittest, integration-tests]
     if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.repository == 'open-telemetry/opentelemetry-collector-contrib'
     steps:
@@ -603,7 +603,7 @@ jobs:
           docker push otel/opentelemetry-collector-contrib-dev:latest
       - run: ./.github/workflows/scripts/check-disk-space.sh
   publish-stable:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [lint, unittest, integration-tests]
     env:
       RELEASE_NOTES: release-notes.md
@@ -660,7 +660,7 @@ jobs:
     # named "next release" in its place
     permissions:
       issues: write # required for managing milestones
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [publish-stable]
     if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'open-telemetry/opentelemetry-collector-contrib'
     steps:
@@ -691,7 +691,7 @@ jobs:
 
   flakytests-generate-issues:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [unittest-matrix]
     permissions:
       issues: write

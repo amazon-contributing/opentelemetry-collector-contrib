@@ -108,7 +108,7 @@ jobs:
       - run: ./.github/workflows/scripts/check-disk-space.sh
 
   update-benchmarks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [loadtest]
     permissions:
       # deployments permission to deploy GitHub pages website
