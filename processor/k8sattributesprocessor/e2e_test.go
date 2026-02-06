@@ -6,6 +6,7 @@
 package k8sattributesprocessor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1941,17 +1942,17 @@ func startUpSinks(t *testing.T, mc *consumertest.MetricsSink, tc *consumertest.T
 	cfg := f.CreateDefaultConfig().(*otlpreceiver.Config)
 	getOrInsertDefault(t, &cfg.GRPC).NetAddr.Endpoint = "0.0.0.0:4317"
 
-	_, err := f.CreateMetrics(t.Context(), receivertest.NewNopSettings(f.Type()), cfg, mc)
+	_, err := f.CreateMetrics(context.Background(), receivertest.NewNopSettings(f.Type()), cfg, mc)
 	require.NoError(t, err, "failed creating metrics receiver")
-	_, err = f.CreateTraces(t.Context(), receivertest.NewNopSettings(f.Type()), cfg, tc)
+	_, err = f.CreateTraces(context.Background(), receivertest.NewNopSettings(f.Type()), cfg, tc)
 	require.NoError(t, err, "failed creating traces receiver")
-	_, err = f.CreateLogs(t.Context(), receivertest.NewNopSettings(f.Type()), cfg, lc)
+	_, err = f.CreateLogs(context.Background(), receivertest.NewNopSettings(f.Type()), cfg, lc)
 	require.NoError(t, err, "failed creating logs receiver")
-	rcvr, err := f.(xreceiver.Factory).CreateProfiles(t.Context(), receivertest.NewNopSettings(f.Type()), cfg, pc)
+	rcvr, err := f.(xreceiver.Factory).CreateProfiles(context.Background(), receivertest.NewNopSettings(f.Type()), cfg, pc)
 	require.NoError(t, err, "failed creating profiles receiver")
-	require.NoError(t, rcvr.Start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(t, rcvr.Start(context.Background(), componenttest.NewNopHost()))
 	return func() {
-		assert.NoError(t, rcvr.Shutdown(t.Context()))
+		assert.NoError(t, rcvr.Shutdown(context.Background()))
 	}
 }
 
