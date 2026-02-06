@@ -2,9 +2,7 @@ name: "CodeQL Analysis"
 
 on:
   push:
-    branches:
-      - main
-      - 'aws-cwa-*'
+    branches: [main]
     paths-ignore:
       - "**/README.md"
 
