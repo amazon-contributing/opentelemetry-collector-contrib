@@ -27,25 +27,8 @@ type Config struct {
 	HTTPScrapeConfig        *PromHTTPClientConfig `mapstructure:"http_scrape_config"`
 }
 
-var _ confmap.Unmarshaler = (*Config)(nil)
-
 func getPodName() string {
 	return os.Getenv("POD_NAME")
-}
-
-func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
-	err := componentParser.Unmarshal(cfg)
-	if err != nil {
-		return err
-	}
-	if collectorID := cfg.CollectorID; collectorID == "" {
-		podName := getPodName()
-		if podName == "" {
-			return errors.New("POD_NAME env var not found ")
-		}
-		cfg.CollectorID = podName
-	}
-	return nil
 }
 
 // PromHTTPSDConfig is a redeclaration of promHTTP.SDConfig because we need custom unmarshaling
@@ -57,8 +40,22 @@ func (cfg *Config) Validate() error {
 	if _, err := url.ParseRequestURI(cfg.Endpoint); err != nil {
 		return fmt.Errorf("TargetAllocator endpoint is not valid: %s", cfg.Endpoint)
 	}
-	// ensure valid collectorID without variables
-	if cfg.CollectorID == "" || strings.Contains(cfg.CollectorID, "${") {
+
+	// The POD_NAME fallback for CollectorID is intentionally placed here in Validate()
+	// rather than in Unmarshal(). When Config is wrapped in configoptional.Optional
+	// (as it is in the receiver's top-level Config struct), confmap's internal
+	// skipTopLevelUnmarshaler mechanism causes Config.Unmarshal to be silently skipped
+	// during decoding. Validate() is always called by the collector pipeline regardless
+	// of how the config was decoded, making it a reliable place for this fallback.
+	if cfg.CollectorID == "" {
+		podName := getPodName()
+		if podName == "" {
+			return errors.New("CollectorID is not set and POD_NAME env var not found")
+		}
+		cfg.CollectorID = podName
+	}
+
+	if strings.Contains(cfg.CollectorID, "${") {
 		return errors.New("CollectorID is not a valid ID")
 	}
 

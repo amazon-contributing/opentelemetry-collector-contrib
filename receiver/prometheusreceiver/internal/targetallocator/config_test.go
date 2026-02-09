@@ -146,6 +146,40 @@ func TestConfigValidate_InvalidEndpoint(t *testing.T) {
 	}
 }
 
+func TestConfigValidate_CollectorIDFromPodName(t *testing.T) {
+	t.Run("falls back to POD_NAME when CollectorID is empty", func(t *testing.T) {
+		t.Setenv("POD_NAME", "my-collector-pod")
+		cfg := &Config{
+			CollectorID: "",
+		}
+		cfg.Endpoint = "http://localhost:8080"
+		err := xconfmap.Validate(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "my-collector-pod", cfg.CollectorID)
+	})
+
+	t.Run("errors when CollectorID empty and POD_NAME not set", func(t *testing.T) {
+		t.Setenv("POD_NAME", "")
+		cfg := &Config{
+			CollectorID: "",
+		}
+		cfg.Endpoint = "http://localhost:8080"
+		err := xconfmap.Validate(cfg)
+		assert.ErrorContains(t, err, "CollectorID is not set and POD_NAME env var not found")
+	})
+
+	t.Run("does not override explicit CollectorID", func(t *testing.T) {
+		t.Setenv("POD_NAME", "should-not-be-used")
+		cfg := &Config{
+			CollectorID: "explicit-id",
+		}
+		cfg.Endpoint = "http://localhost:8080"
+		err := xconfmap.Validate(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "explicit-id", cfg.CollectorID)
+	})
+}
+
 func TestConvertTLSVersion(t *testing.T) {
 	tests := []struct {
 		name        string
