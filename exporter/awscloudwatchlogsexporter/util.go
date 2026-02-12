@@ -31,14 +31,17 @@ func isPatternValid(s string) (bool, string) {
 	}
 
 	re := regexp.MustCompile(`\{([^{}]*)\}`)
-	matches := re.FindAllStringSubmatch(s, -1)
+	matches := re.FindAllStringSubmatchIndex(s, -1)
 
 	for _, match := range matches {
-		if len(match) > 1 {
-			key := match[1]
-			if _, exists := patternKeyToAttributeMap[key]; !exists {
-				return false, key
-			}
+		// match[0] is the start index of the full match `{...}`
+		// Skip if preceded by '$' as env vars should not be considered as placeholders
+		if match[0] > 0 && s[match[0]-1] == '$' {
+			continue
+		}
+		key := s[match[2]:match[3]]
+		if _, exists := patternKeyToAttributeMap[key]; !exists {
+			return false, key
 		}
 	}
 	return true, ""

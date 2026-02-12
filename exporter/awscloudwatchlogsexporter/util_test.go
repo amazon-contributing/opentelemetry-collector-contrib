@@ -216,6 +216,36 @@ func TestIsPatternValid(t *testing.T) {
 			pattern:  "prefix-{}-suffix",
 			expected: false,
 		},
+		{
+			name:     "env var syntax ${FOO} should be valid",
+			pattern:  "${ENV_LOG_STREAM_NAME}",
+			expected: true,
+		},
+		{
+			name:     "env var with scheme syntax ${env:FOO} should be valid",
+			pattern:  "${env:LOG_STREAM_NAME}",
+			expected: true,
+		},
+		{
+			name:     "mixed env var and valid placeholder",
+			pattern:  "${ENV_PREFIX}-{ClusterName}",
+			expected: true,
+		},
+		{
+			name:     "mixed env var and invalid placeholder",
+			pattern:  "${ENV_PREFIX}-{RandomName}",
+			expected: false,
+		},
+		{
+			name:     "multiple env vars should be valid",
+			pattern:  "${ENV_ONE}/${ENV_TWO}",
+			expected: true,
+		},
+		{
+			name:     "env var in path context",
+			pattern:  "/aws/logs/${ENV_LOG_STREAM_NAME}/stream",
+			expected: true,
+		},
 	}
 
 	for _, tc := range tests {
