@@ -3,6 +3,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsefa
 go 1.24.11
 
 require (
+	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v1.30.0
 	go.opentelemetry.io/collector/component/componenttest v0.124.0
@@ -15,6 +16,7 @@ require (
 	go.opentelemetry.io/collector/receiver/receivertest v0.124.0
 	go.opentelemetry.io/collector/scraper v0.124.0
 	go.opentelemetry.io/collector/scraper/scraperhelper v0.124.0
+	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
 )
 

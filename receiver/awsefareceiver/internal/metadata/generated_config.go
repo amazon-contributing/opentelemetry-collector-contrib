@@ -28,40 +28,66 @@ func (ms *MetricConfig) Unmarshal(parser *confmap.Conf) error {
 
 // MetricsConfig provides config for awsefareceiver metrics.
 type MetricsConfig struct {
-	NodeEfaImpairedRemoteConnEvents  MetricConfig `mapstructure:"node_efa_impaired_remote_conn_events"`
-	NodeEfaRdmaReadBytes             MetricConfig `mapstructure:"node_efa_rdma_read_bytes"`
-	NodeEfaRdmaWriteBytes            MetricConfig `mapstructure:"node_efa_rdma_write_bytes"`
-	NodeEfaRdmaWriteRecvBytes        MetricConfig `mapstructure:"node_efa_rdma_write_recv_bytes"`
-	NodeEfaRetransBytes              MetricConfig `mapstructure:"node_efa_retrans_bytes"`
-	NodeEfaRetransPkts               MetricConfig `mapstructure:"node_efa_retrans_pkts"`
-	NodeEfaRetransTimeoutEvents      MetricConfig `mapstructure:"node_efa_retrans_timeout_events"`
-	NodeEfaRxBytes                   MetricConfig `mapstructure:"node_efa_rx_bytes"`
-	NodeEfaRxDropped                 MetricConfig `mapstructure:"node_efa_rx_dropped"`
-	NodeEfaTxBytes                   MetricConfig `mapstructure:"node_efa_tx_bytes"`
-	NodeEfaUnresponsiveRemoteEvents  MetricConfig `mapstructure:"node_efa_unresponsive_remote_events"`
+	NodeEfaImpairedRemoteConnEvents MetricConfig `mapstructure:"node_efa_impaired_remote_conn_events"`
+	NodeEfaRdmaReadBytes            MetricConfig `mapstructure:"node_efa_rdma_read_bytes"`
+	NodeEfaRdmaWriteBytes           MetricConfig `mapstructure:"node_efa_rdma_write_bytes"`
+	NodeEfaRdmaWriteRecvBytes       MetricConfig `mapstructure:"node_efa_rdma_write_recv_bytes"`
+	NodeEfaRetransBytes             MetricConfig `mapstructure:"node_efa_retrans_bytes"`
+	NodeEfaRetransPkts              MetricConfig `mapstructure:"node_efa_retrans_pkts"`
+	NodeEfaRetransTimeoutEvents     MetricConfig `mapstructure:"node_efa_retrans_timeout_events"`
+	NodeEfaRxBytes                  MetricConfig `mapstructure:"node_efa_rx_bytes"`
+	NodeEfaRxDropped                MetricConfig `mapstructure:"node_efa_rx_dropped"`
+	NodeEfaTxBytes                  MetricConfig `mapstructure:"node_efa_tx_bytes"`
+	NodeEfaUnresponsiveRemoteEvents MetricConfig `mapstructure:"node_efa_unresponsive_remote_events"`
 }
 
 func DefaultMetricsConfig() MetricsConfig {
 	return MetricsConfig{
-		NodeEfaImpairedRemoteConnEvents:  MetricConfig{Enabled: true},
-		NodeEfaRdmaReadBytes:             MetricConfig{Enabled: true},
-		NodeEfaRdmaWriteBytes:            MetricConfig{Enabled: true},
-		NodeEfaRdmaWriteRecvBytes:        MetricConfig{Enabled: true},
-		NodeEfaRetransBytes:              MetricConfig{Enabled: true},
-		NodeEfaRetransPkts:               MetricConfig{Enabled: true},
-		NodeEfaRetransTimeoutEvents:      MetricConfig{Enabled: true},
-		NodeEfaRxBytes:                   MetricConfig{Enabled: true},
-		NodeEfaRxDropped:                 MetricConfig{Enabled: true},
-		NodeEfaTxBytes:                   MetricConfig{Enabled: true},
-		NodeEfaUnresponsiveRemoteEvents:  MetricConfig{Enabled: true},
+		NodeEfaImpairedRemoteConnEvents: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRdmaReadBytes: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRdmaWriteBytes: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRdmaWriteRecvBytes: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRetransBytes: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRetransPkts: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRetransTimeoutEvents: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRxBytes: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaRxDropped: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaTxBytes: MetricConfig{
+			Enabled: true,
+		},
+		NodeEfaUnresponsiveRemoteEvents: MetricConfig{
+			Enabled: true,
+		},
 	}
 }
 
 // ResourceAttributeConfig provides common config for a particular resource attribute.
 type ResourceAttributeConfig struct {
 	Enabled bool `mapstructure:"enabled"`
-
+	// Experimental: MetricsInclude defines a list of filters for attribute values.
+	// If the list is not empty, only metrics with matching resource attribute values will be emitted.
 	MetricsInclude []filter.Config `mapstructure:"metrics_include"`
+	// Experimental: MetricsExclude defines a list of filters for attribute values.
+	// If the list is not empty, metrics with matching resource attribute values will not be emitted.
+	// MetricsInclude has higher priority than MetricsExclude.
 	MetricsExclude []filter.Config `mapstructure:"metrics_exclude"`
 
 	enabledSetByUser bool
@@ -87,8 +113,12 @@ type ResourceAttributesConfig struct {
 
 func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 	return ResourceAttributesConfig{
-		Device: ResourceAttributeConfig{Enabled: true},
-		Port:   ResourceAttributeConfig{Enabled: true},
+		Device: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		Port: ResourceAttributeConfig{
+			Enabled: true,
+		},
 	}
 }
 

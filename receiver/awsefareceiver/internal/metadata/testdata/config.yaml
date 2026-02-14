@@ -1,0 +1,79 @@
+default:
+all_set:
+  metrics:
+    node_efa_impaired_remote_conn_events:
+      enabled: true
+    node_efa_rdma_read_bytes:
+      enabled: true
+    node_efa_rdma_write_bytes:
+      enabled: true
+    node_efa_rdma_write_recv_bytes:
+      enabled: true
+    node_efa_retrans_bytes:
+      enabled: true
+    node_efa_retrans_pkts:
+      enabled: true
+    node_efa_retrans_timeout_events:
+      enabled: true
+    node_efa_rx_bytes:
+      enabled: true
+    node_efa_rx_dropped:
+      enabled: true
+    node_efa_tx_bytes:
+      enabled: true
+    node_efa_unresponsive_remote_events:
+      enabled: true
+  resource_attributes:
+    device:
+      enabled: true
+    port:
+      enabled: true
+none_set:
+  metrics:
+    node_efa_impaired_remote_conn_events:
+      enabled: false
+    node_efa_rdma_read_bytes:
+      enabled: false
+    node_efa_rdma_write_bytes:
+      enabled: false
+    node_efa_rdma_write_recv_bytes:
+      enabled: false
+    node_efa_retrans_bytes:
+      enabled: false
+    node_efa_retrans_pkts:
+      enabled: false
+    node_efa_retrans_timeout_events:
+      enabled: false
+    node_efa_rx_bytes:
+      enabled: false
+    node_efa_rx_dropped:
+      enabled: false
+    node_efa_tx_bytes:
+      enabled: false
+    node_efa_unresponsive_remote_events:
+      enabled: false
+  resource_attributes:
+    device:
+      enabled: false
+    port:
+      enabled: false
+filter_set_include:
+  resource_attributes:
+    device:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+    port:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+filter_set_exclude:
+  resource_attributes:
+    device:
+      enabled: true
+      metrics_exclude:
+        - strict: "device-val"
+    port:
+      enabled: true
+      metrics_exclude:
+        - strict: "port-val"

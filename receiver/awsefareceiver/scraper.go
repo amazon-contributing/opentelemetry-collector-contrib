@@ -27,17 +27,39 @@ type efaCounter struct {
 }
 
 var efaCounters = []efaCounter{
-	{"rdma_read_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRdmaReadBytesDataPoint(ts, v) }},
-	{"rdma_write_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRdmaWriteBytesDataPoint(ts, v) }},
-	{"rdma_write_recv_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRdmaWriteRecvBytesDataPoint(ts, v) }},
-	{"rx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRxBytesDataPoint(ts, v) }},
-	{"rx_drops", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRxDroppedDataPoint(ts, v) }},
-	{"tx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaTxBytesDataPoint(ts, v) }},
-	{"retrans_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRetransBytesDataPoint(ts, v) }},
-	{"retrans_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRetransPktsDataPoint(ts, v) }},
-	{"retrans_timeout_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaRetransTimeoutEventsDataPoint(ts, v) }},
-	{"unresponsive_remote_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaUnresponsiveRemoteEventsDataPoint(ts, v) }},
-	{"impaired_remote_conn_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) { mb.RecordNodeEfaImpairedRemoteConnEventsDataPoint(ts, v) }},
+	{"rdma_read_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRdmaReadBytesDataPoint(ts, v)
+	}},
+	{"rdma_write_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRdmaWriteBytesDataPoint(ts, v)
+	}},
+	{"rdma_write_recv_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRdmaWriteRecvBytesDataPoint(ts, v)
+	}},
+	{"rx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRxBytesDataPoint(ts, v)
+	}},
+	{"rx_drops", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRxDroppedDataPoint(ts, v)
+	}},
+	{"tx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaTxBytesDataPoint(ts, v)
+	}},
+	{"retrans_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRetransBytesDataPoint(ts, v)
+	}},
+	{"retrans_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRetransPktsDataPoint(ts, v)
+	}},
+	{"retrans_timeout_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaRetransTimeoutEventsDataPoint(ts, v)
+	}},
+	{"unresponsive_remote_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaUnresponsiveRemoteEventsDataPoint(ts, v)
+	}},
+	{"impaired_remote_conn_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
+		mb.RecordNodeEfaImpairedRemoteConnEventsDataPoint(ts, v)
+	}},
 }
 
 type efaScraper struct {

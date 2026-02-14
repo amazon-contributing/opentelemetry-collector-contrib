@@ -22,7 +22,7 @@ func setupTestSysfs(t *testing.T) string {
 	root := t.TempDir()
 
 	hwCountersPath := filepath.Join(root, "sys/class/infiniband/rdmap0s31/ports/1/hw_counters")
-	require.NoError(t, os.MkdirAll(hwCountersPath, 0755))
+	require.NoError(t, os.MkdirAll(hwCountersPath, 0o755))
 
 	counters := map[string]string{
 		"rdma_read_bytes":             "1234",
@@ -39,7 +39,7 @@ func setupTestSysfs(t *testing.T) string {
 	}
 
 	for name, value := range counters {
-		require.NoError(t, os.WriteFile(filepath.Join(hwCountersPath, name), []byte(value+"\n"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(hwCountersPath, name), []byte(value+"\n"), 0o600))
 	}
 
 	return root
@@ -119,7 +119,7 @@ func TestSysFsReaderReadCounterMissing(t *testing.T) {
 func TestReadUint64FromFileNAPMA(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "counter")
-	require.NoError(t, os.WriteFile(path, []byte("N/A (no PMA)\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("N/A (no PMA)\n"), 0o600))
 
 	val, err := readUint64FromFile(path)
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestNewSysFsReaderWithoutHostPath(t *testing.T) {
 func TestReadUint64FromFileInvalidContent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "counter")
-	require.NoError(t, os.WriteFile(path, []byte("not_a_number\n"), 0644))
+	require.NoError(t, os.WriteFile(path, []byte("not_a_number\n"), 0o600))
 
 	val, err := readUint64FromFile(path)
 	require.Error(t, err)
@@ -150,9 +150,9 @@ func TestReadUint64FromFileInvalidContent(t *testing.T) {
 func TestReadUint64FromFilePermissionDenied(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "counter")
-	require.NoError(t, os.WriteFile(path, []byte("123\n"), 0644))
-	require.NoError(t, os.Chmod(path, 0000))
-	t.Cleanup(func() { os.Chmod(path, 0644) })
+	require.NoError(t, os.WriteFile(path, []byte("123\n"), 0o600))
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
 
 	val, err := readUint64FromFile(path)
 	require.NoError(t, err)
@@ -162,10 +162,10 @@ func TestReadUint64FromFilePermissionDenied(t *testing.T) {
 func TestListDevicesWithSymlink(t *testing.T) {
 	root := t.TempDir()
 	basePath := filepath.Join(root, "sys/class/infiniband")
-	require.NoError(t, os.MkdirAll(basePath, 0755))
+	require.NoError(t, os.MkdirAll(basePath, 0o755))
 
 	realDevice := filepath.Join(root, "devices", "efa0")
-	require.NoError(t, os.MkdirAll(realDevice, 0755))
+	require.NoError(t, os.MkdirAll(realDevice, 0o755))
 	require.NoError(t, os.Symlink(realDevice, filepath.Join(basePath, "efa0")))
 
 	reader := newTestReader(basePath)
@@ -177,10 +177,10 @@ func TestListDevicesWithSymlink(t *testing.T) {
 func TestListDevicesSymlinkToFile(t *testing.T) {
 	root := t.TempDir()
 	basePath := filepath.Join(root, "sys/class/infiniband")
-	require.NoError(t, os.MkdirAll(basePath, 0755))
+	require.NoError(t, os.MkdirAll(basePath, 0o755))
 
 	filePath := filepath.Join(root, "somefile")
-	require.NoError(t, os.WriteFile(filePath, []byte("data"), 0644))
+	require.NoError(t, os.WriteFile(filePath, []byte("data"), 0o600))
 	require.NoError(t, os.Symlink(filePath, filepath.Join(basePath, "not_a_device")))
 
 	reader := newTestReader(basePath)

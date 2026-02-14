@@ -4,7 +4,6 @@
 package awsefareceiver
 
 import (
-	"context"
 	"errors"
 	"math"
 	"testing"
@@ -125,7 +124,7 @@ func TestScrape(t *testing.T) {
 	s := newScraper(cfg, settings)
 	s.reader = newTestMock()
 
-	metrics, err := s.scrape(context.Background())
+	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
 
 	assert.Equal(t, 2, metrics.ResourceMetrics().Len())
@@ -158,7 +157,7 @@ func TestScrapeNoEfaDevices(t *testing.T) {
 	s := newScraper(cfg, settings)
 	s.reader = &mockSysFsReader{exists: false}
 
-	metrics, err := s.scrape(context.Background())
+	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, 0, metrics.ResourceMetrics().Len())
 }
@@ -168,7 +167,7 @@ func TestStart(t *testing.T) {
 	settings := receivertest.NewNopSettings(metadata.Type)
 	s := newScraper(cfg, settings)
 
-	err := s.start(context.Background(), componenttest.NewNopHost())
+	err := s.start(t.Context(), componenttest.NewNopHost())
 	require.NoError(t, err)
 	assert.NotNil(t, s.reader)
 }
@@ -188,7 +187,7 @@ func TestScrapeMetricValues(t *testing.T) {
 		},
 	}
 
-	metrics, err := s.scrape(context.Background())
+	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1, metrics.ResourceMetrics().Len())
 
@@ -210,7 +209,7 @@ func TestScrapeEfaDataExistsError(t *testing.T) {
 	s := newScraper(cfg, settings)
 	s.reader = &mockSysFsReader{exists: false, existsErr: errors.New("permission denied")}
 
-	metrics, err := s.scrape(context.Background())
+	metrics, err := s.scrape(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to check EFA data")
 	assert.Equal(t, 0, metrics.ResourceMetrics().Len())
@@ -232,7 +231,7 @@ func TestScrapePartialDeviceFailure(t *testing.T) {
 		},
 	}
 
-	metrics, err := s.scrape(context.Background())
+	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, 1, metrics.ResourceMetrics().Len())
 }
@@ -257,7 +256,7 @@ func TestScrapeCounterReadError(t *testing.T) {
 		},
 	}
 
-	metrics, err := s.scrape(context.Background())
+	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
 	// efa0 is skipped because readCounters returned an error
 	assert.Equal(t, 1, metrics.ResourceMetrics().Len())
@@ -282,7 +281,7 @@ func TestRecordOverflow(t *testing.T) {
 		},
 	}
 
-	metrics, err := s.scrape(context.Background())
+	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1, metrics.ResourceMetrics().Len())
 

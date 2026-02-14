@@ -4,7 +4,6 @@
 package awsefareceiver
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,7 +31,7 @@ func TestCreateMetricsReceiver(t *testing.T) {
 	settings := receivertest.NewNopSettings(metadata.Type)
 	consumer := consumertest.NewNop()
 
-	recv, err := createMetricsReceiver(context.Background(), settings, cfg, consumer)
+	recv, err := createMetricsReceiver(t.Context(), settings, cfg, consumer)
 	require.NoError(t, err)
 	require.NotNil(t, recv)
 }
