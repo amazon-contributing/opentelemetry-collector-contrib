@@ -46,7 +46,8 @@ func GetScraperConfig(hostInfoProvider hostInfoProvider, collectionInterval time
 		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
-				Role: kubernetes.RoleService,
+				Role:             kubernetes.RoleService,
+				HTTPClientConfig: configutil.DefaultHTTPClientConfig,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
 					IncludeOwnNamespace: true,
 				},

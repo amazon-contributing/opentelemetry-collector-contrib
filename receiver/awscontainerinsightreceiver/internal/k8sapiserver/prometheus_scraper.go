@@ -128,7 +128,7 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 		Scheme:                 "https",
 		MetricsPath:            "/metrics",
 		ServiceDiscoveryConfigs: discovery.Configs{
-			&discovery.StaticConfig{
+			discovery.StaticConfig{
 				{
 					Targets: []model.LabelSet{
 						{

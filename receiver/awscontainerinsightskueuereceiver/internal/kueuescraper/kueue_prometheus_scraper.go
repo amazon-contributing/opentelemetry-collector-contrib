@@ -104,7 +104,8 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 		MetricsPath:            "/metrics",
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
-				Role: kubernetes.RoleEndpointSlice,
+				Role:             kubernetes.RoleEndpointSlice,
+				HTTPClientConfig: configutil.DefaultHTTPClientConfig,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
 					Names: []string{kueueNamespace},
 				},
