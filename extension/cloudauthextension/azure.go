@@ -6,6 +6,7 @@ package cloudauthextension // import "github.com/open-telemetry/opentelemetry-co
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,7 +86,7 @@ func (p *AzureProvider) GetToken(ctx context.Context) (string, time.Duration, er
 	}
 
 	if tokenResp.AccessToken == "" {
-		return "", 0, fmt.Errorf("azure: empty access_token in IMDS response")
+		return "", 0, errors.New("azure: empty access_token in IMDS response")
 	}
 
 	expiresIn, _ := strconv.Atoi(tokenResp.ExpiresIn)

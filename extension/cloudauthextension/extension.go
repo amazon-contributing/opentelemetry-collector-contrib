@@ -5,6 +5,7 @@ package cloudauthextension // import "github.com/open-telemetry/opentelemetry-co
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,8 +19,8 @@ import (
 const (
 	refreshBuffer      = 5 * time.Minute
 	minRefreshInterval = 1 * time.Minute
-	tokenFilePerms     = 0600
-	tokenFileName      = "cloudauth-token"
+	tokenFilePerms     = 0o600
+	tokenFileName      = "cloudauth-token" //nolint:gosec // not a credential
 )
 
 type cloudAuthExtension struct {
@@ -43,7 +44,7 @@ func (e *cloudAuthExtension) Start(ctx context.Context, _ component.Host) error 
 	} else {
 		ap := newAzureProvider()
 		if !ap.IsAvailable(ctx) {
-			return fmt.Errorf("cloudauth: no OIDC provider detected in current environment")
+			return errors.New("cloudauth: no OIDC provider detected in current environment")
 		}
 		if e.config.STSResource != "" {
 			ap.SetResource(e.config.STSResource)
