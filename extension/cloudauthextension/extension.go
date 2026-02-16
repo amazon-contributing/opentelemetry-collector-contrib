@@ -58,7 +58,7 @@ func (e *cloudAuthExtension) Start(ctx context.Context, _ component.Host) error 
 	if tokenDir == "" {
 		tokenDir = os.TempDir()
 	}
-	if err := os.MkdirAll(tokenDir, 0755); err != nil {
+	if err := os.MkdirAll(tokenDir, 0o755); err != nil {
 		return fmt.Errorf("cloudauth: failed to create token directory: %w", err)
 	}
 	e.tokenFile = filepath.Join(tokenDir, tokenFileName)
