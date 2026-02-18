@@ -23,7 +23,7 @@ func TestAzureProviderGetToken(t *testing.T) {
 			AccessToken: "test-token",
 			ExpiresIn:   "3600",
 		}
-		json.NewEncoder(w).Encode(resp)
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
 	}))
 	defer server.Close()
 
@@ -42,7 +42,8 @@ func TestAzureProviderGetToken(t *testing.T) {
 func TestAzureProviderGetTokenError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("unauthorized"))
+		_, err := w.Write([]byte("unauthorized"))
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
