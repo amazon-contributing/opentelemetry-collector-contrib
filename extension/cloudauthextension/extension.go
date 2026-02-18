@@ -24,11 +24,12 @@ const (
 )
 
 type cloudAuthExtension struct {
-	logger        *zap.Logger
-	config        *Config
-	tokenProvider TokenProvider
-	tokenFile     string
-	done          chan struct{}
+	logger             *zap.Logger
+	config             *Config
+	tokenProvider      TokenProvider
+	tokenFile          string
+	done               chan struct{}
+	minRefreshInterval time.Duration
 }
 
 var _ extension.Extension = (*cloudAuthExtension)(nil)
@@ -42,7 +43,7 @@ func (e *cloudAuthExtension) Start(ctx context.Context, _ component.Host) error 
 	}
 
 	// Auto-detect cloud provider
-	ap := newAzureProvider(e.config.STSResource)
+	ap := newAzureProvider(e.config.Audience)
 	if !ap.IsAvailable(ctx) {
 		return errors.New("cloudauth: no OIDC provider detected in current environment")
 	}
@@ -84,12 +85,11 @@ func (e *cloudAuthExtension) Shutdown(_ context.Context) error {
 func (e *cloudAuthExtension) refreshLoop(expiry time.Time) {
 	for {
 		interval := time.Until(expiry) - refreshBuffer
-		if interval < minRefreshInterval {
-			interval = minRefreshInterval
+		if interval < e.minRefreshInterval {
+			interval = e.minRefreshInterval
 		}
 
 		timer := time.NewTimer(interval)
-		defer timer.Stop()
 		select {
 		case <-timer.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -98,8 +98,7 @@ func (e *cloudAuthExtension) refreshLoop(expiry time.Time) {
 			if err != nil {
 				e.logger.Error("Token refresh failed, will retry",
 					zap.Error(err),
-					zap.Duration("retry_in", minRefreshInterval))
-				expiry = time.Now().Add(minRefreshInterval)
+					zap.Duration("retry_in", e.minRefreshInterval))
 			} else {
 				expiry = newExpiry
 				e.logger.Debug("Token refreshed successfully",
@@ -107,6 +106,7 @@ func (e *cloudAuthExtension) refreshLoop(expiry time.Time) {
 					zap.Time("next_expiry", expiry))
 			}
 		case <-e.done:
+			timer.Stop()
 			return
 		}
 	}

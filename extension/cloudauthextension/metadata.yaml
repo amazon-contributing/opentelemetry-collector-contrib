@@ -5,9 +5,9 @@ status:
   stability:
     alpha: [extension]
   distributions:
-  - contrib
+    - contrib
   codeowners:
-    active: [hsookim]
+    active: [movence]
 
 tests:
   goleak:

@@ -27,7 +27,8 @@ func createDefaultConfig() component.Config {
 
 func createExtension(_ context.Context, settings extension.Settings, cfg component.Config) (extension.Extension, error) {
 	return &cloudAuthExtension{
-		logger: settings.Logger,
-		config: cfg.(*Config),
+		logger:             settings.Logger,
+		config:             cfg.(*Config),
+		minRefreshInterval: minRefreshInterval,
 	}, nil
 }

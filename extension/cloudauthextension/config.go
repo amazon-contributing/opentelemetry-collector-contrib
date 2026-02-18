@@ -14,9 +14,9 @@ type Config struct {
 	// a cloud provider. The user is responsible for keeping the file current.
 	TokenFile string `mapstructure:"token_file,omitempty"`
 
-	// STSResource is the audience/resource claim requested in the OIDC token.
+	// Audience is the audience/resource claim requested in the OIDC token.
 	// Defaults to "https://management.azure.com/" for Azure auto-detection.
-	STSResource string `mapstructure:"sts_resource,omitempty"`
+	Audience string `mapstructure:"audience,omitempty"`
 
 	// TokenDir is the directory where the extension writes the fetched OIDC
 	// token file. Defaults to os.TempDir().
