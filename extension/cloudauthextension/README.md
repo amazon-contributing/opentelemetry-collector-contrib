@@ -45,3 +45,23 @@ extensions:
 
 All fields are optional. With an empty config, the extension auto-detects Azure
 and uses default settings.
+
+## Full Example
+
+The extension handles token management. Each exporter's `role_arn` is used
+for `AssumeRoleWithWebIdentity` — the role must have an OIDC trust policy.
+
+```yaml
+extensions:
+  cloudauth: {}
+
+exporters:
+  awsemf:
+    role_arn: arn:aws:iam::123456789012:role/CWAgentOIDCRole
+
+service:
+  extensions: [cloudauth]
+  pipelines:
+    metrics:
+      exporters: [awsemf]
+```

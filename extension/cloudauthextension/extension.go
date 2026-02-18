@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -29,6 +30,8 @@ type cloudAuthExtension struct {
 	tokenProvider      TokenProvider
 	tokenFile          string
 	done               chan struct{}
+	wg                 sync.WaitGroup
+	shutdownOnce       sync.Once
 	minRefreshInterval time.Duration
 }
 
@@ -67,15 +70,22 @@ func (e *cloudAuthExtension) Start(ctx context.Context, _ component.Host) error 
 	}
 
 	e.done = make(chan struct{})
-	go e.refreshLoop(expiry)
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		e.refreshLoop(expiry)
+	}()
 
 	return nil
 }
 
 func (e *cloudAuthExtension) Shutdown(_ context.Context) error {
-	if e.done != nil {
-		close(e.done)
-	}
+	e.shutdownOnce.Do(func() {
+		if e.done != nil {
+			close(e.done)
+		}
+	})
+	e.wg.Wait()
 	if e.tokenFile != "" {
 		os.Remove(e.tokenFile)
 	}
