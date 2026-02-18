@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 )
 
 func TestStartWithTokenFile(t *testing.T) {
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+
 	tmpDir := t.TempDir()
 	tokenFile := filepath.Join(tmpDir, "token")
 	require.NoError(t, os.WriteFile(tokenFile, []byte("test-token"), 0o600))
@@ -31,6 +34,8 @@ func TestStartWithTokenFile(t *testing.T) {
 }
 
 func TestStartWithoutProvider(t *testing.T) {
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+
 	cfg := &Config{}
 	ext := &cloudAuthExtension{
 		logger: zap.NewNop(),
@@ -43,6 +48,8 @@ func TestStartWithoutProvider(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/some/file")
+
 	tmpDir := t.TempDir()
 	tokenFile := filepath.Join(tmpDir, "cloudauth-token")
 	require.NoError(t, os.WriteFile(tokenFile, []byte("test"), 0o600))
@@ -57,6 +64,7 @@ func TestShutdown(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(tokenFile)
 	require.True(t, os.IsNotExist(err))
+	require.Empty(t, os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"))
 }
 
 func TestFactory(t *testing.T) {
@@ -73,11 +81,11 @@ type mockProvider struct {
 	token  string
 	expiry time.Duration
 	err    error
-	calls  int
+	calls  atomic.Int32
 }
 
 func (m *mockProvider) GetToken(_ context.Context) (string, time.Duration, error) {
-	m.calls++
+	m.calls.Add(1)
 	return m.token, m.expiry, m.err
 }
 
@@ -98,17 +106,19 @@ func TestRefreshLoop(t *testing.T) {
 		minRefreshInterval: 10 * time.Millisecond,
 	}
 
-	// Start loop with an already-expired token so it refreshes immediately.
-	go ext.refreshLoop(time.Now().Add(-time.Hour))
+	ext.wg.Add(1)
+	go func() {
+		defer ext.wg.Done()
+		ext.refreshLoop(time.Now().Add(-time.Hour))
+	}()
 
-	// Wait for token file to be written.
 	require.Eventually(t, func() bool {
 		data, err := os.ReadFile(tokenFile)
 		return err == nil && string(data) == "refreshed-token"
 	}, 5*time.Second, 10*time.Millisecond)
 
-	// Shutdown stops the goroutine.
 	close(ext.done)
+	ext.wg.Wait()
 }
 
 func TestRefreshLoopError(t *testing.T) {
@@ -125,14 +135,17 @@ func TestRefreshLoopError(t *testing.T) {
 		minRefreshInterval: 10 * time.Millisecond,
 	}
 
-	go ext.refreshLoop(time.Now().Add(-time.Hour))
+	ext.wg.Add(1)
+	go func() {
+		defer ext.wg.Done()
+		ext.refreshLoop(time.Now().Add(-time.Hour))
+	}()
 
-	// Should retry on error.
-	require.Eventually(t, func() bool { return mp.calls >= 2 }, 5*time.Second, 50*time.Millisecond)
+	require.Eventually(t, func() bool { return mp.calls.Load() >= 2 }, 5*time.Second, 10*time.Millisecond)
 
-	// Token file should not exist since all calls failed.
 	_, err := os.Stat(tokenFile)
 	require.True(t, os.IsNotExist(err))
 
 	close(ext.done)
+	ext.wg.Wait()
 }

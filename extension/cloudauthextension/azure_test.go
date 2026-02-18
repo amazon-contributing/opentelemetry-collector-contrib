@@ -27,7 +27,7 @@ func TestAzureProviderGetToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := &AzureProvider{
+	provider := &azureProvider{
 		client:   &http.Client{Timeout: 5 * time.Second},
 		endpoint: server.URL,
 		resource: defaultAzureResource,
@@ -46,7 +46,7 @@ func TestAzureProviderGetTokenError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := &AzureProvider{
+	provider := &azureProvider{
 		client:   &http.Client{Timeout: 5 * time.Second},
 		endpoint: server.URL,
 		resource: defaultAzureResource,
@@ -62,12 +62,12 @@ func TestAzureProviderName(t *testing.T) {
 	require.Equal(t, "azure", provider.Name())
 }
 
-func TestNewAzureProviderWithResource(t *testing.T) {
+func TestNewazureProviderWithResource(t *testing.T) {
 	provider := newAzureProvider("https://custom.resource/")
 	require.Equal(t, "https://custom.resource/", provider.resource)
 }
 
-func TestNewAzureProviderDefaultResource(t *testing.T) {
+func TestNewazureProviderDefaultResource(t *testing.T) {
 	provider := newAzureProvider("")
 	require.Equal(t, defaultAzureResource, provider.resource)
 }

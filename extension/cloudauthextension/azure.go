@@ -23,21 +23,21 @@ const (
 	defaultAzureTokenExpiry    = 3600 // 1 hour fallback
 )
 
-// AzureProvider fetches OIDC tokens from Azure IMDS on VMs with managed identity.
-type AzureProvider struct {
+// azureProvider fetches OIDC tokens from Azure IMDS on VMs with managed identity.
+type azureProvider struct {
 	client   *http.Client
 	endpoint string
 	resource string
 	detector azure.Provider
 }
 
-var _ TokenProvider = (*AzureProvider)(nil)
+var _ TokenProvider = (*azureProvider)(nil)
 
-func newAzureProvider(resource string) *AzureProvider {
+func newAzureProvider(resource string) *azureProvider {
 	if resource == "" {
 		resource = defaultAzureResource
 	}
-	return &AzureProvider{
+	return &azureProvider{
 		client:   &http.Client{Timeout: 30 * time.Second},
 		endpoint: defaultAzureIMDSEndpoint,
 		resource: resource,
@@ -45,10 +45,10 @@ func newAzureProvider(resource string) *AzureProvider {
 	}
 }
 
-func (p *AzureProvider) Name() string { return "azure" }
+func (p *azureProvider) Name() string { return "azure" }
 
 // IsAvailable uses the existing Azure metadata provider to detect Azure.
-func (p *AzureProvider) IsAvailable(ctx context.Context) bool {
+func (p *azureProvider) IsAvailable(ctx context.Context) bool {
 	_, err := p.detector.Metadata(ctx)
 	return err == nil
 }
@@ -58,7 +58,7 @@ type azureTokenResponse struct {
 	ExpiresIn   string `json:"expires_in"`
 }
 
-func (p *AzureProvider) GetToken(ctx context.Context) (string, time.Duration, error) {
+func (p *azureProvider) GetToken(ctx context.Context) (string, time.Duration, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.endpoint, nil)
 	if err != nil {
 		return "", 0, fmt.Errorf("azure: create request: %w", err)

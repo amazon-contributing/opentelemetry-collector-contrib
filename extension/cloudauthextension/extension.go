@@ -40,7 +40,9 @@ var _ extension.Extension = (*cloudAuthExtension)(nil)
 func (e *cloudAuthExtension) Start(ctx context.Context, _ component.Host) error {
 	if e.config.TokenFile != "" {
 		// User-managed token file: just point the env var to it
-		os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", e.config.TokenFile)
+		if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", e.config.TokenFile); err != nil {
+			return fmt.Errorf("cloudauth: set env var: %w", err)
+		}
 		e.logger.Info("Using user-managed token file", zap.String("path", e.config.TokenFile))
 		return nil
 	}
@@ -62,7 +64,9 @@ func (e *cloudAuthExtension) Start(ctx context.Context, _ component.Host) error 
 	}
 	e.tokenFile = filepath.Join(tokenDir, tokenFileName)
 
-	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", e.tokenFile)
+	if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", e.tokenFile); err != nil {
+		return fmt.Errorf("cloudauth: set env var: %w", err)
+	}
 
 	expiry, err := e.refreshToken(ctx)
 	if err != nil {
@@ -89,6 +93,7 @@ func (e *cloudAuthExtension) Shutdown(_ context.Context) error {
 	if e.tokenFile != "" {
 		os.Remove(e.tokenFile)
 	}
+	os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 	return nil
 }
 
