@@ -4,7 +4,6 @@
 package cloudauthextension
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,14 +15,15 @@ import (
 
 func TestAzureProviderGetToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "true", r.Header.Get("Metadata"))
-		require.Equal(t, "2018-02-01", r.URL.Query().Get("api-version"))
-
+		if r.Header.Get("Metadata") != "true" || r.URL.Query().Get("api-version") != "2018-02-01" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		resp := azureTokenResponse{
 			AccessToken: "test-token",
 			ExpiresIn:   "3600",
 		}
-		require.NoError(t, json.NewEncoder(w).Encode(resp))
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -33,17 +33,16 @@ func TestAzureProviderGetToken(t *testing.T) {
 		resource: defaultAzureResource,
 	}
 
-	token, ttl, err := provider.GetToken(context.Background())
+	token, ttl, err := provider.GetToken(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, "test-token", token)
 	require.Equal(t, 3600*time.Second, ttl)
 }
 
 func TestAzureProviderGetTokenError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		_, err := w.Write([]byte("unauthorized"))
-		require.NoError(t, err)
+		_, _ = w.Write([]byte("unauthorized"))
 	}))
 	defer server.Close()
 
@@ -53,7 +52,7 @@ func TestAzureProviderGetTokenError(t *testing.T) {
 		resource: defaultAzureResource,
 	}
 
-	_, _, err := provider.GetToken(context.Background())
+	_, _, err := provider.GetToken(t.Context())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "401")
 }

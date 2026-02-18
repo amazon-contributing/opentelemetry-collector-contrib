@@ -4,7 +4,6 @@
 package cloudauthextension
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,7 +15,7 @@ import (
 func TestStartWithTokenFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	tokenFile := filepath.Join(tmpDir, "token")
-	require.NoError(t, os.WriteFile(tokenFile, []byte("test-token"), 0600))
+	require.NoError(t, os.WriteFile(tokenFile, []byte("test-token"), 0o600))
 
 	cfg := &Config{TokenFile: tokenFile}
 	ext := &cloudAuthExtension{
@@ -24,7 +23,7 @@ func TestStartWithTokenFile(t *testing.T) {
 		config: cfg,
 	}
 
-	err := ext.Start(context.Background(), nil)
+	err := ext.Start(t.Context(), nil)
 	require.NoError(t, err)
 	require.Equal(t, tokenFile, os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"))
 }
@@ -36,7 +35,7 @@ func TestStartWithoutProvider(t *testing.T) {
 		config: cfg,
 	}
 
-	err := ext.Start(context.Background(), nil)
+	err := ext.Start(t.Context(), nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no OIDC provider detected")
 }
@@ -44,7 +43,7 @@ func TestStartWithoutProvider(t *testing.T) {
 func TestShutdown(t *testing.T) {
 	tmpDir := t.TempDir()
 	tokenFile := filepath.Join(tmpDir, "cloudauth-token")
-	require.NoError(t, os.WriteFile(tokenFile, []byte("test"), 0600))
+	require.NoError(t, os.WriteFile(tokenFile, []byte("test"), 0o600))
 
 	ext := &cloudAuthExtension{
 		logger:    zap.NewNop(),
@@ -52,7 +51,7 @@ func TestShutdown(t *testing.T) {
 		done:      make(chan struct{}),
 	}
 
-	err := ext.Shutdown(context.Background())
+	err := ext.Shutdown(t.Context())
 	require.NoError(t, err)
 	_, err = os.Stat(tokenFile)
 	require.True(t, os.IsNotExist(err))
