@@ -92,8 +92,8 @@ func (e *cloudAuthExtension) Shutdown(_ context.Context) error {
 	e.wg.Wait()
 	if e.tokenFile != "" {
 		os.Remove(e.tokenFile)
+		os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 	}
-	os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 	return nil
 }
 
