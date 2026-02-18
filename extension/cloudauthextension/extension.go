@@ -34,25 +34,20 @@ type cloudAuthExtension struct {
 var _ extension.Extension = (*cloudAuthExtension)(nil)
 
 func (e *cloudAuthExtension) Start(ctx context.Context, _ component.Host) error {
-	var tp TokenProvider
 	if e.config.TokenFile != "" {
-		fp := newFileProvider(e.config.TokenFile)
-		if !fp.IsAvailable(ctx) {
-			return fmt.Errorf("cloudauth: token file %q does not exist", e.config.TokenFile)
-		}
-		tp = fp
-	} else {
-		ap := newAzureProvider()
-		if !ap.IsAvailable(ctx) {
-			return errors.New("cloudauth: no OIDC provider detected in current environment")
-		}
-		if e.config.STSResource != "" {
-			ap.SetResource(e.config.STSResource)
-		}
-		tp = ap
+		// User-managed token file: just point the env var to it
+		os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", e.config.TokenFile)
+		e.logger.Info("Using user-managed token file", zap.String("path", e.config.TokenFile))
+		return nil
 	}
-	e.tokenProvider = tp
-	e.logger.Info("Cloud auth provider detected", zap.String("provider", tp.Name()))
+
+	// Auto-detect cloud provider
+	ap := newAzureProvider(e.config.STSResource)
+	if !ap.IsAvailable(ctx) {
+		return errors.New("cloudauth: no OIDC provider detected in current environment")
+	}
+	e.tokenProvider = ap
+	e.logger.Info("Cloud auth provider detected", zap.String("provider", ap.Name()))
 
 	tokenDir := e.config.TokenDir
 	if tokenDir == "" {
@@ -94,6 +89,7 @@ func (e *cloudAuthExtension) refreshLoop(expiry time.Time) {
 		}
 
 		timer := time.NewTimer(interval)
+		defer timer.Stop()
 		select {
 		case <-timer.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -103,14 +99,14 @@ func (e *cloudAuthExtension) refreshLoop(expiry time.Time) {
 				e.logger.Error("Token refresh failed, will retry",
 					zap.Error(err),
 					zap.Duration("retry_in", minRefreshInterval))
-				time.Sleep(minRefreshInterval)
+				expiry = time.Now().Add(minRefreshInterval)
 			} else {
 				expiry = newExpiry
-				e.logger.Info("Token refreshed successfully",
-					zap.String("provider", e.tokenProvider.Name()))
+				e.logger.Debug("Token refreshed successfully",
+					zap.String("provider", e.tokenProvider.Name()),
+					zap.Time("next_expiry", expiry))
 			}
 		case <-e.done:
-			timer.Stop()
 			return
 		}
 	}

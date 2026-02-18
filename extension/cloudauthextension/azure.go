@@ -33,19 +33,19 @@ type AzureProvider struct {
 
 var _ TokenProvider = (*AzureProvider)(nil)
 
-func newAzureProvider() *AzureProvider {
+func newAzureProvider(resource string) *AzureProvider {
+	if resource == "" {
+		resource = defaultAzureResource
+	}
 	return &AzureProvider{
 		client:   &http.Client{Timeout: 30 * time.Second},
 		endpoint: defaultAzureIMDSEndpoint,
-		resource: defaultAzureResource,
+		resource: resource,
 		detector: azure.NewProvider(),
 	}
 }
 
 func (p *AzureProvider) Name() string { return "azure" }
-
-// SetResource overrides the audience/resource claim for the token request.
-func (p *AzureProvider) SetResource(r string) { p.resource = r }
 
 // IsAvailable uses the existing Azure metadata provider to detect Azure.
 func (p *AzureProvider) IsAvailable(ctx context.Context) bool {
