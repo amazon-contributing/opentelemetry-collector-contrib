@@ -145,15 +145,15 @@ func TestScrape(t *testing.T) {
 		// Device-level metrics always carry pod/namespace/container labels (empty when unassigned)
 		pod, ok := attrs.Get("pod")
 		assert.True(t, ok)
-		assert.Equal(t, "", pod.Str())
+		assert.Empty(t, pod.Str())
 
 		ns, ok := attrs.Get("namespace")
 		assert.True(t, ok)
-		assert.Equal(t, "", ns.Str())
+		assert.Empty(t, ns.Str())
 
 		container, ok := attrs.Get("container")
 		assert.True(t, ok)
-		assert.Equal(t, "", container.Str())
+		assert.Empty(t, container.Str())
 
 		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
 			totalMetrics += rm.ScopeMetrics().At(j).Metrics().Len()
