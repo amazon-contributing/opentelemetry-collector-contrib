@@ -12,7 +12,7 @@ metrics:
     enabled: false
 ```
 
-### node_efa_impaired_remote_conn_events
+### efa_impaired_remote_conn_events
 
 The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit
 
@@ -20,7 +20,7 @@ The number of times EFA SRD connections entered an impaired state resulting in a
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
-### node_efa_rdma_read_bytes
+### efa_rdma_read_bytes
 
 The number of bytes received using RDMA read operations
 
@@ -28,7 +28,7 @@ The number of bytes received using RDMA read operations
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
-### node_efa_rdma_write_bytes
+### efa_rdma_write_bytes
 
 The number of bytes written by other instances using RDMA write operations
 
@@ -36,7 +36,7 @@ The number of bytes written by other instances using RDMA write operations
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
-### node_efa_rdma_write_recv_bytes
+### efa_rdma_write_recv_bytes
 
 The number of bytes received by RDMA write operations
 
@@ -44,7 +44,7 @@ The number of bytes received by RDMA write operations
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
-### node_efa_retrans_bytes
+### efa_retrans_bytes
 
 The number of EFA SRD bytes retransmitted
 
@@ -52,7 +52,7 @@ The number of EFA SRD bytes retransmitted
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
-### node_efa_retrans_pkts
+### efa_retrans_pkts
 
 The number of EFA SRD packets retransmitted
 
@@ -60,7 +60,7 @@ The number of EFA SRD packets retransmitted
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
-### node_efa_retrans_timeout_events
+### efa_retrans_timeout_events
 
 The number of times EFA SRD traffic timed out and resulted in a network path change
 
@@ -68,7 +68,7 @@ The number of times EFA SRD traffic timed out and resulted in a network path cha
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
-### node_efa_rx_bytes
+### efa_rx_bytes
 
 The number of bytes received
 
@@ -76,7 +76,7 @@ The number of bytes received
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
-### node_efa_rx_dropped
+### efa_rx_dropped
 
 The number of packets that were received and then dropped
 
@@ -84,7 +84,7 @@ The number of packets that were received and then dropped
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
-### node_efa_tx_bytes
+### efa_tx_bytes
 
 The number of bytes transmitted
 
@@ -92,7 +92,7 @@ The number of bytes transmitted
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
-### node_efa_unresponsive_remote_events
+### efa_unresponsive_remote_events
 
 The number of times an EFA SRD remote connection was unresponsive
 
@@ -104,5 +104,8 @@ The number of times an EFA SRD remote connection was unresponsive
 
 | Name | Description | Values | Enabled |
 | ---- | ----------- | ------ | ------- |
+| container | The container name within the pod assigned to this device (empty string if unassigned) | Any Str | true |
 | device | The EFA device name (e.g. rdmap0s31) | Any Str | true |
+| namespace | The Kubernetes namespace of the pod assigned to this device (empty string if unassigned) | Any Str | true |
+| pod | The Kubernetes pod name assigned to this device (empty string if unassigned) | Any Str | true |
 | port | The EFA port number | Any Str | true |

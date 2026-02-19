@@ -28,37 +28,37 @@ type efaCounter struct {
 
 var efaCounters = []efaCounter{
 	{"rdma_read_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRdmaReadBytesDataPoint(ts, v)
+		mb.RecordEfaRdmaReadBytesDataPoint(ts, v)
 	}},
 	{"rdma_write_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRdmaWriteBytesDataPoint(ts, v)
+		mb.RecordEfaRdmaWriteBytesDataPoint(ts, v)
 	}},
 	{"rdma_write_recv_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRdmaWriteRecvBytesDataPoint(ts, v)
+		mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, v)
 	}},
 	{"rx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRxBytesDataPoint(ts, v)
+		mb.RecordEfaRxBytesDataPoint(ts, v)
 	}},
 	{"rx_drops", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRxDroppedDataPoint(ts, v)
+		mb.RecordEfaRxDroppedDataPoint(ts, v)
 	}},
 	{"tx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaTxBytesDataPoint(ts, v)
+		mb.RecordEfaTxBytesDataPoint(ts, v)
 	}},
 	{"retrans_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRetransBytesDataPoint(ts, v)
+		mb.RecordEfaRetransBytesDataPoint(ts, v)
 	}},
 	{"retrans_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRetransPktsDataPoint(ts, v)
+		mb.RecordEfaRetransPktsDataPoint(ts, v)
 	}},
 	{"retrans_timeout_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaRetransTimeoutEventsDataPoint(ts, v)
+		mb.RecordEfaRetransTimeoutEventsDataPoint(ts, v)
 	}},
 	{"unresponsive_remote_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaUnresponsiveRemoteEventsDataPoint(ts, v)
+		mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, v)
 	}},
 	{"impaired_remote_conn_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordNodeEfaImpairedRemoteConnEventsDataPoint(ts, v)
+		mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, v)
 	}},
 }
 
@@ -104,6 +104,12 @@ func (s *efaScraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 		rb := s.mb.NewResourceBuilder()
 		rb.SetDevice(dev.name)
 		rb.SetPort(dev.port)
+		// Always emit pod, namespace, container labels (empty string when unassigned).
+		// This follows the DCGM pattern where device-level metrics always carry these
+		// labels, making PromQL queries simpler: efa_rx_bytes{pod=""} for unassigned devices.
+		rb.SetPod("")
+		rb.SetNamespace("")
+		rb.SetContainer("")
 
 		s.recordMetrics(now, dev.counters)
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
@@ -130,8 +136,10 @@ func (s *efaScraper) readAllDevices() ([]efaDevice, error) {
 		for _, port := range ports {
 			counters, err := s.readCounters(name, port)
 			if err != nil {
-				s.logger.Warn("Failed to read counters for EFA device port",
+				s.logger.Warn("Partial failure reading counters for EFA device port",
 					zap.String("device", name), zap.String("port", port), zap.Error(err))
+			}
+			if len(counters) == 0 {
 				continue
 			}
 			devices = append(devices, efaDevice{

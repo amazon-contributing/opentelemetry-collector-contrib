@@ -28,52 +28,52 @@ func (ms *MetricConfig) Unmarshal(parser *confmap.Conf) error {
 
 // MetricsConfig provides config for awsefareceiver metrics.
 type MetricsConfig struct {
-	NodeEfaImpairedRemoteConnEvents MetricConfig `mapstructure:"node_efa_impaired_remote_conn_events"`
-	NodeEfaRdmaReadBytes            MetricConfig `mapstructure:"node_efa_rdma_read_bytes"`
-	NodeEfaRdmaWriteBytes           MetricConfig `mapstructure:"node_efa_rdma_write_bytes"`
-	NodeEfaRdmaWriteRecvBytes       MetricConfig `mapstructure:"node_efa_rdma_write_recv_bytes"`
-	NodeEfaRetransBytes             MetricConfig `mapstructure:"node_efa_retrans_bytes"`
-	NodeEfaRetransPkts              MetricConfig `mapstructure:"node_efa_retrans_pkts"`
-	NodeEfaRetransTimeoutEvents     MetricConfig `mapstructure:"node_efa_retrans_timeout_events"`
-	NodeEfaRxBytes                  MetricConfig `mapstructure:"node_efa_rx_bytes"`
-	NodeEfaRxDropped                MetricConfig `mapstructure:"node_efa_rx_dropped"`
-	NodeEfaTxBytes                  MetricConfig `mapstructure:"node_efa_tx_bytes"`
-	NodeEfaUnresponsiveRemoteEvents MetricConfig `mapstructure:"node_efa_unresponsive_remote_events"`
+	EfaImpairedRemoteConnEvents MetricConfig `mapstructure:"efa_impaired_remote_conn_events"`
+	EfaRdmaReadBytes            MetricConfig `mapstructure:"efa_rdma_read_bytes"`
+	EfaRdmaWriteBytes           MetricConfig `mapstructure:"efa_rdma_write_bytes"`
+	EfaRdmaWriteRecvBytes       MetricConfig `mapstructure:"efa_rdma_write_recv_bytes"`
+	EfaRetransBytes             MetricConfig `mapstructure:"efa_retrans_bytes"`
+	EfaRetransPkts              MetricConfig `mapstructure:"efa_retrans_pkts"`
+	EfaRetransTimeoutEvents     MetricConfig `mapstructure:"efa_retrans_timeout_events"`
+	EfaRxBytes                  MetricConfig `mapstructure:"efa_rx_bytes"`
+	EfaRxDropped                MetricConfig `mapstructure:"efa_rx_dropped"`
+	EfaTxBytes                  MetricConfig `mapstructure:"efa_tx_bytes"`
+	EfaUnresponsiveRemoteEvents MetricConfig `mapstructure:"efa_unresponsive_remote_events"`
 }
 
 func DefaultMetricsConfig() MetricsConfig {
 	return MetricsConfig{
-		NodeEfaImpairedRemoteConnEvents: MetricConfig{
+		EfaImpairedRemoteConnEvents: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRdmaReadBytes: MetricConfig{
+		EfaRdmaReadBytes: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRdmaWriteBytes: MetricConfig{
+		EfaRdmaWriteBytes: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRdmaWriteRecvBytes: MetricConfig{
+		EfaRdmaWriteRecvBytes: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRetransBytes: MetricConfig{
+		EfaRetransBytes: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRetransPkts: MetricConfig{
+		EfaRetransPkts: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRetransTimeoutEvents: MetricConfig{
+		EfaRetransTimeoutEvents: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRxBytes: MetricConfig{
+		EfaRxBytes: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaRxDropped: MetricConfig{
+		EfaRxDropped: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaTxBytes: MetricConfig{
+		EfaTxBytes: MetricConfig{
 			Enabled: true,
 		},
-		NodeEfaUnresponsiveRemoteEvents: MetricConfig{
+		EfaUnresponsiveRemoteEvents: MetricConfig{
 			Enabled: true,
 		},
 	}
@@ -107,8 +107,11 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 
 // ResourceAttributesConfig provides config for awsefareceiver resource attributes.
 type ResourceAttributesConfig struct {
-	Device ResourceAttributeConfig `mapstructure:"device"`
-	Port   ResourceAttributeConfig `mapstructure:"port"`
+	Device    ResourceAttributeConfig `mapstructure:"device"`
+	Port      ResourceAttributeConfig `mapstructure:"port"`
+	Pod       ResourceAttributeConfig `mapstructure:"pod"`
+	Namespace ResourceAttributeConfig `mapstructure:"namespace"`
+	Container ResourceAttributeConfig `mapstructure:"container"`
 }
 
 func DefaultResourceAttributesConfig() ResourceAttributesConfig {
@@ -117,6 +120,15 @@ func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 			Enabled: true,
 		},
 		Port: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		Pod: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		Namespace: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		Container: ResourceAttributeConfig{
 			Enabled: true,
 		},
 	}

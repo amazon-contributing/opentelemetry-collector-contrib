@@ -70,51 +70,54 @@ func TestMetricsBuilder(t *testing.T) {
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaImpairedRemoteConnEventsDataPoint(ts, 1)
+			mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRdmaReadBytesDataPoint(ts, 1)
+			mb.RecordEfaRdmaReadBytesDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRdmaWriteBytesDataPoint(ts, 1)
+			mb.RecordEfaRdmaWriteBytesDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRdmaWriteRecvBytesDataPoint(ts, 1)
+			mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRetransBytesDataPoint(ts, 1)
+			mb.RecordEfaRetransBytesDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRetransPktsDataPoint(ts, 1)
+			mb.RecordEfaRetransPktsDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRetransTimeoutEventsDataPoint(ts, 1)
+			mb.RecordEfaRetransTimeoutEventsDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRxBytesDataPoint(ts, 1)
+			mb.RecordEfaRxBytesDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaRxDroppedDataPoint(ts, 1)
+			mb.RecordEfaRxDroppedDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaTxBytesDataPoint(ts, 1)
+			mb.RecordEfaTxBytesDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordNodeEfaUnresponsiveRemoteEventsDataPoint(ts, 1)
+			mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, 1)
 
 			rb := mb.NewResourceBuilder()
 			rb.SetDevice("device-val")
 			rb.SetPort("port-val")
+			rb.SetPod("")
+			rb.SetNamespace("")
+			rb.SetContainer("")
 			res := rb.Emit()
 			metrics := mb.Emit(WithResource(res))
 
@@ -137,9 +140,9 @@ func TestMetricsBuilder(t *testing.T) {
 			validatedMetrics := make(map[string]bool)
 			for i := 0; i < ms.Len(); i++ {
 				switch ms.At(i).Name() {
-				case "node_efa_impaired_remote_conn_events":
-					assert.False(t, validatedMetrics["node_efa_impaired_remote_conn_events"], "Found a duplicate in the metrics slice: node_efa_impaired_remote_conn_events")
-					validatedMetrics["node_efa_impaired_remote_conn_events"] = true
+				case "efa_impaired_remote_conn_events":
+					assert.False(t, validatedMetrics["efa_impaired_remote_conn_events"], "Found a duplicate in the metrics slice: efa_impaired_remote_conn_events")
+					validatedMetrics["efa_impaired_remote_conn_events"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit", ms.At(i).Description())
@@ -151,9 +154,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_rdma_read_bytes":
-					assert.False(t, validatedMetrics["node_efa_rdma_read_bytes"], "Found a duplicate in the metrics slice: node_efa_rdma_read_bytes")
-					validatedMetrics["node_efa_rdma_read_bytes"] = true
+				case "efa_rdma_read_bytes":
+					assert.False(t, validatedMetrics["efa_rdma_read_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_bytes")
+					validatedMetrics["efa_rdma_read_bytes"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of bytes received using RDMA read operations", ms.At(i).Description())
@@ -165,9 +168,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_rdma_write_bytes":
-					assert.False(t, validatedMetrics["node_efa_rdma_write_bytes"], "Found a duplicate in the metrics slice: node_efa_rdma_write_bytes")
-					validatedMetrics["node_efa_rdma_write_bytes"] = true
+				case "efa_rdma_write_bytes":
+					assert.False(t, validatedMetrics["efa_rdma_write_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_bytes")
+					validatedMetrics["efa_rdma_write_bytes"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of bytes written by other instances using RDMA write operations", ms.At(i).Description())
@@ -179,9 +182,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_rdma_write_recv_bytes":
-					assert.False(t, validatedMetrics["node_efa_rdma_write_recv_bytes"], "Found a duplicate in the metrics slice: node_efa_rdma_write_recv_bytes")
-					validatedMetrics["node_efa_rdma_write_recv_bytes"] = true
+				case "efa_rdma_write_recv_bytes":
+					assert.False(t, validatedMetrics["efa_rdma_write_recv_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_recv_bytes")
+					validatedMetrics["efa_rdma_write_recv_bytes"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of bytes received by RDMA write operations", ms.At(i).Description())
@@ -193,9 +196,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_retrans_bytes":
-					assert.False(t, validatedMetrics["node_efa_retrans_bytes"], "Found a duplicate in the metrics slice: node_efa_retrans_bytes")
-					validatedMetrics["node_efa_retrans_bytes"] = true
+				case "efa_retrans_bytes":
+					assert.False(t, validatedMetrics["efa_retrans_bytes"], "Found a duplicate in the metrics slice: efa_retrans_bytes")
+					validatedMetrics["efa_retrans_bytes"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of EFA SRD bytes retransmitted", ms.At(i).Description())
@@ -207,9 +210,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_retrans_pkts":
-					assert.False(t, validatedMetrics["node_efa_retrans_pkts"], "Found a duplicate in the metrics slice: node_efa_retrans_pkts")
-					validatedMetrics["node_efa_retrans_pkts"] = true
+				case "efa_retrans_pkts":
+					assert.False(t, validatedMetrics["efa_retrans_pkts"], "Found a duplicate in the metrics slice: efa_retrans_pkts")
+					validatedMetrics["efa_retrans_pkts"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of EFA SRD packets retransmitted", ms.At(i).Description())
@@ -221,9 +224,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_retrans_timeout_events":
-					assert.False(t, validatedMetrics["node_efa_retrans_timeout_events"], "Found a duplicate in the metrics slice: node_efa_retrans_timeout_events")
-					validatedMetrics["node_efa_retrans_timeout_events"] = true
+				case "efa_retrans_timeout_events":
+					assert.False(t, validatedMetrics["efa_retrans_timeout_events"], "Found a duplicate in the metrics slice: efa_retrans_timeout_events")
+					validatedMetrics["efa_retrans_timeout_events"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of times EFA SRD traffic timed out and resulted in a network path change", ms.At(i).Description())
@@ -235,9 +238,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_rx_bytes":
-					assert.False(t, validatedMetrics["node_efa_rx_bytes"], "Found a duplicate in the metrics slice: node_efa_rx_bytes")
-					validatedMetrics["node_efa_rx_bytes"] = true
+				case "efa_rx_bytes":
+					assert.False(t, validatedMetrics["efa_rx_bytes"], "Found a duplicate in the metrics slice: efa_rx_bytes")
+					validatedMetrics["efa_rx_bytes"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of bytes received", ms.At(i).Description())
@@ -249,9 +252,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_rx_dropped":
-					assert.False(t, validatedMetrics["node_efa_rx_dropped"], "Found a duplicate in the metrics slice: node_efa_rx_dropped")
-					validatedMetrics["node_efa_rx_dropped"] = true
+				case "efa_rx_dropped":
+					assert.False(t, validatedMetrics["efa_rx_dropped"], "Found a duplicate in the metrics slice: efa_rx_dropped")
+					validatedMetrics["efa_rx_dropped"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of packets that were received and then dropped", ms.At(i).Description())
@@ -263,9 +266,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_tx_bytes":
-					assert.False(t, validatedMetrics["node_efa_tx_bytes"], "Found a duplicate in the metrics slice: node_efa_tx_bytes")
-					validatedMetrics["node_efa_tx_bytes"] = true
+				case "efa_tx_bytes":
+					assert.False(t, validatedMetrics["efa_tx_bytes"], "Found a duplicate in the metrics slice: efa_tx_bytes")
+					validatedMetrics["efa_tx_bytes"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of bytes transmitted", ms.At(i).Description())
@@ -277,9 +280,9 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-				case "node_efa_unresponsive_remote_events":
-					assert.False(t, validatedMetrics["node_efa_unresponsive_remote_events"], "Found a duplicate in the metrics slice: node_efa_unresponsive_remote_events")
-					validatedMetrics["node_efa_unresponsive_remote_events"] = true
+				case "efa_unresponsive_remote_events":
+					assert.False(t, validatedMetrics["efa_unresponsive_remote_events"], "Found a duplicate in the metrics slice: efa_unresponsive_remote_events")
+					validatedMetrics["efa_unresponsive_remote_events"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
 					assert.Equal(t, "The number of times an EFA SRD remote connection was unresponsive", ms.At(i).Description())

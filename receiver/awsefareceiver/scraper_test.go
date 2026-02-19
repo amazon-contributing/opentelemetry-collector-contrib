@@ -142,6 +142,19 @@ func TestScrape(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, "1", port.Str())
 
+		// Device-level metrics always carry pod/namespace/container labels (empty when unassigned)
+		pod, ok := attrs.Get("pod")
+		assert.True(t, ok)
+		assert.Equal(t, "", pod.Str())
+
+		ns, ok := attrs.Get("namespace")
+		assert.True(t, ok)
+		assert.Equal(t, "", ns.Str())
+
+		container, ok := attrs.Get("container")
+		assert.True(t, ok)
+		assert.Equal(t, "", container.Str())
+
 		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
 			totalMetrics += rm.ScopeMetrics().At(j).Metrics().Len()
 		}
@@ -195,12 +208,12 @@ func TestScrapeMetricValues(t *testing.T) {
 	found := false
 	for i := 0; i < sm.Metrics().Len(); i++ {
 		m := sm.Metrics().At(i)
-		if m.Name() == "node_efa_rdma_read_bytes" {
+		if m.Name() == "efa_rdma_read_bytes" {
 			assert.Equal(t, int64(42), m.Sum().DataPoints().At(0).IntValue())
 			found = true
 		}
 	}
-	assert.True(t, found, "expected to find node_efa_rdma_read_bytes metric")
+	assert.True(t, found, "expected to find efa_rdma_read_bytes metric")
 }
 
 func TestScrapeEfaDataExistsError(t *testing.T) {
@@ -258,11 +271,8 @@ func TestScrapeCounterReadError(t *testing.T) {
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	// efa0 is skipped because readCounters returned an error
-	assert.Equal(t, 1, metrics.ResourceMetrics().Len())
-
-	device, _ := metrics.ResourceMetrics().At(0).Resource().Attributes().Get("device")
-	assert.Equal(t, "efa1", device.Str())
+	// efa0 is included with partial counters (rx_bytes failed but others succeeded)
+	assert.Equal(t, 2, metrics.ResourceMetrics().Len())
 }
 
 func TestRecordOverflow(t *testing.T) {
@@ -292,9 +302,9 @@ func TestRecordOverflow(t *testing.T) {
 
 	for i := 0; i < sm.Metrics().Len(); i++ {
 		m := sm.Metrics().At(i)
-		if m.Name() == "node_efa_tx_bytes" {
+		if m.Name() == "efa_tx_bytes" {
 			assert.Equal(t, int64(200), m.Sum().DataPoints().At(0).IntValue())
 		}
-		assert.NotEqual(t, "node_efa_rdma_read_bytes", m.Name())
+		assert.NotEqual(t, "efa_rdma_read_bytes", m.Name())
 	}
 }

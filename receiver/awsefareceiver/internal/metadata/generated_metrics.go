@@ -13,68 +13,68 @@ import (
 )
 
 var MetricsInfo = metricsInfo{
-	NodeEfaImpairedRemoteConnEvents: metricInfo{
-		Name: "node_efa_impaired_remote_conn_events",
+	EfaImpairedRemoteConnEvents: metricInfo{
+		Name: "efa_impaired_remote_conn_events",
 	},
-	NodeEfaRdmaReadBytes: metricInfo{
-		Name: "node_efa_rdma_read_bytes",
+	EfaRdmaReadBytes: metricInfo{
+		Name: "efa_rdma_read_bytes",
 	},
-	NodeEfaRdmaWriteBytes: metricInfo{
-		Name: "node_efa_rdma_write_bytes",
+	EfaRdmaWriteBytes: metricInfo{
+		Name: "efa_rdma_write_bytes",
 	},
-	NodeEfaRdmaWriteRecvBytes: metricInfo{
-		Name: "node_efa_rdma_write_recv_bytes",
+	EfaRdmaWriteRecvBytes: metricInfo{
+		Name: "efa_rdma_write_recv_bytes",
 	},
-	NodeEfaRetransBytes: metricInfo{
-		Name: "node_efa_retrans_bytes",
+	EfaRetransBytes: metricInfo{
+		Name: "efa_retrans_bytes",
 	},
-	NodeEfaRetransPkts: metricInfo{
-		Name: "node_efa_retrans_pkts",
+	EfaRetransPkts: metricInfo{
+		Name: "efa_retrans_pkts",
 	},
-	NodeEfaRetransTimeoutEvents: metricInfo{
-		Name: "node_efa_retrans_timeout_events",
+	EfaRetransTimeoutEvents: metricInfo{
+		Name: "efa_retrans_timeout_events",
 	},
-	NodeEfaRxBytes: metricInfo{
-		Name: "node_efa_rx_bytes",
+	EfaRxBytes: metricInfo{
+		Name: "efa_rx_bytes",
 	},
-	NodeEfaRxDropped: metricInfo{
-		Name: "node_efa_rx_dropped",
+	EfaRxDropped: metricInfo{
+		Name: "efa_rx_dropped",
 	},
-	NodeEfaTxBytes: metricInfo{
-		Name: "node_efa_tx_bytes",
+	EfaTxBytes: metricInfo{
+		Name: "efa_tx_bytes",
 	},
-	NodeEfaUnresponsiveRemoteEvents: metricInfo{
-		Name: "node_efa_unresponsive_remote_events",
+	EfaUnresponsiveRemoteEvents: metricInfo{
+		Name: "efa_unresponsive_remote_events",
 	},
 }
 
 type metricsInfo struct {
-	NodeEfaImpairedRemoteConnEvents metricInfo
-	NodeEfaRdmaReadBytes            metricInfo
-	NodeEfaRdmaWriteBytes           metricInfo
-	NodeEfaRdmaWriteRecvBytes       metricInfo
-	NodeEfaRetransBytes             metricInfo
-	NodeEfaRetransPkts              metricInfo
-	NodeEfaRetransTimeoutEvents     metricInfo
-	NodeEfaRxBytes                  metricInfo
-	NodeEfaRxDropped                metricInfo
-	NodeEfaTxBytes                  metricInfo
-	NodeEfaUnresponsiveRemoteEvents metricInfo
+	EfaImpairedRemoteConnEvents metricInfo
+	EfaRdmaReadBytes            metricInfo
+	EfaRdmaWriteBytes           metricInfo
+	EfaRdmaWriteRecvBytes       metricInfo
+	EfaRetransBytes             metricInfo
+	EfaRetransPkts              metricInfo
+	EfaRetransTimeoutEvents     metricInfo
+	EfaRxBytes                  metricInfo
+	EfaRxDropped                metricInfo
+	EfaTxBytes                  metricInfo
+	EfaUnresponsiveRemoteEvents metricInfo
 }
 
 type metricInfo struct {
 	Name string
 }
 
-type metricNodeEfaImpairedRemoteConnEvents struct {
+type metricEfaImpairedRemoteConnEvents struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_impaired_remote_conn_events metric with initial data.
-func (m *metricNodeEfaImpairedRemoteConnEvents) init() {
-	m.data.SetName("node_efa_impaired_remote_conn_events")
+// init fills efa_impaired_remote_conn_events metric with initial data.
+func (m *metricEfaImpairedRemoteConnEvents) init() {
+	m.data.SetName("efa_impaired_remote_conn_events")
 	m.data.SetDescription("The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit")
 	m.data.SetUnit("1")
 	m.data.SetEmptySum()
@@ -82,7 +82,7 @@ func (m *metricNodeEfaImpairedRemoteConnEvents) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaImpairedRemoteConnEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaImpairedRemoteConnEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -93,14 +93,14 @@ func (m *metricNodeEfaImpairedRemoteConnEvents) recordDataPoint(start pcommon.Ti
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaImpairedRemoteConnEvents) updateCapacity() {
+func (m *metricEfaImpairedRemoteConnEvents) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaImpairedRemoteConnEvents) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaImpairedRemoteConnEvents) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -108,8 +108,8 @@ func (m *metricNodeEfaImpairedRemoteConnEvents) emit(metrics pmetric.MetricSlice
 	}
 }
 
-func newMetricNodeEfaImpairedRemoteConnEvents(cfg MetricConfig) metricNodeEfaImpairedRemoteConnEvents {
-	m := metricNodeEfaImpairedRemoteConnEvents{config: cfg}
+func newMetricEfaImpairedRemoteConnEvents(cfg MetricConfig) metricEfaImpairedRemoteConnEvents {
+	m := metricEfaImpairedRemoteConnEvents{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -117,15 +117,15 @@ func newMetricNodeEfaImpairedRemoteConnEvents(cfg MetricConfig) metricNodeEfaImp
 	return m
 }
 
-type metricNodeEfaRdmaReadBytes struct {
+type metricEfaRdmaReadBytes struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_rdma_read_bytes metric with initial data.
-func (m *metricNodeEfaRdmaReadBytes) init() {
-	m.data.SetName("node_efa_rdma_read_bytes")
+// init fills efa_rdma_read_bytes metric with initial data.
+func (m *metricEfaRdmaReadBytes) init() {
+	m.data.SetName("efa_rdma_read_bytes")
 	m.data.SetDescription("The number of bytes received using RDMA read operations")
 	m.data.SetUnit("By")
 	m.data.SetEmptySum()
@@ -133,7 +133,7 @@ func (m *metricNodeEfaRdmaReadBytes) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRdmaReadBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaReadBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -144,14 +144,14 @@ func (m *metricNodeEfaRdmaReadBytes) recordDataPoint(start pcommon.Timestamp, ts
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRdmaReadBytes) updateCapacity() {
+func (m *metricEfaRdmaReadBytes) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRdmaReadBytes) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRdmaReadBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -159,8 +159,8 @@ func (m *metricNodeEfaRdmaReadBytes) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRdmaReadBytes(cfg MetricConfig) metricNodeEfaRdmaReadBytes {
-	m := metricNodeEfaRdmaReadBytes{config: cfg}
+func newMetricEfaRdmaReadBytes(cfg MetricConfig) metricEfaRdmaReadBytes {
+	m := metricEfaRdmaReadBytes{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -168,15 +168,15 @@ func newMetricNodeEfaRdmaReadBytes(cfg MetricConfig) metricNodeEfaRdmaReadBytes 
 	return m
 }
 
-type metricNodeEfaRdmaWriteBytes struct {
+type metricEfaRdmaWriteBytes struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_rdma_write_bytes metric with initial data.
-func (m *metricNodeEfaRdmaWriteBytes) init() {
-	m.data.SetName("node_efa_rdma_write_bytes")
+// init fills efa_rdma_write_bytes metric with initial data.
+func (m *metricEfaRdmaWriteBytes) init() {
+	m.data.SetName("efa_rdma_write_bytes")
 	m.data.SetDescription("The number of bytes written by other instances using RDMA write operations")
 	m.data.SetUnit("By")
 	m.data.SetEmptySum()
@@ -184,7 +184,7 @@ func (m *metricNodeEfaRdmaWriteBytes) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRdmaWriteBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaWriteBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -195,14 +195,14 @@ func (m *metricNodeEfaRdmaWriteBytes) recordDataPoint(start pcommon.Timestamp, t
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRdmaWriteBytes) updateCapacity() {
+func (m *metricEfaRdmaWriteBytes) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRdmaWriteBytes) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRdmaWriteBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -210,8 +210,8 @@ func (m *metricNodeEfaRdmaWriteBytes) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRdmaWriteBytes(cfg MetricConfig) metricNodeEfaRdmaWriteBytes {
-	m := metricNodeEfaRdmaWriteBytes{config: cfg}
+func newMetricEfaRdmaWriteBytes(cfg MetricConfig) metricEfaRdmaWriteBytes {
+	m := metricEfaRdmaWriteBytes{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -219,15 +219,15 @@ func newMetricNodeEfaRdmaWriteBytes(cfg MetricConfig) metricNodeEfaRdmaWriteByte
 	return m
 }
 
-type metricNodeEfaRdmaWriteRecvBytes struct {
+type metricEfaRdmaWriteRecvBytes struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_rdma_write_recv_bytes metric with initial data.
-func (m *metricNodeEfaRdmaWriteRecvBytes) init() {
-	m.data.SetName("node_efa_rdma_write_recv_bytes")
+// init fills efa_rdma_write_recv_bytes metric with initial data.
+func (m *metricEfaRdmaWriteRecvBytes) init() {
+	m.data.SetName("efa_rdma_write_recv_bytes")
 	m.data.SetDescription("The number of bytes received by RDMA write operations")
 	m.data.SetUnit("By")
 	m.data.SetEmptySum()
@@ -235,7 +235,7 @@ func (m *metricNodeEfaRdmaWriteRecvBytes) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRdmaWriteRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaWriteRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -246,14 +246,14 @@ func (m *metricNodeEfaRdmaWriteRecvBytes) recordDataPoint(start pcommon.Timestam
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRdmaWriteRecvBytes) updateCapacity() {
+func (m *metricEfaRdmaWriteRecvBytes) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRdmaWriteRecvBytes) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRdmaWriteRecvBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -261,8 +261,8 @@ func (m *metricNodeEfaRdmaWriteRecvBytes) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRdmaWriteRecvBytes(cfg MetricConfig) metricNodeEfaRdmaWriteRecvBytes {
-	m := metricNodeEfaRdmaWriteRecvBytes{config: cfg}
+func newMetricEfaRdmaWriteRecvBytes(cfg MetricConfig) metricEfaRdmaWriteRecvBytes {
+	m := metricEfaRdmaWriteRecvBytes{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -270,15 +270,15 @@ func newMetricNodeEfaRdmaWriteRecvBytes(cfg MetricConfig) metricNodeEfaRdmaWrite
 	return m
 }
 
-type metricNodeEfaRetransBytes struct {
+type metricEfaRetransBytes struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_retrans_bytes metric with initial data.
-func (m *metricNodeEfaRetransBytes) init() {
-	m.data.SetName("node_efa_retrans_bytes")
+// init fills efa_retrans_bytes metric with initial data.
+func (m *metricEfaRetransBytes) init() {
+	m.data.SetName("efa_retrans_bytes")
 	m.data.SetDescription("The number of EFA SRD bytes retransmitted")
 	m.data.SetUnit("By")
 	m.data.SetEmptySum()
@@ -286,7 +286,7 @@ func (m *metricNodeEfaRetransBytes) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRetransBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRetransBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -297,14 +297,14 @@ func (m *metricNodeEfaRetransBytes) recordDataPoint(start pcommon.Timestamp, ts 
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRetransBytes) updateCapacity() {
+func (m *metricEfaRetransBytes) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRetransBytes) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRetransBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -312,8 +312,8 @@ func (m *metricNodeEfaRetransBytes) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRetransBytes(cfg MetricConfig) metricNodeEfaRetransBytes {
-	m := metricNodeEfaRetransBytes{config: cfg}
+func newMetricEfaRetransBytes(cfg MetricConfig) metricEfaRetransBytes {
+	m := metricEfaRetransBytes{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -321,15 +321,15 @@ func newMetricNodeEfaRetransBytes(cfg MetricConfig) metricNodeEfaRetransBytes {
 	return m
 }
 
-type metricNodeEfaRetransPkts struct {
+type metricEfaRetransPkts struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_retrans_pkts metric with initial data.
-func (m *metricNodeEfaRetransPkts) init() {
-	m.data.SetName("node_efa_retrans_pkts")
+// init fills efa_retrans_pkts metric with initial data.
+func (m *metricEfaRetransPkts) init() {
+	m.data.SetName("efa_retrans_pkts")
 	m.data.SetDescription("The number of EFA SRD packets retransmitted")
 	m.data.SetUnit("1")
 	m.data.SetEmptySum()
@@ -337,7 +337,7 @@ func (m *metricNodeEfaRetransPkts) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRetransPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRetransPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -348,14 +348,14 @@ func (m *metricNodeEfaRetransPkts) recordDataPoint(start pcommon.Timestamp, ts p
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRetransPkts) updateCapacity() {
+func (m *metricEfaRetransPkts) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRetransPkts) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRetransPkts) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -363,8 +363,8 @@ func (m *metricNodeEfaRetransPkts) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRetransPkts(cfg MetricConfig) metricNodeEfaRetransPkts {
-	m := metricNodeEfaRetransPkts{config: cfg}
+func newMetricEfaRetransPkts(cfg MetricConfig) metricEfaRetransPkts {
+	m := metricEfaRetransPkts{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -372,15 +372,15 @@ func newMetricNodeEfaRetransPkts(cfg MetricConfig) metricNodeEfaRetransPkts {
 	return m
 }
 
-type metricNodeEfaRetransTimeoutEvents struct {
+type metricEfaRetransTimeoutEvents struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_retrans_timeout_events metric with initial data.
-func (m *metricNodeEfaRetransTimeoutEvents) init() {
-	m.data.SetName("node_efa_retrans_timeout_events")
+// init fills efa_retrans_timeout_events metric with initial data.
+func (m *metricEfaRetransTimeoutEvents) init() {
+	m.data.SetName("efa_retrans_timeout_events")
 	m.data.SetDescription("The number of times EFA SRD traffic timed out and resulted in a network path change")
 	m.data.SetUnit("1")
 	m.data.SetEmptySum()
@@ -388,7 +388,7 @@ func (m *metricNodeEfaRetransTimeoutEvents) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRetransTimeoutEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRetransTimeoutEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -399,14 +399,14 @@ func (m *metricNodeEfaRetransTimeoutEvents) recordDataPoint(start pcommon.Timest
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRetransTimeoutEvents) updateCapacity() {
+func (m *metricEfaRetransTimeoutEvents) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRetransTimeoutEvents) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRetransTimeoutEvents) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -414,8 +414,8 @@ func (m *metricNodeEfaRetransTimeoutEvents) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRetransTimeoutEvents(cfg MetricConfig) metricNodeEfaRetransTimeoutEvents {
-	m := metricNodeEfaRetransTimeoutEvents{config: cfg}
+func newMetricEfaRetransTimeoutEvents(cfg MetricConfig) metricEfaRetransTimeoutEvents {
+	m := metricEfaRetransTimeoutEvents{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -423,15 +423,15 @@ func newMetricNodeEfaRetransTimeoutEvents(cfg MetricConfig) metricNodeEfaRetrans
 	return m
 }
 
-type metricNodeEfaRxBytes struct {
+type metricEfaRxBytes struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_rx_bytes metric with initial data.
-func (m *metricNodeEfaRxBytes) init() {
-	m.data.SetName("node_efa_rx_bytes")
+// init fills efa_rx_bytes metric with initial data.
+func (m *metricEfaRxBytes) init() {
+	m.data.SetName("efa_rx_bytes")
 	m.data.SetDescription("The number of bytes received")
 	m.data.SetUnit("By")
 	m.data.SetEmptySum()
@@ -439,7 +439,7 @@ func (m *metricNodeEfaRxBytes) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -450,14 +450,14 @@ func (m *metricNodeEfaRxBytes) recordDataPoint(start pcommon.Timestamp, ts pcomm
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRxBytes) updateCapacity() {
+func (m *metricEfaRxBytes) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRxBytes) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRxBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -465,8 +465,8 @@ func (m *metricNodeEfaRxBytes) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRxBytes(cfg MetricConfig) metricNodeEfaRxBytes {
-	m := metricNodeEfaRxBytes{config: cfg}
+func newMetricEfaRxBytes(cfg MetricConfig) metricEfaRxBytes {
+	m := metricEfaRxBytes{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -474,15 +474,15 @@ func newMetricNodeEfaRxBytes(cfg MetricConfig) metricNodeEfaRxBytes {
 	return m
 }
 
-type metricNodeEfaRxDropped struct {
+type metricEfaRxDropped struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_rx_dropped metric with initial data.
-func (m *metricNodeEfaRxDropped) init() {
-	m.data.SetName("node_efa_rx_dropped")
+// init fills efa_rx_dropped metric with initial data.
+func (m *metricEfaRxDropped) init() {
+	m.data.SetName("efa_rx_dropped")
 	m.data.SetDescription("The number of packets that were received and then dropped")
 	m.data.SetUnit("1")
 	m.data.SetEmptySum()
@@ -490,7 +490,7 @@ func (m *metricNodeEfaRxDropped) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaRxDropped) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRxDropped) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -501,14 +501,14 @@ func (m *metricNodeEfaRxDropped) recordDataPoint(start pcommon.Timestamp, ts pco
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaRxDropped) updateCapacity() {
+func (m *metricEfaRxDropped) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaRxDropped) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaRxDropped) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -516,8 +516,8 @@ func (m *metricNodeEfaRxDropped) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaRxDropped(cfg MetricConfig) metricNodeEfaRxDropped {
-	m := metricNodeEfaRxDropped{config: cfg}
+func newMetricEfaRxDropped(cfg MetricConfig) metricEfaRxDropped {
+	m := metricEfaRxDropped{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -525,15 +525,15 @@ func newMetricNodeEfaRxDropped(cfg MetricConfig) metricNodeEfaRxDropped {
 	return m
 }
 
-type metricNodeEfaTxBytes struct {
+type metricEfaTxBytes struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_tx_bytes metric with initial data.
-func (m *metricNodeEfaTxBytes) init() {
-	m.data.SetName("node_efa_tx_bytes")
+// init fills efa_tx_bytes metric with initial data.
+func (m *metricEfaTxBytes) init() {
+	m.data.SetName("efa_tx_bytes")
 	m.data.SetDescription("The number of bytes transmitted")
 	m.data.SetUnit("By")
 	m.data.SetEmptySum()
@@ -541,7 +541,7 @@ func (m *metricNodeEfaTxBytes) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaTxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaTxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -552,14 +552,14 @@ func (m *metricNodeEfaTxBytes) recordDataPoint(start pcommon.Timestamp, ts pcomm
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaTxBytes) updateCapacity() {
+func (m *metricEfaTxBytes) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaTxBytes) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaTxBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -567,8 +567,8 @@ func (m *metricNodeEfaTxBytes) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricNodeEfaTxBytes(cfg MetricConfig) metricNodeEfaTxBytes {
-	m := metricNodeEfaTxBytes{config: cfg}
+func newMetricEfaTxBytes(cfg MetricConfig) metricEfaTxBytes {
+	m := metricEfaTxBytes{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -576,15 +576,15 @@ func newMetricNodeEfaTxBytes(cfg MetricConfig) metricNodeEfaTxBytes {
 	return m
 }
 
-type metricNodeEfaUnresponsiveRemoteEvents struct {
+type metricEfaUnresponsiveRemoteEvents struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills node_efa_unresponsive_remote_events metric with initial data.
-func (m *metricNodeEfaUnresponsiveRemoteEvents) init() {
-	m.data.SetName("node_efa_unresponsive_remote_events")
+// init fills efa_unresponsive_remote_events metric with initial data.
+func (m *metricEfaUnresponsiveRemoteEvents) init() {
+	m.data.SetName("efa_unresponsive_remote_events")
 	m.data.SetDescription("The number of times an EFA SRD remote connection was unresponsive")
 	m.data.SetUnit("1")
 	m.data.SetEmptySum()
@@ -592,7 +592,7 @@ func (m *metricNodeEfaUnresponsiveRemoteEvents) init() {
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 }
 
-func (m *metricNodeEfaUnresponsiveRemoteEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaUnresponsiveRemoteEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -603,14 +603,14 @@ func (m *metricNodeEfaUnresponsiveRemoteEvents) recordDataPoint(start pcommon.Ti
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricNodeEfaUnresponsiveRemoteEvents) updateCapacity() {
+func (m *metricEfaUnresponsiveRemoteEvents) updateCapacity() {
 	if m.data.Sum().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Sum().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricNodeEfaUnresponsiveRemoteEvents) emit(metrics pmetric.MetricSlice) {
+func (m *metricEfaUnresponsiveRemoteEvents) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -618,8 +618,8 @@ func (m *metricNodeEfaUnresponsiveRemoteEvents) emit(metrics pmetric.MetricSlice
 	}
 }
 
-func newMetricNodeEfaUnresponsiveRemoteEvents(cfg MetricConfig) metricNodeEfaUnresponsiveRemoteEvents {
-	m := metricNodeEfaUnresponsiveRemoteEvents{config: cfg}
+func newMetricEfaUnresponsiveRemoteEvents(cfg MetricConfig) metricEfaUnresponsiveRemoteEvents {
+	m := metricEfaUnresponsiveRemoteEvents{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -637,17 +637,17 @@ type MetricsBuilder struct {
 	buildInfo                             component.BuildInfo  // contains version information.
 	resourceAttributeIncludeFilter        map[string]filter.Filter
 	resourceAttributeExcludeFilter        map[string]filter.Filter
-	metricNodeEfaImpairedRemoteConnEvents metricNodeEfaImpairedRemoteConnEvents
-	metricNodeEfaRdmaReadBytes            metricNodeEfaRdmaReadBytes
-	metricNodeEfaRdmaWriteBytes           metricNodeEfaRdmaWriteBytes
-	metricNodeEfaRdmaWriteRecvBytes       metricNodeEfaRdmaWriteRecvBytes
-	metricNodeEfaRetransBytes             metricNodeEfaRetransBytes
-	metricNodeEfaRetransPkts              metricNodeEfaRetransPkts
-	metricNodeEfaRetransTimeoutEvents     metricNodeEfaRetransTimeoutEvents
-	metricNodeEfaRxBytes                  metricNodeEfaRxBytes
-	metricNodeEfaRxDropped                metricNodeEfaRxDropped
-	metricNodeEfaTxBytes                  metricNodeEfaTxBytes
-	metricNodeEfaUnresponsiveRemoteEvents metricNodeEfaUnresponsiveRemoteEvents
+	metricEfaImpairedRemoteConnEvents metricEfaImpairedRemoteConnEvents
+	metricEfaRdmaReadBytes            metricEfaRdmaReadBytes
+	metricEfaRdmaWriteBytes           metricEfaRdmaWriteBytes
+	metricEfaRdmaWriteRecvBytes       metricEfaRdmaWriteRecvBytes
+	metricEfaRetransBytes             metricEfaRetransBytes
+	metricEfaRetransPkts              metricEfaRetransPkts
+	metricEfaRetransTimeoutEvents     metricEfaRetransTimeoutEvents
+	metricEfaRxBytes                  metricEfaRxBytes
+	metricEfaRxDropped                metricEfaRxDropped
+	metricEfaTxBytes                  metricEfaTxBytes
+	metricEfaUnresponsiveRemoteEvents metricEfaUnresponsiveRemoteEvents
 }
 
 // MetricBuilderOption applies changes to default metrics builder.
@@ -673,17 +673,17 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		startTime:                             pcommon.NewTimestampFromTime(time.Now()),
 		metricsBuffer:                         pmetric.NewMetrics(),
 		buildInfo:                             settings.BuildInfo,
-		metricNodeEfaImpairedRemoteConnEvents: newMetricNodeEfaImpairedRemoteConnEvents(mbc.Metrics.NodeEfaImpairedRemoteConnEvents),
-		metricNodeEfaRdmaReadBytes:            newMetricNodeEfaRdmaReadBytes(mbc.Metrics.NodeEfaRdmaReadBytes),
-		metricNodeEfaRdmaWriteBytes:           newMetricNodeEfaRdmaWriteBytes(mbc.Metrics.NodeEfaRdmaWriteBytes),
-		metricNodeEfaRdmaWriteRecvBytes:       newMetricNodeEfaRdmaWriteRecvBytes(mbc.Metrics.NodeEfaRdmaWriteRecvBytes),
-		metricNodeEfaRetransBytes:             newMetricNodeEfaRetransBytes(mbc.Metrics.NodeEfaRetransBytes),
-		metricNodeEfaRetransPkts:              newMetricNodeEfaRetransPkts(mbc.Metrics.NodeEfaRetransPkts),
-		metricNodeEfaRetransTimeoutEvents:     newMetricNodeEfaRetransTimeoutEvents(mbc.Metrics.NodeEfaRetransTimeoutEvents),
-		metricNodeEfaRxBytes:                  newMetricNodeEfaRxBytes(mbc.Metrics.NodeEfaRxBytes),
-		metricNodeEfaRxDropped:                newMetricNodeEfaRxDropped(mbc.Metrics.NodeEfaRxDropped),
-		metricNodeEfaTxBytes:                  newMetricNodeEfaTxBytes(mbc.Metrics.NodeEfaTxBytes),
-		metricNodeEfaUnresponsiveRemoteEvents: newMetricNodeEfaUnresponsiveRemoteEvents(mbc.Metrics.NodeEfaUnresponsiveRemoteEvents),
+		metricEfaImpairedRemoteConnEvents: newMetricEfaImpairedRemoteConnEvents(mbc.Metrics.EfaImpairedRemoteConnEvents),
+		metricEfaRdmaReadBytes:            newMetricEfaRdmaReadBytes(mbc.Metrics.EfaRdmaReadBytes),
+		metricEfaRdmaWriteBytes:           newMetricEfaRdmaWriteBytes(mbc.Metrics.EfaRdmaWriteBytes),
+		metricEfaRdmaWriteRecvBytes:       newMetricEfaRdmaWriteRecvBytes(mbc.Metrics.EfaRdmaWriteRecvBytes),
+		metricEfaRetransBytes:             newMetricEfaRetransBytes(mbc.Metrics.EfaRetransBytes),
+		metricEfaRetransPkts:              newMetricEfaRetransPkts(mbc.Metrics.EfaRetransPkts),
+		metricEfaRetransTimeoutEvents:     newMetricEfaRetransTimeoutEvents(mbc.Metrics.EfaRetransTimeoutEvents),
+		metricEfaRxBytes:                  newMetricEfaRxBytes(mbc.Metrics.EfaRxBytes),
+		metricEfaRxDropped:                newMetricEfaRxDropped(mbc.Metrics.EfaRxDropped),
+		metricEfaTxBytes:                  newMetricEfaTxBytes(mbc.Metrics.EfaTxBytes),
+		metricEfaUnresponsiveRemoteEvents: newMetricEfaUnresponsiveRemoteEvents(mbc.Metrics.EfaUnresponsiveRemoteEvents),
 		resourceAttributeIncludeFilter:        make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter:        make(map[string]filter.Filter),
 	}
@@ -698,6 +698,24 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 	}
 	if mbc.ResourceAttributes.Port.MetricsExclude != nil {
 		mb.resourceAttributeExcludeFilter["port"] = filter.CreateFilter(mbc.ResourceAttributes.Port.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.Pod.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["pod"] = filter.CreateFilter(mbc.ResourceAttributes.Pod.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.Pod.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["pod"] = filter.CreateFilter(mbc.ResourceAttributes.Pod.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.Namespace.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["namespace"] = filter.CreateFilter(mbc.ResourceAttributes.Namespace.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.Namespace.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["namespace"] = filter.CreateFilter(mbc.ResourceAttributes.Namespace.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.Container.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["container"] = filter.CreateFilter(mbc.ResourceAttributes.Container.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.Container.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["container"] = filter.CreateFilter(mbc.ResourceAttributes.Container.MetricsExclude)
 	}
 
 	for _, op := range options {
@@ -768,17 +786,17 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	ils.Scope().SetName(ScopeName)
 	ils.Scope().SetVersion(mb.buildInfo.Version)
 	ils.Metrics().EnsureCapacity(mb.metricsCapacity)
-	mb.metricNodeEfaImpairedRemoteConnEvents.emit(ils.Metrics())
-	mb.metricNodeEfaRdmaReadBytes.emit(ils.Metrics())
-	mb.metricNodeEfaRdmaWriteBytes.emit(ils.Metrics())
-	mb.metricNodeEfaRdmaWriteRecvBytes.emit(ils.Metrics())
-	mb.metricNodeEfaRetransBytes.emit(ils.Metrics())
-	mb.metricNodeEfaRetransPkts.emit(ils.Metrics())
-	mb.metricNodeEfaRetransTimeoutEvents.emit(ils.Metrics())
-	mb.metricNodeEfaRxBytes.emit(ils.Metrics())
-	mb.metricNodeEfaRxDropped.emit(ils.Metrics())
-	mb.metricNodeEfaTxBytes.emit(ils.Metrics())
-	mb.metricNodeEfaUnresponsiveRemoteEvents.emit(ils.Metrics())
+	mb.metricEfaImpairedRemoteConnEvents.emit(ils.Metrics())
+	mb.metricEfaRdmaReadBytes.emit(ils.Metrics())
+	mb.metricEfaRdmaWriteBytes.emit(ils.Metrics())
+	mb.metricEfaRdmaWriteRecvBytes.emit(ils.Metrics())
+	mb.metricEfaRetransBytes.emit(ils.Metrics())
+	mb.metricEfaRetransPkts.emit(ils.Metrics())
+	mb.metricEfaRetransTimeoutEvents.emit(ils.Metrics())
+	mb.metricEfaRxBytes.emit(ils.Metrics())
+	mb.metricEfaRxDropped.emit(ils.Metrics())
+	mb.metricEfaTxBytes.emit(ils.Metrics())
+	mb.metricEfaUnresponsiveRemoteEvents.emit(ils.Metrics())
 
 	for _, op := range options {
 		op.apply(rm)
@@ -810,59 +828,59 @@ func (mb *MetricsBuilder) Emit(options ...ResourceMetricsOption) pmetric.Metrics
 	return metrics
 }
 
-// RecordNodeEfaImpairedRemoteConnEventsDataPoint adds a data point to node_efa_impaired_remote_conn_events metric.
-func (mb *MetricsBuilder) RecordNodeEfaImpairedRemoteConnEventsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaImpairedRemoteConnEvents.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaImpairedRemoteConnEventsDataPoint adds a data point to efa_impaired_remote_conn_events metric.
+func (mb *MetricsBuilder) RecordEfaImpairedRemoteConnEventsDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaImpairedRemoteConnEvents.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRdmaReadBytesDataPoint adds a data point to node_efa_rdma_read_bytes metric.
-func (mb *MetricsBuilder) RecordNodeEfaRdmaReadBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRdmaReadBytes.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRdmaReadBytesDataPoint adds a data point to efa_rdma_read_bytes metric.
+func (mb *MetricsBuilder) RecordEfaRdmaReadBytesDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRdmaReadBytes.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRdmaWriteBytesDataPoint adds a data point to node_efa_rdma_write_bytes metric.
-func (mb *MetricsBuilder) RecordNodeEfaRdmaWriteBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRdmaWriteBytes.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRdmaWriteBytesDataPoint adds a data point to efa_rdma_write_bytes metric.
+func (mb *MetricsBuilder) RecordEfaRdmaWriteBytesDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRdmaWriteBytes.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRdmaWriteRecvBytesDataPoint adds a data point to node_efa_rdma_write_recv_bytes metric.
-func (mb *MetricsBuilder) RecordNodeEfaRdmaWriteRecvBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRdmaWriteRecvBytes.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRdmaWriteRecvBytesDataPoint adds a data point to efa_rdma_write_recv_bytes metric.
+func (mb *MetricsBuilder) RecordEfaRdmaWriteRecvBytesDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRdmaWriteRecvBytes.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRetransBytesDataPoint adds a data point to node_efa_retrans_bytes metric.
-func (mb *MetricsBuilder) RecordNodeEfaRetransBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRetransBytes.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRetransBytesDataPoint adds a data point to efa_retrans_bytes metric.
+func (mb *MetricsBuilder) RecordEfaRetransBytesDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRetransBytes.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRetransPktsDataPoint adds a data point to node_efa_retrans_pkts metric.
-func (mb *MetricsBuilder) RecordNodeEfaRetransPktsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRetransPkts.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRetransPktsDataPoint adds a data point to efa_retrans_pkts metric.
+func (mb *MetricsBuilder) RecordEfaRetransPktsDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRetransPkts.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRetransTimeoutEventsDataPoint adds a data point to node_efa_retrans_timeout_events metric.
-func (mb *MetricsBuilder) RecordNodeEfaRetransTimeoutEventsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRetransTimeoutEvents.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRetransTimeoutEventsDataPoint adds a data point to efa_retrans_timeout_events metric.
+func (mb *MetricsBuilder) RecordEfaRetransTimeoutEventsDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRetransTimeoutEvents.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRxBytesDataPoint adds a data point to node_efa_rx_bytes metric.
-func (mb *MetricsBuilder) RecordNodeEfaRxBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRxBytes.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRxBytesDataPoint adds a data point to efa_rx_bytes metric.
+func (mb *MetricsBuilder) RecordEfaRxBytesDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRxBytes.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaRxDroppedDataPoint adds a data point to node_efa_rx_dropped metric.
-func (mb *MetricsBuilder) RecordNodeEfaRxDroppedDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaRxDropped.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaRxDroppedDataPoint adds a data point to efa_rx_dropped metric.
+func (mb *MetricsBuilder) RecordEfaRxDroppedDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaRxDropped.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaTxBytesDataPoint adds a data point to node_efa_tx_bytes metric.
-func (mb *MetricsBuilder) RecordNodeEfaTxBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaTxBytes.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaTxBytesDataPoint adds a data point to efa_tx_bytes metric.
+func (mb *MetricsBuilder) RecordEfaTxBytesDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaTxBytes.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordNodeEfaUnresponsiveRemoteEventsDataPoint adds a data point to node_efa_unresponsive_remote_events metric.
-func (mb *MetricsBuilder) RecordNodeEfaUnresponsiveRemoteEventsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricNodeEfaUnresponsiveRemoteEvents.recordDataPoint(mb.startTime, ts, val)
+// RecordEfaUnresponsiveRemoteEventsDataPoint adds a data point to efa_unresponsive_remote_events metric.
+func (mb *MetricsBuilder) RecordEfaUnresponsiveRemoteEventsDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricEfaUnresponsiveRemoteEvents.recordDataPoint(mb.startTime, ts, val)
 }
 
 // Reset resets metrics builder to its initial state. It should be used when external metrics source is restarted,

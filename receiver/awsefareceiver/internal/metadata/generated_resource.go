@@ -35,6 +35,27 @@ func (rb *ResourceBuilder) SetPort(val string) {
 	}
 }
 
+// SetPod sets provided value as "pod" attribute.
+func (rb *ResourceBuilder) SetPod(val string) {
+	if rb.config.Pod.Enabled {
+		rb.res.Attributes().PutStr("pod", val)
+	}
+}
+
+// SetNamespace sets provided value as "namespace" attribute.
+func (rb *ResourceBuilder) SetNamespace(val string) {
+	if rb.config.Namespace.Enabled {
+		rb.res.Attributes().PutStr("namespace", val)
+	}
+}
+
+// SetContainer sets provided value as "container" attribute.
+func (rb *ResourceBuilder) SetContainer(val string) {
+	if rb.config.Container.Enabled {
+		rb.res.Attributes().PutStr("container", val)
+	}
+}
+
 // Emit returns the built resource and resets the internal builder state.
 func (rb *ResourceBuilder) Emit() pcommon.Resource {
 	r := rb.res

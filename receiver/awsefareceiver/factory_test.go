@@ -42,31 +42,32 @@ func TestNewFactory(t *testing.T) {
 	assert.Equal(t, metadata.Type, f.Type())
 }
 
-func TestConfigValidateRelativePath(t *testing.T) {
-	cfg := createDefaultConfig().(*Config)
-	cfg.HostPath = "relative/path"
-	err := cfg.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "host_path must be an absolute path")
-}
-
-func TestConfigValidateAbsolutePath(t *testing.T) {
-	cfg := createDefaultConfig().(*Config)
-	cfg.HostPath = "/host"
-	err := cfg.Validate()
-	require.NoError(t, err)
-}
-
-func TestConfigValidateEmptyPath(t *testing.T) {
-	cfg := createDefaultConfig().(*Config)
-	err := cfg.Validate()
-	require.NoError(t, err)
-}
-
-func TestConfigValidateCleansTrailingSlash(t *testing.T) {
-	cfg := createDefaultConfig().(*Config)
-	cfg.HostPath = "/host/"
-	err := cfg.Validate()
-	require.NoError(t, err)
-	assert.Equal(t, "/host", cfg.HostPath)
+func TestConfigValidate(t *testing.T) {
+	tests := []struct {
+		name     string
+		hostPath string
+		wantErr  string
+		wantPath string
+	}{
+		{"empty", "", "", ""},
+		{"absolute", "/host", "", "/host"},
+		{"relative", "relative/path", "must be an absolute path", ""},
+		{"trailing_slash", "/host/", "", "/host"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.HostPath = tt.hostPath
+			err := cfg.Validate()
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				if tt.wantPath != "" {
+					assert.Equal(t, tt.wantPath, cfg.HostPath)
+				}
+			}
+		})
+	}
 }

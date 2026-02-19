@@ -17,9 +17,21 @@ resource_attributes:
     enabled: true
     description: The EFA port number
     type: string
+  pod:
+    enabled: true
+    description: The Kubernetes pod name assigned to this device (empty string if unassigned)
+    type: string
+  namespace:
+    enabled: true
+    description: The Kubernetes namespace of the pod assigned to this device (empty string if unassigned)
+    type: string
+  container:
+    enabled: true
+    description: The container name within the pod assigned to this device (empty string if unassigned)
+    type: string
 
 metrics:
-  node_efa_rdma_read_bytes:
+  efa_rdma_read_bytes:
     description: The number of bytes received using RDMA read operations
     enabled: true
     sum:
@@ -27,7 +39,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
-  node_efa_rdma_write_bytes:
+  efa_rdma_write_bytes:
     description: The number of bytes written by other instances using RDMA write operations
     enabled: true
     sum:
@@ -35,7 +47,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
-  node_efa_rdma_write_recv_bytes:
+  efa_rdma_write_recv_bytes:
     description: The number of bytes received by RDMA write operations
     enabled: true
     sum:
@@ -43,7 +55,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
-  node_efa_rx_bytes:
+  efa_rx_bytes:
     description: The number of bytes received
     enabled: true
     sum:
@@ -51,7 +63,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
-  node_efa_rx_dropped:
+  efa_rx_dropped:
     description: The number of packets that were received and then dropped
     enabled: true
     sum:
@@ -59,7 +71,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
-  node_efa_tx_bytes:
+  efa_tx_bytes:
     description: The number of bytes transmitted
     enabled: true
     sum:
@@ -67,7 +79,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
-  node_efa_retrans_bytes:
+  efa_retrans_bytes:
     description: The number of EFA SRD bytes retransmitted
     enabled: true
     sum:
@@ -75,7 +87,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
-  node_efa_retrans_pkts:
+  efa_retrans_pkts:
     description: The number of EFA SRD packets retransmitted
     enabled: true
     sum:
@@ -83,7 +95,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
-  node_efa_retrans_timeout_events:
+  efa_retrans_timeout_events:
     description: The number of times EFA SRD traffic timed out and resulted in a network path change
     enabled: true
     sum:
@@ -91,7 +103,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
-  node_efa_unresponsive_remote_events:
+  efa_unresponsive_remote_events:
     description: The number of times an EFA SRD remote connection was unresponsive
     enabled: true
     sum:
@@ -99,7 +111,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
-  node_efa_impaired_remote_conn_events:
+  efa_impaired_remote_conn_events:
     description: The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit
     enabled: true
     sum:

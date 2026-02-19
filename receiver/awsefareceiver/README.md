@@ -31,17 +31,17 @@ All metrics are cumulative monotonic sums representing EFA driver hardware count
 
 | Metric Name | Description | Unit |
 |---|---|---|
-| `node_efa_rdma_read_bytes` | Bytes received using RDMA read operations | By |
-| `node_efa_rdma_write_bytes` | Bytes written by other instances using RDMA write operations | By |
-| `node_efa_rdma_write_recv_bytes` | Bytes received by RDMA write operations | By |
-| `node_efa_rx_bytes` | Bytes received | By |
-| `node_efa_rx_dropped` | Packets received and then dropped | 1 |
-| `node_efa_tx_bytes` | Bytes transmitted | By |
-| `node_efa_retrans_bytes` | EFA SRD bytes retransmitted | By |
-| `node_efa_retrans_pkts` | EFA SRD packets retransmitted | 1 |
-| `node_efa_retrans_timeout_events` | Times EFA SRD traffic timed out causing network path change | 1 |
-| `node_efa_unresponsive_remote_events` | Times an EFA SRD remote connection was unresponsive | 1 |
-| `node_efa_impaired_remote_conn_events` | Times EFA SRD connections entered impaired state | 1 |
+| `efa_rdma_read_bytes` | Bytes received using RDMA read operations | By |
+| `efa_rdma_write_bytes` | Bytes written by other instances using RDMA write operations | By |
+| `efa_rdma_write_recv_bytes` | Bytes received by RDMA write operations | By |
+| `efa_rx_bytes` | Bytes received | By |
+| `efa_rx_dropped` | Packets received and then dropped | 1 |
+| `efa_tx_bytes` | Bytes transmitted | By |
+| `efa_retrans_bytes` | EFA SRD bytes retransmitted | By |
+| `efa_retrans_pkts` | EFA SRD packets retransmitted | 1 |
+| `efa_retrans_timeout_events` | Times EFA SRD traffic timed out causing network path change | 1 |
+| `efa_unresponsive_remote_events` | Times an EFA SRD remote connection was unresponsive | 1 |
+| `efa_impaired_remote_conn_events` | Times EFA SRD connections entered impaired state | 1 |
 
 ## Resource Attributes
 
@@ -49,3 +49,6 @@ All metrics are cumulative monotonic sums representing EFA driver hardware count
 |---|---|
 | `device` | The EFA device name (e.g. `rdmap0s31`) |
 | `port` | The EFA port number |
+| `pod` | The Kubernetes pod name assigned to this device (empty string if unassigned) |
+| `namespace` | The Kubernetes namespace of the pod assigned to this device (empty string if unassigned) |
+| `container` | The container name within the pod assigned to this device (empty string if unassigned) |

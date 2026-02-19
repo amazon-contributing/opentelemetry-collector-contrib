@@ -4,11 +4,13 @@
 package awsefareceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsefareceiver"
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"go.uber.org/zap"
 )
@@ -118,8 +120,7 @@ func readUint64FromFile(path string) (uint64, error) {
 		}
 		// Some kernel drivers return these for counters that exist but
 		// aren't available on the current hardware revision.
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "operation not supported") || strings.Contains(errMsg, "invalid argument") {
+		if errors.Is(err, syscall.EOPNOTSUPP) || errors.Is(err, syscall.EINVAL) {
 			return 0, nil
 		}
 		return 0, fmt.Errorf("failed to read file %q: %w", path, err)
@@ -132,7 +133,7 @@ func readUint64FromFile(path string) (uint64, error) {
 		return 0, nil
 	}
 
-	v, err := strconv.ParseUint(value, 0, 64)
+	v, err := strconv.ParseUint(value, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse %q from %q: %w", value, path, err)
 	}

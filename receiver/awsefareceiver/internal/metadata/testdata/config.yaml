@@ -1,61 +1,73 @@
 default:
 all_set:
   metrics:
-    node_efa_impaired_remote_conn_events:
+    efa_impaired_remote_conn_events:
       enabled: true
-    node_efa_rdma_read_bytes:
+    efa_rdma_read_bytes:
       enabled: true
-    node_efa_rdma_write_bytes:
+    efa_rdma_write_bytes:
       enabled: true
-    node_efa_rdma_write_recv_bytes:
+    efa_rdma_write_recv_bytes:
       enabled: true
-    node_efa_retrans_bytes:
+    efa_retrans_bytes:
       enabled: true
-    node_efa_retrans_pkts:
+    efa_retrans_pkts:
       enabled: true
-    node_efa_retrans_timeout_events:
+    efa_retrans_timeout_events:
       enabled: true
-    node_efa_rx_bytes:
+    efa_rx_bytes:
       enabled: true
-    node_efa_rx_dropped:
+    efa_rx_dropped:
       enabled: true
-    node_efa_tx_bytes:
+    efa_tx_bytes:
       enabled: true
-    node_efa_unresponsive_remote_events:
+    efa_unresponsive_remote_events:
       enabled: true
   resource_attributes:
     device:
       enabled: true
     port:
+      enabled: true
+    pod:
+      enabled: true
+    namespace:
+      enabled: true
+    container:
       enabled: true
 none_set:
   metrics:
-    node_efa_impaired_remote_conn_events:
+    efa_impaired_remote_conn_events:
       enabled: false
-    node_efa_rdma_read_bytes:
+    efa_rdma_read_bytes:
       enabled: false
-    node_efa_rdma_write_bytes:
+    efa_rdma_write_bytes:
       enabled: false
-    node_efa_rdma_write_recv_bytes:
+    efa_rdma_write_recv_bytes:
       enabled: false
-    node_efa_retrans_bytes:
+    efa_retrans_bytes:
       enabled: false
-    node_efa_retrans_pkts:
+    efa_retrans_pkts:
       enabled: false
-    node_efa_retrans_timeout_events:
+    efa_retrans_timeout_events:
       enabled: false
-    node_efa_rx_bytes:
+    efa_rx_bytes:
       enabled: false
-    node_efa_rx_dropped:
+    efa_rx_dropped:
       enabled: false
-    node_efa_tx_bytes:
+    efa_tx_bytes:
       enabled: false
-    node_efa_unresponsive_remote_events:
+    efa_unresponsive_remote_events:
       enabled: false
   resource_attributes:
     device:
       enabled: false
     port:
+      enabled: false
+    pod:
+      enabled: false
+    namespace:
+      enabled: false
+    container:
       enabled: false
 filter_set_include:
   resource_attributes:
