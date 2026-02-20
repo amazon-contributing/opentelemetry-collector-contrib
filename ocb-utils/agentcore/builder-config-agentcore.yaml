@@ -1,0 +1,30 @@
+dist:
+  name: otelcol-agentcore
+  description: OTel Collector for Application Signals (Local Build)
+  output_path: ./otelcol-agentcore
+
+exporters:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter v${OCB_VERSION}
+  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v${OCB_VERSION}
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v${OCB_VERSION}
+
+processors:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributesprocessor v${OCB_VERSION}
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v${OCB_VERSION}
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v${OCB_VERSION}
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v${OCB_VERSION}
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v${OCB_VERSION}
+
+extensions:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/awsproxy v${OCB_VERSION}
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension v${OCB_VERSION}
+
+replaces:
+  # Replace components with local directory
+  - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil v${OCB_VERSION} => /src/opentelemetry-collector-contrib/internal/aws/awsutil
+  - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs v${OCB_VERSION} => /src/opentelemetry-collector-contrib/internal/aws/cwlogs
+  - github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter v${OCB_VERSION} => /src/opentelemetry-collector-contrib/exporter/awsemfexporter
+  - github.com/amazon-contributing/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor v${OCB_VERSION} => /src/opentelemetry-collector-contrib/processor/awsapplicationsignalsprocessor
+  - github.com/openshift/api v3.9.0+incompatible => github.com/openshift/api v0.0.0-20180801171038-322a19404e37

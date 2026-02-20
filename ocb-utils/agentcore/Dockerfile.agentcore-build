@@ -1,0 +1,39 @@
+FROM public.ecr.aws/docker/library/golang:1.23.2 AS build
+
+WORKDIR /tmp/build/
+RUN go env -w GOPROXY=direct
+
+ARG OCB_VERSION
+ARG GOOS=darwin
+ARG GOARCH=arm64
+
+RUN curl --proto '=https' --tlsv1.2 -fL -o ocb \
+    https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fbuilder%2Fv${OCB_VERSION}/ocb_${OCB_VERSION}_linux_amd64
+
+RUN chmod +x ocb
+
+# Copy entire repo code to container (from repo root)
+COPY . /src/opentelemetry-collector-contrib/
+
+# Copy agentcore config file
+COPY ocb-utils/agentcore/builder-config-agentcore.yaml ./builder-config-agentcore.yaml
+
+# Install gettext for envsubst
+RUN apt-get update && apt-get install -y gettext-base && rm -rf /var/lib/apt/lists/*
+
+# Build collector for target platform
+RUN --mount=type=cache,target=/go/pkg/mod \
+    export OCB_VERSION=${OCB_VERSION} && \
+    envsubst < builder-config-agentcore.yaml > builder-config-resolved.yaml && \
+    echo "Building for ${GOOS}/${GOARCH}" && \
+    cat builder-config-resolved.yaml && \
+    GOOS=${GOOS} GOARCH=${GOARCH} ./ocb --config builder-config-resolved.yaml --verbose
+
+# Output stage
+FROM alpine:latest
+
+COPY --from=build /tmp/build/otelcol-agentcore/otelcol-agentcore /output/
+
+WORKDIR /output
+
+CMD ["sh", "-c", "echo 'Build complete! Binary is in /output/otelcol-agentcore' && tail -f /dev/null"]
