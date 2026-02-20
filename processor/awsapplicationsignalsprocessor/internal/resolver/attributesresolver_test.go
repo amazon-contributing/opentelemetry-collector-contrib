@@ -162,7 +162,8 @@ func TestResourceAttributesResolverWithCustomEnvironment(t *testing.T) {
 
 func validateLocalEnvResolution(t *testing.T, resolver subResolver, resourceAttributes pcommon.Map, expectedEnv string) {
 	attributes := pcommon.NewMap()
-	resolver.Process(attributes, resourceAttributes)
+	err := resolver.Process(attributes, resourceAttributes)
+	assert.NoError(t, err)
 	envAttr, ok := attributes.Get(attr.AWSLocalEnvironment)
 	assert.True(t, ok)
 	assert.Equal(t, expectedEnv, envAttr.Str())
