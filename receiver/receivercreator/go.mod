@@ -3,7 +3,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/receiv
 go 1.24.11
 
 require (
-	github.com/expr-lang/expr v1.17.2
+	github.com/expr-lang/expr v1.17.7
 	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer v0.124.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent v0.124.1
