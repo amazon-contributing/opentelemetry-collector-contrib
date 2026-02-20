@@ -1,0 +1,65 @@
+name: agentcore-build-test
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.6"
+          cache: false
+
+      - name: Build agentcore collector
+        working-directory: ocb-utils/agentcore
+        run: ./build-agentcore.sh
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: otelcol-agentcore
+          path: ocb-utils/agentcore/output/otelcol-agentcore
+          retention-days: 3
+
+  e2e-test:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_E2E_TEST_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: otelcol-agentcore
+          path: ocb-utils/agentcore/output/
+
+      - name: Make binary executable
+        run: chmod +x ocb-utils/agentcore/output/otelcol-agentcore
+
+      - name: Run E2E test
+        working-directory: ocb-utils/agentcore
+        run: ./test-agentcore.sh
