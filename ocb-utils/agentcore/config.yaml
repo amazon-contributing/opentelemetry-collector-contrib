@@ -10,8 +10,6 @@ processors:
   batch:
 
 exporters:
-  debug:
-    verbosity: detailed
 
   otlphttp/traces:
     compression: gzip
@@ -52,12 +50,12 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlphttp/traces]
+      exporters: [otlphttp/traces]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlphttp/logs]
+      exporters: [otlphttp/logs]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, awsemf]
+      exporters: [awsemf]
