@@ -699,24 +699,6 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 	if mbc.ResourceAttributes.Port.MetricsExclude != nil {
 		mb.resourceAttributeExcludeFilter["port"] = filter.CreateFilter(mbc.ResourceAttributes.Port.MetricsExclude)
 	}
-	if mbc.ResourceAttributes.Pod.MetricsInclude != nil {
-		mb.resourceAttributeIncludeFilter["pod"] = filter.CreateFilter(mbc.ResourceAttributes.Pod.MetricsInclude)
-	}
-	if mbc.ResourceAttributes.Pod.MetricsExclude != nil {
-		mb.resourceAttributeExcludeFilter["pod"] = filter.CreateFilter(mbc.ResourceAttributes.Pod.MetricsExclude)
-	}
-	if mbc.ResourceAttributes.Namespace.MetricsInclude != nil {
-		mb.resourceAttributeIncludeFilter["namespace"] = filter.CreateFilter(mbc.ResourceAttributes.Namespace.MetricsInclude)
-	}
-	if mbc.ResourceAttributes.Namespace.MetricsExclude != nil {
-		mb.resourceAttributeExcludeFilter["namespace"] = filter.CreateFilter(mbc.ResourceAttributes.Namespace.MetricsExclude)
-	}
-	if mbc.ResourceAttributes.Container.MetricsInclude != nil {
-		mb.resourceAttributeIncludeFilter["container"] = filter.CreateFilter(mbc.ResourceAttributes.Container.MetricsInclude)
-	}
-	if mbc.ResourceAttributes.Container.MetricsExclude != nil {
-		mb.resourceAttributeExcludeFilter["container"] = filter.CreateFilter(mbc.ResourceAttributes.Container.MetricsExclude)
-	}
 
 	for _, op := range options {
 		op.apply(mb)

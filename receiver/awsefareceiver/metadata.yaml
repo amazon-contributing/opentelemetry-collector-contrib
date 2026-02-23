@@ -17,18 +17,6 @@ resource_attributes:
     enabled: true
     description: The EFA port number
     type: string
-  pod:
-    enabled: true
-    description: The Kubernetes pod name assigned to this device (empty string if unassigned)
-    type: string
-  namespace:
-    enabled: true
-    description: The Kubernetes namespace of the pod assigned to this device (empty string if unassigned)
-    type: string
-  container:
-    enabled: true
-    description: The container name within the pod assigned to this device (empty string if unassigned)
-    type: string
 
 metrics:
   efa_rdma_read_bytes:

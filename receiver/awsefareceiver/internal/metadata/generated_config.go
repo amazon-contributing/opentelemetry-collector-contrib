@@ -107,11 +107,8 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 
 // ResourceAttributesConfig provides config for awsefareceiver resource attributes.
 type ResourceAttributesConfig struct {
-	Device    ResourceAttributeConfig `mapstructure:"device"`
-	Port      ResourceAttributeConfig `mapstructure:"port"`
-	Pod       ResourceAttributeConfig `mapstructure:"pod"`
-	Namespace ResourceAttributeConfig `mapstructure:"namespace"`
-	Container ResourceAttributeConfig `mapstructure:"container"`
+	Device ResourceAttributeConfig `mapstructure:"device"`
+	Port   ResourceAttributeConfig `mapstructure:"port"`
 }
 
 func DefaultResourceAttributesConfig() ResourceAttributesConfig {
@@ -120,15 +117,6 @@ func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 			Enabled: true,
 		},
 		Port: ResourceAttributeConfig{
-			Enabled: true,
-		},
-		Pod: ResourceAttributeConfig{
-			Enabled: true,
-		},
-		Namespace: ResourceAttributeConfig{
-			Enabled: true,
-		},
-		Container: ResourceAttributeConfig{
 			Enabled: true,
 		},
 	}

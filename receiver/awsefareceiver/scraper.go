@@ -104,12 +104,6 @@ func (s *efaScraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 		rb := s.mb.NewResourceBuilder()
 		rb.SetDevice(dev.name)
 		rb.SetPort(dev.port)
-		// Always emit pod, namespace, container labels (empty string when unassigned).
-		// This follows the DCGM pattern where device-level metrics always carry these
-		// labels, making PromQL queries simpler: efa_rx_bytes{pod=""} for unassigned devices.
-		rb.SetPod("")
-		rb.SetNamespace("")
-		rb.SetContainer("")
 
 		s.recordMetrics(now, dev.counters)
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
