@@ -28,12 +28,6 @@ all_set:
       enabled: true
     port:
       enabled: true
-    pod:
-      enabled: true
-    namespace:
-      enabled: true
-    container:
-      enabled: true
 none_set:
   metrics:
     efa_impaired_remote_conn_events:
@@ -62,12 +56,6 @@ none_set:
     device:
       enabled: false
     port:
-      enabled: false
-    pod:
-      enabled: false
-    namespace:
-      enabled: false
-    container:
       enabled: false
 filter_set_include:
   resource_attributes:

@@ -6,7 +6,7 @@ status:
     beta: [metrics]
   distributions: []
   codeowners:
-    active: []
+    active: [mitali-salvi]
 
 resource_attributes:
   device:

@@ -203,6 +203,19 @@ func TestScrapeMetricValues(t *testing.T) {
 	assert.True(t, found, "expected to find efa_rdma_read_bytes metric")
 }
 
+func TestScrapeListDevicesError(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	s := newScraper(cfg, receivertest.NewNopSettings(metadata.Type))
+	s.reader = &mockSysFsReader{
+		exists:     true,
+		devicesErr: errors.New("permission denied"),
+	}
+
+	_, err := s.scrape(t.Context())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read EFA devices")
+}
+
 func TestScrapeEfaDataExistsError(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	settings := receivertest.NewNopSettings(metadata.Type)

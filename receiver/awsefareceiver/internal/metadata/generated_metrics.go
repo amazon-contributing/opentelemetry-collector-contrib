@@ -630,13 +630,13 @@ func newMetricEfaUnresponsiveRemoteEvents(cfg MetricConfig) metricEfaUnresponsiv
 // MetricsBuilder provides an interface for scrapers to report metrics while taking care of all the transformations
 // required to produce metric representation defined in metadata and user config.
 type MetricsBuilder struct {
-	config                                MetricsBuilderConfig // config of the metrics builder.
-	startTime                             pcommon.Timestamp    // start time that will be applied to all recorded data points.
-	metricsCapacity                       int                  // maximum observed number of metrics per resource.
-	metricsBuffer                         pmetric.Metrics      // accumulates metrics data before emitting.
-	buildInfo                             component.BuildInfo  // contains version information.
-	resourceAttributeIncludeFilter        map[string]filter.Filter
-	resourceAttributeExcludeFilter        map[string]filter.Filter
+	config                            MetricsBuilderConfig // config of the metrics builder.
+	startTime                         pcommon.Timestamp    // start time that will be applied to all recorded data points.
+	metricsCapacity                   int                  // maximum observed number of metrics per resource.
+	metricsBuffer                     pmetric.Metrics      // accumulates metrics data before emitting.
+	buildInfo                         component.BuildInfo  // contains version information.
+	resourceAttributeIncludeFilter    map[string]filter.Filter
+	resourceAttributeExcludeFilter    map[string]filter.Filter
 	metricEfaImpairedRemoteConnEvents metricEfaImpairedRemoteConnEvents
 	metricEfaRdmaReadBytes            metricEfaRdmaReadBytes
 	metricEfaRdmaWriteBytes           metricEfaRdmaWriteBytes
@@ -669,10 +669,10 @@ func WithStartTime(startTime pcommon.Timestamp) MetricBuilderOption {
 }
 func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, options ...MetricBuilderOption) *MetricsBuilder {
 	mb := &MetricsBuilder{
-		config:                                mbc,
-		startTime:                             pcommon.NewTimestampFromTime(time.Now()),
-		metricsBuffer:                         pmetric.NewMetrics(),
-		buildInfo:                             settings.BuildInfo,
+		config:                            mbc,
+		startTime:                         pcommon.NewTimestampFromTime(time.Now()),
+		metricsBuffer:                     pmetric.NewMetrics(),
+		buildInfo:                         settings.BuildInfo,
 		metricEfaImpairedRemoteConnEvents: newMetricEfaImpairedRemoteConnEvents(mbc.Metrics.EfaImpairedRemoteConnEvents),
 		metricEfaRdmaReadBytes:            newMetricEfaRdmaReadBytes(mbc.Metrics.EfaRdmaReadBytes),
 		metricEfaRdmaWriteBytes:           newMetricEfaRdmaWriteBytes(mbc.Metrics.EfaRdmaWriteBytes),
@@ -684,8 +684,8 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricEfaRxDropped:                newMetricEfaRxDropped(mbc.Metrics.EfaRxDropped),
 		metricEfaTxBytes:                  newMetricEfaTxBytes(mbc.Metrics.EfaTxBytes),
 		metricEfaUnresponsiveRemoteEvents: newMetricEfaUnresponsiveRemoteEvents(mbc.Metrics.EfaUnresponsiveRemoteEvents),
-		resourceAttributeIncludeFilter:        make(map[string]filter.Filter),
-		resourceAttributeExcludeFilter:        make(map[string]filter.Filter),
+		resourceAttributeIncludeFilter:    make(map[string]filter.Filter),
+		resourceAttributeExcludeFilter:    make(map[string]filter.Filter),
 	}
 	if mbc.ResourceAttributes.Device.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["device"] = filter.CreateFilter(mbc.ResourceAttributes.Device.MetricsInclude)

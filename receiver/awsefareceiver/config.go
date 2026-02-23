@@ -28,11 +28,8 @@ var _ component.Config = (*Config)(nil)
 
 // Validate checks the receiver configuration is valid.
 func (c *Config) Validate() error {
-	if c.HostPath != "" {
-		if !filepath.IsAbs(c.HostPath) {
-			return fmt.Errorf("host_path must be an absolute path, got %q", c.HostPath)
-		}
-		c.HostPath = filepath.Clean(c.HostPath)
+	if c.HostPath != "" && !filepath.IsAbs(c.HostPath) {
+		return fmt.Errorf("host_path must be an absolute path, got %q", c.HostPath)
 	}
 	return nil
 }

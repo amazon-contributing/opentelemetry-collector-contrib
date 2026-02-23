@@ -52,7 +52,7 @@ func TestConfigValidate(t *testing.T) {
 		{"empty", "", "", ""},
 		{"absolute", "/host", "", "/host"},
 		{"relative", "relative/path", "must be an absolute path", ""},
-		{"trailing_slash", "/host/", "", "/host"},
+		{"trailing_slash", "/host/", "", "/host/"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

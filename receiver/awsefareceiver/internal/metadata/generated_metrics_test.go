@@ -115,9 +115,6 @@ func TestMetricsBuilder(t *testing.T) {
 			rb := mb.NewResourceBuilder()
 			rb.SetDevice("device-val")
 			rb.SetPort("port-val")
-			rb.SetPod("")
-			rb.SetNamespace("")
-			rb.SetContainer("")
 			res := rb.Emit()
 			metrics := mb.Emit(WithResource(res))
 

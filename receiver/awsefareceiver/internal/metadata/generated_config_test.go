@@ -38,11 +38,8 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					EfaUnresponsiveRemoteEvents: MetricConfig{Enabled: true},
 				},
 				ResourceAttributes: ResourceAttributesConfig{
-					Device:    ResourceAttributeConfig{Enabled: true},
-					Port:      ResourceAttributeConfig{Enabled: true},
-					Pod:       ResourceAttributeConfig{Enabled: true},
-					Namespace: ResourceAttributeConfig{Enabled: true},
-					Container: ResourceAttributeConfig{Enabled: true},
+					Device: ResourceAttributeConfig{Enabled: true},
+					Port:   ResourceAttributeConfig{Enabled: true},
 				},
 			},
 		},
@@ -63,11 +60,8 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					EfaUnresponsiveRemoteEvents: MetricConfig{Enabled: false},
 				},
 				ResourceAttributes: ResourceAttributesConfig{
-					Device:    ResourceAttributeConfig{Enabled: false},
-					Port:      ResourceAttributeConfig{Enabled: false},
-					Pod:       ResourceAttributeConfig{Enabled: false},
-					Namespace: ResourceAttributeConfig{Enabled: false},
-					Container: ResourceAttributeConfig{Enabled: false},
+					Device: ResourceAttributeConfig{Enabled: false},
+					Port:   ResourceAttributeConfig{Enabled: false},
 				},
 			},
 		},
@@ -103,21 +97,15 @@ func TestResourceAttributesConfig(t *testing.T) {
 		{
 			name: "all_set",
 			want: ResourceAttributesConfig{
-				Device:    ResourceAttributeConfig{Enabled: true},
-				Port:      ResourceAttributeConfig{Enabled: true},
-				Pod:       ResourceAttributeConfig{Enabled: true},
-				Namespace: ResourceAttributeConfig{Enabled: true},
-				Container: ResourceAttributeConfig{Enabled: true},
+				Device: ResourceAttributeConfig{Enabled: true},
+				Port:   ResourceAttributeConfig{Enabled: true},
 			},
 		},
 		{
 			name: "none_set",
 			want: ResourceAttributesConfig{
-				Device:    ResourceAttributeConfig{Enabled: false},
-				Port:      ResourceAttributeConfig{Enabled: false},
-				Pod:       ResourceAttributeConfig{Enabled: false},
-				Namespace: ResourceAttributeConfig{Enabled: false},
-				Container: ResourceAttributeConfig{Enabled: false},
+				Device: ResourceAttributeConfig{Enabled: false},
+				Port:   ResourceAttributeConfig{Enabled: false},
 			},
 		},
 	}

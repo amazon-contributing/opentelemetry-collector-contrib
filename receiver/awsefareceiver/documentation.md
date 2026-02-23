@@ -104,8 +104,5 @@ The number of times an EFA SRD remote connection was unresponsive
 
 | Name | Description | Values | Enabled |
 | ---- | ----------- | ------ | ------- |
-| container | The container name within the pod assigned to this device (empty string if unassigned) | Any Str | true |
 | device | The EFA device name (e.g. rdmap0s31) | Any Str | true |
-| namespace | The Kubernetes namespace of the pod assigned to this device (empty string if unassigned) | Any Str | true |
-| pod | The Kubernetes pod name assigned to this device (empty string if unassigned) | Any Str | true |
 | port | The EFA port number | Any Str | true |

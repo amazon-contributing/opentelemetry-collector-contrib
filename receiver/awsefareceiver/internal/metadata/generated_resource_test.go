@@ -15,18 +15,15 @@ func TestResourceBuilder(t *testing.T) {
 			rb := NewResourceBuilder(cfg)
 			rb.SetDevice("device-val")
 			rb.SetPort("port-val")
-			rb.SetPod("")
-			rb.SetNamespace("")
-			rb.SetContainer("")
 
 			res := rb.Emit()
 			assert.Equal(t, 0, rb.Emit().Attributes().Len()) // Second call should return empty Resource
 
 			switch tt {
 			case "default":
-				assert.Equal(t, 5, res.Attributes().Len())
+				assert.Equal(t, 2, res.Attributes().Len())
 			case "all_set":
-				assert.Equal(t, 5, res.Attributes().Len())
+				assert.Equal(t, 2, res.Attributes().Len())
 			case "none_set":
 				assert.Equal(t, 0, res.Attributes().Len())
 				return
@@ -43,21 +40,6 @@ func TestResourceBuilder(t *testing.T) {
 			assert.True(t, ok)
 			if ok {
 				assert.Equal(t, "port-val", val.Str())
-			}
-			val, ok = res.Attributes().Get("pod")
-			assert.True(t, ok)
-			if ok {
-				assert.Equal(t, "", val.Str())
-			}
-			val, ok = res.Attributes().Get("namespace")
-			assert.True(t, ok)
-			if ok {
-				assert.Equal(t, "", val.Str())
-			}
-			val, ok = res.Attributes().Get("container")
-			assert.True(t, ok)
-			if ok {
-				assert.Equal(t, "", val.Str())
 			}
 		})
 	}
