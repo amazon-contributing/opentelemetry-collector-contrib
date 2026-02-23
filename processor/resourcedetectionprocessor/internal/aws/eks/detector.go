@@ -73,7 +73,8 @@ func NewDetector(set processor.Settings, dcfg internal.DetectorConfig) (internal
 	nodeName := os.Getenv(cfg.NodeFromEnvVar)
 	apiProvider, err := apiprovider.NewProvider(awsConfig, nodeName)
 	if err != nil {
-		return nil, err
+		set.Logger.Debug("Unable to initialize EKS API provider, EKS detection will be skipped", zap.Error(err))
+		return &detector{logger: set.Logger}, nil
 	}
 
 	return &detector{
