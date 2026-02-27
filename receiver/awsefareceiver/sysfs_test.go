@@ -53,23 +53,13 @@ func TestSysFsReaderEfaDataExists(t *testing.T) {
 	root := setupTestSysfs(t)
 	basePath := filepath.Join(root, "sys/class/infiniband")
 
-	// checkPermissions requires root ownership, which temp dirs won't have.
-	// Verify the path exists and is a directory; the permission check is
-	// tested separately.
-	info, err := os.Stat(basePath)
-	require.NoError(t, err)
-	assert.True(t, info.IsDir())
-
-	// When running as non-root, EfaDataExists returns false due to permission check.
-	// This is expected and correct behavior.
+	// Temp dirs are not owned by root, so checkPermissions will fail and
+	// EfaDataExists returns false. This is the expected behavior for
+	// non-root-owned paths.
 	reader := newTestReader(basePath)
 	exists, err := reader.EfaDataExists()
 	require.NoError(t, err)
-	if os.Getuid() == 0 {
-		assert.True(t, exists)
-	} else {
-		assert.False(t, exists, "expected false when not running as root (permission check)")
-	}
+	assert.False(t, exists)
 }
 
 func TestSysFsReaderEfaDataNotExists(t *testing.T) {

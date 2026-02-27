@@ -63,23 +63,21 @@ var efaCounters = []efaCounter{
 }
 
 type efaScraper struct {
-	logger   *zap.Logger
-	mb       *metadata.MetricsBuilder
-	reader   sysFsReader
-	hostPath string
+	logger *zap.Logger
+	mb     *metadata.MetricsBuilder
+	reader sysFsReader
 }
 
 func newScraper(cfg *Config, settings receiver.Settings) *efaScraper {
 	return &efaScraper{
-		logger:   settings.Logger,
-		mb:       metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings),
-		hostPath: cfg.HostPath,
+		logger: settings.Logger,
+		mb:     metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings),
+		reader: newSysFsReader(cfg.HostPath, settings.Logger),
 	}
 }
 
 func (s *efaScraper) start(_ context.Context, _ component.Host) error {
-	s.reader = newSysFsReader(s.hostPath, s.logger)
-	s.logger.Info("Starting AWS EFA receiver", zap.String("host_path", s.hostPath))
+	s.logger.Info("Starting AWS EFA receiver")
 	return nil
 }
 
@@ -134,6 +132,8 @@ func (s *efaScraper) readAllDevices() ([]efaDevice, error) {
 					zap.String("device", name), zap.String("port", port), zap.Error(err))
 			}
 			if len(counters) == 0 {
+				s.logger.Debug("No counters found for EFA device port",
+					zap.String("device", name), zap.String("port", port))
 				continue
 			}
 			devices = append(devices, efaDevice{

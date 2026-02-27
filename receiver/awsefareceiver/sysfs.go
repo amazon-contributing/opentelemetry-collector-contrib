@@ -6,6 +6,7 @@ package awsefareceiver // import "github.com/open-telemetry/opentelemetry-collec
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -50,7 +51,7 @@ func newSysFsReader(hostPath string, logger *zap.Logger) sysFsReader {
 func (r *sysfsReaderImpl) EfaDataExists() (bool, error) {
 	info, err := os.Stat(r.basePath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return false, nil
 		}
 		return false, err
@@ -115,7 +116,7 @@ func (r *sysfsReaderImpl) ReadCounter(deviceName string, port string, counter st
 func readUint64FromFile(path string) (uint64, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) || os.IsPermission(err) {
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
 			return 0, nil
 		}
 		// Some kernel drivers return these for counters that exist but
