@@ -525,6 +525,9 @@ jobs:
         run: make genotelcontribcol
       - name: Build Collector ${{ matrix.binary }}
         run: make GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} GOARM=${{ matrix.arm }} otelcontribcol
+      - name: Build AgentCore Collector
+        if: matrix.os == 'linux' && matrix.arch == 'arm64'
+        run: make GOOS=linux GOARCH=arm64 otelcol-agentcore
       - name: Upload Collector Binaries
         uses: actions/upload-artifact@v4
         with:

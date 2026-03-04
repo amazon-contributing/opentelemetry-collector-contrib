@@ -403,6 +403,17 @@ otelcontribcollite: genotelcontribcol
 	cd ./cmd/otelcontribcol && GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -trimpath -o ../../bin/otelcontribcol_$(GOOS)_$(GOARCH)$(EXTENSION) \
 		-tags $(GO_BUILD_TAGS) -ldflags $(GO_BUILD_LDFLAGS) .
 
+.PHONY: genotelcolagentcore
+genotelcolagentcore: $(BUILDER)
+	./internal/buildscripts/ocb-add-replaces.sh otelcol-agentcore
+	$(BUILDER) --skip-compilation --config cmd/otelcol-agentcore/builder-config-replaced.yaml
+
+# Build the AgentCore Collector executable.
+.PHONY: otelcol-agentcore
+otelcol-agentcore: genotelcolagentcore
+	cd ./cmd/otelcol-agentcore && GO111MODULE=on CGO_ENABLED=0 $(GOCMD) build -trimpath -o ../../bin/otelcol-agentcore_$(GOOS)_$(GOARCH)$(EXTENSION) \
+		-tags $(GO_BUILD_TAGS) -ldflags $(GO_BUILD_LDFLAGS) .
+
 .PHONY: genoteltestbedcol
 genoteltestbedcol: $(BUILDER)
 	./internal/buildscripts/ocb-add-replaces.sh oteltestbedcol
