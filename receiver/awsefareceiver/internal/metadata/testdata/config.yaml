@@ -1,0 +1,135 @@
+default:
+all_set:
+  metrics:
+    efa_impaired_remote_conn_events:
+      enabled: true
+    efa_rdma_read_bytes:
+      enabled: true
+    efa_rdma_read_resp_bytes:
+      enabled: true
+    efa_rdma_read_wr_err:
+      enabled: true
+    efa_rdma_read_wrs:
+      enabled: true
+    efa_rdma_write_bytes:
+      enabled: true
+    efa_rdma_write_recv_bytes:
+      enabled: true
+    efa_rdma_write_wr_err:
+      enabled: true
+    efa_rdma_write_wrs:
+      enabled: true
+    efa_recv_bytes:
+      enabled: true
+    efa_recv_wrs:
+      enabled: true
+    efa_retrans_bytes:
+      enabled: true
+    efa_retrans_pkts:
+      enabled: true
+    efa_retrans_timeout_events:
+      enabled: true
+    efa_rx_bytes:
+      enabled: true
+    efa_rx_dropped:
+      enabled: true
+    efa_rx_pkts:
+      enabled: true
+    efa_send_bytes:
+      enabled: true
+    efa_send_wrs:
+      enabled: true
+    efa_tx_bytes:
+      enabled: true
+    efa_tx_pkts:
+      enabled: true
+    efa_unresponsive_remote_events:
+      enabled: true
+  resource_attributes:
+    aws.efa.device:
+      enabled: true
+    aws.efa.eni.id:
+      enabled: true
+    aws.efa.port:
+      enabled: true
+none_set:
+  metrics:
+    efa_impaired_remote_conn_events:
+      enabled: false
+    efa_rdma_read_bytes:
+      enabled: false
+    efa_rdma_read_resp_bytes:
+      enabled: false
+    efa_rdma_read_wr_err:
+      enabled: false
+    efa_rdma_read_wrs:
+      enabled: false
+    efa_rdma_write_bytes:
+      enabled: false
+    efa_rdma_write_recv_bytes:
+      enabled: false
+    efa_rdma_write_wr_err:
+      enabled: false
+    efa_rdma_write_wrs:
+      enabled: false
+    efa_recv_bytes:
+      enabled: false
+    efa_recv_wrs:
+      enabled: false
+    efa_retrans_bytes:
+      enabled: false
+    efa_retrans_pkts:
+      enabled: false
+    efa_retrans_timeout_events:
+      enabled: false
+    efa_rx_bytes:
+      enabled: false
+    efa_rx_dropped:
+      enabled: false
+    efa_rx_pkts:
+      enabled: false
+    efa_send_bytes:
+      enabled: false
+    efa_send_wrs:
+      enabled: false
+    efa_tx_bytes:
+      enabled: false
+    efa_tx_pkts:
+      enabled: false
+    efa_unresponsive_remote_events:
+      enabled: false
+  resource_attributes:
+    aws.efa.device:
+      enabled: false
+    aws.efa.eni.id:
+      enabled: false
+    aws.efa.port:
+      enabled: false
+filter_set_include:
+  resource_attributes:
+    aws.efa.device:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+    aws.efa.eni.id:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+    aws.efa.port:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+filter_set_exclude:
+  resource_attributes:
+    aws.efa.device:
+      enabled: true
+      metrics_exclude:
+        - strict: "aws.efa.device-val"
+    aws.efa.eni.id:
+      enabled: true
+      metrics_exclude:
+        - strict: "aws.efa.eni.id-val"
+    aws.efa.port:
+      enabled: true
+      metrics_exclude:
+        - strict: "aws.efa.port-val"
