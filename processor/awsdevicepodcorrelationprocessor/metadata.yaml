@@ -1,0 +1,14 @@
+type: awsdevicepodcorrelation
+
+status:
+  class: processor
+  stability:
+    beta: [metrics]
+
+tests:
+  config:
+    device_types:
+      - name: test
+        device_id_attribute: device
+        resource_names:
+          - test.resource
