@@ -1,0 +1,10 @@
+type: awsattributelimit
+
+status:
+  class: processor
+  stability:
+    beta: [metrics]
+
+tests:
+  config:
+    max_total_attributes: 150
