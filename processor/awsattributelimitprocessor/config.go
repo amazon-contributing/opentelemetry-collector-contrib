@@ -11,7 +11,7 @@ import (
 type Config struct {
 	// MaxTotalAttributes is the maximum combined count of resource attributes,
 	// scope attributes, and datapoint attributes allowed per metric datapoint.
-	// Defaults to 150, matching the Zeus hard limit.
+	// Defaults to 150, matching the aws backend hard limit.
 	MaxTotalAttributes int `mapstructure:"max_total_attributes"`
 }
 
