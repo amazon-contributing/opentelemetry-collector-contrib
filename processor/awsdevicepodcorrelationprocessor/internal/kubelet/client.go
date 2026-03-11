@@ -30,13 +30,13 @@ type ContainerInfo struct {
 // Client connects to the Kubelet Pod Resources API and maintains
 // an in-memory cache of device-to-pod mappings.
 type Client struct {
-	conn           *grpc.ClientConn
-	listerClient   podresourcesapi.PodResourcesListerClient
-	resourceNames  map[string]struct{}
-	deviceToPod    map[deviceKey]ContainerInfo
-	ctx            context.Context
-	cancel         context.CancelFunc
-	socketPath     string
+	conn            *grpc.ClientConn
+	listerClient    podresourcesapi.PodResourcesListerClient
+	resourceNames   map[string]struct{}
+	deviceToPod     map[deviceKey]ContainerInfo
+	ctx             context.Context
+	cancel          context.CancelFunc
+	socketPath      string
 	refreshInterval time.Duration
 }
 

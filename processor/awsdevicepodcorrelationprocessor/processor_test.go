@@ -174,7 +174,6 @@ func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
 	p := newTestProcessor(cfg)
 	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -196,7 +195,6 @@ func TestProcessMetrics_NoMatchLeavesDatapointUnchanged(t *testing.T) {
 	p := newTestProcessor(cfg)
 	md := newTestMetrics("neuron_memory", "NeuronDevice", "99")
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	_, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -217,7 +215,6 @@ func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
 	md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0).Attributes().PutStr(k8sPodNameKey, "existing-pod")
 
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, _ := dp.Attributes().Get(k8sPodNameKey)
@@ -236,7 +233,6 @@ func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
 	p := newTestProcessor(cfg)
 	md := newTestMetricsWithResourceAttr("efa_traffic", "device", "efa3")
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -262,7 +258,6 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 	dp.Attributes().PutStr("NeuronDevice", "0")
 
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
 	podVal, ok := dpOut.Attributes().Get(k8sPodNameKey)
@@ -282,7 +277,6 @@ func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
 	p := newTestProcessor(cfg)
 	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -308,7 +302,6 @@ func TestProcessMetrics_HistogramMetricType(t *testing.T) {
 	dp.Attributes().PutStr("dev", "0")
 
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Histogram().DataPoints().At(0)
 	podVal, ok := dpOut.Attributes().Get(k8sPodNameKey)
@@ -358,7 +351,6 @@ func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
 	p := newTestProcessor(cfg)
 	md := newTestMetrics("metric", "other_attr", "0")
 	result := processMetricsWithLookup(p, md, lookup)
-	
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	_, ok := dp.Attributes().Get(k8sPodNameKey)
