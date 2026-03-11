@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	defaultSocketPath    = "/var/lib/kubelet/pod-resources/kubelet.sock"
-	connectionTimeout    = 10 * time.Second
+	defaultSocketPath      = "/var/lib/kubelet/pod-resources/kubelet.sock"
+	connectionTimeout      = 10 * time.Second
 	defaultRefreshInterval = 10 * time.Second
 )
 

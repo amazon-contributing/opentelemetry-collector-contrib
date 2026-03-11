@@ -4,6 +4,7 @@
 package awsdevicepodcorrelationprocessor
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -59,7 +60,7 @@ func (cfg *Config) setDefaults() {
 // Validate checks if the processor configuration is valid.
 func (cfg *Config) Validate() error {
 	if len(cfg.DeviceTypes) == 0 {
-		return fmt.Errorf("device_types must not be empty")
+		return errors.New("device_types must not be empty")
 	}
 
 	seen := make(map[string]bool, len(cfg.DeviceTypes))
