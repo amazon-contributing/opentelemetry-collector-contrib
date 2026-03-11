@@ -15,16 +15,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/metadata"
 )
 
-var (
-	processorCapabilities = consumer.Capabilities{MutatesData: true}
-
-	// DefaultStoreFactory is the factory function for creating the PodResourcesStore.
-	// It must be set by the host application (e.g., CW Agent) during component
-	// registration, before the processor is started. This indirection is needed
-	// because the real PodResourcesStore lives in an internal package that cannot
-	// be imported across module boundaries.
-	DefaultStoreFactory PodResourcesStoreFactory
-)
+var processorCapabilities = consumer.Capabilities{MutatesData: true}
 
 // NewFactory creates a new factory for the awsdevicepodcorrelation processor.
 func NewFactory() processor.Factory {
@@ -50,11 +41,8 @@ func createMetricsProcessor(
 		return nil, fmt.Errorf("invalid configuration type: %T", cfg)
 	}
 
-	if DefaultStoreFactory == nil {
-		return nil, fmt.Errorf("PodResourcesStore factory not configured; the host application must set awsdevicepodcorrelationprocessor.DefaultStoreFactory before using this processor")
-	}
-
-	metricsProcessor := newProcessor(processorCfg, set.Logger, DefaultStoreFactory)
+	processorCfg.setDefaults()
+	metricsProcessor := newProcessor(processorCfg, set.Logger)
 
 	return processorhelper.NewMetrics(
 		ctx,

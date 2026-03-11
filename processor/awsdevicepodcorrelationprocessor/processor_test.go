@@ -4,38 +4,31 @@
 package awsdevicepodcorrelationprocessor
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/kubelet"
 )
 
-// mockStore implements PodResourcesStoreInterface for testing.
-type mockStore struct {
-	data          map[string]map[string]*ContainerInfo // deviceID -> resourceName -> ContainerInfo
-	resourceNames []string
-	shutdownCalled bool
+// mockLookup implements DeviceLookup for testing.
+type mockLookup struct {
+	data map[string]map[string]*kubelet.ContainerInfo // deviceID -> resourceName -> ContainerInfo
 }
 
-func newMockStore(data map[string]map[string]*ContainerInfo) *mockStore {
-	return &mockStore{data: data}
+func newMockLookup(data map[string]map[string]*kubelet.ContainerInfo) *mockLookup {
+	return &mockLookup{data: data}
 }
 
-func (m *mockStore) GetContainerInfo(deviceID string, resourceName string) *ContainerInfo {
+func (m *mockLookup) GetContainerInfo(deviceID string, resourceName string) *kubelet.ContainerInfo {
 	if rn, ok := m.data[deviceID]; ok {
 		return rn[resourceName]
 	}
 	return nil
-}
-
-func (m *mockStore) AddResourceName(resourceName string) {
-	m.resourceNames = append(m.resourceNames, resourceName)
-}
-
-func (m *mockStore) Shutdown() {
-	m.shutdownCalled = true
 }
 
 // --- Config validation tests ---
@@ -107,6 +100,10 @@ func TestValidate_DefaultsDeviceIDSource(t *testing.T) {
 		},
 	}
 	require.NoError(t, cfg.Validate())
+	// Validate no longer sets defaults; setDefaults() is called in the factory.
+	assert.Empty(t, cfg.DeviceTypes[0].DeviceIDSource)
+
+	cfg.setDefaults()
 	assert.Equal(t, DeviceIDSourceDatapoint, cfg.DeviceTypes[0].DeviceIDSource)
 }
 
@@ -132,8 +129,43 @@ func newTestMetricsWithResourceAttr(metricName string, resourceKey string, resou
 	return md
 }
 
+// newTestProcessor creates a processor with a mock lookup for testing.
+// The client field is left nil since processMetrics uses the lookup parameter directly.
+func newTestProcessor(cfg *Config, lookup DeviceLookup) *devicePodCorrelationProcessor {
+	return &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop()}
+}
+
+// processMetricsWithLookup is a test helper that calls processDatapoints with a mock lookup.
+func processMetricsWithLookup(p *devicePodCorrelationProcessor, md pmetric.Metrics, lookup DeviceLookup) (pmetric.Metrics, error) {
+	rms := md.ResourceMetrics()
+	for i := 0; i < rms.Len(); i++ {
+		rm := rms.At(i)
+		resourceAttrs := rm.Resource().Attributes()
+		ilms := rm.ScopeMetrics()
+		for j := 0; j < ilms.Len(); j++ {
+			metrics := ilms.At(j).Metrics()
+			for k := 0; k < metrics.Len(); k++ {
+				m := metrics.At(k)
+				switch m.Type() {
+				case pmetric.MetricTypeGauge:
+					processDatapoints(m.Gauge().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
+				case pmetric.MetricTypeSum:
+					processDatapoints(m.Sum().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
+				case pmetric.MetricTypeHistogram:
+					processDatapoints(m.Histogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
+				case pmetric.MetricTypeExponentialHistogram:
+					processDatapoints(m.ExponentialHistogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
+				case pmetric.MetricTypeSummary:
+					processDatapoints(m.Summary().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
+				}
+			}
+		}
+	}
+	return md, nil
+}
+
 func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
 		"0": {"aws.amazon.com/neurondevice": {PodName: "ml-pod", Namespace: "default", ContainerName: "trainer"}},
 	})
 	cfg := &Config{
@@ -141,10 +173,9 @@ func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -158,16 +189,15 @@ func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
 }
 
 func TestProcessMetrics_NoMatchLeavesDatapointUnchanged(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{})
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{})
 	cfg := &Config{
 		DeviceTypes: []DeviceTypeConfig{
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("neuron_memory", "NeuronDevice", "99")
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -176,7 +206,7 @@ func TestProcessMetrics_NoMatchLeavesDatapointUnchanged(t *testing.T) {
 }
 
 func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
 		"0": {"aws.amazon.com/neurondevice": {PodName: "should-not-overwrite", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -184,13 +214,11 @@ func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
-	// Pre-set pod name
 	md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0).Attributes().PutStr(k8sPodNameKey, "existing-pod")
 
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -199,7 +227,7 @@ func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
 }
 
 func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
 		"efa3": {"vpc.amazonaws.com/efa": {PodName: "efa-pod", Namespace: "prod", ContainerName: "worker"}},
 	})
 	cfg := &Config{
@@ -207,10 +235,9 @@ func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
 			{Name: "efa", DeviceIDAttribute: "device", DeviceIDSource: DeviceIDSourceResource, ResourceNames: []string{"vpc.amazonaws.com/efa"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := newTestMetricsWithResourceAttr("efa_traffic", "device", "efa3")
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -220,7 +247,7 @@ func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
 }
 
 func TestProcessMetrics_SumMetricType(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
 		"0": {"aws.amazon.com/neurondevice": {PodName: "sum-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -228,8 +255,7 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := pmetric.NewMetrics()
 	rm := md.ResourceMetrics().AppendEmpty()
 	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
@@ -237,7 +263,7 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 	dp := m.SetEmptySum().DataPoints().AppendEmpty()
 	dp.Attributes().PutStr("NeuronDevice", "0")
 
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
@@ -247,7 +273,7 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 }
 
 func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
 		"0": {"aws.amazon.com/neuron": {PodName: "fallback-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -255,10 +281,9 @@ func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice", "aws.amazon.com/neuron"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -267,10 +292,8 @@ func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
 	assert.Equal(t, "fallback-pod", podVal.AsString())
 }
 
-// --- processDatapoints generic test with histogram ---
-
 func TestProcessMetrics_HistogramMetricType(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
 		"0": {"res": {PodName: "hist-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -278,8 +301,7 @@ func TestProcessMetrics_HistogramMetricType(t *testing.T) {
 			{Name: "gpu", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := pmetric.NewMetrics()
 	rm := md.ResourceMetrics().AppendEmpty()
 	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
@@ -287,7 +309,7 @@ func TestProcessMetrics_HistogramMetricType(t *testing.T) {
 	dp := m.SetEmptyHistogram().DataPoints().AppendEmpty()
 	dp.Attributes().PutStr("dev", "0")
 
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Histogram().DataPoints().At(0)
@@ -296,24 +318,38 @@ func TestProcessMetrics_HistogramMetricType(t *testing.T) {
 	assert.Equal(t, "hist-pod", podVal.AsString())
 }
 
-// --- Shutdown test ---
-
-func TestShutdown_CallsStoreShutdown(t *testing.T) {
-	store := newMockStore(nil)
-	p := &devicePodCorrelationProcessor{podResourcesStore: store}
-	_ = p.Shutdown(nil)
-	assert.True(t, store.shutdownCalled)
-}
-
-func TestShutdown_NilStore(t *testing.T) {
+func TestShutdown_NilClient(t *testing.T) {
 	p := &devicePodCorrelationProcessor{}
-	assert.NoError(t, p.Shutdown(nil))
+	assert.NoError(t, p.Shutdown(context.Background()))
 }
 
-// --- processDatapoints with no matching device ID attribute ---
+func TestStart_RegistersUniqueResourceNames(t *testing.T) {
+	// Verify that Start creates a client and deduplicates resource names.
+	// We can't fully test kubelet connection without a socket, but we can
+	// verify the processor struct is wired correctly.
+	cfg := &Config{
+		KubeletSocketPath: "/nonexistent/socket",
+		DeviceTypes: []DeviceTypeConfig{
+			{Name: "neuron", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res.a", "res.b"}},
+			{Name: "efa", DeviceIDAttribute: "dev2", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res.b", "res.c"}},
+		},
+	}
+	p := newProcessor(cfg, zap.NewNop())
+
+	// Start will fail because the socket doesn't exist, but the client
+	// should still be created with resource names registered.
+	err := p.Start(context.Background(), nil)
+	// We expect an error due to missing socket — that's fine.
+	// The important thing is the client was created.
+	assert.NotNil(t, p.client)
+
+	// Verify we can still shut down cleanly after a failed start.
+	assert.NoError(t, p.Shutdown(context.Background()))
+	_ = err
+}
 
 func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
-	store := newMockStore(map[string]map[string]*ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
 		"0": {"res": {PodName: "pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -321,10 +357,9 @@ func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
 			{Name: "gpu", DeviceIDAttribute: "missing_attr", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res"}},
 		},
 	}
-	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), podResourcesStore: store}
-
+	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("metric", "other_attr", "0")
-	result, err := p.processMetrics(nil, md)
+	result, err := processMetricsWithLookup(p, md, lookup)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)

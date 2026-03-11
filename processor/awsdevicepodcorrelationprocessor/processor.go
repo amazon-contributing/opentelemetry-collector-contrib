@@ -10,60 +10,33 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/kubelet"
 )
 
 const (
-	k8sPodNameKey      = "k8s.pod.name"
-	k8sNamespaceKey    = "k8s.namespace.name"
-	containerNameKey   = "k8s.container.name"
+	k8sPodNameKey    = "k8s.pod.name"
+	k8sNamespaceKey  = "k8s.namespace.name"
+	containerNameKey = "k8s.container.name"
 )
 
-// ContainerInfo holds Kubernetes pod/container metadata for a device.
-// This mirrors the ContainerInfo struct from the PodResourcesStore in
-// awscontainerinsightreceiver/internal/stores, defined locally to avoid
-// importing an internal package across module boundaries.
-type ContainerInfo struct {
-	PodName       string
-	ContainerName string
-	Namespace     string
-}
-
-// PodResourcesStoreInterface abstracts the PodResourcesStore for testing
-// and to decouple from the internal stores package.
-type PodResourcesStoreInterface interface {
-	GetContainerInfo(deviceID string, resourceName string) *ContainerInfo
-	AddResourceName(resourceName string)
-	Shutdown()
-}
-
-// PodResourcesStoreFactory is a function that creates a PodResourcesStoreInterface.
-// This allows the factory to inject the real PodResourcesStore constructor at runtime
-// while keeping the processor testable with mocks.
-type PodResourcesStoreFactory func(logger *zap.Logger) (PodResourcesStoreInterface, error)
-
 type devicePodCorrelationProcessor struct {
-	config            *Config
-	logger            *zap.Logger
-	podResourcesStore PodResourcesStoreInterface
-	storeFactory      PodResourcesStoreFactory
+	config *Config
+	logger *zap.Logger
+	client *kubelet.Client
 }
 
-func newProcessor(cfg *Config, logger *zap.Logger, storeFactory PodResourcesStoreFactory) *devicePodCorrelationProcessor {
+func newProcessor(cfg *Config, logger *zap.Logger) *devicePodCorrelationProcessor {
 	return &devicePodCorrelationProcessor{
-		config:       cfg,
-		logger:       logger,
-		storeFactory: storeFactory,
+		config: cfg,
+		logger: logger,
 	}
 }
 
-// Start initializes the processor by obtaining the PodResourcesStore singleton
-// and registering all configured resource names.
+// Start creates the Kubelet Pod Resources API client and registers
+// all configured resource names.
 func (p *devicePodCorrelationProcessor) Start(_ context.Context, _ component.Host) error {
-	store, err := p.storeFactory(p.logger)
-	if err != nil {
-		return err
-	}
-	p.podResourcesStore = store
+	p.client = kubelet.NewClient(kubelet.WithSocketPath(p.config.KubeletSocketPath))
 
 	// Register each unique resource name across all device types.
 	seen := make(map[string]struct{})
@@ -71,24 +44,25 @@ func (p *devicePodCorrelationProcessor) Start(_ context.Context, _ component.Hos
 		for _, rn := range dt.ResourceNames {
 			if _, ok := seen[rn]; !ok {
 				seen[rn] = struct{}{}
-				p.podResourcesStore.AddResourceName(rn)
+				p.client.AddResourceName(rn)
 			}
 		}
 	}
-	return nil
+
+	return p.client.Start()
 }
 
-// Shutdown releases the PodResourcesStore resources.
+// Shutdown stops the kubelet client and releases resources.
 func (p *devicePodCorrelationProcessor) Shutdown(_ context.Context) error {
-	if p.podResourcesStore != nil {
-		p.podResourcesStore.Shutdown()
+	if p.client != nil {
+		p.client.Stop()
 	}
 	return nil
 }
 
 // processMetrics iterates all datapoints in the metric batch and enriches them
 // with pod/namespace/container attributes when a device ID matches a configured
-// device type and the PodResourcesStore has correlation data.
+// device type and the kubelet client has correlation data.
 func (p *devicePodCorrelationProcessor) processMetrics(_ context.Context, md pmetric.Metrics) (pmetric.Metrics, error) {
 	rms := md.ResourceMetrics()
 	for i := 0; i < rms.Len(); i++ {
@@ -101,17 +75,16 @@ func (p *devicePodCorrelationProcessor) processMetrics(_ context.Context, md pme
 				m := metrics.At(k)
 				switch m.Type() {
 				case pmetric.MetricTypeGauge:
-					processDatapoints(m.Gauge().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.podResourcesStore, p.logger)
+					processDatapoints(m.Gauge().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
 				case pmetric.MetricTypeSum:
-					processDatapoints(m.Sum().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.podResourcesStore, p.logger)
+					processDatapoints(m.Sum().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
 				case pmetric.MetricTypeHistogram:
-					processDatapoints(m.Histogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.podResourcesStore, p.logger)
+					processDatapoints(m.Histogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
 				case pmetric.MetricTypeExponentialHistogram:
-					processDatapoints(m.ExponentialHistogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.podResourcesStore, p.logger)
+					processDatapoints(m.ExponentialHistogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
 				case pmetric.MetricTypeSummary:
-					processDatapoints(m.Summary().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.podResourcesStore, p.logger)
+					processDatapoints(m.Summary().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
 				default:
-					// Skip metrics with unsupported or empty type without error.
 				}
 			}
 		}
@@ -119,10 +92,12 @@ func (p *devicePodCorrelationProcessor) processMetrics(_ context.Context, md pme
 	return md, nil
 }
 
-// processDatapoints is a generic helper that enriches datapoints with pod
-// correlation attributes. It works with any datapoint type that exposes
-// Attributes() pcommon.Map. For device types with DeviceIDSource "resource",
-// the device ID is read from the resource attributes instead of the datapoint.
+// DeviceLookup is the interface used by processDatapoints to look up device-to-pod mappings.
+type DeviceLookup interface {
+	GetContainerInfo(deviceID string, resourceName string) *kubelet.ContainerInfo
+}
+
+// processDatapoints enriches datapoints with pod correlation attributes.
 func processDatapoints[DP interface{ Attributes() pcommon.Map }](
 	datapoints interface {
 		Len() int
@@ -130,20 +105,18 @@ func processDatapoints[DP interface{ Attributes() pcommon.Map }](
 	},
 	resourceAttrs pcommon.Map,
 	deviceTypes []DeviceTypeConfig,
-	store PodResourcesStoreInterface,
+	lookup DeviceLookup,
 	logger *zap.Logger,
 ) {
 	for i := 0; i < datapoints.Len(); i++ {
 		dpAttrs := datapoints.At(i).Attributes()
 
-		// Skip if pod attributes are already present.
 		if _, exists := dpAttrs.Get(k8sPodNameKey); exists {
 			logger.Debug("Skipping datapoint, pod attributes already present")
 			continue
 		}
 
 		for _, dt := range deviceTypes {
-			// Choose the attribute source based on config.
 			var sourceAttrs pcommon.Map
 			if dt.DeviceIDSource == DeviceIDSourceResource {
 				sourceAttrs = resourceAttrs
@@ -157,9 +130,9 @@ func processDatapoints[DP interface{ Attributes() pcommon.Map }](
 			}
 
 			deviceID := deviceIDVal.AsString()
-			var containerInfo *ContainerInfo
+			var containerInfo *kubelet.ContainerInfo
 			for _, rn := range dt.ResourceNames {
-				containerInfo = store.GetContainerInfo(deviceID, rn)
+				containerInfo = lookup.GetContainerInfo(deviceID, rn)
 				if containerInfo != nil {
 					break
 				}
@@ -176,7 +149,7 @@ func processDatapoints[DP interface{ Attributes() pcommon.Map }](
 				dpAttrs.PutStr(k8sPodNameKey, containerInfo.PodName)
 				dpAttrs.PutStr(k8sNamespaceKey, containerInfo.Namespace)
 				dpAttrs.PutStr(containerNameKey, containerInfo.ContainerName)
-				break // First matching device type wins.
+				break
 			}
 
 			logger.Debug("No pod correlation found for device",

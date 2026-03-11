@@ -9,6 +9,10 @@ import (
 
 // Config defines the configuration for the awsdevicepodcorrelation processor.
 type Config struct {
+	// KubeletSocketPath is the path to the Kubelet Pod Resources API socket.
+	// Defaults to "/var/lib/kubelet/pod-resources/kubelet.sock".
+	KubeletSocketPath string `mapstructure:"kubelet_socket_path"`
+
 	// DeviceTypes is a list of device type configurations, each defining how to
 	// correlate one class of devices (e.g., neuron, EFA, GPU) with pod metadata.
 	DeviceTypes []DeviceTypeConfig `mapstructure:"device_types"`
@@ -54,8 +58,6 @@ func (cfg *Config) setDefaults() {
 
 // Validate checks if the processor configuration is valid.
 func (cfg *Config) Validate() error {
-	cfg.setDefaults()
-
 	if len(cfg.DeviceTypes) == 0 {
 		return fmt.Errorf("device_types must not be empty")
 	}
@@ -72,7 +74,7 @@ func (cfg *Config) Validate() error {
 		if len(dt.ResourceNames) == 0 {
 			return fmt.Errorf("device_types[%d]: resource_names must not be empty", i)
 		}
-		if dt.DeviceIDSource != DeviceIDSourceDatapoint && dt.DeviceIDSource != DeviceIDSourceResource {
+		if dt.DeviceIDSource != "" && dt.DeviceIDSource != DeviceIDSourceDatapoint && dt.DeviceIDSource != DeviceIDSourceResource {
 			return fmt.Errorf("device_types[%d]: device_id_source must be %q or %q, got %q", i, DeviceIDSourceDatapoint, DeviceIDSourceResource, dt.DeviceIDSource)
 		}
 		if seen[dt.Name] {
