@@ -81,6 +81,17 @@ func (m *mockSysFsReader) ReadCounter(deviceName string, port string, counter st
 	return 0, nil
 }
 
+type mockENIResolver struct {
+	enis map[string]string // mac -> eni ID
+}
+
+func (m *mockENIResolver) GetENIID(macAddress string) (string, error) {
+	if eni, ok := m.enis[macAddress]; ok {
+		return eni, nil
+	}
+	return "", fmt.Errorf("no ENI for MAC %s", macAddress)
+}
+
 // zeroCounters returns a counter map with all known counters set to 0.
 func zeroCounters() map[string]uint64 {
 	m := make(map[string]uint64, len(efaCounters))
@@ -136,22 +147,22 @@ func newTestMock() *mockSysFsReader {
 				"rdma_read_resp_bytes":        8000,
 			})},
 			"rdmap1s31": {"1": withValues(zeroCounters(), map[string]uint64{
-				"rdma_read_bytes":        6000,
-				"rdma_write_bytes":       7000,
-				"rdma_write_recv_bytes":  8000,
-				"rx_bytes":               9000,
-				"tx_bytes":               10000,
-				"tx_pkts":                200,
-				"rx_pkts":                300,
-				"send_bytes":             11000,
-				"recv_bytes":             12000,
-				"send_wrs":               150,
-				"recv_wrs":               160,
-				"rdma_write_wrs":         50,
-				"rdma_read_wrs":          60,
-				"rdma_write_wr_err":      1,
-				"rdma_read_wr_err":       2,
-				"rdma_read_resp_bytes":   13000,
+				"rdma_read_bytes":       6000,
+				"rdma_write_bytes":      7000,
+				"rdma_write_recv_bytes": 8000,
+				"rx_bytes":              9000,
+				"tx_bytes":              10000,
+				"tx_pkts":               200,
+				"rx_pkts":               300,
+				"send_bytes":            11000,
+				"recv_bytes":            12000,
+				"send_wrs":              150,
+				"recv_wrs":              160,
+				"rdma_write_wrs":        50,
+				"rdma_read_wrs":         60,
+				"rdma_write_wr_err":     1,
+				"rdma_read_wr_err":      2,
+				"rdma_read_resp_bytes":  13000,
 			})},
 		},
 	}
@@ -174,11 +185,11 @@ func TestScrape(t *testing.T) {
 		attrs := rm.Resource().Attributes()
 
 		device, ok := attrs.Get("aws.efa.device")
-		assert.True(t, ok)
+		assert.True(t, ok, "expected aws.efa.device attribute")
 		assert.Contains(t, []string{"rdmap0s31", "rdmap1s31"}, device.Str())
 
 		port, ok := attrs.Get("aws.efa.port")
-		assert.True(t, ok)
+		assert.True(t, ok, "expected aws.efa.port attribute")
 		assert.Equal(t, "1", port.Str())
 
 		// Verify efa.rdma.device is NOT present
@@ -192,6 +203,36 @@ func TestScrape(t *testing.T) {
 
 	// 22 metrics per device * 2 devices = 44
 	assert.Equal(t, 44, totalMetrics)
+}
+
+func TestScrapeWithENIResolution(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	settings := receivertest.NewNopSettings(metadata.Type)
+	s := newScraper(cfg, settings)
+	s.reader = &mockSysFsReader{
+		exists:  true,
+		devices: []string{"rdmap0s31"},
+		ports:   map[string][]string{"rdmap0s31": {"1"}},
+		counters: map[string]map[string]map[string]uint64{
+			"rdmap0s31": {"1": zeroCounters()},
+		},
+		gids: map[string]string{
+			"rdmap0s31": "fe80::200:ff:fe00:1",
+		},
+	}
+	s.eniResolver = &mockENIResolver{
+		enis: map[string]string{"00:00:00:00:00:01": "eni-abc123"},
+	}
+	s.eniCache = make(map[string]string)
+
+	metrics, err := s.scrape(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, metrics.ResourceMetrics().Len())
+
+	attrs := metrics.ResourceMetrics().At(0).Resource().Attributes()
+	eniID, ok := attrs.Get("aws.efa.eni.id")
+	assert.True(t, ok, "expected aws.efa.eni.id attribute")
+	assert.Equal(t, "eni-abc123", eniID.Str())
 }
 
 func TestScrapeNoEfaDevices(t *testing.T) {
@@ -225,18 +266,18 @@ func TestScrapeMetricValues(t *testing.T) {
 		ports:   map[string][]string{"rdmap0s31": {"1"}},
 		counters: map[string]map[string]map[string]uint64{
 			"rdmap0s31": {"1": withValues(zeroCounters(), map[string]uint64{
-				"rdma_read_bytes":        42,
-				"tx_pkts":               100,
-				"rx_pkts":               200,
-				"send_bytes":            300,
-				"recv_bytes":            400,
-				"send_wrs":              500,
-				"recv_wrs":              600,
-				"rdma_write_wrs":        700,
-				"rdma_read_wrs":         800,
-				"rdma_write_wr_err":     9,
-				"rdma_read_wr_err":      10,
-				"rdma_read_resp_bytes":  1100,
+				"rdma_read_bytes":      42,
+				"tx_pkts":              100,
+				"rx_pkts":              200,
+				"send_bytes":           300,
+				"recv_bytes":           400,
+				"send_wrs":             500,
+				"recv_wrs":             600,
+				"rdma_write_wrs":       700,
+				"rdma_read_wrs":        800,
+				"rdma_write_wr_err":    9,
+				"rdma_read_wr_err":     10,
+				"rdma_read_resp_bytes": 1100,
 			})},
 		},
 	}
@@ -385,8 +426,8 @@ func TestRecordOverflow(t *testing.T) {
 
 func TestScrapePartialCounterAvailability(t *testing.T) {
 	// Simulate an older EFA driver that only has 15 of 22 counters.
-	// The 7 missing counters return errors (simulating os.ErrNotExist from sysfs),
-	// so readCounters skips them. The scraper should emit exactly 15 metrics.
+	// Missing counters return errCounterNotAvailable, so readCounters
+	// skips them. The scraper should emit exactly 15 metrics per device.
 	partialCounters := map[string]uint64{
 		"rdma_read_bytes":             100,
 		"rdma_write_bytes":            200,
@@ -405,15 +446,13 @@ func TestScrapePartialCounterAvailability(t *testing.T) {
 		"recv_bytes":                  700,
 	}
 
-	// Build error map for the 7 missing counters so ReadCounter returns an error
-	// (simulating file-not-found on older EFA drivers).
 	missingCounters := []string{
 		"send_wrs", "recv_wrs", "rdma_write_wrs", "rdma_read_wrs",
 		"rdma_write_wr_err", "rdma_read_wr_err", "rdma_read_resp_bytes",
 	}
 	missingErrs := make(map[string]error, len(missingCounters))
 	for _, c := range missingCounters {
-		missingErrs[c] = errors.New("counter not available")
+		missingErrs[c] = errCounterNotAvailable
 	}
 
 	cfg := createDefaultConfig().(*Config)

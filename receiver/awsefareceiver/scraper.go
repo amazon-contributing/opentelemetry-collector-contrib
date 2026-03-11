@@ -109,13 +109,13 @@ func newScraper(cfg *Config, settings receiver.Settings) *efaScraper {
 		logger:   settings.Logger,
 		mb:       metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings),
 		hostPath: cfg.HostPath,
+		eniCache: make(map[string]string),
 	}
 }
 
 func (s *efaScraper) start(_ context.Context, _ component.Host) error {
 	s.reader = newSysFsReader(s.hostPath, s.logger)
 	s.eniResolver = newIMDSENIResolver()
-	s.eniCache = make(map[string]string)
 	s.logger.Info("Starting AWS EFA receiver", zap.String("host_path", s.hostPath))
 	return nil
 }
@@ -126,7 +126,7 @@ func (s *efaScraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 		return pmetric.NewMetrics(), fmt.Errorf("failed to check EFA data: %w", err)
 	}
 	if !exists {
-		s.logger.Debug("No EFA devices found, skipping scrape")
+		s.logger.Debug("No EFA devices found or insufficient permissions, skipping scrape")
 		return pmetric.NewMetrics(), nil
 	}
 
@@ -197,10 +197,6 @@ func (s *efaScraper) readAllDevices() ([]efaDevice, error) {
 // receiver is restarted. This is acceptable because ENI-to-device mappings
 // don't change at runtime.
 func (s *efaScraper) resolveENI(deviceName string) string {
-	if s.eniCache == nil {
-		return ""
-	}
-
 	if eniID, ok := s.eniCache[deviceName]; ok {
 		return eniID
 	}
@@ -213,7 +209,7 @@ func (s *efaScraper) resolveENI(deviceName string) string {
 		return ""
 	}
 
-	mac, err := IPv6LinkLocalToMAC(gid)
+	mac, err := ipv6LinkLocalToMAC(gid)
 	if err != nil {
 		s.logger.Warn("Failed to convert GID to MAC for EFA device, emitting metrics without eni_id",
 			zap.String("device", deviceName), zap.String("gid", gid), zap.Error(err))
@@ -236,11 +232,8 @@ func (s *efaScraper) resolveENI(deviceName string) string {
 }
 
 // readCounters reads all known EFA counters for a device-port combination.
-// Counters that fail to read (e.g., missing on older EFA driver versions)
-// are excluded from the returned map. Note: ReadCounter returning (0, nil)
-// for a present-but-zero counter is indistinguishable from a missing counter
-// that the sysfs layer silently returns 0 for — both result in a 0-valued
-// metric being emitted. This is the desired behavior.
+// Counters that are missing or unavailable (e.g., on older EFA driver versions)
+// are silently skipped. Only unexpected I/O errors are accumulated.
 func (s *efaScraper) readCounters(deviceName string, port string) (map[string]uint64, error) {
 	var errs error
 	counters := make(map[string]uint64, len(efaCounters))
@@ -248,6 +241,9 @@ func (s *efaScraper) readCounters(deviceName string, port string) (map[string]ui
 	for _, c := range efaCounters {
 		value, err := s.reader.ReadCounter(deviceName, port, c.name)
 		if err != nil {
+			if errors.Is(err, errCounterNotAvailable) {
+				continue
+			}
 			errs = errors.Join(errs, err)
 			continue
 		}

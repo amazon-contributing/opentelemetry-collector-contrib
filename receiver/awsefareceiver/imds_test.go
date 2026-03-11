@@ -13,18 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testToken = "test-imds-token"
+const testIMDSResponse = "test-imds-token"
 
 func newTestIMDSServer(handler http.HandlerFunc) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Handle IMDSv2 token request
 		if r.Method == http.MethodPut && r.URL.Path == "/latest/api/token" {
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(testToken))
+			_, _ = w.Write([]byte(testIMDSResponse))
 			return
 		}
 		// Verify token on all other requests
-		if r.Header.Get("X-aws-ec2-metadata-token") != testToken {
+		if r.Header.Get("X-aws-ec2-metadata-token") != testIMDSResponse {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}

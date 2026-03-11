@@ -71,7 +71,7 @@ func TestSysFsReaderEfaDataExists(t *testing.T) {
 	// tested separately.
 	info, err := os.Stat(basePath)
 	require.NoError(t, err)
-	assert.True(t, info.IsDir())
+	assert.True(t, info.IsDir(), "expected infiniband path to be a directory")
 
 	// When running as non-root, EfaDataExists returns false due to permission check.
 	// This is expected and correct behavior.
@@ -79,7 +79,7 @@ func TestSysFsReaderEfaDataExists(t *testing.T) {
 	exists, err := reader.EfaDataExists()
 	require.NoError(t, err)
 	if os.Getuid() == 0 {
-		assert.True(t, exists)
+		assert.True(t, exists, "expected EFA data to exist when running as root")
 	} else {
 		assert.False(t, exists, "expected false when not running as root (permission check)")
 	}
@@ -90,7 +90,7 @@ func TestSysFsReaderEfaDataNotExists(t *testing.T) {
 
 	exists, err := reader.EfaDataExists()
 	require.NoError(t, err)
-	assert.False(t, exists)
+	assert.False(t, exists, "expected false for nonexistent path")
 }
 
 func TestSysFsReaderListDevices(t *testing.T) {
@@ -124,9 +124,8 @@ func TestSysFsReaderReadCounterMissing(t *testing.T) {
 	root := setupTestSysfs(t)
 	reader := newTestReader(filepath.Join(root, "sys/class/infiniband"))
 
-	val, err := reader.ReadCounter("rdmap0s31", "1", "nonexistent_counter")
-	require.NoError(t, err)
-	assert.Equal(t, uint64(0), val)
+	_, err := reader.ReadCounter("rdmap0s31", "1", "nonexistent_counter")
+	require.ErrorIs(t, err, errCounterNotAvailable)
 }
 
 func TestReadUint64FromFileNAPMA(t *testing.T) {
@@ -201,6 +200,3 @@ func TestListDevicesSymlinkToFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, devices)
 }
-
-
-

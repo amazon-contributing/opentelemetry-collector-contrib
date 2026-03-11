@@ -8,29 +8,29 @@ import (
 	"net"
 )
 
-// IPv6LinkLocalToMAC converts an IPv6 link-local address to its corresponding MAC address.
+// ipv6LinkLocalToMAC converts an IPv6 link-local address to its corresponding MAC address.
 // The IPv6 address must be in EUI-64 format for this conversion to work.
-func IPv6LinkLocalToMAC(ipv6Addr string) (string, error) {
+func ipv6LinkLocalToMAC(ipv6Addr string) (string, error) {
 	// Parse the IPv6 address
 	ip := net.ParseIP(ipv6Addr)
 	if ip == nil || ip.To16() == nil {
-		return "", errors.New("invalid IPv6 address")
+		return "", errors.New("ipv6 to mac: invalid IPv6 address")
 	}
 
 	// Verify it's a link-local address (fe80::/10)
 	if !ip.IsLinkLocalUnicast() {
-		return "", errors.New("not a link-local address")
+		return "", errors.New("ipv6 to mac: not a link-local address")
 	}
 
 	// Extract interface identifier (last 64 bits)
 	interfaceID := ip.To16()[8:]
 	if len(interfaceID) != 8 {
-		return "", errors.New("invalid interface identifier")
+		return "", errors.New("ipv6 to mac: invalid interface identifier")
 	}
 
 	// Verify EUI-64 format (check for ff:fe in bytes 3-4)
 	if interfaceID[3] != 0xff || interfaceID[4] != 0xfe {
-		return "", errors.New("address does not use EUI-64 format")
+		return "", errors.New("ipv6 to mac: address does not use EUI-64 format")
 	}
 
 	// Reconstruct MAC address

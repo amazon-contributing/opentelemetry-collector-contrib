@@ -19,6 +19,10 @@ const (
 	defaultEfaPath = "/sys/class/infiniband"
 )
 
+// errCounterNotAvailable is returned when a hw_counter file does not exist
+// or is not supported by the current hardware/driver revision.
+var errCounterNotAvailable = errors.New("counter not available")
+
 // efaDevice represents a single EFA device with its port and counter values.
 type efaDevice struct {
 	name     string
@@ -124,7 +128,32 @@ func (r *sysfsReaderImpl) ReadGID(deviceName string) (string, error) {
 
 func (r *sysfsReaderImpl) ReadCounter(deviceName string, port string, counter string) (uint64, error) {
 	path := filepath.Join(r.basePath, deviceName, "ports", port, "hw_counters", counter)
-	return readUint64FromFile(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, errCounterNotAvailable
+		}
+		if os.IsPermission(err) {
+			r.logger.Warn("Permission denied reading EFA counter",
+				zap.String("path", path), zap.Error(err))
+			return 0, errCounterNotAvailable
+		}
+		if errors.Is(err, syscall.EOPNOTSUPP) || errors.Is(err, syscall.EINVAL) {
+			return 0, errCounterNotAvailable
+		}
+		return 0, fmt.Errorf("failed to read file %q: %w", path, err)
+	}
+
+	value := strings.TrimSpace(string(data))
+	if strings.Contains(value, "N/A (no PMA)") {
+		return 0, errCounterNotAvailable
+	}
+
+	v, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse %q from %q: %w", value, path, err)
+	}
+	return v, nil
 }
 
 func readUint64FromFile(path string) (uint64, error) {
