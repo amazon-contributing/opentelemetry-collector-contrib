@@ -1,12 +1,12 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor
 
-go 1.25.0
+go 1.24.11
 
 require (
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/collector/component v1.30.0
 	go.opentelemetry.io/collector/component/componenttest v0.124.0
-	go.opentelemetry.io/collector/confmap v1.53.0
+	go.opentelemetry.io/collector/confmap v1.30.0
 	go.opentelemetry.io/collector/consumer v1.30.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.124.0
 	go.opentelemetry.io/collector/pdata v1.30.0
@@ -15,8 +15,8 @@ require (
 	go.opentelemetry.io/collector/processor/processortest v0.124.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.1
-	google.golang.org/grpc v1.72.2
-	k8s.io/kubelet v0.35.2
+	google.golang.org/grpc v1.71.1
+	k8s.io/kubelet v0.30.0
 )
 
 require (
@@ -24,7 +24,6 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-version v1.8.0 // indirect
@@ -40,7 +39,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/collector/component/componentstatus v0.124.0 // indirect
 	go.opentelemetry.io/collector/consumer/xconsumer v0.124.0 // indirect
-	go.opentelemetry.io/collector/featuregate v1.53.0 // indirect
+	go.opentelemetry.io/collector/featuregate v1.30.0 // indirect
 	go.opentelemetry.io/collector/internal/telemetry v0.124.0 // indirect
 	go.opentelemetry.io/collector/pdata/pprofile v0.124.0 // indirect
 	go.opentelemetry.io/collector/pdata/testdata v0.124.0 // indirect
@@ -54,7 +53,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
