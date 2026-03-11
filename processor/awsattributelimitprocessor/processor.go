@@ -42,7 +42,7 @@ var phase1ExactKeys = map[string]struct{}{
 	"k8s.pod.label.controller-revision-hash":                       {},
 }
 
-// attributeLimitProcessor enforces the Zeus attribute limit by removing
+// attributeLimitProcessor enforces the aws backend attribute limit by removing
 // redundant attributes (Phase 1) and dropping low-priority attributes
 // by tier when the total count exceeds the configured maximum (Phase 2).
 type attributeLimitProcessor struct {
