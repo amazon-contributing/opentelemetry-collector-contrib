@@ -77,12 +77,12 @@ func TestPhase1_RemovesPrefixPatterns(t *testing.T) {
 	resourceAttrs := map[string]string{
 		"k8s.node.label.feature.node.kubernetes.io/cpu-cpuid.AVX2": "true",
 		"k8s.node.label.feature.node.kubernetes.io/pci-1234":       "true",
-		"k8s.node.label.beta.kubernetes.io/arch":                    "amd64",
-		"k8s.node.label.beta.kubernetes.io/os":                      "linux",
-		"k8s.node.label.failure-domain.beta.kubernetes.io/region":   "us-east-1",
-		"k8s.node.label.failure-domain.beta.kubernetes.io/zone":     "us-east-1a",
-		"k8s.node.label.alpha.eksctl.io/cluster-name":               "test",
-		"k8s.node.label.alpha.eksctl.io/nodegroup-name":             "ng-1",
+		"k8s.node.label.beta.kubernetes.io/arch":                   "amd64",
+		"k8s.node.label.beta.kubernetes.io/os":                     "linux",
+		"k8s.node.label.failure-domain.beta.kubernetes.io/region":  "us-east-1",
+		"k8s.node.label.failure-domain.beta.kubernetes.io/zone":    "us-east-1a",
+		"k8s.node.label.alpha.eksctl.io/cluster-name":              "test",
+		"k8s.node.label.alpha.eksctl.io/nodegroup-name":            "ng-1",
 		"k8s.node.name": "test-node", // should survive
 	}
 
@@ -218,11 +218,11 @@ func TestPhase1_OnlyOperatesOnResourceAttributes(t *testing.T) {
 func TestPhase2_TierOrdering(t *testing.T) {
 	// Create metrics with Tier 1 and Tier 5 attrs, limit forces dropping some.
 	resourceAttrs := map[string]string{
-		"k8s.node.name":                                "node-1",
-		"k8s.node.label.helm.sh/chart":                 "mychart-1.0", // Tier 1
-		"k8s.node.label.app.kubernetes.io/managed-by":  "Helm",        // Tier 1
-		"k8s.node.label.my-company/team":               "platform",    // Tier 5
-		"k8s.node.label.my-company/env":                "prod",        // Tier 5
+		"k8s.node.name":                               "node-1",
+		"k8s.node.label.helm.sh/chart":                "mychart-1.0", // Tier 1
+		"k8s.node.label.app.kubernetes.io/managed-by": "Helm",        // Tier 1
+		"k8s.node.label.my-company/team":              "platform",    // Tier 5
+		"k8s.node.label.my-company/env":               "prod",        // Tier 5
 	}
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
@@ -253,9 +253,9 @@ func TestPhase2_TierOrdering(t *testing.T) {
 func TestPhase2_AlphabeticalWithinTier(t *testing.T) {
 	// Two Tier 5 attrs, need to drop exactly 1. Should drop alphabetically first.
 	resourceAttrs := map[string]string{
-		"k8s.node.name":                  "node-1",
-		"k8s.node.label.zzz-custom":      "val",  // Tier 5, alphabetically later
-		"k8s.node.label.aaa-custom":      "val",  // Tier 5, alphabetically first
+		"k8s.node.name":             "node-1",
+		"k8s.node.label.zzz-custom": "val", // Tier 5, alphabetically later
+		"k8s.node.label.aaa-custom": "val", // Tier 5, alphabetically first
 	}
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
@@ -279,12 +279,12 @@ func TestPhase2_AlphabeticalWithinTier(t *testing.T) {
 func TestPhase2_StopsAtLimit(t *testing.T) {
 	// 5 Tier 5 attrs + 1 protected. Limit = 3. Should drop exactly 3.
 	resourceAttrs := map[string]string{
-		"k8s.node.name":             "node-1", // protected
-		"k8s.node.label.custom-a":   "a",      // Tier 5
-		"k8s.node.label.custom-b":   "b",      // Tier 5
-		"k8s.node.label.custom-c":   "c",      // Tier 5
-		"k8s.node.label.custom-d":   "d",      // Tier 5
-		"k8s.node.label.custom-e":   "e",      // Tier 5
+		"k8s.node.name":           "node-1", // protected
+		"k8s.node.label.custom-a": "a",      // Tier 5
+		"k8s.node.label.custom-b": "b",      // Tier 5
+		"k8s.node.label.custom-c": "c",      // Tier 5
+		"k8s.node.label.custom-d": "d",      // Tier 5
+		"k8s.node.label.custom-e": "e",      // Tier 5
 	}
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
@@ -306,9 +306,9 @@ func TestPhase2_StopsAtLimit(t *testing.T) {
 
 func TestPhase2_NodeLabelsExhaustedBeforePodLabels(t *testing.T) {
 	resourceAttrs := map[string]string{
-		"k8s.node.name":                "node-1",       // protected
-		"k8s.node.label.custom-node":   "val",          // Tier 5
-		"k8s.pod.label.custom-pod":     "val",          // Tier 7
+		"k8s.node.name":              "node-1", // protected
+		"k8s.node.label.custom-node": "val",    // Tier 5
+		"k8s.pod.label.custom-pod":   "val",    // Tier 7
 	}
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
@@ -499,12 +499,12 @@ func TestProtected_CloudHostHwPrefixNeverRemoved(t *testing.T) {
 
 func TestProtected_DeviceSpecificNeverRemoved(t *testing.T) {
 	resourceAttrs := map[string]string{
-		"neurondevice":   "0",
-		"neuroncore":     "0",
-		"efa.device":     "efa0",
-		"aws.efa.eni.id": "eni-abc",
-		"volume_id":      "vol-abc",
-		"instance_id":    "i-abc",
+		"neurondevice":       "0",
+		"neuroncore":         "0",
+		"efa.device":         "efa0",
+		"aws.efa.eni.id":     "eni-abc",
+		"volume_id":          "vol-abc",
+		"instance_id":        "i-abc",
 		"k8s.component.name": "apiserver",
 	}
 
@@ -572,9 +572,9 @@ func TestProtected_ScopeAttrsNeverRemoved(t *testing.T) {
 
 func TestLogging_WarningOnPhase2(t *testing.T) {
 	resourceAttrs := map[string]string{
-		"k8s.node.name":            "node-1",
-		"k8s.node.label.custom-a":  "a",
-		"k8s.node.label.custom-b":  "b",
+		"k8s.node.name":           "node-1",
+		"k8s.node.label.custom-a": "a",
+		"k8s.node.label.custom-b": "b",
 	}
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
@@ -595,9 +595,9 @@ func TestLogging_WarningOnPhase2(t *testing.T) {
 
 func TestLogging_SuppressedWithinOneMinute(t *testing.T) {
 	resourceAttrs := map[string]string{
-		"k8s.node.name":            "node-1",
-		"k8s.node.label.custom-a":  "a",
-		"k8s.node.label.custom-b":  "b",
+		"k8s.node.name":           "node-1",
+		"k8s.node.label.custom-a": "a",
+		"k8s.node.label.custom-b": "b",
 	}
 
 	p, logs := newTestProcessorWithLogs(2)
@@ -615,7 +615,6 @@ func TestLogging_SuppressedWithinOneMinute(t *testing.T) {
 		t.Errorf("expected 1 warning log (second suppressed), got %d", len(warnLogs))
 	}
 }
-
 
 func TestLogging_EvictionAfterFiveMinutes(t *testing.T) {
 	p := newTestProcessorSimple(2)

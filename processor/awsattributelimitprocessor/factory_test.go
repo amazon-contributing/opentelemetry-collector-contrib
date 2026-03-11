@@ -49,4 +49,3 @@ func TestCreateMetricsProcessor_ValidConfig(t *testing.T) {
 		t.Fatal("processor should not be nil")
 	}
 }
-
