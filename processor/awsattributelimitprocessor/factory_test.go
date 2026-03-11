@@ -4,7 +4,6 @@
 package awsattributelimitprocessor
 
 import (
-	"context"
 	"testing"
 
 	"go.opentelemetry.io/collector/component"
@@ -38,7 +37,7 @@ func TestCreateMetricsProcessor_ValidConfig(t *testing.T) {
 	f := NewFactory()
 	cfg := f.CreateDefaultConfig()
 	p, err := f.CreateMetrics(
-		context.Background(),
+		t.Context(),
 		processortest.NewNopSettings(component.MustNewType("awsattributelimit")),
 		cfg,
 		consumertest.NewNop(),

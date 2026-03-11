@@ -4,7 +4,6 @@
 package awsattributelimitprocessor
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -89,7 +88,7 @@ func TestPhase1_RemovesPrefixPatterns(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500) // high limit so Phase 2 doesn't trigger
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,7 +125,7 @@ func TestPhase1_RemovesExactKeys(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -152,7 +151,7 @@ func TestPhase1_PreservesNonMatchingAttributes(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +171,7 @@ func TestPhase1_RunsEvenWhenUnderLimit(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -197,7 +196,7 @@ func TestPhase1_OnlyOperatesOnResourceAttributes(t *testing.T) {
 
 	md := newTestMetrics("test_metric", nil, scopeAttrs, datapointAttrs)
 	p := newTestProcessorSimple(500)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -229,7 +228,7 @@ func TestPhase2_TierOrdering(t *testing.T) {
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	// Limit = 3: k8s.node.name + 2 others. Need to drop 2 of the 4 labels.
 	p := newTestProcessorSimple(3)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -262,7 +261,7 @@ func TestPhase2_AlphabeticalWithinTier(t *testing.T) {
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	// Limit = 2: need to drop 1 of the 2 Tier 5 attrs.
 	p := newTestProcessorSimple(2)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -290,7 +289,7 @@ func TestPhase2_StopsAtLimit(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(3)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -315,7 +314,7 @@ func TestPhase2_NodeLabelsExhaustedBeforePodLabels(t *testing.T) {
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	// Limit = 2: need to drop 1. Node label (Tier 5) should go before pod label (Tier 7).
 	p := newTestProcessorSimple(2)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -342,7 +341,7 @@ func TestPhase2_AllTiersExhausted(t *testing.T) {
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	// Limit = 2: 5 protected resource attrs + 0 droppable. Can't reach limit.
 	p, logs := newTestProcessorWithLogs(2)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -367,7 +366,7 @@ func TestPhase2_SkippedWhenUnderLimit(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p, logs := newTestProcessorWithLogs(500) // well over limit
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -398,7 +397,7 @@ func TestPhase2_Tier8_DatapointAttrsLastResort(t *testing.T) {
 	md := newTestMetrics("test_metric", resourceAttrs, nil, datapointAttrs)
 	// Limit = 2: 1 resource + 3 datapoint = 4. Need to drop 2 datapoint attrs.
 	p := newTestProcessorSimple(2)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -425,7 +424,7 @@ func TestProtected_K8sIdentityNeverRemoved(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1) // impossibly low limit
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -452,7 +451,7 @@ func TestProtected_K8sWorkloadNeverRemoved(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -485,7 +484,7 @@ func TestProtected_CloudHostHwPrefixNeverRemoved(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -511,7 +510,7 @@ func TestProtected_DeviceSpecificNeverRemoved(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -533,7 +532,7 @@ func TestProtected_PodLabelsNeverRemoved(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -558,7 +557,7 @@ func TestProtected_ScopeAttrsNeverRemoved(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, scopeAttrs, nil)
 	p := newTestProcessorSimple(2) // limit forces dropping
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -580,7 +579,7 @@ func TestLogging_WarningOnPhase2(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p, logs := newTestProcessorWithLogs(2) // forces dropping 1
-	_, err := p.processMetrics(context.Background(), md)
+	_, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -605,11 +604,11 @@ func TestLogging_SuppressedWithinOneMinute(t *testing.T) {
 
 	// First call — should log.
 	md1 := newTestMetrics("test_metric", resourceAttrs, nil, nil)
-	_, _ = p.processMetrics(context.Background(), md1)
+	_, _ = p.processMetrics(t.Context(), md1)
 
 	// Second call with same metric name — should be suppressed.
 	md2 := newTestMetrics("test_metric", resourceAttrs, nil, nil)
-	_, _ = p.processMetrics(context.Background(), md2)
+	_, _ = p.processMetrics(t.Context(), md2)
 
 	warnLogs := logs.FilterLevelExact(zapcore.WarnLevel).All()
 	if len(warnLogs) != 1 {
@@ -657,7 +656,7 @@ func TestScopeCounting_AttributesMapCounted(t *testing.T) {
 	// Total = 1 resource + 1 scope + 1 datapoint = 3.
 	// Set limit to 3 — should be exactly at limit, no Phase 2.
 	p, logs := newTestProcessorWithLogs(3)
-	_, err := p.processMetrics(context.Background(), md)
+	_, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -685,7 +684,7 @@ func TestScopeCounting_ScopeNameVersionNotCounted(t *testing.T) {
 
 	// Total = 1 resource + 0 scope attrs + 1 datapoint = 2.
 	p, logs := newTestProcessorWithLogs(2)
-	_, err := p.processMetrics(context.Background(), md)
+	_, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -708,7 +707,7 @@ func TestMetricPreservation_NeverDropsDatapoints(t *testing.T) {
 
 	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -732,7 +731,7 @@ func TestMetricPreservation_NeverDropsDatapoints(t *testing.T) {
 func TestProcessMetrics_AlwaysReturnsNilError(t *testing.T) {
 	md := newTestMetrics("test_metric", nil, nil, nil)
 	p := newTestProcessorSimple(150)
-	_, err := p.processMetrics(context.Background(), md)
+	_, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Errorf("processMetrics should always return nil error, got: %v", err)
 	}
@@ -775,7 +774,7 @@ func TestProcessMetrics_HandlesAllMetricTypes(t *testing.T) {
 	summary.SetEmptySummary().DataPoints().AppendEmpty()
 
 	p := newTestProcessorSimple(500)
-	result, err := p.processMetrics(context.Background(), md)
+	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
