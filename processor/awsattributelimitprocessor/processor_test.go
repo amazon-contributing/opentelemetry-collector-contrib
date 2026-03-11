@@ -20,7 +20,6 @@ import (
 // one Gauge metric with one datapoint. Resource, scope, and datapoint attributes are
 // populated from the provided maps.
 func newTestMetrics(
-	metricName string,
 	resourceAttrs map[string]string,
 	scopeAttrs map[string]string,
 	datapointAttrs map[string]string,
@@ -35,7 +34,7 @@ func newTestMetrics(
 		sm.Scope().Attributes().PutStr(k, v)
 	}
 	m := sm.Metrics().AppendEmpty()
-	m.SetName(metricName)
+	m.SetName("test_metric")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
 	dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
 	dp.SetDoubleValue(1.0)
@@ -86,7 +85,7 @@ func TestPhase1_RemovesPrefixPatterns(t *testing.T) {
 		"k8s.node.name": "test-node", // should survive
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500) // high limit so Phase 2 doesn't trigger
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -123,7 +122,7 @@ func TestPhase1_RemovesExactKeys(t *testing.T) {
 	}
 	resourceAttrs["k8s.pod.name"] = "my-pod" // should survive
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -149,7 +148,7 @@ func TestPhase1_PreservesNonMatchingAttributes(t *testing.T) {
 		"k8s.node.label.custom/my-label": "value",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -169,7 +168,7 @@ func TestPhase1_RunsEvenWhenUnderLimit(t *testing.T) {
 		"k8s.node.name": "node-1",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -194,7 +193,7 @@ func TestPhase1_OnlyOperatesOnResourceAttributes(t *testing.T) {
 		"k8s.node.label.feature.node.kubernetes.io/test": "true",
 	}
 
-	md := newTestMetrics("test_metric", nil, scopeAttrs, datapointAttrs)
+	md := newTestMetrics(nil, scopeAttrs, datapointAttrs)
 	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -225,7 +224,7 @@ func TestPhase2_TierOrdering(t *testing.T) {
 		"k8s.node.label.my-company/env":               "prod",        // Tier 5
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	// Limit = 3: k8s.node.name + 2 others. Need to drop 2 of the 4 labels.
 	p := newTestProcessorSimple(3)
 	result, err := p.processMetrics(t.Context(), md)
@@ -258,7 +257,7 @@ func TestPhase2_AlphabeticalWithinTier(t *testing.T) {
 		"k8s.node.label.aaa-custom": "val", // Tier 5, alphabetically first
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	// Limit = 2: need to drop 1 of the 2 Tier 5 attrs.
 	p := newTestProcessorSimple(2)
 	result, err := p.processMetrics(t.Context(), md)
@@ -287,7 +286,7 @@ func TestPhase2_StopsAtLimit(t *testing.T) {
 		"k8s.node.label.custom-e": "e",      // Tier 5
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(3)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -311,7 +310,7 @@ func TestPhase2_NodeLabelsExhaustedBeforePodLabels(t *testing.T) {
 		"k8s.pod.label.custom-pod":   "val",    // Tier 7
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	// Limit = 2: need to drop 1. Node label (Tier 5) should go before pod label (Tier 7).
 	p := newTestProcessorSimple(2)
 	result, err := p.processMetrics(t.Context(), md)
@@ -338,7 +337,7 @@ func TestPhase2_AllTiersExhausted(t *testing.T) {
 		"cloud.region":       "us-east-1",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	// Limit = 2: 5 protected resource attrs + 0 droppable. Can't reach limit.
 	p, logs := newTestProcessorWithLogs(2)
 	result, err := p.processMetrics(t.Context(), md)
@@ -364,7 +363,7 @@ func TestPhase2_SkippedWhenUnderLimit(t *testing.T) {
 		"k8s.node.label.custom-node": "val", // Tier 5, droppable
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p, logs := newTestProcessorWithLogs(500) // well over limit
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -394,7 +393,7 @@ func TestPhase2_Tier8_DatapointAttrsLastResort(t *testing.T) {
 		"code":     "200",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, datapointAttrs)
+	md := newTestMetrics(resourceAttrs, nil, datapointAttrs)
 	// Limit = 2: 1 resource + 3 datapoint = 4. Need to drop 2 datapoint attrs.
 	p := newTestProcessorSimple(2)
 	result, err := p.processMetrics(t.Context(), md)
@@ -422,7 +421,7 @@ func TestProtected_K8sIdentityNeverRemoved(t *testing.T) {
 		"k8s.container.name": "app",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1) // impossibly low limit
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -449,7 +448,7 @@ func TestProtected_K8sWorkloadNeverRemoved(t *testing.T) {
 		"k8s.workload.type":    "Deployment",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -482,7 +481,7 @@ func TestProtected_CloudHostHwPrefixNeverRemoved(t *testing.T) {
 		"hw.name":                 "gpu0",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -508,7 +507,7 @@ func TestProtected_DeviceSpecificNeverRemoved(t *testing.T) {
 		"k8s.component.name": "apiserver",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -530,7 +529,7 @@ func TestProtected_PodLabelsNeverRemoved(t *testing.T) {
 		"k8s.pod.label.app.kubernetes.io/component": "frontend",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -555,7 +554,7 @@ func TestProtected_ScopeAttrsNeverRemoved(t *testing.T) {
 		"k8s.node.label.custom-b": "b",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, scopeAttrs, nil)
+	md := newTestMetrics(resourceAttrs, scopeAttrs, nil)
 	p := newTestProcessorSimple(2) // limit forces dropping
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -577,7 +576,7 @@ func TestLogging_WarningOnPhase2(t *testing.T) {
 		"k8s.node.label.custom-b": "b",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p, logs := newTestProcessorWithLogs(2) // forces dropping 1
 	_, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -603,11 +602,11 @@ func TestLogging_SuppressedWithinOneMinute(t *testing.T) {
 	p, logs := newTestProcessorWithLogs(2)
 
 	// First call — should log.
-	md1 := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md1 := newTestMetrics(resourceAttrs, nil, nil)
 	_, _ = p.processMetrics(t.Context(), md1)
 
 	// Second call with same metric name — should be suppressed.
-	md2 := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md2 := newTestMetrics(resourceAttrs, nil, nil)
 	_, _ = p.processMetrics(t.Context(), md2)
 
 	warnLogs := logs.FilterLevelExact(zapcore.WarnLevel).All()
@@ -651,7 +650,7 @@ func TestScopeCounting_AttributesMapCounted(t *testing.T) {
 		"job": "cadvisor",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, scopeAttrs, datapointAttrs)
+	md := newTestMetrics(resourceAttrs, scopeAttrs, datapointAttrs)
 	// Total = 1 resource + 1 scope + 1 datapoint = 3.
 	// Set limit to 3 — should be exactly at limit, no Phase 2.
 	p, logs := newTestProcessorWithLogs(3)
@@ -704,7 +703,7 @@ func TestMetricPreservation_NeverDropsDatapoints(t *testing.T) {
 		"k8s.namespace.name": "ns-1",
 	}
 
-	md := newTestMetrics("test_metric", resourceAttrs, nil, nil)
+	md := newTestMetrics(resourceAttrs, nil, nil)
 	p := newTestProcessorSimple(1)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
@@ -728,7 +727,7 @@ func TestMetricPreservation_NeverDropsDatapoints(t *testing.T) {
 }
 
 func TestProcessMetrics_AlwaysReturnsNilError(t *testing.T) {
-	md := newTestMetrics("test_metric", nil, nil, nil)
+	md := newTestMetrics(nil, nil, nil)
 	p := newTestProcessorSimple(150)
 	_, err := p.processMetrics(t.Context(), md)
 	if err != nil {
