@@ -15,6 +15,7 @@ The AWS Device Pod Correlation processor correlates device metrics with Kubernet
 3. It looks up the device ID against the cached pod allocation data.
 4. If a match is found, it adds pod name, namespace, and container name attributes to the datapoint.
 5. If pod attributes are already present on a datapoint, it is skipped.
+6. Multiple device type entries are tried in order — the first match wins.
 
 ## Configuration
 
@@ -27,7 +28,7 @@ Each entry in `device_types` supports:
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `name` | Unique identifier for this device type (e.g., `"neuron"`, `"efa"`, `"gpu"`). | (required) |
+| `name` | Unique identifier for this device type (e.g., `"neuron-by-core"`, `"efa"`). | (required) |
 | `device_id_attribute` | The metric attribute key holding the device identifier used for lookup. | (required) |
 | `device_id_source` | Where to find the device ID: `"datapoint"` or `"resource"`. | `"datapoint"` |
 | `resource_names` | Ordered list of Kubernetes extended resource names to try during lookup. | (required) |
@@ -39,15 +40,34 @@ processors:
   awsdevicepodcorrelation:
     kubelet_socket_path: /var/lib/kubelet/pod-resources/kubelet.sock
     device_types:
-      - name: neuron
-        device_id_attribute: NeuronDevice
-        device_id_source: datapoint
+      # Neuron: try core-level lookup first, then device-level fallback.
+      # Handles both pod resource request styles:
+      #   - aws.amazon.com/neuroncore (individual cores)
+      #   - aws.amazon.com/neuron (whole device)
+      - name: neuron-by-core
+        device_id_attribute: neuroncore
+        resource_names:
+          - aws.amazon.com/neuroncore
+      - name: neuron-by-device
+        device_id_attribute: neurondevice
         resource_names:
           - aws.amazon.com/neurondevice
           - aws.amazon.com/neuron
+      # EFA: device ID is on the resource attributes.
       - name: efa
-        device_id_attribute: device
+        device_id_attribute: aws.efa.device
         device_id_source: resource
         resource_names:
           - vpc.amazonaws.com/efa
 ```
+
+### Neuron Core vs Device Correlation
+
+Neuron metrics are emitted per-core (e.g., `neuroncore="7"`), but pods can request resources at either the core level (`aws.amazon.com/neuroncore`) or the device level (`aws.amazon.com/neuron`). The Kubelet Pod Resources API reports allocations at the level the pod requested.
+
+To handle both cases, configure two device type entries:
+
+1. `neuron-by-core` — looks up the `neuroncore` attribute against `aws.amazon.com/neuroncore`. This matches when the pod requested individual cores.
+2. `neuron-by-device` — looks up the `neurondevice` attribute (added by the upstream `awsneuron` processor, which computes `device = core / cores_per_device`) against `aws.amazon.com/neurondevice` or `aws.amazon.com/neuron`. This matches when the pod requested a whole device.
+
+The processor tries each device type in order and uses the first match, so core-level lookups are attempted before falling back to device-level.
