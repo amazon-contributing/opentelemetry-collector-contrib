@@ -123,13 +123,7 @@ func removeExcessByTier(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, e
 		if a.tier != b.tier {
 			return a.tier - b.tier
 		}
-		if a.key < b.key {
-			return -1
-		}
-		if a.key > b.key {
-			return 1
-		}
-		return 0
+		return strings.Compare(a.key, b.key)
 	})
 
 	// Drop until excess is satisfied.
