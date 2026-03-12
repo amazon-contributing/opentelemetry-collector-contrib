@@ -575,11 +575,11 @@ func TestProtected_PodLabelsNeverRemoved(t *testing.T) {
 	}
 }
 
-func TestProtected_ScopeAttrsNeverRemoved(t *testing.T) {
+func TestProtected_ScopeAttrsWithCloudWatchPrefix(t *testing.T) {
 	scopeAttrs := map[string]string{
-		"source": "cadvisor",
+		"instrumentation.cloudwatch.source": "cadvisor",
 	}
-	// Add droppable resource attrs to trigger Phase 2.
+	// Add droppable resource attrs to trigger tier-based dropping.
 	resourceAttrs := map[string]string{
 		"k8s.node.label.custom-a": "a",
 		"k8s.node.label.custom-b": "b",
@@ -593,8 +593,36 @@ func TestProtected_ScopeAttrsNeverRemoved(t *testing.T) {
 	}
 
 	sa := getScopeAttrs(result)
-	if _, ok := sa.Get("source"); !ok {
-		t.Error("scope attribute 'source' should never be removed")
+	if _, ok := sa.Get("instrumentation.cloudwatch.source"); !ok {
+		t.Error("scope attribute with instrumentation.cloudwatch.* prefix should never be removed")
+	}
+}
+
+func TestScope_NonProtectedScopeAttrsDroppedBeforeResourceLabels(t *testing.T) {
+	scopeAttrs := map[string]string{
+		"source": "cadvisor",
+	}
+	resourceAttrs := map[string]string{
+		"k8s.node.name":              "node-1",
+		"k8s.node.label.custom-node": "val",
+	}
+
+	md := newTestMetrics(resourceAttrs, scopeAttrs, nil)
+	// Limit = 2: 2 resource + 1 scope + 0 dp = 3. Need to drop 1.
+	// Scope attr "source" (tier 2) should be dropped before resource label (tier 7).
+	p := newTestProcessorSimple(2)
+	result, err := p.processMetrics(t.Context(), md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	sa := getScopeAttrs(result)
+	if _, ok := sa.Get("source"); ok {
+		t.Error("non-protected scope attr should be dropped before resource labels")
+	}
+	ra := getResourceAttrs(result)
+	if _, ok := ra.Get("k8s.node.label.custom-node"); !ok {
+		t.Error("resource label should survive when scope attr covers the excess")
 	}
 }
 

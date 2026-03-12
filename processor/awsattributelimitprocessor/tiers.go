@@ -5,18 +5,21 @@ package awsattributelimitprocessor
 
 import "strings"
 
-// Tier constants define the drop priority for Phase 2.
+// Tier constants define the drop priority.
 // Lower tiers are dropped first. Tier 0 means the attribute is not droppable.
+// Datapoint and scope attrs are dropped before resource attrs to avoid
+// over-pruning shared resource attributes.
 const (
-	tierNotDroppable  = 0 // Protected or non-label resource attribute
-	tier1HelmTooling  = 1 // Helm/tooling labels (node + pod)
-	tier2K8sInternal  = 2 // K8s internal controller labels (node + pod)
-	tier3EKSSystem    = 3 // EKS system labels (node only)
-	tier4KnownNode    = 4 // Known-prefix node labels
-	tier5CustomerNode = 5 // Customer node labels (unknown prefix)
-	tier6KnownPod     = 6 // Known-prefix pod labels
-	tier7CustomerPod  = 7 // Customer pod labels (unknown prefix)
-	tier8Datapoint    = 8 // Non-protected datapoint attributes
+	tierNotDroppable  = 0 // Protected attribute
+	tier1Datapoint    = 1 // Non-protected datapoint attributes (per-datapoint, no shared impact)
+	tier2Scope        = 2 // Non-protected scope attributes (except instrumentation.cloudwatch.*)
+	tier3HelmTooling  = 3 // Helm/tooling labels (node + pod)
+	tier4K8sInternal  = 4 // K8s internal controller labels (node + pod)
+	tier5EKSSystem    = 5 // EKS system labels (node only)
+	tier6KnownNode    = 6 // Known-prefix node labels
+	tier7CustomerNode = 7 // Customer node labels (unknown prefix)
+	tier8KnownPod     = 8 // Known-prefix pod labels
+	tier9CustomerPod  = 9 // Customer pod labels (unknown prefix)
 )
 
 // protectedExactKeys contains resource attribute keys that are never dropped.
@@ -59,6 +62,9 @@ var protectedPrefixes = []string{
 	"hw.",
 }
 
+// protectedScopePrefix is the scope attribute prefix that is never dropped.
+const protectedScopePrefix = "instrumentation.cloudwatch."
+
 // isProtected returns true if the key is a protected attribute that should never be dropped.
 func isProtected(key string) bool {
 	if _, ok := protectedExactKeys[key]; ok {
@@ -72,8 +78,8 @@ func isProtected(key string) bool {
 	return false
 }
 
-// tier1Suffixes are Helm/tooling label suffixes (node + pod scope).
-var tier1Suffixes = map[string]struct{}{
+// helmToolingSuffixes are Helm/tooling label suffixes (node + pod scope).
+var helmToolingSuffixes = map[string]struct{}{
 	"helm.sh/chart":                {},
 	"app.kubernetes.io/managed-by": {},
 	"app.kubernetes.io/version":    {},
@@ -83,21 +89,21 @@ var tier1Suffixes = map[string]struct{}{
 	"heritage":                     {},
 }
 
-// tier2Suffixes are K8s internal controller label suffixes (node + pod scope).
-var tier2Suffixes = map[string]struct{}{
+// k8sInternalSuffixes are K8s internal controller label suffixes (node + pod scope).
+var k8sInternalSuffixes = map[string]struct{}{
 	"pod-template-generation":            {},
 	"statefulset.kubernetes.io/pod-name": {},
 	"batch.kubernetes.io/controller-uid": {},
 }
 
-// tier3Suffixes are EKS system label suffixes (node scope only).
-var tier3Suffixes = map[string]struct{}{
+// eksSystemSuffixes are EKS system label suffixes (node scope only).
+var eksSystemSuffixes = map[string]struct{}{
 	"eks.amazonaws.com/capacityType": {},
 	"eks.amazonaws.com/nodegroup":    {},
 	"node.kubernetes.io/lifecycle":   {},
 }
 
-// knownNodeLabelPrefixes are prefixes for Tier 4 node label classification.
+// knownNodeLabelPrefixes are prefixes for known node label classification.
 var knownNodeLabelPrefixes = []string{
 	"kubernetes.io/",
 	"node.kubernetes.io/",
@@ -110,7 +116,7 @@ var knownNodeLabelPrefixes = []string{
 	"k8s.io/",
 }
 
-// knownPodLabelPrefixes are prefixes for Tier 6 pod label classification.
+// knownPodLabelPrefixes are prefixes for known pod label classification.
 var knownPodLabelPrefixes = []string{
 	"app.kubernetes.io/",
 	"batch.kubernetes.io/",
@@ -122,26 +128,33 @@ const (
 	podLabelPrefix  = "k8s.pod.label."
 )
 
-// classifyAttribute returns the tier (1-8) for a droppable attribute,
+// classifyAttribute returns the tier for a droppable attribute,
 // or 0 (tierNotDroppable) if the attribute is protected or not classifiable.
-func classifyAttribute(key string, isDatapoint bool) int {
-	// Protected attributes are never dropped.
+// attrSource indicates where the attribute lives: "datapoint", "scope", or "resource".
+func classifyAttribute(key string, attrSource string) int {
+	if attrSource == "datapoint" {
+		if isProtected(key) {
+			return tierNotDroppable
+		}
+		return tier1Datapoint
+	}
+
+	if attrSource == "scope" {
+		if strings.HasPrefix(key, protectedScopePrefix) {
+			return tierNotDroppable
+		}
+		return tier2Scope
+	}
+
+	// Resource attribute classification.
 	if isProtected(key) {
 		return tierNotDroppable
 	}
 
-	// Non-protected datapoint attributes are always Tier 8.
-	if isDatapoint {
-		return tier8Datapoint
-	}
-
-	// Extract suffix for node/pod label classification.
 	isNodeLabel := strings.HasPrefix(key, nodeLabelPrefix)
 	isPodLabel := strings.HasPrefix(key, podLabelPrefix)
 
 	if !isNodeLabel && !isPodLabel {
-		// Non-label resource attribute that isn't protected — treat as not droppable.
-		// This covers resource attrs like scope-related keys we may have missed.
 		return tierNotDroppable
 	}
 
@@ -152,42 +165,31 @@ func classifyAttribute(key string, isDatapoint bool) int {
 		suffix = key[len(podLabelPrefix):]
 	}
 
-	// Tier 1: Helm/tooling labels (both node and pod).
-	if _, ok := tier1Suffixes[suffix]; ok {
-		return tier1HelmTooling
+	if _, ok := helmToolingSuffixes[suffix]; ok {
+		return tier3HelmTooling
 	}
 
-	// Tier 2: K8s internal controller labels (both node and pod).
-	if _, ok := tier2Suffixes[suffix]; ok {
-		return tier2K8sInternal
+	if _, ok := k8sInternalSuffixes[suffix]; ok {
+		return tier4K8sInternal
 	}
 
-	// Node-specific tiers (3-5).
 	if isNodeLabel {
-		// Tier 3: EKS system labels.
-		if _, ok := tier3Suffixes[suffix]; ok {
-			return tier3EKSSystem
+		if _, ok := eksSystemSuffixes[suffix]; ok {
+			return tier5EKSSystem
 		}
-
-		// Tier 4: Known-prefix node labels.
 		for _, prefix := range knownNodeLabelPrefixes {
 			if strings.HasPrefix(suffix, prefix) {
-				return tier4KnownNode
+				return tier6KnownNode
 			}
 		}
-
-		// Tier 5: Customer node labels (unknown prefix).
-		return tier5CustomerNode
+		return tier7CustomerNode
 	}
 
-	// Pod-specific tiers (6-7).
-	// Tier 6: Known-prefix pod labels.
 	for _, prefix := range knownPodLabelPrefixes {
 		if strings.HasPrefix(suffix, prefix) {
-			return tier6KnownPod
+			return tier8KnownPod
 		}
 	}
 
-	// Tier 7: Customer pod labels (unknown prefix).
-	return tier7CustomerPod
+	return tier9CustomerPod
 }

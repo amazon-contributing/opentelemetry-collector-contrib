@@ -20,16 +20,19 @@ If the total attribute count (resource + scope + datapoint) still exceeds the li
 
 | Tier | Category | Example |
 |------|----------|---------|
-| 1 | Helm/tooling labels | `helm.sh/chart`, `app.kubernetes.io/managed-by` |
-| 2 | K8s internal controller labels | `pod-template-generation` |
-| 3 | EKS system labels (node only) | `eks.amazonaws.com/capacityType` |
-| 4 | Known-prefix node labels | `kubernetes.io/`, `karpenter.sh/` |
-| 5 | Customer node labels | Unknown-prefix node labels |
-| 6 | Known-prefix pod labels | `batch.kubernetes.io/` |
-| 7 | Customer pod labels | Unknown-prefix pod labels |
-| 8 | Non-protected datapoint attributes | `job`, `instance` |
+| 1 | Non-protected datapoint attributes | `job`, `instance` (per-datapoint, no shared impact) |
+| 2 | Non-protected scope attributes | Scope attrs except `instrumentation.cloudwatch.*` |
+| 3 | Helm/tooling labels | `helm.sh/chart`, `app.kubernetes.io/managed-by` |
+| 4 | K8s internal controller labels | `pod-template-generation` |
+| 5 | EKS system labels (node only) | `eks.amazonaws.com/capacityType` |
+| 6 | Known-prefix node labels | `kubernetes.io/`, `karpenter.sh/` |
+| 7 | Customer node labels | Unknown-prefix node labels |
+| 8 | Known-prefix pod labels | `batch.kubernetes.io/` |
+| 9 | Customer pod labels | Unknown-prefix pod labels |
 
-Within the same tier, attributes are dropped alphabetically. Protected attributes (K8s identity, workload, device-specific, `cloud.*`, `host.*`, `hw.*`) are skipped during tier-based dropping.
+Datapoint attributes are dropped first because they are per-datapoint and don't affect other datapoints. Scope and resource attributes are shared, so they are dropped last to avoid over-pruning.
+
+Within the same tier, attributes are dropped alphabetically. Protected attributes (K8s identity, workload, device-specific, `cloud.*`, `host.*`, `hw.*`, `instrumentation.cloudwatch.*`) are skipped during tier-based dropping.
 
 ### Step 3: Force-Prune (last resort)
 

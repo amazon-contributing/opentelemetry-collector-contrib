@@ -70,11 +70,11 @@ func (p *attributeLimitProcessor) removeUnconditionalAttributes(attrs pcommon.Ma
 	})
 }
 
-// attrEntry represents a droppable attribute with its tier and location.
+// attrEntry represents a droppable attribute with its tier and source.
 type attrEntry struct {
-	key         string
-	tier        int
-	isDatapoint bool
+	key    string
+	tier   int
+	source string // "datapoint", "scope", or "resource"
 }
 
 // attrEntryPool reduces allocations when Phase 2 runs frequently.
@@ -89,31 +89,40 @@ var attrEntryPool = sync.Pool{
 	},
 }
 
-// removeExcessByTier collects droppable attributes, sorts by tier then alphabetically,
-// and removes them until the excess count is satisfied.
+// removeExcessByTier collects droppable attributes from datapoint, scope, and resource,
+// sorts by tier then alphabetically, and removes them until the excess count is satisfied.
 // Returns the number of attributes dropped and the min/max tier used.
-func removeExcessByTier(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, excess int) (droppedCount int, minTier int, maxTier int) {
+func removeExcessByTier(resourceAttrs pcommon.Map, scopeAttrs pcommon.Map, datapointAttrs pcommon.Map, excess int) (droppedCount int, minTier int, maxTier int) {
 	droppablePtr := attrEntryPool.Get().(*[]attrEntry)
-	droppable := (*droppablePtr)[:0] // reset length, keep capacity
+	droppable := (*droppablePtr)[:0]
 	defer func() {
 		*droppablePtr = droppable[:0]
 		attrEntryPool.Put(droppablePtr)
 	}()
 
-	// Scan resource attributes for tiers 1-7.
-	resourceAttrs.Range(func(key string, _ pcommon.Value) bool {
-		tier := classifyAttribute(key, false)
+	// Scan datapoint attributes (tier 1).
+	datapointAttrs.Range(func(key string, _ pcommon.Value) bool {
+		tier := classifyAttribute(key, "datapoint")
 		if tier > 0 {
-			droppable = append(droppable, attrEntry{key: key, tier: tier, isDatapoint: false})
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "datapoint"})
 		}
 		return true
 	})
 
-	// Scan datapoint attributes for tier 8.
-	datapointAttrs.Range(func(key string, _ pcommon.Value) bool {
-		tier := classifyAttribute(key, true)
+	// Scan scope attributes (tier 2).
+	scopeAttrs.Range(func(key string, _ pcommon.Value) bool {
+		tier := classifyAttribute(key, "scope")
 		if tier > 0 {
-			droppable = append(droppable, attrEntry{key: key, tier: tier, isDatapoint: true})
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "scope"})
+		}
+		return true
+	})
+
+	// Scan resource attributes (tiers 3-9).
+	resourceAttrs.Range(func(key string, _ pcommon.Value) bool {
+		tier := classifyAttribute(key, "resource")
+		if tier > 0 {
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "resource"})
 		}
 		return true
 	})
@@ -133,9 +142,12 @@ func removeExcessByTier(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, e
 		if dropped >= excess {
 			break
 		}
-		if entry.isDatapoint {
+		switch entry.source {
+		case "datapoint":
 			datapointAttrs.Remove(entry.key)
-		} else {
+		case "scope":
+			scopeAttrs.Remove(entry.key)
+		case "resource":
 			resourceAttrs.Remove(entry.key)
 		}
 		dropped++
@@ -202,14 +214,14 @@ func (p *attributeLimitProcessor) shouldLog(key string) bool {
 
 // enforceLimit checks if the total attribute count exceeds the limit and runs
 // Phase 2 tier-based dropping if needed.
-func (p *attributeLimitProcessor) enforceLimit(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, scopeAttrCount int, metricName string) {
-	total := resourceAttrs.Len() + scopeAttrCount + datapointAttrs.Len()
+func (p *attributeLimitProcessor) enforceLimit(resourceAttrs pcommon.Map, scopeAttrs pcommon.Map, datapointAttrs pcommon.Map, metricName string) {
+	total := resourceAttrs.Len() + scopeAttrs.Len() + datapointAttrs.Len()
 	if total <= p.config.MaxTotalAttributes {
 		return
 	}
 
 	excess := total - p.config.MaxTotalAttributes
-	droppedCount, minTier, maxTier := removeExcessByTier(resourceAttrs, datapointAttrs, excess)
+	droppedCount, minTier, maxTier := removeExcessByTier(resourceAttrs, scopeAttrs, datapointAttrs, excess)
 
 	if droppedCount > 0 {
 		p.logDropWarning(metricName, droppedCount, minTier, maxTier)
@@ -217,9 +229,9 @@ func (p *attributeLimitProcessor) enforceLimit(resourceAttrs pcommon.Map, datapo
 
 	// If still over limit after tier-based dropping, force-prune remaining
 	// attributes (including protected ones) to guarantee we never exceed the limit.
-	remaining := resourceAttrs.Len() + scopeAttrCount + datapointAttrs.Len()
+	remaining := resourceAttrs.Len() + scopeAttrs.Len() + datapointAttrs.Len()
 	if remaining > p.config.MaxTotalAttributes {
-		forcePruned := p.forcePrune(resourceAttrs, datapointAttrs, scopeAttrCount)
+		forcePruned := p.forcePrune(resourceAttrs, datapointAttrs, scopeAttrs)
 		p.logExhaustedError(metricName, remaining, forcePruned)
 	}
 }
@@ -228,8 +240,8 @@ func (p *attributeLimitProcessor) enforceLimit(resourceAttrs pcommon.Map, datapo
 // count is at or below the limit. It removes from resource attributes first
 // (sorted alphabetically, last keys first), then datapoint attributes.
 // Returns the number of attributes force-pruned.
-func (p *attributeLimitProcessor) forcePrune(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, scopeAttrCount int) int {
-	excess := resourceAttrs.Len() + scopeAttrCount + datapointAttrs.Len() - p.config.MaxTotalAttributes
+func (p *attributeLimitProcessor) forcePrune(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, scopeAttrs pcommon.Map) int {
+	excess := resourceAttrs.Len() + scopeAttrs.Len() + datapointAttrs.Len() - p.config.MaxTotalAttributes
 	if excess <= 0 {
 		return 0
 	}
@@ -280,12 +292,12 @@ func processDatapoints[DP interface{ Attributes() pcommon.Map }](
 	},
 	p *attributeLimitProcessor,
 	resourceAttrs pcommon.Map,
-	scopeAttrCount int,
+	scopeAttrs pcommon.Map,
 	metricName string,
 ) {
 	for i := 0; i < datapoints.Len(); i++ {
 		dp := datapoints.At(i)
-		p.enforceLimit(resourceAttrs, dp.Attributes(), scopeAttrCount, metricName)
+		p.enforceLimit(resourceAttrs, scopeAttrs, dp.Attributes(), metricName)
 	}
 }
 
@@ -304,7 +316,7 @@ func (p *attributeLimitProcessor) processMetrics(_ context.Context, md pmetric.M
 		// datapoint is over the limit, the shared resource attributes need trimming regardless.
 		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
 			sm := rm.ScopeMetrics().At(j)
-			scopeAttrCount := sm.Scope().Attributes().Len()
+			scopeAttrs := sm.Scope().Attributes()
 
 			for k := 0; k < sm.Metrics().Len(); k++ {
 				m := sm.Metrics().At(k)
@@ -312,15 +324,15 @@ func (p *attributeLimitProcessor) processMetrics(_ context.Context, md pmetric.M
 
 				switch m.Type() {
 				case pmetric.MetricTypeGauge:
-					processDatapoints(m.Gauge().DataPoints(), p, resourceAttrs, scopeAttrCount, metricName)
+					processDatapoints(m.Gauge().DataPoints(), p, resourceAttrs, scopeAttrs, metricName)
 				case pmetric.MetricTypeSum:
-					processDatapoints(m.Sum().DataPoints(), p, resourceAttrs, scopeAttrCount, metricName)
+					processDatapoints(m.Sum().DataPoints(), p, resourceAttrs, scopeAttrs, metricName)
 				case pmetric.MetricTypeHistogram:
-					processDatapoints(m.Histogram().DataPoints(), p, resourceAttrs, scopeAttrCount, metricName)
+					processDatapoints(m.Histogram().DataPoints(), p, resourceAttrs, scopeAttrs, metricName)
 				case pmetric.MetricTypeExponentialHistogram:
-					processDatapoints(m.ExponentialHistogram().DataPoints(), p, resourceAttrs, scopeAttrCount, metricName)
+					processDatapoints(m.ExponentialHistogram().DataPoints(), p, resourceAttrs, scopeAttrs, metricName)
 				case pmetric.MetricTypeSummary:
-					processDatapoints(m.Summary().DataPoints(), p, resourceAttrs, scopeAttrCount, metricName)
+					processDatapoints(m.Summary().DataPoints(), p, resourceAttrs, scopeAttrs, metricName)
 				default:
 					// Skip metrics with unsupported or empty type without error.
 				}

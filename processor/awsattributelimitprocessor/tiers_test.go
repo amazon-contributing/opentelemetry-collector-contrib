@@ -84,9 +84,9 @@ func TestClassifyAttribute_Tier1_HelmTooling(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
-			if tier != tier1HelmTooling {
-				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier1)", key, tier, tier1HelmTooling)
+			tier := classifyAttribute(key, "resource")
+			if tier != tier3HelmTooling {
+				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier1)", key, tier, tier3HelmTooling)
 			}
 		})
 	}
@@ -100,9 +100,9 @@ func TestClassifyAttribute_Tier2_K8sInternal(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
-			if tier != tier2K8sInternal {
-				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier2)", key, tier, tier2K8sInternal)
+			tier := classifyAttribute(key, "resource")
+			if tier != tier4K8sInternal {
+				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier2)", key, tier, tier4K8sInternal)
 			}
 		})
 	}
@@ -116,9 +116,9 @@ func TestClassifyAttribute_Tier3_EKSSystem(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
-			if tier != tier3EKSSystem {
-				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier3)", key, tier, tier3EKSSystem)
+			tier := classifyAttribute(key, "resource")
+			if tier != tier5EKSSystem {
+				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier3)", key, tier, tier5EKSSystem)
 			}
 		})
 	}
@@ -136,9 +136,9 @@ func TestClassifyAttribute_Tier4_KnownNode(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
-			if tier != tier4KnownNode {
-				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier4)", key, tier, tier4KnownNode)
+			tier := classifyAttribute(key, "resource")
+			if tier != tier6KnownNode {
+				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier4)", key, tier, tier6KnownNode)
 			}
 		})
 	}
@@ -152,9 +152,9 @@ func TestClassifyAttribute_Tier5_CustomerNode(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
-			if tier != tier5CustomerNode {
-				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier5)", key, tier, tier5CustomerNode)
+			tier := classifyAttribute(key, "resource")
+			if tier != tier7CustomerNode {
+				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier5)", key, tier, tier7CustomerNode)
 			}
 		})
 	}
@@ -170,9 +170,9 @@ func TestClassifyAttribute_Tier6_KnownPod(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
-			if tier != tier6KnownPod {
-				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier6)", key, tier, tier6KnownPod)
+			tier := classifyAttribute(key, "resource")
+			if tier != tier8KnownPod {
+				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier6)", key, tier, tier8KnownPod)
 			}
 		})
 	}
@@ -186,9 +186,9 @@ func TestClassifyAttribute_Tier7_CustomerPod(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
-			if tier != tier7CustomerPod {
-				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier7)", key, tier, tier7CustomerPod)
+			tier := classifyAttribute(key, "resource")
+			if tier != tier9CustomerPod {
+				t.Errorf("classifyAttribute(%q, false) = %d, want %d (tier7)", key, tier, tier9CustomerPod)
 			}
 		})
 	}
@@ -204,9 +204,9 @@ func TestClassifyAttribute_Tier8_Datapoint(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, true)
-			if tier != tier8Datapoint {
-				t.Errorf("classifyAttribute(%q, true) = %d, want %d (tier8)", key, tier, tier8Datapoint)
+			tier := classifyAttribute(key, "datapoint")
+			if tier != tier1Datapoint {
+				t.Errorf("classifyAttribute(%q, true) = %d, want %d (tier8)", key, tier, tier1Datapoint)
 			}
 		})
 	}
@@ -223,7 +223,7 @@ func TestClassifyAttribute_ProtectedReturnsZero(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
+			tier := classifyAttribute(key, "resource")
 			if tier != tierNotDroppable {
 				t.Errorf("classifyAttribute(%q, false) = %d, want %d (not droppable)", key, tier, tierNotDroppable)
 			}
@@ -239,7 +239,7 @@ func TestClassifyAttribute_NonLabelResourceAttr(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, false)
+			tier := classifyAttribute(key, "resource")
 			if tier != tierNotDroppable {
 				t.Errorf("classifyAttribute(%q, false) = %d, want %d (not droppable)", key, tier, tierNotDroppable)
 			}
@@ -250,8 +250,8 @@ func TestClassifyAttribute_NonLabelResourceAttr(t *testing.T) {
 func TestClassifyAttribute_Tier3_OnlyNodeScope(t *testing.T) {
 	// EKS system labels on pod scope should NOT be Tier 3 — they should be Tier 7 (customer pod).
 	key := "k8s.pod.label.eks.amazonaws.com/capacityType"
-	tier := classifyAttribute(key, false)
-	if tier == tier3EKSSystem {
+	tier := classifyAttribute(key, "resource")
+	if tier == tier5EKSSystem {
 		t.Errorf("pod label %q should not be classified as Tier 3 (EKS system node labels)", key)
 	}
 }
