@@ -5,5 +5,5 @@
 
 // Package awsdevicepodcorrelationprocessor implements a generic OTEL metrics processor
 // that correlates device metrics with Kubernetes pod/container metadata using the
-// Kubelet Pod Resources API via PodResourcesStore.
+// Kubelet Pod Resources API.
 package awsdevicepodcorrelationprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor"

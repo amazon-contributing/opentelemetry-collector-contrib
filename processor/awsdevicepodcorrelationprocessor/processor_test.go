@@ -66,7 +66,7 @@ func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
 	}
 	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("NeuronDevice", "0")
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -88,7 +88,7 @@ func TestProcessMetrics_NoMatchLeavesDatapointUnchanged(t *testing.T) {
 	}
 	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("NeuronDevice", "99")
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -109,7 +109,7 @@ func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
 	md := newTestMetrics("NeuronDevice", "0")
 	md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0).Attributes().PutStr(k8sPodNameKey, "existing-pod")
 
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -128,7 +128,7 @@ func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
 	}
 	p := newTestProcessor(cfg, lookup)
 	md := newTestMetricsWithResourceAttr("device", "efa3")
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -154,7 +154,7 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 	dp := m.SetEmptySum().DataPoints().AppendEmpty()
 	dp.Attributes().PutStr("NeuronDevice", "0")
 
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
@@ -174,7 +174,7 @@ func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
 	}
 	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("NeuronDevice", "0")
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
@@ -200,7 +200,7 @@ func TestProcessMetrics_HistogramMetricType(t *testing.T) {
 	dp := m.SetEmptyHistogram().DataPoints().AppendEmpty()
 	dp.Attributes().PutStr("dev", "0")
 
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Histogram().DataPoints().At(0)
@@ -241,10 +241,47 @@ func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
 	}
 	p := newTestProcessor(cfg, lookup)
 	md := newTestMetrics("other_attr", "0")
-	result, err := p.processMetrics(nil, md)
+	result, err := p.processMetrics(t.Context(), md)
 	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	_, ok := dp.Attributes().Get(k8sPodNameKey)
 	assert.False(t, ok)
+}
+
+func TestProcessMetrics_FirstMatchingDeviceTypeWins(t *testing.T) {
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+		"0": {
+			"res.a": {PodName: "pod-a", Namespace: "ns", ContainerName: "c"},
+			"res.b": {PodName: "pod-b", Namespace: "ns", ContainerName: "c"},
+		},
+	})
+	cfg := &Config{
+		DeviceTypes: []DeviceTypeConfig{
+			{Name: "type-a", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res.a"}},
+			{Name: "type-b", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res.b"}},
+		},
+	}
+	p := newTestProcessor(cfg, lookup)
+	md := newTestMetrics("dev", "0")
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
+	podVal, _ := dp.Attributes().Get(k8sPodNameKey)
+	assert.Equal(t, "pod-a", podVal.AsString(), "first matching device type should win")
+}
+
+func TestProcessMetrics_EmptyMetrics(t *testing.T) {
+	lookup := newMockLookup(nil)
+	cfg := &Config{
+		DeviceTypes: []DeviceTypeConfig{
+			{Name: "gpu", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res"}},
+		},
+	}
+	p := newTestProcessor(cfg, lookup)
+	md := pmetric.NewMetrics()
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.ResourceMetrics().Len())
 }

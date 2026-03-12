@@ -39,6 +39,7 @@ type Client struct {
 	deviceToPod     map[deviceKey]ContainerInfo
 	ctx             context.Context
 	cancel          context.CancelFunc
+	wg              sync.WaitGroup
 	socketPath      string
 	refreshInterval time.Duration
 	logger          *zap.Logger
@@ -91,21 +92,24 @@ func (c *Client) Start() error {
 	c.listerClient = podresourcesapi.NewPodResourcesListerClient(conn)
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
+	c.wg.Add(1)
 	go c.pollLoop()
 	return nil
 }
 
-// Stop cancels the polling loop and closes the gRPC connection.
+// Stop cancels the polling loop, waits for it to exit, and closes the gRPC connection.
 func (c *Client) Stop() {
 	if c.cancel != nil {
 		c.cancel()
 	}
+	c.wg.Wait()
 	if c.conn != nil {
 		c.conn.Close()
 	}
 }
 
 // AddResourceName registers a Kubernetes extended resource name to track.
+// Must be called before Start(); not safe for concurrent use after Start().
 func (c *Client) AddResourceName(resourceName string) {
 	c.resourceNames[resourceName] = struct{}{}
 }
@@ -122,6 +126,7 @@ func (c *Client) GetContainerInfo(deviceID string, resourceName string) *Contain
 }
 
 func (c *Client) pollLoop() {
+	defer c.wg.Done()
 	ticker := time.NewTicker(c.refreshInterval)
 	defer ticker.Stop()
 
