@@ -78,7 +78,7 @@ func (m *mockSysFsReader) ReadCounter(deviceName string, port string, counter st
 			}
 		}
 	}
-	return 0, nil
+	return 0, errCounterNotAvailable
 }
 
 type mockENIResolver struct {
@@ -223,7 +223,6 @@ func TestScrapeWithENIResolution(t *testing.T) {
 	s.eniResolver = &mockENIResolver{
 		enis: map[string]string{"00:00:00:00:00:01": "eni-abc123"},
 	}
-	s.eniCache = make(map[string]string)
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
@@ -233,6 +232,43 @@ func TestScrapeWithENIResolution(t *testing.T) {
 	eniID, ok := attrs.Get("aws.efa.eni.id")
 	assert.True(t, ok, "expected aws.efa.eni.id attribute")
 	assert.Equal(t, "eni-abc123", eniID.Str())
+}
+
+func TestScrapeENIResolutionRetryOnFailure(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	settings := receivertest.NewNopSettings(metadata.Type)
+	s := newScraper(cfg, settings)
+	s.reader = &mockSysFsReader{
+		exists:  true,
+		devices: []string{"efa0"},
+		ports:   map[string][]string{"efa0": {"1"}},
+		counters: map[string]map[string]map[string]uint64{
+			"efa0": {"1": zeroCounters()},
+		},
+		gids: map[string]string{"efa0": "fe80::200:ff:fe00:1"},
+	}
+
+	// First scrape: ENI resolver fails
+	failResolver := &mockENIResolver{enis: map[string]string{}}
+	s.eniResolver = failResolver
+
+	metrics, err := s.scrape(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, metrics.ResourceMetrics().Len())
+	_, ok := metrics.ResourceMetrics().At(0).Resource().Attributes().Get("aws.efa.eni.id")
+	assert.False(t, ok, "expected no aws.efa.eni.id on first scrape (IMDS failure)")
+
+	// Second scrape: ENI resolver succeeds — should retry since failure wasn't cached
+	s.eniResolver = &mockENIResolver{
+		enis: map[string]string{"00:00:00:00:00:01": "eni-retry123"},
+	}
+
+	metrics, err = s.scrape(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, metrics.ResourceMetrics().Len())
+	eniID, ok := metrics.ResourceMetrics().At(0).Resource().Attributes().Get("aws.efa.eni.id")
+	assert.True(t, ok, "expected aws.efa.eni.id on second scrape (retry succeeded)")
+	assert.Equal(t, "eni-retry123", eniID.Str())
 }
 
 func TestScrapeNoEfaDevices(t *testing.T) {

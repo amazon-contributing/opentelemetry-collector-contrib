@@ -191,11 +191,9 @@ func (s *efaScraper) readAllDevices() ([]efaDevice, error) {
 }
 
 // resolveENI resolves the ENI ID for a device via GID → MAC → IMDS lookup.
-// Results are cached permanently (including failures as empty string) to avoid
-// repeated IMDS calls on every scrape interval. This means if IMDS is
-// temporarily unavailable at startup, the empty result is sticky until the
-// receiver is restarted. This is acceptable because ENI-to-device mappings
-// don't change at runtime.
+// Successful results are cached permanently since ENI-to-device mappings don't
+// change at runtime. Failures are not cached so transient IMDS issues are
+// retried on the next scrape.
 func (s *efaScraper) resolveENI(deviceName string) string {
 	if eniID, ok := s.eniCache[deviceName]; ok {
 		return eniID
@@ -205,7 +203,6 @@ func (s *efaScraper) resolveENI(deviceName string) string {
 	if err != nil {
 		s.logger.Warn("Failed to read GID for EFA device, emitting metrics without eni_id",
 			zap.String("device", deviceName), zap.Error(err))
-		s.eniCache[deviceName] = ""
 		return ""
 	}
 
@@ -213,7 +210,6 @@ func (s *efaScraper) resolveENI(deviceName string) string {
 	if err != nil {
 		s.logger.Warn("Failed to convert GID to MAC for EFA device, emitting metrics without eni_id",
 			zap.String("device", deviceName), zap.String("gid", gid), zap.Error(err))
-		s.eniCache[deviceName] = ""
 		return ""
 	}
 
@@ -221,7 +217,6 @@ func (s *efaScraper) resolveENI(deviceName string) string {
 	if err != nil {
 		s.logger.Warn("Failed to resolve ENI ID from IMDS, emitting metrics without eni_id",
 			zap.String("device", deviceName), zap.String("mac", mac), zap.Error(err))
-		s.eniCache[deviceName] = ""
 		return ""
 	}
 

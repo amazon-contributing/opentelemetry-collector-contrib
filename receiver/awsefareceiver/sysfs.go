@@ -105,7 +105,11 @@ func (r *sysfsReaderImpl) ListPorts(deviceName string) ([]string, error) {
 
 	result := make([]string, 0, len(portDirs))
 	for _, dir := range portDirs {
-		if !dir.IsDir() {
+		info, err := os.Stat(filepath.Join(portsPath, dir.Name()))
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() {
 			continue
 		}
 		result = append(result, dir.Name())
@@ -147,34 +151,6 @@ func (r *sysfsReaderImpl) ReadCounter(deviceName string, port string, counter st
 	value := strings.TrimSpace(string(data))
 	if strings.Contains(value, "N/A (no PMA)") {
 		return 0, errCounterNotAvailable
-	}
-
-	v, err := strconv.ParseUint(value, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse %q from %q: %w", value, path, err)
-	}
-	return v, nil
-}
-
-func readUint64FromFile(path string) (uint64, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) || os.IsPermission(err) {
-			return 0, nil
-		}
-		// Some kernel drivers return these for counters that exist but
-		// aren't available on the current hardware revision.
-		if errors.Is(err, syscall.EOPNOTSUPP) || errors.Is(err, syscall.EINVAL) {
-			return 0, nil
-		}
-		return 0, fmt.Errorf("failed to read file %q: %w", path, err)
-	}
-
-	value := strings.TrimSpace(string(data))
-
-	// Workaround for https://github.com/prometheus/node_exporter/issues/966
-	if strings.Contains(value, "N/A (no PMA)") {
-		return 0, nil
 	}
 
 	v, err := strconv.ParseUint(value, 10, 64)
