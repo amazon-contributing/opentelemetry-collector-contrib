@@ -224,10 +224,15 @@ func TestStart_CreatesClientAndConnects(t *testing.T) {
 	}
 	p := newProcessor(cfg, zap.NewNop())
 
+	// grpc.NewClient uses lazy connection, so Start() succeeds even with a
+	// nonexistent socket. The actual connection is attempted on the first
+	// List() call in refresh(). This test verifies the client is created
+	// and resource names are registered.
 	err := p.Start(t.Context(), nil)
+	require.NoError(t, err)
 	assert.NotNil(t, p.client)
+	assert.NotNil(t, p.lookup)
 	assert.NoError(t, p.Shutdown(t.Context()))
-	_ = err
 }
 
 func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
