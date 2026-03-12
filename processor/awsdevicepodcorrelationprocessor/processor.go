@@ -20,10 +20,16 @@ const (
 	containerNameKey = "k8s.container.name"
 )
 
+// deviceLookup is the interface used to look up device-to-pod mappings.
+type deviceLookup interface {
+	GetContainerInfo(deviceID string, resourceName string) *kubelet.ContainerInfo
+}
+
 type devicePodCorrelationProcessor struct {
 	config *Config
 	logger *zap.Logger
 	client *kubelet.Client
+	lookup deviceLookup
 }
 
 func newProcessor(cfg *Config, logger *zap.Logger) *devicePodCorrelationProcessor {
@@ -36,9 +42,9 @@ func newProcessor(cfg *Config, logger *zap.Logger) *devicePodCorrelationProcesso
 // Start creates the Kubelet Pod Resources API client and registers
 // all configured resource names.
 func (p *devicePodCorrelationProcessor) Start(_ context.Context, _ component.Host) error {
-	p.client = kubelet.NewClient(kubelet.WithSocketPath(p.config.KubeletSocketPath))
+	p.client = kubelet.NewClient(p.logger, kubelet.WithSocketPath(p.config.KubeletSocketPath))
+	p.lookup = p.client
 
-	// Register each unique resource name across all device types.
 	seen := make(map[string]struct{})
 	for _, dt := range p.config.DeviceTypes {
 		for _, rn := range dt.ResourceNames {
@@ -75,26 +81,21 @@ func (p *devicePodCorrelationProcessor) processMetrics(_ context.Context, md pme
 				m := metrics.At(k)
 				switch m.Type() {
 				case pmetric.MetricTypeGauge:
-					processDatapoints(m.Gauge().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
+					processDatapoints(m.Gauge().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.lookup, p.logger)
 				case pmetric.MetricTypeSum:
-					processDatapoints(m.Sum().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
+					processDatapoints(m.Sum().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.lookup, p.logger)
 				case pmetric.MetricTypeHistogram:
-					processDatapoints(m.Histogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
+					processDatapoints(m.Histogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.lookup, p.logger)
 				case pmetric.MetricTypeExponentialHistogram:
-					processDatapoints(m.ExponentialHistogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
+					processDatapoints(m.ExponentialHistogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.lookup, p.logger)
 				case pmetric.MetricTypeSummary:
-					processDatapoints(m.Summary().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.client, p.logger)
+					processDatapoints(m.Summary().DataPoints(), resourceAttrs, p.config.DeviceTypes, p.lookup, p.logger)
 				default:
 				}
 			}
 		}
 	}
 	return md, nil
-}
-
-// DeviceLookup is the interface used by processDatapoints to look up device-to-pod mappings.
-type DeviceLookup interface {
-	GetContainerInfo(deviceID string, resourceName string) *kubelet.ContainerInfo
 }
 
 // processDatapoints enriches datapoints with pod correlation attributes.
@@ -105,7 +106,7 @@ func processDatapoints[DP interface{ Attributes() pcommon.Map }](
 	},
 	resourceAttrs pcommon.Map,
 	deviceTypes []DeviceTypeConfig,
-	lookup DeviceLookup,
+	lookup deviceLookup,
 	logger *zap.Logger,
 ) {
 	for i := 0; i < datapoints.Len(); i++ {

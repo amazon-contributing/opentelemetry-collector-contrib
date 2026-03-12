@@ -21,6 +21,6 @@ func TestCreateDefaultConfig(t *testing.T) {
 	cfg := f.CreateDefaultConfig()
 	c, ok := cfg.(*Config)
 	require.True(t, ok)
-	assert.Empty(t, c.KubeletSocketPath)
+	assert.Equal(t, "/var/lib/kubelet/pod-resources/kubelet.sock", c.KubeletSocketPath)
 	assert.Empty(t, c.DeviceTypes)
 }

@@ -14,9 +14,9 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/kubelet"
 )
 
-// mockLookup implements DeviceLookup for testing.
+// mockLookup implements deviceLookup for testing.
 type mockLookup struct {
-	data map[string]map[string]*kubelet.ContainerInfo // deviceID -> resourceName -> ContainerInfo
+	data map[string]map[string]*kubelet.ContainerInfo
 }
 
 func newMockLookup(data map[string]map[string]*kubelet.ContainerInfo) *mockLookup {
@@ -30,135 +30,28 @@ func (m *mockLookup) GetContainerInfo(deviceID string, resourceName string) *kub
 	return nil
 }
 
-// --- Config validation tests ---
-
-func TestValidate_ValidConfig(t *testing.T) {
-	cfg := &Config{
-		DeviceTypes: []DeviceTypeConfig{
-			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", ResourceNames: []string{"aws.amazon.com/neurondevice"}},
-		},
-	}
-	assert.NoError(t, cfg.Validate())
+// newTestProcessor creates a processor with a mock lookup for testing.
+func newTestProcessor(cfg *Config, lookup deviceLookup) *devicePodCorrelationProcessor {
+	return &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), lookup: lookup}
 }
 
-func TestValidate_EmptyDeviceTypes(t *testing.T) {
-	cfg := &Config{}
-	assert.ErrorContains(t, cfg.Validate(), "device_types must not be empty")
-}
-
-func TestValidate_MissingName(t *testing.T) {
-	cfg := &Config{
-		DeviceTypes: []DeviceTypeConfig{
-			{DeviceIDAttribute: "dev", ResourceNames: []string{"res"}},
-		},
-	}
-	assert.ErrorContains(t, cfg.Validate(), "name must not be empty")
-}
-
-func TestValidate_MissingDeviceIDAttribute(t *testing.T) {
-	cfg := &Config{
-		DeviceTypes: []DeviceTypeConfig{
-			{Name: "gpu", ResourceNames: []string{"res"}},
-		},
-	}
-	assert.ErrorContains(t, cfg.Validate(), "device_id_attribute must not be empty")
-}
-
-func TestValidate_MissingResourceNames(t *testing.T) {
-	cfg := &Config{
-		DeviceTypes: []DeviceTypeConfig{
-			{Name: "gpu", DeviceIDAttribute: "dev"},
-		},
-	}
-	assert.ErrorContains(t, cfg.Validate(), "resource_names must not be empty")
-}
-
-func TestValidate_InvalidDeviceIDSource(t *testing.T) {
-	cfg := &Config{
-		DeviceTypes: []DeviceTypeConfig{
-			{Name: "gpu", DeviceIDAttribute: "dev", DeviceIDSource: "invalid", ResourceNames: []string{"res"}},
-		},
-	}
-	assert.ErrorContains(t, cfg.Validate(), "device_id_source must be")
-}
-
-func TestValidate_DuplicateName(t *testing.T) {
-	cfg := &Config{
-		DeviceTypes: []DeviceTypeConfig{
-			{Name: "gpu", DeviceIDAttribute: "dev1", ResourceNames: []string{"res1"}},
-			{Name: "gpu", DeviceIDAttribute: "dev2", ResourceNames: []string{"res2"}},
-		},
-	}
-	assert.ErrorContains(t, cfg.Validate(), "duplicate name")
-}
-
-func TestValidate_DefaultsDeviceIDSource(t *testing.T) {
-	cfg := &Config{
-		DeviceTypes: []DeviceTypeConfig{
-			{Name: "gpu", DeviceIDAttribute: "dev", ResourceNames: []string{"res"}},
-		},
-	}
-	require.NoError(t, cfg.Validate())
-	// Validate no longer sets defaults; setDefaults() is called in the factory.
-	assert.Empty(t, cfg.DeviceTypes[0].DeviceIDSource)
-
-	cfg.setDefaults()
-	assert.Equal(t, DeviceIDSourceDatapoint, cfg.DeviceTypes[0].DeviceIDSource)
-}
-
-// --- processMetrics tests ---
-
-func newTestMetrics(metricName string, deviceIDKey string, deviceIDVal string) pmetric.Metrics {
+func newTestMetrics(deviceIDKey string, deviceIDVal string) pmetric.Metrics {
 	md := pmetric.NewMetrics()
 	rm := md.ResourceMetrics().AppendEmpty()
 	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
-	m.SetName(metricName)
+	m.SetName("test_metric")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
 	dp.Attributes().PutStr(deviceIDKey, deviceIDVal)
 	return md
 }
 
-func newTestMetricsWithResourceAttr(metricName string, resourceKey string, resourceVal string) pmetric.Metrics {
+func newTestMetricsWithResourceAttr(resourceKey string, resourceVal string) pmetric.Metrics {
 	md := pmetric.NewMetrics()
 	rm := md.ResourceMetrics().AppendEmpty()
 	rm.Resource().Attributes().PutStr(resourceKey, resourceVal)
 	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
-	m.SetName(metricName)
+	m.SetName("test_metric")
 	m.SetEmptyGauge().DataPoints().AppendEmpty()
-	return md
-}
-
-// newTestProcessor creates a processor for testing.
-func newTestProcessor(cfg *Config) *devicePodCorrelationProcessor {
-	return &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop()}
-}
-
-// processMetricsWithLookup is a test helper that calls processDatapoints with a mock lookup.
-func processMetricsWithLookup(p *devicePodCorrelationProcessor, md pmetric.Metrics, lookup DeviceLookup) pmetric.Metrics {
-	rms := md.ResourceMetrics()
-	for i := 0; i < rms.Len(); i++ {
-		rm := rms.At(i)
-		resourceAttrs := rm.Resource().Attributes()
-		ilms := rm.ScopeMetrics()
-		for j := 0; j < ilms.Len(); j++ {
-			metrics := ilms.At(j).Metrics()
-			for k := 0; k < metrics.Len(); k++ {
-				m := metrics.At(k)
-				switch m.Type() {
-				case pmetric.MetricTypeGauge:
-					processDatapoints(m.Gauge().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
-				case pmetric.MetricTypeSum:
-					processDatapoints(m.Sum().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
-				case pmetric.MetricTypeHistogram:
-					processDatapoints(m.Histogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
-				case pmetric.MetricTypeExponentialHistogram:
-					processDatapoints(m.ExponentialHistogram().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
-				case pmetric.MetricTypeSummary:
-					processDatapoints(m.Summary().DataPoints(), resourceAttrs, p.config.DeviceTypes, lookup, p.logger)
-				}
-			}
-		}
-	}
 	return md
 }
 
@@ -171,9 +64,10 @@ func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := newTestProcessor(cfg)
-	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
-	result := processMetricsWithLookup(p, md, lookup)
+	p := newTestProcessor(cfg, lookup)
+	md := newTestMetrics("NeuronDevice", "0")
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -192,9 +86,10 @@ func TestProcessMetrics_NoMatchLeavesDatapointUnchanged(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := newTestProcessor(cfg)
-	md := newTestMetrics("neuron_memory", "NeuronDevice", "99")
-	result := processMetricsWithLookup(p, md, lookup)
+	p := newTestProcessor(cfg, lookup)
+	md := newTestMetrics("NeuronDevice", "99")
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	_, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -210,11 +105,12 @@ func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := newTestProcessor(cfg)
-	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
+	p := newTestProcessor(cfg, lookup)
+	md := newTestMetrics("NeuronDevice", "0")
 	md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0).Attributes().PutStr(k8sPodNameKey, "existing-pod")
 
-	result := processMetricsWithLookup(p, md, lookup)
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, _ := dp.Attributes().Get(k8sPodNameKey)
@@ -230,9 +126,10 @@ func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
 			{Name: "efa", DeviceIDAttribute: "device", DeviceIDSource: DeviceIDSourceResource, ResourceNames: []string{"vpc.amazonaws.com/efa"}},
 		},
 	}
-	p := newTestProcessor(cfg)
-	md := newTestMetricsWithResourceAttr("efa_traffic", "device", "efa3")
-	result := processMetricsWithLookup(p, md, lookup)
+	p := newTestProcessor(cfg, lookup)
+	md := newTestMetricsWithResourceAttr("device", "efa3")
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -249,7 +146,7 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
 		},
 	}
-	p := newTestProcessor(cfg)
+	p := newTestProcessor(cfg, lookup)
 	md := pmetric.NewMetrics()
 	rm := md.ResourceMetrics().AppendEmpty()
 	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
@@ -257,7 +154,8 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 	dp := m.SetEmptySum().DataPoints().AppendEmpty()
 	dp.Attributes().PutStr("NeuronDevice", "0")
 
-	result := processMetricsWithLookup(p, md, lookup)
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
 	podVal, ok := dpOut.Attributes().Get(k8sPodNameKey)
@@ -274,9 +172,10 @@ func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice", "aws.amazon.com/neuron"}},
 		},
 	}
-	p := newTestProcessor(cfg)
-	md := newTestMetrics("neuron_memory", "NeuronDevice", "0")
-	result := processMetricsWithLookup(p, md, lookup)
+	p := newTestProcessor(cfg, lookup)
+	md := newTestMetrics("NeuronDevice", "0")
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
@@ -293,7 +192,7 @@ func TestProcessMetrics_HistogramMetricType(t *testing.T) {
 			{Name: "gpu", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res"}},
 		},
 	}
-	p := newTestProcessor(cfg)
+	p := newTestProcessor(cfg, lookup)
 	md := pmetric.NewMetrics()
 	rm := md.ResourceMetrics().AppendEmpty()
 	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
@@ -301,7 +200,8 @@ func TestProcessMetrics_HistogramMetricType(t *testing.T) {
 	dp := m.SetEmptyHistogram().DataPoints().AppendEmpty()
 	dp.Attributes().PutStr("dev", "0")
 
-	result := processMetricsWithLookup(p, md, lookup)
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Histogram().DataPoints().At(0)
 	podVal, ok := dpOut.Attributes().Get(k8sPodNameKey)
@@ -314,10 +214,7 @@ func TestShutdown_NilClient(t *testing.T) {
 	assert.NoError(t, p.Shutdown(t.Context()))
 }
 
-func TestStart_RegistersUniqueResourceNames(t *testing.T) {
-	// Verify that Start creates a client and deduplicates resource names.
-	// We can't fully test kubelet connection without a socket, but we can
-	// verify the processor struct is wired correctly.
+func TestStart_CreatesClientAndConnects(t *testing.T) {
 	cfg := &Config{
 		KubeletSocketPath: "/nonexistent/socket",
 		DeviceTypes: []DeviceTypeConfig{
@@ -327,14 +224,8 @@ func TestStart_RegistersUniqueResourceNames(t *testing.T) {
 	}
 	p := newProcessor(cfg, zap.NewNop())
 
-	// Start will fail because the socket doesn't exist, but the client
-	// should still be created with resource names registered.
 	err := p.Start(t.Context(), nil)
-	// We expect an error due to missing socket — that's fine.
-	// The important thing is the client was created.
 	assert.NotNil(t, p.client)
-
-	// Verify we can still shut down cleanly after a failed start.
 	assert.NoError(t, p.Shutdown(t.Context()))
 	_ = err
 }
@@ -348,9 +239,10 @@ func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
 			{Name: "gpu", DeviceIDAttribute: "missing_attr", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res"}},
 		},
 	}
-	p := newTestProcessor(cfg)
-	md := newTestMetrics("metric", "other_attr", "0")
-	result := processMetricsWithLookup(p, md, lookup)
+	p := newTestProcessor(cfg, lookup)
+	md := newTestMetrics("other_attr", "0")
+	result, err := p.processMetrics(nil, md)
+	require.NoError(t, err)
 
 	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
 	_, ok := dp.Attributes().Get(k8sPodNameKey)

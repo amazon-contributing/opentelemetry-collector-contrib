@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
@@ -33,11 +35,13 @@ type Client struct {
 	conn            *grpc.ClientConn
 	listerClient    podresourcesapi.PodResourcesListerClient
 	resourceNames   map[string]struct{}
+	mu              sync.RWMutex
 	deviceToPod     map[deviceKey]ContainerInfo
 	ctx             context.Context
 	cancel          context.CancelFunc
 	socketPath      string
 	refreshInterval time.Duration
+	logger          *zap.Logger
 }
 
 type deviceKey struct {
@@ -57,12 +61,13 @@ func WithSocketPath(path string) ClientOption {
 }
 
 // NewClient creates a new Kubelet Pod Resources API client.
-func NewClient(opts ...ClientOption) *Client {
+func NewClient(logger *zap.Logger, opts ...ClientOption) *Client {
 	c := &Client{
 		socketPath:      defaultSocketPath,
 		refreshInterval: defaultRefreshInterval,
 		resourceNames:   make(map[string]struct{}),
 		deviceToPod:     make(map[deviceKey]ContainerInfo),
+		logger:          logger,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -107,6 +112,8 @@ func (c *Client) AddResourceName(resourceName string) {
 
 // GetContainerInfo looks up the pod/container that owns the given device.
 func (c *Client) GetContainerInfo(deviceID string, resourceName string) *ContainerInfo {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	key := deviceKey{DeviceID: deviceID, ResourceName: resourceName}
 	if info, ok := c.deviceToPod[key]; ok {
 		return &info
@@ -118,7 +125,6 @@ func (c *Client) pollLoop() {
 	ticker := time.NewTicker(c.refreshInterval)
 	defer ticker.Stop()
 
-	// Initial refresh.
 	c.refresh()
 
 	for {
@@ -141,6 +147,7 @@ func (c *Client) refresh() {
 
 	resp, err := c.listerClient.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
 	if err != nil {
+		c.logger.Error("Failed to list pod resources from kubelet", zap.Error(err))
 		return
 	}
 
@@ -162,5 +169,8 @@ func (c *Client) refresh() {
 			}
 		}
 	}
+
+	c.mu.Lock()
 	c.deviceToPod = newMap
+	c.mu.Unlock()
 }

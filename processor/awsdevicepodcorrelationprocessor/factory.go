@@ -27,7 +27,9 @@ func NewFactory() processor.Factory {
 }
 
 func createDefaultConfig() component.Config {
-	return &Config{}
+	return &Config{
+		KubeletSocketPath: "/var/lib/kubelet/pod-resources/kubelet.sock",
+	}
 }
 
 func createMetricsProcessor(
