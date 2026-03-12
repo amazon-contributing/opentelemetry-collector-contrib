@@ -76,7 +76,7 @@ func TestGetContainerInfo_WrongResource(t *testing.T) {
 	assert.Nil(t, info)
 }
 
-func TestStop_NilFields(t *testing.T) {
+func TestStop_NilFields(_ *testing.T) {
 	c := NewClient(zap.NewNop())
 	// Should not panic with nil cancel and conn.
 	c.Stop()
