@@ -16,49 +16,29 @@ import (
 	"go.uber.org/zap"
 )
 
-// phase1Prefixes contains prefix patterns for unconditional removal.
-// All resource attributes matching any of these prefixes are always removed.
-var phase1Prefixes = []string{
-	"k8s.node.label.feature.node.kubernetes.io/",
-	"k8s.node.label.beta.kubernetes.io/",
-	"k8s.node.label.failure-domain.beta.kubernetes.io/",
-	"k8s.node.label.alpha.eksctl.io/",
-}
-
-// phase1ExactKeys contains exact resource attribute keys for unconditional removal.
-// These are redundant with existing OTel semantic convention resource attributes
-// or have zero monitoring value.
-var phase1ExactKeys = map[string]struct{}{
-	"k8s.node.label.topology.kubernetes.io/region":                 {},
-	"k8s.node.label.topology.kubernetes.io/zone":                   {},
-	"k8s.node.label.topology.ebs.csi.aws.com/zone":                 {},
-	"k8s.node.label.node.kubernetes.io/instance-type":              {},
-	"k8s.node.label.kubernetes.io/hostname":                        {},
-	"k8s.node.label.eks.amazonaws.com/nodegroup-image":             {},
-	"k8s.node.label.k8s.io/cloud-provider-aws":                     {},
-	"k8s.node.label.eks.amazonaws.com/sourceLaunchTemplateId":      {},
-	"k8s.node.label.eks.amazonaws.com/sourceLaunchTemplateVersion": {},
-	"k8s.pod.label.pod-template-hash":                              {},
-	"k8s.pod.label.controller-revision-hash":                       {},
-}
-
 // attributeLimitProcessor enforces the aws backend attribute limit by removing
-// redundant attributes (Phase 1) and dropping low-priority attributes
-// by tier when the total count exceeds the configured maximum (Phase 2).
+// redundant attributes and dropping low-priority attributes
+// by tier when the total count exceeds the configured maximum.
 type attributeLimitProcessor struct {
-	config       *Config
-	logger       *zap.Logger
-	mu           sync.Mutex
-	lastLogAt    map[string]time.Time // rate-limiting: last log time per metric name
-	lastEviction time.Time
+	config                   *Config
+	logger                   *zap.Logger
+	unconditionalRemovalKeys map[string]struct{}
+	mu                       sync.Mutex
+	lastLogAt                map[string]time.Time // rate-limiting: last log time per metric name
+	lastEviction             time.Time
 }
 
 func newProcessor(cfg *Config, logger *zap.Logger) *attributeLimitProcessor {
+	keySet := make(map[string]struct{}, len(cfg.UnconditionalRemovalKeys))
+	for _, k := range cfg.UnconditionalRemovalKeys {
+		keySet[k] = struct{}{}
+	}
 	return &attributeLimitProcessor{
-		config:       cfg,
-		logger:       logger,
-		lastLogAt:    make(map[string]time.Time),
-		lastEviction: time.Now(),
+		config:                   cfg,
+		logger:                   logger,
+		unconditionalRemovalKeys: keySet,
+		lastLogAt:                make(map[string]time.Time),
+		lastEviction:             time.Now(),
 	}
 }
 
@@ -72,16 +52,16 @@ func (p *attributeLimitProcessor) Shutdown(_ context.Context) error {
 	return nil
 }
 
-// removePhase1Attributes removes all resource attributes that match Phase 1
+// removeUnconditionalAttributes removes all resource attributes that match
 // unconditional removal rules (prefix patterns and exact keys) in a single pass.
-func removePhase1Attributes(attrs pcommon.Map) {
+func (p *attributeLimitProcessor) removeUnconditionalAttributes(attrs pcommon.Map) {
 	attrs.RemoveIf(func(key string, _ pcommon.Value) bool {
 		// Check exact key match first (O(1) map lookup).
-		if _, ok := phase1ExactKeys[key]; ok {
+		if _, ok := p.unconditionalRemovalKeys[key]; ok {
 			return true
 		}
 		// Check prefix patterns.
-		for _, prefix := range phase1Prefixes {
+		for _, prefix := range p.config.UnconditionalRemovalPrefixes {
 			if strings.HasPrefix(key, prefix) {
 				return true
 			}
@@ -174,27 +154,12 @@ func removeExcessByTier(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, e
 	return dropped, minT, maxT
 }
 
-// logDropWarning emits a rate-limited warning when Phase 2 drops attributes.
+// logDropWarning emits a rate-limited warning when tier-based dropping occurs.
 // Logs at most once per metric name per minute.
 func (p *attributeLimitProcessor) logDropWarning(metricName string, droppedCount int, minTier int, maxTier int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	now := time.Now()
-	// Evict stale entries every 5 minutes (not on every call).
-	if now.Sub(p.lastEviction) > 5*time.Minute {
-		for name, lastTime := range p.lastLogAt {
-			if now.Sub(lastTime) > 5*time.Minute {
-				delete(p.lastLogAt, name)
-			}
-		}
-		p.lastEviction = now
-	}
-	// Rate limit: once per metric name per minute.
-	if lastTime, ok := p.lastLogAt[metricName]; ok && now.Sub(lastTime) < time.Minute {
+	if !p.shouldLog(metricName) {
 		return
 	}
-	p.lastLogAt[metricName] = now
 	p.logger.Warn("dropped attributes to meet limit",
 		zap.String("metric", metricName),
 		zap.Int("dropped", droppedCount),
@@ -205,22 +170,40 @@ func (p *attributeLimitProcessor) logDropWarning(metricName string, droppedCount
 }
 
 // logExhaustedError logs a rate-limited error when all tiers are exhausted
-// and the count still exceeds the limit.
-func (p *attributeLimitProcessor) logExhaustedError(metricName string, remaining int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	now := time.Now()
+// and force-pruning was required to meet the limit.
+func (p *attributeLimitProcessor) logExhaustedError(metricName string, remaining int, forcePruned int) {
 	errorKey := metricName + ":exhausted"
-	if lastTime, ok := p.lastLogAt[errorKey]; ok && now.Sub(lastTime) < time.Minute {
+	if !p.shouldLog(errorKey) {
 		return
 	}
-	p.lastLogAt[errorKey] = now
-	p.logger.Error("all tiers exhausted, still over limit",
+	p.logger.Error("all tiers exhausted, force-pruned protected attributes to meet limit",
 		zap.String("metric", metricName),
-		zap.Int("remaining", remaining),
+		zap.Int("attributesBeforePrune", remaining),
+		zap.Int("forcePruned", forcePruned),
 		zap.Int("limit", p.config.MaxTotalAttributes),
 	)
+}
+
+// shouldLog checks rate limiting and evicts stale entries. Returns true if
+// the caller should proceed with logging. Releases the mutex before returning.
+func (p *attributeLimitProcessor) shouldLog(key string) bool {
+	p.mu.Lock()
+	now := time.Now()
+	if now.Sub(p.lastEviction) > 5*time.Minute {
+		for name, lastTime := range p.lastLogAt {
+			if now.Sub(lastTime) > 5*time.Minute {
+				delete(p.lastLogAt, name)
+			}
+		}
+		p.lastEviction = now
+	}
+	if lastTime, ok := p.lastLogAt[key]; ok && now.Sub(lastTime) < time.Minute {
+		p.mu.Unlock()
+		return false
+	}
+	p.lastLogAt[key] = now
+	p.mu.Unlock()
+	return true
 }
 
 // enforceLimit checks if the total attribute count exceeds the limit and runs
@@ -238,11 +221,59 @@ func (p *attributeLimitProcessor) enforceLimit(resourceAttrs pcommon.Map, datapo
 		p.logDropWarning(metricName, droppedCount, minTier, maxTier)
 	}
 
-	// Check if still over limit after dropping all droppable attrs.
+	// If still over limit after tier-based dropping, force-prune remaining
+	// attributes (including protected ones) to guarantee we never exceed the limit.
 	remaining := resourceAttrs.Len() + scopeAttrCount + datapointAttrs.Len()
 	if remaining > p.config.MaxTotalAttributes {
-		p.logExhaustedError(metricName, remaining)
+		forcePruned := p.forcePrune(resourceAttrs, datapointAttrs, scopeAttrCount)
+		p.logExhaustedError(metricName, remaining, forcePruned)
 	}
+}
+
+// forcePrune removes attributes regardless of protection status until the total
+// count is at or below the limit. It removes from resource attributes first
+// (sorted alphabetically, last keys first), then datapoint attributes.
+// Returns the number of attributes force-pruned.
+func (p *attributeLimitProcessor) forcePrune(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, scopeAttrCount int) int {
+	excess := resourceAttrs.Len() + scopeAttrCount + datapointAttrs.Len() - p.config.MaxTotalAttributes
+	if excess <= 0 {
+		return 0
+	}
+
+	pruned := 0
+
+	// Collect and sort resource attribute keys alphabetically, remove from end.
+	pruned += pruneFromMap(resourceAttrs, excess-pruned)
+
+	// If still over, prune datapoint attributes.
+	if pruned < excess {
+		pruned += pruneFromMap(datapointAttrs, excess-pruned)
+	}
+
+	return pruned
+}
+
+// pruneFromMap removes up to `count` attributes from the map, sorted alphabetically
+// (removes last keys first). Returns the number actually removed.
+func pruneFromMap(attrs pcommon.Map, count int) int {
+	if count <= 0 || attrs.Len() == 0 {
+		return 0
+	}
+
+	keys := make([]string, 0, attrs.Len())
+	attrs.Range(func(key string, _ pcommon.Value) bool {
+		keys = append(keys, key)
+		return true
+	})
+	slices.Sort(keys)
+
+	// Remove from the end (alphabetically last).
+	removed := 0
+	for i := len(keys) - 1; i >= 0 && removed < count; i-- {
+		attrs.Remove(keys[i])
+		removed++
+	}
+	return removed
 }
 
 // processDatapoints is a generic helper that enforces the attribute limit on
@@ -269,8 +300,8 @@ func (p *attributeLimitProcessor) processMetrics(_ context.Context, md pmetric.M
 		rm := md.ResourceMetrics().At(i)
 		resourceAttrs := rm.Resource().Attributes()
 
-		// Phase 1: Unconditional removal (always runs).
-		removePhase1Attributes(resourceAttrs)
+		// Unconditional removal (always runs).
+		p.removeUnconditionalAttributes(resourceAttrs)
 
 		// Phase 2: Per-datapoint evaluation.
 		// Note: Resource attributes are shared across all datapoints in a ResourceMetrics.

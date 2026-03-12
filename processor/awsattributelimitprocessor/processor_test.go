@@ -59,15 +59,46 @@ func getScopeAttrs(md pmetric.Metrics) pcommon.Map {
 	return md.ResourceMetrics().At(0).ScopeMetrics().At(0).Scope().Attributes()
 }
 
+// defaultTestPrefixes and defaultTestKeys mirror the values previously hardcoded
+// in processor.go, used here to keep existing tests working.
+var defaultTestPrefixes = []string{
+	"k8s.node.label.feature.node.kubernetes.io/",
+	"k8s.node.label.beta.kubernetes.io/",
+	"k8s.node.label.failure-domain.beta.kubernetes.io/",
+	"k8s.node.label.alpha.eksctl.io/",
+}
+
+var defaultTestKeys = []string{
+	"k8s.node.label.topology.kubernetes.io/region",
+	"k8s.node.label.topology.kubernetes.io/zone",
+	"k8s.node.label.topology.ebs.csi.aws.com/zone",
+	"k8s.node.label.node.kubernetes.io/instance-type",
+	"k8s.node.label.kubernetes.io/hostname",
+	"k8s.node.label.eks.amazonaws.com/nodegroup-image",
+	"k8s.node.label.k8s.io/cloud-provider-aws",
+	"k8s.node.label.eks.amazonaws.com/sourceLaunchTemplateId",
+	"k8s.node.label.eks.amazonaws.com/sourceLaunchTemplateVersion",
+	"k8s.pod.label.pod-template-hash",
+	"k8s.pod.label.controller-revision-hash",
+}
+
 func newTestProcessorWithLogs(maxAttrs int) (*attributeLimitProcessor, *observer.ObservedLogs) {
 	core, logs := observer.New(zapcore.DebugLevel)
 	logger := zap.New(core)
-	p := newProcessor(&Config{MaxTotalAttributes: maxAttrs}, logger)
+	p := newProcessor(&Config{
+		MaxTotalAttributes:           maxAttrs,
+		UnconditionalRemovalPrefixes: defaultTestPrefixes,
+		UnconditionalRemovalKeys:     defaultTestKeys,
+	}, logger)
 	return p, logs
 }
 
 func newTestProcessorSimple(maxAttrs int) *attributeLimitProcessor {
-	return newProcessor(&Config{MaxTotalAttributes: maxAttrs}, zap.NewNop())
+	return newProcessor(&Config{
+		MaxTotalAttributes:           maxAttrs,
+		UnconditionalRemovalPrefixes: defaultTestPrefixes,
+		UnconditionalRemovalKeys:     defaultTestKeys,
+	}, zap.NewNop())
 }
 
 // --- B.3: Phase 1 Removal Tests ---
@@ -117,7 +148,7 @@ func TestPhase1_RemovesPrefixPatterns(t *testing.T) {
 
 func TestPhase1_RemovesExactKeys(t *testing.T) {
 	resourceAttrs := map[string]string{}
-	for key := range phase1ExactKeys {
+	for _, key := range defaultTestKeys {
 		resourceAttrs[key] = "value"
 	}
 	resourceAttrs["k8s.pod.name"] = "my-pod" // should survive
@@ -130,7 +161,7 @@ func TestPhase1_RemovesExactKeys(t *testing.T) {
 	}
 
 	attrs := getResourceAttrs(result)
-	for key := range phase1ExactKeys {
+	for _, key := range defaultTestKeys {
 		if _, ok := attrs.Get(key); ok {
 			t.Errorf("Phase 1 should have removed exact key %q", key)
 		}
@@ -338,19 +369,19 @@ func TestPhase2_AllTiersExhausted(t *testing.T) {
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, nil)
-	// Limit = 2: 5 protected resource attrs + 0 droppable. Can't reach limit.
+	// Limit = 2: 5 protected resource attrs + 0 droppable. Force-prune kicks in.
 	p, logs := newTestProcessorWithLogs(2)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Metric should pass through unchanged.
+	// Force-prune should bring total down to limit.
 	attrs := getResourceAttrs(result)
-	if attrs.Len() != 5 {
-		t.Errorf("all protected attrs should survive, got %d", attrs.Len())
+	if attrs.Len() != 2 {
+		t.Errorf("expected 2 attrs after force-prune, got %d", attrs.Len())
 	}
-	// Should log an error.
+	// Should log an error about force-pruning.
 	errorLogs := logs.FilterLevelExact(zapcore.ErrorLevel).All()
 	if len(errorLogs) == 0 {
 		t.Error("expected error log when all tiers exhausted")
@@ -422,7 +453,7 @@ func TestProtected_K8sIdentityNeverRemoved(t *testing.T) {
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, nil)
-	p := newTestProcessorSimple(1) // impossibly low limit
+	p := newTestProcessorSimple(500) // high limit — tier-based dropping still skips protected attrs
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -449,7 +480,7 @@ func TestProtected_K8sWorkloadNeverRemoved(t *testing.T) {
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, nil)
-	p := newTestProcessorSimple(1)
+	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -482,7 +513,7 @@ func TestProtected_CloudHostHwPrefixNeverRemoved(t *testing.T) {
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, nil)
-	p := newTestProcessorSimple(1)
+	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -508,7 +539,7 @@ func TestProtected_DeviceSpecificNeverRemoved(t *testing.T) {
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, nil)
-	p := newTestProcessorSimple(1)
+	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -530,7 +561,7 @@ func TestProtected_PodLabelsNeverRemoved(t *testing.T) {
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, nil)
-	p := newTestProcessorSimple(1)
+	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -704,7 +735,7 @@ func TestMetricPreservation_NeverDropsDatapoints(t *testing.T) {
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, nil)
-	p := newTestProcessorSimple(1)
+	p := newTestProcessorSimple(500)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -786,5 +817,79 @@ func TestProcessMetrics_HandlesAllMetricTypes(t *testing.T) {
 	metrics := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 	if metrics.Len() != 5 {
 		t.Errorf("expected 5 metrics, got %d", metrics.Len())
+	}
+}
+
+func TestPhase2_TwoDatapoints_OnlySecondOverLimit(t *testing.T) {
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("k8s.node.name", "node-1")
+
+	sm := rm.ScopeMetrics().AppendEmpty()
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("test_metric")
+
+	// First datapoint: 1 attr, total = 1 resource + 1 dp = 2
+	dp1 := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp1.Attributes().PutStr("job", "cadvisor")
+
+	// Second datapoint: 3 attrs, total = 1 resource + 3 dp = 4
+	dp2 := m.Gauge().DataPoints().AppendEmpty()
+	dp2.Attributes().PutStr("dp_a", "a")
+	dp2.Attributes().PutStr("dp_b", "b")
+	dp2.Attributes().PutStr("dp_c", "c")
+
+	// Limit = 3: first dp is fine (2), second dp is over (4).
+	p := newTestProcessorSimple(3)
+	result, err := p.processMetrics(t.Context(), md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	dps := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints()
+
+	// First datapoint should be untouched.
+	if dps.At(0).Attributes().Len() != 1 {
+		t.Errorf("first datapoint should have 1 attr, got %d", dps.At(0).Attributes().Len())
+	}
+	if _, ok := dps.At(0).Attributes().Get("job"); !ok {
+		t.Error("first datapoint should still have 'job' attr")
+	}
+
+	// Second datapoint should be trimmed: 1 resource + dp attrs = 3 total.
+	total := rm.Resource().Attributes().Len() + dps.At(1).Attributes().Len()
+	if total > 3 {
+		t.Errorf("second datapoint total should be <= 3, got %d", total)
+	}
+}
+
+func TestForcePrune_DropsProtectedToMeetLimit(t *testing.T) {
+	resourceAttrs := map[string]string{
+		"k8s.node.name":      "node-1",
+		"k8s.pod.name":       "pod-1",
+		"k8s.namespace.name": "ns-1",
+		"k8s.cluster.name":   "cluster-1",
+		"cloud.region":       "us-east-1",
+	}
+
+	md := newTestMetrics(resourceAttrs, nil, nil)
+	p, logs := newTestProcessorWithLogs(3)
+	result, err := p.processMetrics(t.Context(), md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Total should be exactly at limit after force-prune.
+	attrs := getResourceAttrs(result)
+	dpAttrs := getDatapointAttrs(result)
+	total := attrs.Len() + dpAttrs.Len()
+	if total > 3 {
+		t.Errorf("expected total <= 3 after force-prune, got %d", total)
+	}
+
+	// Should log an error about force-pruning.
+	errorLogs := logs.FilterLevelExact(zapcore.ErrorLevel).All()
+	if len(errorLogs) == 0 {
+		t.Error("expected error log when force-pruning protected attributes")
 	}
 }

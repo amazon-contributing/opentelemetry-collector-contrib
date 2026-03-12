@@ -13,6 +13,15 @@ type Config struct {
 	// scope attributes, and datapoint attributes allowed per metric datapoint.
 	// Defaults to 150, matching the aws backend hard limit.
 	MaxTotalAttributes int `mapstructure:"max_total_attributes"`
+
+	// UnconditionalRemovalPrefixes is a list of resource attribute key prefixes.
+	// Any resource attribute whose key starts with one of these prefixes is always
+	// removed, regardless of whether the total count exceeds the limit.
+	UnconditionalRemovalPrefixes []string `mapstructure:"unconditional_removal_prefixes"`
+
+	// UnconditionalRemovalKeys is a list of exact resource attribute keys that are
+	// always removed, regardless of whether the total count exceeds the limit.
+	UnconditionalRemovalKeys []string `mapstructure:"unconditional_removal_keys"`
 }
 
 // Validate checks if the processor configuration is valid.
