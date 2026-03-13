@@ -1,0 +1,12 @@
+type: awscwotlpbatchlog
+
+status:
+  class: processor
+  stability:
+    development: [logs]
+  distributions: []
+  codeowners:
+    active: [liustve]
+
+tests:
+  config:
