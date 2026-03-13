@@ -24,10 +24,15 @@ type Config struct {
 	UnconditionalRemovalKeys []string `mapstructure:"unconditional_removal_keys"`
 }
 
+const maxAllowedAttributes = 150
+
 // Validate checks if the processor configuration is valid.
 func (cfg *Config) Validate() error {
 	if cfg.MaxTotalAttributes <= 0 {
 		return fmt.Errorf("max_total_attributes must be greater than 0, got %d", cfg.MaxTotalAttributes)
+	}
+	if cfg.MaxTotalAttributes > maxAllowedAttributes {
+		return fmt.Errorf("max_total_attributes must not exceed %d, got %d", maxAllowedAttributes, cfg.MaxTotalAttributes)
 	}
 	return nil
 }

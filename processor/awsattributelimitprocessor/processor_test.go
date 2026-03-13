@@ -921,3 +921,37 @@ func TestForcePrune_DropsProtectedToMeetLimit(t *testing.T) {
 		t.Error("expected error log when force-pruning protected attributes")
 	}
 }
+
+func TestForcePrune_PrunesScopeAttrs(t *testing.T) {
+	scopeAttrs := map[string]string{
+		"scope_a": "a",
+		"scope_b": "b",
+		"scope_c": "c",
+	}
+	resourceAttrs := map[string]string{
+		"k8s.node.name": "node-1",
+	}
+
+	md := newTestMetrics(resourceAttrs, scopeAttrs, nil)
+	// Total = 1 resource + 3 scope + 0 dp = 4. Limit = 2.
+	// All scope attrs are non-protected (no instrumentation.cloudwatch.* prefix).
+	// Tier-based dropping removes scope attrs (tier 2). If still over, force-prune kicks in.
+	p, logs := newTestProcessorWithLogs(2)
+	result, err := p.processMetrics(t.Context(), md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	sa := getScopeAttrs(result)
+	ra := getResourceAttrs(result)
+	total := ra.Len() + sa.Len() + getDatapointAttrs(result).Len()
+	if total > 2 {
+		t.Errorf("expected total <= 2 after pruning, got %d", total)
+	}
+
+	// Scope attrs should have been dropped.
+	if sa.Len() >= 3 {
+		t.Errorf("expected scope attrs to be pruned, still have %d", sa.Len())
+	}
+	_ = logs
+}

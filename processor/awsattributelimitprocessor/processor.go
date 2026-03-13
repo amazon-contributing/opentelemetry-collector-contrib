@@ -248,12 +248,17 @@ func (p *attributeLimitProcessor) forcePrune(resourceAttrs pcommon.Map, datapoin
 
 	pruned := 0
 
-	// Collect and sort resource attribute keys alphabetically, remove from end.
-	pruned += pruneFromMap(resourceAttrs, excess-pruned)
+	// Prune datapoint attributes first (per-datapoint, least shared impact).
+	pruned += pruneFromMap(datapointAttrs, excess-pruned)
 
-	// If still over, prune datapoint attributes.
+	// Then scope attributes.
 	if pruned < excess {
-		pruned += pruneFromMap(datapointAttrs, excess-pruned)
+		pruned += pruneFromMap(scopeAttrs, excess-pruned)
+	}
+
+	// Then resource attributes last (most shared impact).
+	if pruned < excess {
+		pruned += pruneFromMap(resourceAttrs, excess-pruned)
 	}
 
 	return pruned

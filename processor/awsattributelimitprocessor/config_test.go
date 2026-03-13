@@ -37,3 +37,17 @@ func TestConfigValidate_Negative(t *testing.T) {
 		t.Error("config with MaxTotalAttributes=-1 should return error")
 	}
 }
+
+func TestConfigValidate_ExceedsMax(t *testing.T) {
+	cfg := &Config{MaxTotalAttributes: 200}
+	if err := cfg.Validate(); err == nil {
+		t.Error("config with MaxTotalAttributes=200 should return error")
+	}
+}
+
+func TestConfigValidate_AtMax(t *testing.T) {
+	cfg := &Config{MaxTotalAttributes: 150}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("config with MaxTotalAttributes=150 should be valid, got error: %v", err)
+	}
+}
