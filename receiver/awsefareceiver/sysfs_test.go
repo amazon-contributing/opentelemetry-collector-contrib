@@ -55,6 +55,11 @@ func setupTestSysfs(t *testing.T) string {
 		require.NoError(t, os.WriteFile(filepath.Join(hwCountersPath, name), []byte(value+"\n"), 0o600))
 	}
 
+	// Create GID file for ENI resolution tests
+	gidPath := filepath.Join(root, "sys/class/infiniband/rdmap0s31/ports/1/gids")
+	require.NoError(t, os.MkdirAll(gidPath, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(gidPath, "0"), []byte("fe80::200:ff:fe00:1\n"), 0o600))
+
 	return root
 }
 
@@ -126,6 +131,26 @@ func TestSysFsReaderReadCounterMissing(t *testing.T) {
 
 	_, err := reader.ReadCounter("rdmap0s31", "1", "nonexistent_counter")
 	require.ErrorIs(t, err, errCounterNotAvailable)
+}
+
+func TestReadGID(t *testing.T) {
+	root := setupTestSysfs(t)
+	reader := newTestReader(filepath.Join(root, "sys/class/infiniband"))
+
+	gid, err := reader.ReadGID("rdmap0s31")
+	require.NoError(t, err)
+	assert.Equal(t, "fe80::200:ff:fe00:1", gid)
+}
+
+func TestReadGIDMissing(t *testing.T) {
+	root := t.TempDir()
+	basePath := filepath.Join(root, "sys/class/infiniband")
+	require.NoError(t, os.MkdirAll(filepath.Join(basePath, "efa0/ports/1"), 0o755))
+
+	reader := newTestReader(basePath)
+	_, err := reader.ReadGID("efa0")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read GID file")
 }
 
 func TestReadCounterNAPMA(t *testing.T) {
