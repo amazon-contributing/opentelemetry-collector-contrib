@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	defaultSocketPath      = "/var/lib/kubelet/pod-resources/kubelet.sock"
+	DefaultSocketPath      = "/var/lib/kubelet/pod-resources/kubelet.sock"
 	connectionTimeout      = 10 * time.Second
 	defaultRefreshInterval = 10 * time.Second
 )
@@ -56,7 +56,7 @@ type ClientOption func(*Client)
 // WithSocketPath sets a custom kubelet socket path.
 func WithSocketPath(path string) ClientOption {
 	if path == "" {
-		path = defaultSocketPath
+		path = DefaultSocketPath
 	}
 	return func(c *Client) { c.socketPath = path }
 }
@@ -64,7 +64,7 @@ func WithSocketPath(path string) ClientOption {
 // NewClient creates a new Kubelet Pod Resources API client.
 func NewClient(logger *zap.Logger, opts ...ClientOption) *Client {
 	c := &Client{
-		socketPath:      defaultSocketPath,
+		socketPath:      DefaultSocketPath,
 		refreshInterval: defaultRefreshInterval,
 		resourceNames:   make(map[string]struct{}),
 		deviceToPod:     make(map[deviceKey]ContainerInfo),

@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processorhelper"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/kubelet"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/metadata"
 )
 
@@ -28,7 +29,7 @@ func NewFactory() processor.Factory {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		KubeletSocketPath: "/var/lib/kubelet/pod-resources/kubelet.sock",
+		KubeletSocketPath: kubelet.DefaultSocketPath,
 	}
 }
 

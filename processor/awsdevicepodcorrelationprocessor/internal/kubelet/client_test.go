@@ -12,7 +12,7 @@ import (
 
 func TestNewClient_Defaults(t *testing.T) {
 	c := NewClient(zap.NewNop())
-	assert.Equal(t, defaultSocketPath, c.socketPath)
+	assert.Equal(t, DefaultSocketPath, c.socketPath)
 	assert.NotNil(t, c.resourceNames)
 	assert.NotNil(t, c.deviceToPod)
 }
@@ -24,7 +24,7 @@ func TestNewClient_WithSocketPath(t *testing.T) {
 
 func TestNewClient_WithEmptySocketPath(t *testing.T) {
 	c := NewClient(zap.NewNop(), WithSocketPath(""))
-	assert.Equal(t, defaultSocketPath, c.socketPath)
+	assert.Equal(t, DefaultSocketPath, c.socketPath)
 }
 
 func TestAddResourceName(t *testing.T) {

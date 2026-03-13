@@ -152,11 +152,6 @@ func processDatapoints[DP interface{ Attributes() pcommon.Map }](
 				dpAttrs.PutStr(containerNameKey, containerInfo.ContainerName)
 				break
 			}
-
-			logger.Debug("No pod correlation found for device",
-				zap.String("device_type", dt.Name),
-				zap.String("device_id", deviceID),
-			)
 		}
 	}
 }
