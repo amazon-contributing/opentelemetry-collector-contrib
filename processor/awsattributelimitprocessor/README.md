@@ -20,19 +20,24 @@ If the total attribute count (resource + scope + datapoint) still exceeds the li
 
 | Tier | Category | Example |
 |------|----------|---------|
-| 1 | Non-protected datapoint attributes | `job`, `instance` (per-datapoint, no shared impact) |
-| 2 | Non-protected scope attributes | Scope attrs except `instrumentation.cloudwatch.*` |
-| 3 | Helm/tooling labels | `helm.sh/chart`, `app.kubernetes.io/managed-by` |
-| 4 | K8s internal controller labels | `pod-template-generation` |
-| 5 | EKS system labels (node only) | `eks.amazonaws.com/capacityType` |
-| 6 | Known-prefix node labels | `kubernetes.io/`, `karpenter.sh/` |
-| 7 | Customer node labels | Unknown-prefix node labels |
-| 8 | Known-prefix pod labels | `batch.kubernetes.io/` |
-| 9 | Customer pod labels | Unknown-prefix pod labels |
+| 1 | Helm/tooling labels | `helm.sh/chart`, `app.kubernetes.io/managed-by` |
+| 2 | K8s internal controller labels | `pod-template-generation` |
+| 3 | Vendor-specific node labels | `karpenter.sh/`, `nvidia.com/` |
+| 4 | EKS system labels (node only) | `eks.amazonaws.com/capacityType` |
+| 5 | K8s system node labels | `kubernetes.io/`, `topology.kubernetes.io/` |
+| 6 | Customer node labels | Unknown-prefix node labels |
+| 7 | Known-prefix pod labels | `batch.kubernetes.io/` |
+| 8 | Customer pod labels | Unknown-prefix pod labels |
+| 9 | Non-protected scope attributes | Scope attrs except `instrumentation.cloudwatch.*` |
+| 10 | Non-protected datapoint attributes | `job`, `instance` (per-datapoint, no shared impact) |
 
-Datapoint attributes are dropped first because they are per-datapoint and don't affect other datapoints. Scope and resource attributes are shared, so they are dropped last to avoid over-pruning.
+Resource labels (node/pod) are dropped first because they are low-value metadata that customers rarely query by. Scope and datapoint attributes are dropped last to avoid over-pruning shared attributes.
 
-Within the same tier, attributes are dropped alphabetically. Protected attributes (K8s identity, workload, device-specific, `cloud.*`, `host.*`, `hw.*`, `instrumentation.cloudwatch.*`) are skipped during tier-based dropping.
+Within the same tier, attributes are dropped alphabetically. Protected attributes are skipped during tier-based dropping:
+
+- **Resource**: K8s identity (`k8s.cluster.name`, `k8s.node.name`, `k8s.pod.name`, etc.), workload (`k8s.deployment.name`, `k8s.statefulset.name`, etc.), device-specific (`neurondevice`, `efa.device`, etc.), app identity pod labels (`app.kubernetes.io/name`, `app.kubernetes.io/instance`, `app.kubernetes.io/component`), and prefixes `cloud.*`, `host.*`, `hw.*`
+- **Scope**: `instrumentation.cloudwatch.*`
+- **Datapoint**: node_exporter dimensions (`cpu`, `mode`, `device`, `mountpoint`, `fstype`), cadvisor (`interface`), neuron (`memory_location`, `percentile`, `neuroncore`, `neurondevice`, `status_type`, `error_type`), control plane (`verb`, `code`, `method`, `request_kind`, `resource`)
 
 ### Step 3: Force-Prune (last resort)
 
@@ -42,7 +47,7 @@ If the count is still over the limit after all tiers are exhausted (only protect
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `max_total_attributes` | Maximum combined count of resource, scope, and datapoint attributes per metric datapoint. | `150` |
+| `max_total_attributes` | Maximum combined count of resource, scope, and datapoint attributes per metric datapoint. Must be between 1 and 150 (inclusive). | `150` |
 | `unconditional_removal_prefixes` | List of resource attribute key prefixes to always remove. | `[]` |
 | `unconditional_removal_keys` | List of exact resource attribute keys to always remove. | `[]` |
 

@@ -165,7 +165,12 @@ const (
 
 // classifyAttribute returns the tier for a droppable attribute,
 // or 0 (tierNotDroppable) if the attribute is protected or not classifiable.
-// attrSource indicates where the attribute lives: "datapoint", "scope", or "resource".
+//
+// For datapoint attributes, all non-protected keys are tier 10.
+// For scope attributes, all non-protected keys (except instrumentation.cloudwatch.*) are tier 9.
+// For resource attributes, only K8s label attributes (k8s.node.label.*, k8s.pod.label.*)
+// are subject to tier-based dropping (tiers 1-8). Other resource attrs (e.g. service.name,
+// telemetry.sdk.*) are treated as non-droppable and handled only by force-prune.
 func classifyAttribute(key string, attrSource string) int {
 	if attrSource == attrSourceDatapoint {
 		if isProtectedDatapoint(key) {
