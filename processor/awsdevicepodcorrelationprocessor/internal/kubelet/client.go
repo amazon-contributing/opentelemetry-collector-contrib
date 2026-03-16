@@ -110,8 +110,9 @@ func (c *Client) Stop() {
 }
 
 // AddResourceName registers a Kubernetes extended resource name to track.
-// Must be called before Start(); not safe for concurrent use after Start().
 func (c *Client) AddResourceName(resourceName string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.resourceNames[resourceName] = struct{}{}
 }
 
@@ -144,7 +145,15 @@ func (c *Client) pollLoop(ctx context.Context) {
 }
 
 func (c *Client) refresh(ctx context.Context) {
-	if len(c.resourceNames) == 0 {
+	// Snapshot resourceNames under read lock to avoid racing with AddResourceName.
+	c.mu.RLock()
+	trackedResources := make(map[string]struct{}, len(c.resourceNames))
+	for k, v := range c.resourceNames {
+		trackedResources[k] = v
+	}
+	c.mu.RUnlock()
+
+	if len(trackedResources) == 0 {
 		return
 	}
 
@@ -161,7 +170,7 @@ func (c *Client) refresh(ctx context.Context) {
 	for _, pod := range resp.GetPodResources() {
 		for _, container := range pod.GetContainers() {
 			for _, device := range container.GetDevices() {
-				if _, tracked := c.resourceNames[device.GetResourceName()]; !tracked {
+				if _, tracked := trackedResources[device.GetResourceName()]; !tracked {
 					continue
 				}
 				info := ContainerInfo{
