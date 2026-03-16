@@ -7,23 +7,24 @@ import "strings"
 
 // Tier constants define the drop priority.
 // Lower tiers are dropped first. Tier 0 means the attribute is not droppable.
-// Datapoint and scope attrs are dropped before resource attrs to avoid
-// over-pruning shared resource attributes.
+// Resource labels (node/pod) are dropped before scope and datapoint attrs,
+// since scope and datapoint attrs are more likely to be needed for queries.
 const (
-	tierNotDroppable  = 0 // Protected attribute
-	tier1Datapoint    = 1 // Non-protected datapoint attributes (per-datapoint, no shared impact)
-	tier2Scope        = 2 // Non-protected scope attributes (except instrumentation.cloudwatch.*)
-	tier3HelmTooling  = 3 // Helm/tooling labels (node + pod)
-	tier4K8sInternal  = 4 // K8s internal controller labels (node + pod)
-	tier5EKSSystem    = 5 // EKS system labels (node only)
-	tier6KnownNode    = 6 // Known-prefix node labels
-	tier7CustomerNode = 7 // Customer node labels (unknown prefix)
-	tier8KnownPod     = 8 // Known-prefix pod labels
-	tier9CustomerPod  = 9 // Customer pod labels (unknown prefix)
+	tierNotDroppable       = 0  // Protected attribute
+	tier1HelmTooling       = 1  // Helm/tooling labels (node + pod)
+	tier2K8sInternal       = 2  // K8s internal controller labels (node + pod)
+	tier3VendorNode        = 3  // Vendor-specific node labels (nvidia, karpenter, aws.amazon.com)
+	tier4EKSSystem         = 4  // EKS system labels (node only)
+	tier5K8sSystemNode     = 5  // K8s system node labels (kubernetes.io, topology, node.kubernetes.io, k8s.io)
+	tier6CustomerNode      = 6  // Customer node labels (unknown prefix)
+	tier7KnownPod          = 7  // Known vendor pod labels (batch.kubernetes.io, statefulset.kubernetes.io)
+	tier8CustomerPod       = 8  // Customer pod labels (unknown prefix)
+	tier9Scope             = 9  // Non-protected scope attributes (except instrumentation.cloudwatch.*)
+	tier10Datapoint        = 10 // Non-protected datapoint attributes (last resort)
 )
 
-// protectedExactKeys contains resource attribute keys that are never dropped.
-var protectedExactKeys = map[string]struct{}{
+// protectedResourceKeys contains resource attribute keys that are never dropped.
+var protectedResourceKeys = map[string]struct{}{
 	// K8s identity
 	"k8s.cluster.name":   {},
 	"k8s.node.name":      {},
@@ -55,6 +56,26 @@ var protectedExactKeys = map[string]struct{}{
 	"k8s.component.name": {},
 }
 
+// protectedDatapointKeys contains datapoint attribute keys that are never dropped.
+var protectedDatapointKeys = map[string]struct{}{
+	// node_exporter
+	"cpu":        {},
+	"mode":       {},
+	"device":     {},
+	"mountpoint": {},
+	"fstype":     {},
+	// cadvisor
+	"interface": {},
+	// neuron
+	"memory_location": {},
+	"percentile":      {},
+	// control plane
+	"verb":         {},
+	"code":         {},
+	"method":       {},
+	"request_kind": {},
+}
+
 // protectedPrefixes contains resource attribute prefixes that are never dropped.
 var protectedPrefixes = []string{
 	"cloud.",
@@ -65,9 +86,9 @@ var protectedPrefixes = []string{
 // protectedScopePrefix is the scope attribute prefix that is never dropped.
 const protectedScopePrefix = "instrumentation.cloudwatch."
 
-// isProtected returns true if the key is a protected attribute that should never be dropped.
-func isProtected(key string) bool {
-	if _, ok := protectedExactKeys[key]; ok {
+// isProtectedResource returns true if the key is a protected resource attribute.
+func isProtectedResource(key string) bool {
+	if _, ok := protectedResourceKeys[key]; ok {
 		return true
 	}
 	for _, prefix := range protectedPrefixes {
@@ -76,6 +97,12 @@ func isProtected(key string) bool {
 		}
 	}
 	return false
+}
+
+// isProtectedDatapoint returns true if the key is a protected datapoint attribute.
+func isProtectedDatapoint(key string) bool {
+	_, ok := protectedDatapointKeys[key]
+	return ok
 }
 
 // helmToolingSuffixes are Helm/tooling label suffixes (node + pod scope).
@@ -96,23 +123,25 @@ var k8sInternalSuffixes = map[string]struct{}{
 	"batch.kubernetes.io/controller-uid": {},
 }
 
-// eksSystemSuffixes are EKS system label suffixes (node scope only).
-var eksSystemSuffixes = map[string]struct{}{
-	"eks.amazonaws.com/capacityType": {},
-	"eks.amazonaws.com/nodegroup":    {},
-	"node.kubernetes.io/lifecycle":   {},
+// nodeOnlySystemSuffixes are exact node label suffixes classified as EKS/system tier (Tier 4)
+// that don't fall under the eks.amazonaws.com/ prefix catch-all.
+var nodeOnlySystemSuffixes = map[string]struct{}{
+	"node.kubernetes.io/lifecycle": {},
 }
 
-// knownNodeLabelPrefixes are prefixes for known node label classification.
-var knownNodeLabelPrefixes = []string{
-	"kubernetes.io/",
-	"node.kubernetes.io/",
-	"topology.kubernetes.io/",
-	"eks.amazonaws.com/",
+// vendorNodeLabelPrefixes are vendor-specific node label prefixes (Tier 3).
+var vendorNodeLabelPrefixes = []string{
 	"karpenter.sh/",
 	"karpenter.k8s.aws/",
 	"nvidia.com/",
 	"aws.amazon.com/",
+}
+
+// k8sSystemNodeLabelPrefixes are K8s system node label prefixes (Tier 5).
+var k8sSystemNodeLabelPrefixes = []string{
+	"kubernetes.io/",
+	"node.kubernetes.io/",
+	"topology.kubernetes.io/",
 	"k8s.io/",
 }
 
@@ -133,21 +162,21 @@ const (
 // attrSource indicates where the attribute lives: "datapoint", "scope", or "resource".
 func classifyAttribute(key string, attrSource string) int {
 	if attrSource == "datapoint" {
-		if isProtected(key) {
+		if isProtectedDatapoint(key) {
 			return tierNotDroppable
 		}
-		return tier1Datapoint
+		return tier10Datapoint
 	}
 
 	if attrSource == "scope" {
 		if strings.HasPrefix(key, protectedScopePrefix) {
 			return tierNotDroppable
 		}
-		return tier2Scope
+		return tier9Scope
 	}
 
 	// Resource attribute classification.
-	if isProtected(key) {
+	if isProtectedResource(key) {
 		return tierNotDroppable
 	}
 
@@ -166,30 +195,46 @@ func classifyAttribute(key string, attrSource string) int {
 	}
 
 	if _, ok := helmToolingSuffixes[suffix]; ok {
-		return tier3HelmTooling
+		return tier1HelmTooling
 	}
 
 	if _, ok := k8sInternalSuffixes[suffix]; ok {
-		return tier4K8sInternal
+		return tier2K8sInternal
 	}
 
 	if isNodeLabel {
-		if _, ok := eksSystemSuffixes[suffix]; ok {
-			return tier5EKSSystem
-		}
-		for _, prefix := range knownNodeLabelPrefixes {
+		// Vendor-specific node labels (Tier 3).
+		for _, prefix := range vendorNodeLabelPrefixes {
 			if strings.HasPrefix(suffix, prefix) {
-				return tier6KnownNode
+				return tier3VendorNode
 			}
 		}
-		return tier7CustomerNode
+
+		// EKS system node labels (Tier 4).
+		if _, ok := nodeOnlySystemSuffixes[suffix]; ok {
+			return tier4EKSSystem
+		}
+		if strings.HasPrefix(suffix, "eks.amazonaws.com/") {
+			return tier4EKSSystem
+		}
+
+		// K8s system node labels (Tier 5).
+		for _, prefix := range k8sSystemNodeLabelPrefixes {
+			if strings.HasPrefix(suffix, prefix) {
+				return tier5K8sSystemNode
+			}
+		}
+
+		// Customer node labels (Tier 6).
+		return tier6CustomerNode
 	}
 
+	// Pod labels.
 	for _, prefix := range knownPodLabelPrefixes {
 		if strings.HasPrefix(suffix, prefix) {
-			return tier8KnownPod
+			return tier7KnownPod
 		}
 	}
 
-	return tier9CustomerPod
+	return tier8CustomerPod
 }

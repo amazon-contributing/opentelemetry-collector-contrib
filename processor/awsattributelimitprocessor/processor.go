@@ -100,16 +100,16 @@ func removeExcessByTier(resourceAttrs pcommon.Map, scopeAttrs pcommon.Map, datap
 		attrEntryPool.Put(droppablePtr)
 	}()
 
-	// Scan datapoint attributes (tier 1).
-	datapointAttrs.Range(func(key string, _ pcommon.Value) bool {
-		tier := classifyAttribute(key, "datapoint")
+	// Scan resource attributes (tiers 1-8).
+	resourceAttrs.Range(func(key string, _ pcommon.Value) bool {
+		tier := classifyAttribute(key, "resource")
 		if tier > 0 {
-			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "datapoint"})
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "resource"})
 		}
 		return true
 	})
 
-	// Scan scope attributes (tier 2).
+	// Scan scope attributes (tier 9).
 	scopeAttrs.Range(func(key string, _ pcommon.Value) bool {
 		tier := classifyAttribute(key, "scope")
 		if tier > 0 {
@@ -118,11 +118,11 @@ func removeExcessByTier(resourceAttrs pcommon.Map, scopeAttrs pcommon.Map, datap
 		return true
 	})
 
-	// Scan resource attributes (tiers 3-9).
-	resourceAttrs.Range(func(key string, _ pcommon.Value) bool {
-		tier := classifyAttribute(key, "resource")
+	// Scan datapoint attributes (tier 10).
+	datapointAttrs.Range(func(key string, _ pcommon.Value) bool {
+		tier := classifyAttribute(key, "datapoint")
 		if tier > 0 {
-			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "resource"})
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "datapoint"})
 		}
 		return true
 	})
@@ -231,16 +231,28 @@ func (p *attributeLimitProcessor) enforceLimit(resourceAttrs pcommon.Map, scopeA
 	// attributes (including protected ones) to guarantee we never exceed the limit.
 	remaining := resourceAttrs.Len() + scopeAttrs.Len() + datapointAttrs.Len()
 	if remaining > p.config.MaxTotalAttributes {
-		forcePruned := p.forcePrune(resourceAttrs, datapointAttrs, scopeAttrs)
+		forcePruned := p.forcePrune(resourceAttrs, scopeAttrs, datapointAttrs)
 		p.logExhaustedError(metricName, remaining, forcePruned)
 	}
 }
 
-// forcePrune removes attributes regardless of protection status until the total
-// count is at or below the limit. It removes from resource attributes first
-// (sorted alphabetically, last keys first), then datapoint attributes.
+// forcePrune is a last-resort safety net that should never activate in practice.
+// By the time forcePrune is called, all tier-based dropping has been exhausted,
+// meaning every remaining attribute is protected. This function exists only to
+// guarantee the 150-attribute hard limit is never exceeded — if it runs, it means
+// the metric has 150+ protected attributes, which indicates a misconfiguration
+// (too many attributes marked as protected) rather than normal operation.
+//
+// The drop order here is intentionally the opposite of tier-based dropping.
+// In tier-based dropping, resource labels are dropped first because they are
+// low-value metadata that customers rarely query by. But in forcePrune, every
+// remaining attribute is protected and important — so we minimize blast radius
+// by dropping datapoint attrs first (per-datapoint, no shared impact), then
+// scope, then resource last (shared across all datapoints in the batch).
+//
+// Within each map, keys are sorted alphabetically and removed from the end.
 // Returns the number of attributes force-pruned.
-func (p *attributeLimitProcessor) forcePrune(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, scopeAttrs pcommon.Map) int {
+func (p *attributeLimitProcessor) forcePrune(resourceAttrs pcommon.Map, scopeAttrs pcommon.Map, datapointAttrs pcommon.Map) int {
 	excess := resourceAttrs.Len() + scopeAttrs.Len() + datapointAttrs.Len() - p.config.MaxTotalAttributes
 	if excess <= 0 {
 		return 0

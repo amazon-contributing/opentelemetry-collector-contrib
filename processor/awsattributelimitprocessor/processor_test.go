@@ -413,15 +413,15 @@ func TestPhase2_SkippedWhenUnderLimit(t *testing.T) {
 	}
 }
 
-func TestPhase2_Tier8_DatapointAttrsLastResort(t *testing.T) {
+func TestPhase2_Tier10_DatapointAttrsLastResort(t *testing.T) {
 	// No droppable resource attrs, only datapoint attrs.
 	resourceAttrs := map[string]string{
 		"k8s.node.name": "node-1", // protected
 	}
 	datapointAttrs := map[string]string{
-		"job":      "node-exporter",
-		"instance": "10.0.0.1:9100",
-		"code":     "200",
+		"custom_label_a": "val-a",
+		"custom_label_b": "val-b",
+		"custom_label_c": "val-c",
 	}
 
 	md := newTestMetrics(resourceAttrs, nil, datapointAttrs)
@@ -437,6 +437,40 @@ func TestPhase2_Tier8_DatapointAttrsLastResort(t *testing.T) {
 	total := ra.Len() + da.Len()
 	if total != 2 {
 		t.Errorf("expected total 2 attrs after Phase 2, got %d", total)
+	}
+}
+
+func TestPhase2_ProtectedDatapointAttrsNeverDropped(t *testing.T) {
+	resourceAttrs := map[string]string{
+		"k8s.node.name": "node-1", // protected
+	}
+	datapointAttrs := map[string]string{
+		"cpu":            "0",          // protected
+		"mode":           "idle",       // protected
+		"device":         "sda",        // protected
+		"custom_label_a": "droppable1", // not protected
+		"custom_label_b": "droppable2", // not protected
+	}
+
+	md := newTestMetrics(resourceAttrs, nil, datapointAttrs)
+	// Limit = 4: 1 resource + 5 datapoint = 6. Need to drop 2.
+	// Only custom_label_a and custom_label_b should be dropped; cpu, mode, device survive.
+	p := newTestProcessorSimple(4)
+	result, err := p.processMetrics(t.Context(), md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	da := getDatapointAttrs(result)
+	for _, key := range []string{"cpu", "mode", "device"} {
+		if _, ok := da.Get(key); !ok {
+			t.Errorf("protected datapoint attr %q should not be dropped", key)
+		}
+	}
+	for _, key := range []string{"custom_label_a", "custom_label_b"} {
+		if _, ok := da.Get(key); ok {
+			t.Errorf("non-protected datapoint attr %q should be dropped", key)
+		}
 	}
 }
 
@@ -598,7 +632,7 @@ func TestProtected_ScopeAttrsWithCloudWatchPrefix(t *testing.T) {
 	}
 }
 
-func TestScope_NonProtectedScopeAttrsDroppedBeforeResourceLabels(t *testing.T) {
+func TestScope_NonProtectedScopeAttrsSurviveWhenCustomerNodeLabelCoversExcess(t *testing.T) {
 	scopeAttrs := map[string]string{
 		"source": "cadvisor",
 	}
@@ -609,20 +643,20 @@ func TestScope_NonProtectedScopeAttrsDroppedBeforeResourceLabels(t *testing.T) {
 
 	md := newTestMetrics(resourceAttrs, scopeAttrs, nil)
 	// Limit = 2: 2 resource + 1 scope + 0 dp = 3. Need to drop 1.
-	// Scope attr "source" (tier 2) should be dropped before resource label (tier 7).
+	// Resource label (tier 6) should be dropped before scope attr (tier 9).
 	p := newTestProcessorSimple(2)
 	result, err := p.processMetrics(t.Context(), md)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	sa := getScopeAttrs(result)
-	if _, ok := sa.Get("source"); ok {
-		t.Error("non-protected scope attr should be dropped before resource labels")
-	}
 	ra := getResourceAttrs(result)
-	if _, ok := ra.Get("k8s.node.label.custom-node"); !ok {
-		t.Error("resource label should survive when scope attr covers the excess")
+	if _, ok := ra.Get("k8s.node.label.custom-node"); ok {
+		t.Error("resource label should be dropped before non-protected scope attr")
+	}
+	sa := getScopeAttrs(result)
+	if _, ok := sa.Get("source"); !ok {
+		t.Error("non-protected scope attr should survive when resource labels cover the excess")
 	}
 }
 
