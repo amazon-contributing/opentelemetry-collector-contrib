@@ -10,17 +10,17 @@ import "strings"
 // Resource labels (node/pod) are dropped before scope and datapoint attrs,
 // since scope and datapoint attrs are more likely to be needed for queries.
 const (
-	tierNotDroppable       = 0  // Protected attribute
-	tier1HelmTooling       = 1  // Helm/tooling labels (node + pod)
-	tier2K8sInternal       = 2  // K8s internal controller labels (node + pod)
-	tier3VendorNode        = 3  // Vendor-specific node labels (nvidia, karpenter, aws.amazon.com)
-	tier4EKSSystem         = 4  // EKS system labels (node only)
-	tier5K8sSystemNode     = 5  // K8s system node labels (kubernetes.io, topology, node.kubernetes.io, k8s.io)
-	tier6CustomerNode      = 6  // Customer node labels (unknown prefix)
-	tier7KnownPod          = 7  // Known vendor pod labels (batch.kubernetes.io, statefulset.kubernetes.io)
-	tier8CustomerPod       = 8  // Customer pod labels (unknown prefix)
-	tier9Scope             = 9  // Non-protected scope attributes (except instrumentation.cloudwatch.*)
-	tier10Datapoint        = 10 // Non-protected datapoint attributes (last resort)
+	tierNotDroppable   = 0  // Protected attribute
+	tier1HelmTooling   = 1  // Helm/tooling labels (node + pod)
+	tier2K8sInternal   = 2  // K8s internal controller labels (node + pod)
+	tier3VendorNode    = 3  // Vendor-specific node labels (nvidia, karpenter, aws.amazon.com)
+	tier4EKSSystem     = 4  // EKS system labels (node only)
+	tier5K8sSystemNode = 5  // K8s system node labels (kubernetes.io, topology, node.kubernetes.io, k8s.io)
+	tier6CustomerNode  = 6  // Customer node labels (unknown prefix)
+	tier7KnownPod      = 7  // Known vendor pod labels (batch.kubernetes.io, statefulset.kubernetes.io)
+	tier8CustomerPod   = 8  // Customer pod labels (unknown prefix)
+	tier9Scope         = 9  // Non-protected scope attributes (except instrumentation.cloudwatch.*)
+	tier10Datapoint    = 10 // Non-protected datapoint attributes (last resort)
 )
 
 // protectedResourceKeys contains resource attribute keys that are never dropped.
