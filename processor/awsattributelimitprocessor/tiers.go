@@ -66,14 +66,20 @@ var protectedDatapointKeys = map[string]struct{}{
 	"fstype":     {},
 	// cadvisor
 	"interface": {},
-	// neuron
+	// neuron — identity dimensions (collapsing these merges all core/device series)
 	"memory_location": {},
 	"percentile":      {},
+	"neuroncore":      {},
+	"neurondevice":    {},
+	// neuron — status dimensions
+	"status_type": {},
+	"error_type":  {},
 	// control plane
 	"verb":         {},
 	"code":         {},
 	"method":       {},
 	"request_kind": {},
+	"resource":     {},
 }
 
 // protectedPrefixes contains resource attribute prefixes that are never dropped.
@@ -161,14 +167,14 @@ const (
 // or 0 (tierNotDroppable) if the attribute is protected or not classifiable.
 // attrSource indicates where the attribute lives: "datapoint", "scope", or "resource".
 func classifyAttribute(key string, attrSource string) int {
-	if attrSource == "datapoint" {
+	if attrSource == attrSourceDatapoint {
 		if isProtectedDatapoint(key) {
 			return tierNotDroppable
 		}
 		return tier10Datapoint
 	}
 
-	if attrSource == "scope" {
+	if attrSource == attrSourceScope {
 		if strings.HasPrefix(key, protectedScopePrefix) {
 			return tierNotDroppable
 		}

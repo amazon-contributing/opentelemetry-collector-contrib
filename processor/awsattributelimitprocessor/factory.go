@@ -28,7 +28,7 @@ func NewFactory() processor.Factory {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		MaxTotalAttributes: 150,
+		MaxTotalAttributes: maxAllowedAttributes,
 	}
 }
 

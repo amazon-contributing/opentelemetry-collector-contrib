@@ -16,16 +16,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// Attribute source constants used for classification and switch dispatch.
+const (
+	attrSourceResource  = "resource"
+	attrSourceScope     = "scope"
+	attrSourceDatapoint = "datapoint"
+)
+
 // attributeLimitProcessor enforces the aws backend attribute limit by removing
 // redundant attributes and dropping low-priority attributes
 // by tier when the total count exceeds the configured maximum.
 type attributeLimitProcessor struct {
-	config                   *Config
-	logger                   *zap.Logger
-	unconditionalRemovalKeys map[string]struct{}
-	mu                       sync.Mutex
-	lastLogAt                map[string]time.Time // rate-limiting: last log time per metric name
-	lastEviction             time.Time
+	config                       *Config
+	logger                       *zap.Logger
+	unconditionalRemovalKeys     map[string]struct{}
+	unconditionalRemovalPrefixes []string
+	mu                           sync.Mutex
+	lastLogAt                    map[string]time.Time // rate-limiting: last log time per metric name
+	lastEviction                 time.Time
 }
 
 func newProcessor(cfg *Config, logger *zap.Logger) *attributeLimitProcessor {
@@ -34,11 +42,12 @@ func newProcessor(cfg *Config, logger *zap.Logger) *attributeLimitProcessor {
 		keySet[k] = struct{}{}
 	}
 	return &attributeLimitProcessor{
-		config:                   cfg,
-		logger:                   logger,
-		unconditionalRemovalKeys: keySet,
-		lastLogAt:                make(map[string]time.Time),
-		lastEviction:             time.Now(),
+		config:                       cfg,
+		logger:                       logger,
+		unconditionalRemovalKeys:     keySet,
+		unconditionalRemovalPrefixes: cfg.UnconditionalRemovalPrefixes,
+		lastLogAt:                    make(map[string]time.Time),
+		lastEviction:                 time.Now(),
 	}
 }
 
@@ -61,7 +70,7 @@ func (p *attributeLimitProcessor) removeUnconditionalAttributes(attrs pcommon.Ma
 			return true
 		}
 		// Check prefix patterns.
-		for _, prefix := range p.config.UnconditionalRemovalPrefixes {
+		for _, prefix := range p.unconditionalRemovalPrefixes {
 			if strings.HasPrefix(key, prefix) {
 				return true
 			}
@@ -102,27 +111,27 @@ func removeExcessByTier(resourceAttrs pcommon.Map, scopeAttrs pcommon.Map, datap
 
 	// Scan resource attributes (tiers 1-8).
 	resourceAttrs.Range(func(key string, _ pcommon.Value) bool {
-		tier := classifyAttribute(key, "resource")
+		tier := classifyAttribute(key, attrSourceResource)
 		if tier > 0 {
-			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "resource"})
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: attrSourceResource})
 		}
 		return true
 	})
 
 	// Scan scope attributes (tier 9).
 	scopeAttrs.Range(func(key string, _ pcommon.Value) bool {
-		tier := classifyAttribute(key, "scope")
+		tier := classifyAttribute(key, attrSourceScope)
 		if tier > 0 {
-			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "scope"})
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: attrSourceScope})
 		}
 		return true
 	})
 
 	// Scan datapoint attributes (tier 10).
 	datapointAttrs.Range(func(key string, _ pcommon.Value) bool {
-		tier := classifyAttribute(key, "datapoint")
+		tier := classifyAttribute(key, attrSourceDatapoint)
 		if tier > 0 {
-			droppable = append(droppable, attrEntry{key: key, tier: tier, source: "datapoint"})
+			droppable = append(droppable, attrEntry{key: key, tier: tier, source: attrSourceDatapoint})
 		}
 		return true
 	})
@@ -143,11 +152,11 @@ func removeExcessByTier(resourceAttrs pcommon.Map, scopeAttrs pcommon.Map, datap
 			break
 		}
 		switch entry.source {
-		case "datapoint":
+		case attrSourceDatapoint:
 			datapointAttrs.Remove(entry.key)
-		case "scope":
+		case attrSourceScope:
 			scopeAttrs.Remove(entry.key)
-		case "resource":
+		case attrSourceResource:
 			resourceAttrs.Remove(entry.key)
 		}
 		dropped++
