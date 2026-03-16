@@ -290,3 +290,55 @@ func TestProcessMetrics_EmptyMetrics(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.ResourceMetrics().Len())
 }
+
+func TestProcessMetrics_ExponentialHistogramMetricType(t *testing.T) {
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+		"0": {"res": {PodName: "exphist-pod", Namespace: "ns", ContainerName: "c"}},
+	})
+	cfg := &Config{
+		DeviceTypes: []DeviceTypeConfig{
+			{Name: "gpu", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res"}},
+		},
+	}
+	p := newTestProcessor(cfg, lookup)
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
+	m.SetName("exp_latency")
+	dp := m.SetEmptyExponentialHistogram().DataPoints().AppendEmpty()
+	dp.Attributes().PutStr("dev", "0")
+
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).ExponentialHistogram().DataPoints().At(0)
+	podVal, ok := dpOut.Attributes().Get(k8sPodNameKey)
+	assert.True(t, ok)
+	assert.Equal(t, "exphist-pod", podVal.AsString())
+}
+
+func TestProcessMetrics_SummaryMetricType(t *testing.T) {
+	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+		"0": {"res": {PodName: "summary-pod", Namespace: "ns", ContainerName: "c"}},
+	})
+	cfg := &Config{
+		DeviceTypes: []DeviceTypeConfig{
+			{Name: "gpu", DeviceIDAttribute: "dev", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"res"}},
+		},
+	}
+	p := newTestProcessor(cfg, lookup)
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	m := rm.ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
+	m.SetName("request_duration")
+	dp := m.SetEmptySummary().DataPoints().AppendEmpty()
+	dp.Attributes().PutStr("dev", "0")
+
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dpOut := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Summary().DataPoints().At(0)
+	podVal, ok := dpOut.Attributes().Get(k8sPodNameKey)
+	assert.True(t, ok)
+	assert.Equal(t, "summary-pod", podVal.AsString())
+}

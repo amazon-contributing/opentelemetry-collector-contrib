@@ -85,6 +85,6 @@ func TestStop_NilFields(_ *testing.T) {
 func TestRefresh_NoResourceNames(t *testing.T) {
 	c := NewClient(zap.NewNop())
 	// Should be a no-op when no resource names registered.
-	c.refresh()
+	c.refresh(t.Context())
 	assert.Empty(t, c.deviceToPod)
 }

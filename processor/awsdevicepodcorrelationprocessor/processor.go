@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package awsdevicepodcorrelationprocessor
+package awsdevicepodcorrelationprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor"
 
 import (
 	"context"
@@ -41,7 +41,7 @@ func newProcessor(cfg *Config, logger *zap.Logger) *devicePodCorrelationProcesso
 
 // Start creates the Kubelet Pod Resources API client and registers
 // all configured resource names.
-func (p *devicePodCorrelationProcessor) Start(_ context.Context, _ component.Host) error {
+func (p *devicePodCorrelationProcessor) Start(ctx context.Context, _ component.Host) error {
 	p.client = kubelet.NewClient(p.logger, kubelet.WithSocketPath(p.config.KubeletSocketPath))
 	p.lookup = p.client
 
@@ -55,7 +55,7 @@ func (p *devicePodCorrelationProcessor) Start(_ context.Context, _ component.Hos
 		}
 	}
 
-	return p.client.Start()
+	return p.client.Start(ctx)
 }
 
 // Shutdown stops the kubelet client and releases resources.

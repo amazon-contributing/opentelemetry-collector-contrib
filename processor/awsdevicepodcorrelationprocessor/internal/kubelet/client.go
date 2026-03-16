@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package kubelet
+package kubelet // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/kubelet"
 
 import (
 	"context"
@@ -37,7 +37,6 @@ type Client struct {
 	resourceNames   map[string]struct{}
 	mu              sync.RWMutex
 	deviceToPod     map[deviceKey]ContainerInfo
-	ctx             context.Context
 	cancel          context.CancelFunc
 	wg              sync.WaitGroup
 	socketPath      string
@@ -77,7 +76,7 @@ func NewClient(logger *zap.Logger, opts ...ClientOption) *Client {
 }
 
 // Start connects to the kubelet socket and begins periodic polling.
-func (c *Client) Start() error {
+func (c *Client) Start(ctx context.Context) error {
 	conn, err := grpc.NewClient("passthrough:"+c.socketPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
@@ -90,10 +89,12 @@ func (c *Client) Start() error {
 	}
 	c.conn = conn
 	c.listerClient = podresourcesapi.NewPodResourcesListerClient(conn)
-	c.ctx, c.cancel = context.WithCancel(context.Background())
+
+	pollCtx, cancel := context.WithCancel(ctx)
+	c.cancel = cancel
 
 	c.wg.Add(1)
-	go c.pollLoop()
+	go c.pollLoop(pollCtx)
 	return nil
 }
 
@@ -125,29 +126,29 @@ func (c *Client) GetContainerInfo(deviceID string, resourceName string) *Contain
 	return nil
 }
 
-func (c *Client) pollLoop() {
+func (c *Client) pollLoop(ctx context.Context) {
 	defer c.wg.Done()
 	ticker := time.NewTicker(c.refreshInterval)
 	defer ticker.Stop()
 
-	c.refresh()
+	c.refresh(ctx)
 
 	for {
 		select {
 		case <-ticker.C:
-			c.refresh()
-		case <-c.ctx.Done():
+			c.refresh(ctx)
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *Client) refresh() {
+func (c *Client) refresh(ctx context.Context) {
 	if len(c.resourceNames) == 0 {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.ctx, connectionTimeout)
+	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
 	defer cancel()
 
 	resp, err := c.listerClient.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
