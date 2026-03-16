@@ -4,11 +4,31 @@
 package kubelet
 
 import (
+	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 )
+
+// stubListerClient returns an empty ListPodResourcesResponse.
+type stubListerClient struct{}
+
+func (s *stubListerClient) List(_ context.Context, _ *podresourcesapi.ListPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.ListPodResourcesResponse, error) {
+	return &podresourcesapi.ListPodResourcesResponse{}, nil
+}
+
+func (s *stubListerClient) GetAllocatableResources(_ context.Context, _ *podresourcesapi.AllocatableResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.AllocatableResourcesResponse, error) {
+	return nil, nil
+}
+
+func (s *stubListerClient) Get(_ context.Context, _ *podresourcesapi.GetPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
+	return nil, nil
+}
 
 func TestNewClient_Defaults(t *testing.T) {
 	c := NewClient(zap.NewNop())
@@ -87,4 +107,26 @@ func TestRefresh_NoResourceNames(t *testing.T) {
 	// Should be a no-op when no resource names registered.
 	c.refresh(t.Context())
 	assert.Empty(t, c.deviceToPod)
+}
+
+func TestAddResourceName_ConcurrentWithRefresh(t *testing.T) {
+	c := NewClient(zap.NewNop())
+	c.listerClient = &stubListerClient{}
+	c.AddResourceName("nvidia.com/gpu")
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := range 100 {
+			c.AddResourceName(fmt.Sprintf("resource/%d", i))
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for range 100 {
+			c.refresh(t.Context())
+		}
+	}()
+	wg.Wait()
 }
