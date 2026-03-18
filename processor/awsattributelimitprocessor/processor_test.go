@@ -611,7 +611,8 @@ func TestProtected_PodLabelsNeverRemoved(t *testing.T) {
 
 func TestProtected_ScopeAttrsWithCloudWatchPrefix(t *testing.T) {
 	scopeAttrs := map[string]string{
-		"instrumentation.cloudwatch.source": "cadvisor",
+		"cloudwatch.source":   "cloudwatch-agent",
+		"cloudwatch.solution": "cloudwatch-agent",
 	}
 	// Add droppable resource attrs to trigger tier-based dropping.
 	resourceAttrs := map[string]string{
@@ -627,8 +628,11 @@ func TestProtected_ScopeAttrsWithCloudWatchPrefix(t *testing.T) {
 	}
 
 	sa := getScopeAttrs(result)
-	if _, ok := sa.Get("instrumentation.cloudwatch.source"); !ok {
-		t.Error("scope attribute with instrumentation.cloudwatch.* prefix should never be removed")
+	if _, ok := sa.Get("cloudwatch.source"); !ok {
+		t.Error("scope attribute cloudwatch.source should never be removed")
+	}
+	if _, ok := sa.Get("cloudwatch.solution"); !ok {
+		t.Error("scope attribute cloudwatch.solution should never be removed")
 	}
 }
 
@@ -968,7 +972,7 @@ func TestForcePrune_PrunesScopeAttrs(t *testing.T) {
 
 	md := newTestMetrics(resourceAttrs, scopeAttrs, nil)
 	// Total = 1 resource + 3 scope + 0 dp = 4. Limit = 2.
-	// All scope attrs are non-protected (no instrumentation.cloudwatch.* prefix).
+	// All scope attrs are non-protected (no cloudwatch.* prefix).
 	// Tier-based dropping removes scope attrs (tier 2). If still over, force-prune kicks in.
 	p, logs := newTestProcessorWithLogs(2)
 	result, err := p.processMetrics(t.Context(), md)

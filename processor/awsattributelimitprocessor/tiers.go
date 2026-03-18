@@ -19,7 +19,7 @@ const (
 	tier6CustomerNode  = 6  // Customer node labels (unknown prefix)
 	tier7KnownPod      = 7  // Known vendor pod labels (batch.kubernetes.io, statefulset.kubernetes.io)
 	tier8CustomerPod   = 8  // Customer pod labels (unknown prefix)
-	tier9Scope         = 9  // Non-protected scope attributes (except instrumentation.cloudwatch.*)
+	tier9Scope         = 9  // Non-protected scope attributes (except cloudwatch.*)
 	tier10Datapoint    = 10 // Non-protected datapoint attributes (last resort)
 )
 
@@ -90,7 +90,11 @@ var protectedPrefixes = []string{
 }
 
 // protectedScopePrefix is the scope attribute prefix that is never dropped.
-const protectedScopePrefix = "instrumentation.cloudwatch."
+// The Helm transform/set_scope_* processors set scope attributes as
+// attributes["cloudwatch.source"] and attributes["cloudwatch.solution"].
+// Zeus adds the "@instrumentation." prefix at query time (ZIP-0006), but
+// the actual OTel scope attribute keys use "cloudwatch." only.
+const protectedScopePrefix = "cloudwatch."
 
 // isProtectedResource returns true if the key is a protected resource attribute.
 func isProtectedResource(key string) bool {

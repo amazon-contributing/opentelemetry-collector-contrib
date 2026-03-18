@@ -285,6 +285,21 @@ func TestClassifyAttribute_Tier9_Scope(t *testing.T) {
 	}
 }
 
+func TestClassifyAttribute_ProtectedScope(t *testing.T) {
+	keys := []string{
+		"cloudwatch.source",
+		"cloudwatch.solution",
+	}
+	for _, key := range keys {
+		t.Run(key, func(t *testing.T) {
+			tier := classifyAttribute(key, attrSourceScope)
+			if tier != tierNotDroppable {
+				t.Errorf("classifyAttribute(%q, scope) = %d, want %d (protected)", key, tier, tierNotDroppable)
+			}
+		})
+	}
+}
+
 func TestClassifyAttribute_Tier10_Datapoint(t *testing.T) {
 	keys := []string{
 		"job",
