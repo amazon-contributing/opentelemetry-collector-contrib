@@ -90,10 +90,6 @@ var protectedPrefixes = []string{
 }
 
 // protectedScopePrefix is the scope attribute prefix that is never dropped.
-// The Helm transform/set_scope_* processors set scope attributes as
-// attributes["cloudwatch.source"] and attributes["cloudwatch.solution"].
-// Zeus adds the "@instrumentation." prefix at query time (ZIP-0006), but
-// the actual OTel scope attribute keys use "cloudwatch." only.
 const protectedScopePrefix = "cloudwatch."
 
 // isProtectedResource returns true if the key is a protected resource attribute.
