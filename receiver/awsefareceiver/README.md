@@ -62,7 +62,9 @@ All metrics are cumulative monotonic sums (int64) representing EFA driver hardwa
 | `efa_rdma_read_wr_err` | RDMA read work request errors | 1 |
 | `efa_rdma_read_resp_bytes` | Bytes sent in RDMA read response | By |
 
-## Resource Attributes
+## Data Point Attributes
+
+Each metric data point includes the following attributes to identify the EFA device:
 
 | Attribute | Description |
 |---|---|

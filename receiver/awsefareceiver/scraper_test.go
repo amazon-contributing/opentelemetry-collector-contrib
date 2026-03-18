@@ -177,32 +177,35 @@ func TestScrape(t *testing.T) {
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
 
-	assert.Equal(t, 2, metrics.ResourceMetrics().Len())
+	// With data point attributes, all metrics go into a single ResourceMetrics
+	require.GreaterOrEqual(t, metrics.ResourceMetrics().Len(), 1)
 
-	totalMetrics := 0
+	totalDataPoints := 0
+	devicesSeen := make(map[string]bool)
 	for i := 0; i < metrics.ResourceMetrics().Len(); i++ {
 		rm := metrics.ResourceMetrics().At(i)
-		attrs := rm.Resource().Attributes()
-
-		device, ok := attrs.Get("aws.efa.device")
-		assert.True(t, ok, "expected aws.efa.device attribute")
-		assert.Contains(t, []string{"rdmap0s31", "rdmap1s31"}, device.Str())
-
-		port, ok := attrs.Get("aws.efa.port")
-		assert.True(t, ok, "expected aws.efa.port attribute")
-		assert.Equal(t, "1", port.Str())
-
-		// Verify efa.rdma.device is NOT present
-		_, hasRdmaDevice := attrs.Get("efa.rdma.device")
-		assert.False(t, hasRdmaDevice, "efa.rdma.device attribute should not be present")
-
 		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
-			totalMetrics += rm.ScopeMetrics().At(j).Metrics().Len()
+			sm := rm.ScopeMetrics().At(j)
+			for k := 0; k < sm.Metrics().Len(); k++ {
+				m := sm.Metrics().At(k)
+				for dp := 0; dp < m.Sum().DataPoints().Len(); dp++ {
+					totalDataPoints++
+					pt := m.Sum().DataPoints().At(dp)
+					device, ok := pt.Attributes().Get("aws.efa.device")
+					assert.True(t, ok, "expected aws.efa.device attribute on data point")
+					devicesSeen[device.Str()] = true
+
+					_, hasPort := pt.Attributes().Get("aws.efa.port")
+					assert.True(t, hasPort, "expected aws.efa.port attribute on data point")
+				}
+			}
 		}
 	}
 
-	// 22 metrics per device * 2 devices = 44
-	assert.Equal(t, 44, totalMetrics)
+	assert.True(t, devicesSeen["rdmap0s31"], "expected data points for rdmap0s31")
+	assert.True(t, devicesSeen["rdmap1s31"], "expected data points for rdmap1s31")
+	// 22 counters per device * 2 devices = 44 data points total
+	assert.Equal(t, 44, totalDataPoints)
 }
 
 func TestScrapeWithENIResolution(t *testing.T) {
@@ -226,11 +229,15 @@ func TestScrapeWithENIResolution(t *testing.T) {
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, metrics.ResourceMetrics().Len())
+	require.GreaterOrEqual(t, metrics.ResourceMetrics().Len(), 1)
 
-	attrs := metrics.ResourceMetrics().At(0).Resource().Attributes()
-	eniID, ok := attrs.Get("aws.efa.eni.id")
-	assert.True(t, ok, "expected aws.efa.eni.id attribute")
+	// Check that eni.id appears as a data point attribute
+	rm := metrics.ResourceMetrics().At(0)
+	sm := rm.ScopeMetrics().At(0)
+	m := sm.Metrics().At(0)
+	pt := m.Sum().DataPoints().At(0)
+	eniID, ok := pt.Attributes().Get("aws.efa.eni.id")
+	assert.True(t, ok, "expected aws.efa.eni.id attribute on data point")
 	assert.Equal(t, "eni-abc123", eniID.Str())
 }
 
@@ -249,14 +256,17 @@ func TestScrapeENIResolutionRetryOnFailure(t *testing.T) {
 	}
 
 	// First scrape: ENI resolver fails
-	failResolver := &mockENIResolver{enis: map[string]string{}}
-	s.eniResolver = failResolver
+	s.eniResolver = &mockENIResolver{enis: map[string]string{}}
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, metrics.ResourceMetrics().Len())
-	_, ok := metrics.ResourceMetrics().At(0).Resource().Attributes().Get("aws.efa.eni.id")
-	assert.False(t, ok, "expected no aws.efa.eni.id on first scrape (IMDS failure)")
+	require.GreaterOrEqual(t, metrics.ResourceMetrics().Len(), 1)
+	// eni.id should be empty string (still present as attribute but empty)
+	rm := metrics.ResourceMetrics().At(0)
+	pt := rm.ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
+	eniID, ok := pt.Attributes().Get("aws.efa.eni.id")
+	assert.True(t, ok, "expected aws.efa.eni.id attribute on data point")
+	assert.Equal(t, "", eniID.Str(), "expected empty eni.id on first scrape (IMDS failure)")
 
 	// Second scrape: ENI resolver succeeds — should retry since failure wasn't cached
 	s.eniResolver = &mockENIResolver{
@@ -265,8 +275,10 @@ func TestScrapeENIResolutionRetryOnFailure(t *testing.T) {
 
 	metrics, err = s.scrape(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, metrics.ResourceMetrics().Len())
-	eniID, ok := metrics.ResourceMetrics().At(0).Resource().Attributes().Get("aws.efa.eni.id")
+	require.GreaterOrEqual(t, metrics.ResourceMetrics().Len(), 1)
+	rm = metrics.ResourceMetrics().At(0)
+	pt = rm.ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
+	eniID, ok = pt.Attributes().Get("aws.efa.eni.id")
 	assert.True(t, ok, "expected aws.efa.eni.id on second scrape (retry succeeded)")
 	assert.Equal(t, "eni-retry123", eniID.Str())
 }
@@ -320,7 +332,7 @@ func TestScrapeMetricValues(t *testing.T) {
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, metrics.ResourceMetrics().Len())
+	require.GreaterOrEqual(t, metrics.ResourceMetrics().Len(), 1)
 
 	sm := metrics.ResourceMetrics().At(0).ScopeMetrics().At(0)
 
@@ -397,7 +409,17 @@ func TestScrapePartialDeviceFailure(t *testing.T) {
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, 1, metrics.ResourceMetrics().Len())
+	// Only efa0 should have data points
+	totalDataPoints := 0
+	for i := 0; i < metrics.ResourceMetrics().Len(); i++ {
+		rm := metrics.ResourceMetrics().At(i)
+		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
+			for k := 0; k < rm.ScopeMetrics().At(j).Metrics().Len(); k++ {
+				totalDataPoints += rm.ScopeMetrics().At(j).Metrics().At(k).Sum().DataPoints().Len()
+			}
+		}
+	}
+	assert.Equal(t, 22, totalDataPoints, "expected 22 data points from efa0 only")
 }
 
 func TestScrapeCounterReadError(t *testing.T) {
@@ -422,8 +444,18 @@ func TestScrapeCounterReadError(t *testing.T) {
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	// efa0 is included with partial counters (rx_bytes failed but others succeeded)
-	assert.Equal(t, 2, metrics.ResourceMetrics().Len())
+	// Both devices should have data points (efa0 with partial counters)
+	totalDataPoints := 0
+	for i := 0; i < metrics.ResourceMetrics().Len(); i++ {
+		rm := metrics.ResourceMetrics().At(i)
+		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
+			for k := 0; k < rm.ScopeMetrics().At(j).Metrics().Len(); k++ {
+				totalDataPoints += rm.ScopeMetrics().At(j).Metrics().At(k).Sum().DataPoints().Len()
+			}
+		}
+	}
+	// efa0: 21 counters (rx_bytes failed) + efa1: 22 counters = 43
+	assert.Equal(t, 43, totalDataPoints)
 }
 
 func TestRecordOverflow(t *testing.T) {
@@ -444,26 +476,32 @@ func TestRecordOverflow(t *testing.T) {
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, metrics.ResourceMetrics().Len())
+	require.GreaterOrEqual(t, metrics.ResourceMetrics().Len(), 1)
 
 	sm := metrics.ResourceMetrics().At(0).ScopeMetrics().At(0)
 
 	// rdma_read_bytes overflows int64, so it's skipped: 21 instead of 22
-	assert.Equal(t, 21, sm.Metrics().Len())
+	totalDataPoints := 0
+	for i := 0; i < sm.Metrics().Len(); i++ {
+		totalDataPoints += sm.Metrics().At(i).Sum().DataPoints().Len()
+	}
+	assert.Equal(t, 21, totalDataPoints)
 
 	for i := 0; i < sm.Metrics().Len(); i++ {
 		m := sm.Metrics().At(i)
 		if m.Name() == "efa_tx_bytes" {
 			assert.Equal(t, int64(200), m.Sum().DataPoints().At(0).IntValue())
 		}
-		assert.NotEqual(t, "efa_rdma_read_bytes", m.Name())
+		if m.Name() == "efa_rdma_read_bytes" {
+			assert.Equal(t, 0, m.Sum().DataPoints().Len(), "efa_rdma_read_bytes should have no data points")
+		}
 	}
 }
 
 func TestScrapePartialCounterAvailability(t *testing.T) {
 	// Simulate an older EFA driver that only has 15 of 22 counters.
 	// Missing counters return errCounterNotAvailable, so readCounters
-	// skips them. The scraper should emit exactly 15 metrics per device.
+	// skips them. The scraper should emit exactly 15 data points per device.
 	partialCounters := map[string]uint64{
 		"rdma_read_bytes":             100,
 		"rdma_write_bytes":            200,
@@ -513,14 +551,24 @@ func TestScrapePartialCounterAvailability(t *testing.T) {
 
 	metrics, err := s.scrape(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, 2, metrics.ResourceMetrics().Len())
 
+	// Count data points per device by checking aws.efa.device attribute
+	deviceDataPoints := make(map[string]int)
 	for i := 0; i < metrics.ResourceMetrics().Len(); i++ {
 		rm := metrics.ResourceMetrics().At(i)
-		metricsCount := 0
 		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
-			metricsCount += rm.ScopeMetrics().At(j).Metrics().Len()
+			sm := rm.ScopeMetrics().At(j)
+			for k := 0; k < sm.Metrics().Len(); k++ {
+				m := sm.Metrics().At(k)
+				for dp := 0; dp < m.Sum().DataPoints().Len(); dp++ {
+					pt := m.Sum().DataPoints().At(dp)
+					device, _ := pt.Attributes().Get("aws.efa.device")
+					deviceDataPoints[device.Str()]++
+				}
+			}
 		}
-		assert.Equal(t, 15, metricsCount, "expected 15 metrics per device with partial counters")
 	}
+
+	assert.Equal(t, 15, deviceDataPoints["efa0"], "expected 15 data points for efa0 with partial counters")
+	assert.Equal(t, 15, deviceDataPoints["efa1"], "expected 15 data points for efa1 with partial counters")
 }

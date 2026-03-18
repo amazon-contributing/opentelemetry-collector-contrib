@@ -20,6 +20,14 @@ The number of times EFA SRD connections entered an impaired state resulting in a
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_rdma_read_bytes
 
 The number of bytes received using RDMA read operations
@@ -27,6 +35,14 @@ The number of bytes received using RDMA read operations
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_rdma_read_resp_bytes
 
@@ -36,6 +52,14 @@ The number of bytes sent in RDMA read response
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_rdma_read_wr_err
 
 The number of RDMA read work request errors
@@ -43,6 +67,14 @@ The number of RDMA read work request errors
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_rdma_read_wrs
 
@@ -52,6 +84,14 @@ The number of RDMA read work requests completed
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_rdma_write_bytes
 
 The number of bytes written by other instances using RDMA write operations
@@ -59,6 +99,14 @@ The number of bytes written by other instances using RDMA write operations
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_rdma_write_recv_bytes
 
@@ -68,6 +116,14 @@ The number of bytes received by RDMA write operations
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_rdma_write_wr_err
 
 The number of RDMA write work request errors
@@ -75,6 +131,14 @@ The number of RDMA write work request errors
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_rdma_write_wrs
 
@@ -84,6 +148,14 @@ The number of RDMA write work requests completed
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_recv_bytes
 
 The number of bytes received via recv operations
@@ -91,6 +163,14 @@ The number of bytes received via recv operations
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_recv_wrs
 
@@ -100,6 +180,14 @@ The number of receive work requests completed
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_retrans_bytes
 
 The number of EFA SRD bytes retransmitted
@@ -107,6 +195,14 @@ The number of EFA SRD bytes retransmitted
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_retrans_pkts
 
@@ -116,6 +212,14 @@ The number of EFA SRD packets retransmitted
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_retrans_timeout_events
 
 The number of times EFA SRD traffic timed out and resulted in a network path change
@@ -123,6 +227,14 @@ The number of times EFA SRD traffic timed out and resulted in a network path cha
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_rx_bytes
 
@@ -132,6 +244,14 @@ The number of bytes received
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_rx_dropped
 
 The number of packets that were received and then dropped
@@ -139,6 +259,14 @@ The number of packets that were received and then dropped
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_rx_pkts
 
@@ -148,6 +276,14 @@ The number of packets received
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_send_bytes
 
 The number of bytes sent via send operations
@@ -155,6 +291,14 @@ The number of bytes sent via send operations
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_send_wrs
 
@@ -164,6 +308,14 @@ The number of send work requests completed
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_tx_bytes
 
 The number of bytes transmitted
@@ -171,6 +323,14 @@ The number of bytes transmitted
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
 
 ### efa_tx_pkts
 
@@ -180,6 +340,14 @@ The number of packets transmitted
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |
+
 ### efa_unresponsive_remote_events
 
 The number of times an EFA SRD remote connection was unresponsive
@@ -188,10 +356,10 @@ The number of times an EFA SRD remote connection was unresponsive
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | 1 | Sum | Int | Cumulative | true |
 
-## Resource Attributes
+#### Attributes
 
-| Name | Description | Values | Enabled |
-| ---- | ----------- | ------ | ------- |
-| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str | true |
-| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str | true |
-| aws.efa.port | The EFA port number | Any Str | true |
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| aws.efa.device | The EFA InfiniBand device name (e.g. efa_0) | Any Str |
+| aws.efa.port | The EFA port number | Any Str |
+| aws.efa.eni.id | The Elastic Network Interface ID associated with the EFA device | Any Str |

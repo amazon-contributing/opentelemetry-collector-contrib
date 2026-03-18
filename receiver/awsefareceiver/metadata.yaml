@@ -8,17 +8,14 @@ status:
   codeowners:
     active: [mitali-salvi]
 
-resource_attributes:
+attributes:
   aws.efa.device:
-    enabled: true
     description: The EFA InfiniBand device name (e.g. efa_0)
     type: string
   aws.efa.port:
-    enabled: true
     description: The EFA port number
     type: string
   aws.efa.eni.id:
-    enabled: true
     description: The Elastic Network Interface ID associated with the EFA device
     type: string
 
@@ -31,6 +28,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rdma_write_bytes:
     description: The number of bytes written by other instances using RDMA write operations
     enabled: true
@@ -39,6 +37,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rdma_write_recv_bytes:
     description: The number of bytes received by RDMA write operations
     enabled: true
@@ -47,6 +46,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rx_bytes:
     description: The number of bytes received
     enabled: true
@@ -55,6 +55,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rx_dropped:
     description: The number of packets that were received and then dropped
     enabled: true
@@ -63,6 +64,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_tx_bytes:
     description: The number of bytes transmitted
     enabled: true
@@ -71,6 +73,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_retrans_bytes:
     description: The number of EFA SRD bytes retransmitted
     enabled: true
@@ -79,6 +82,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_retrans_pkts:
     description: The number of EFA SRD packets retransmitted
     enabled: true
@@ -87,6 +91,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_retrans_timeout_events:
     description: The number of times EFA SRD traffic timed out and resulted in a network path change
     enabled: true
@@ -95,6 +100,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_unresponsive_remote_events:
     description: The number of times an EFA SRD remote connection was unresponsive
     enabled: true
@@ -103,6 +109,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_impaired_remote_conn_events:
     description: The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit
     enabled: true
@@ -111,6 +118,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_tx_pkts:
     description: The number of packets transmitted
     enabled: true
@@ -119,6 +127,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rx_pkts:
     description: The number of packets received
     enabled: true
@@ -127,6 +136,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_send_bytes:
     description: The number of bytes sent via send operations
     enabled: true
@@ -135,6 +145,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_recv_bytes:
     description: The number of bytes received via recv operations
     enabled: true
@@ -143,6 +154,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_send_wrs:
     description: The number of send work requests completed
     enabled: true
@@ -151,6 +163,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_recv_wrs:
     description: The number of receive work requests completed
     enabled: true
@@ -159,6 +172,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rdma_write_wrs:
     description: The number of RDMA write work requests completed
     enabled: true
@@ -167,6 +181,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rdma_read_wrs:
     description: The number of RDMA read work requests completed
     enabled: true
@@ -175,6 +190,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rdma_write_wr_err:
     description: The number of RDMA write work request errors
     enabled: true
@@ -183,6 +199,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rdma_read_wr_err:
     description: The number of RDMA read work request errors
     enabled: true
@@ -191,6 +208,7 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "1"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]
   efa_rdma_read_resp_bytes:
     description: The number of bytes sent in RDMA read response
     enabled: true
@@ -199,3 +217,4 @@ metrics:
       aggregation_temporality: cumulative
       value_type: int
     unit: "By"
+    attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]

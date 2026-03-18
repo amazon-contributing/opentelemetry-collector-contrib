@@ -4,7 +4,6 @@ package metadata
 
 import (
 	"go.opentelemetry.io/collector/confmap"
-	"go.opentelemetry.io/collector/filter"
 )
 
 // MetricConfig provides common config for a particular metric.
@@ -123,62 +122,13 @@ func DefaultMetricsConfig() MetricsConfig {
 	}
 }
 
-// ResourceAttributeConfig provides common config for a particular resource attribute.
-type ResourceAttributeConfig struct {
-	Enabled bool `mapstructure:"enabled"`
-	// Experimental: MetricsInclude defines a list of filters for attribute values.
-	// If the list is not empty, only metrics with matching resource attribute values will be emitted.
-	MetricsInclude []filter.Config `mapstructure:"metrics_include"`
-	// Experimental: MetricsExclude defines a list of filters for attribute values.
-	// If the list is not empty, metrics with matching resource attribute values will not be emitted.
-	// MetricsInclude has higher priority than MetricsExclude.
-	MetricsExclude []filter.Config `mapstructure:"metrics_exclude"`
-
-	enabledSetByUser bool
-}
-
-func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-	err := parser.Unmarshal(rac)
-	if err != nil {
-		return err
-	}
-	rac.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-// ResourceAttributesConfig provides config for awsefareceiver resource attributes.
-type ResourceAttributesConfig struct {
-	AwsEfaDevice ResourceAttributeConfig `mapstructure:"aws.efa.device"`
-	AwsEfaEniID  ResourceAttributeConfig `mapstructure:"aws.efa.eni.id"`
-	AwsEfaPort   ResourceAttributeConfig `mapstructure:"aws.efa.port"`
-}
-
-func DefaultResourceAttributesConfig() ResourceAttributesConfig {
-	return ResourceAttributesConfig{
-		AwsEfaDevice: ResourceAttributeConfig{
-			Enabled: true,
-		},
-		AwsEfaEniID: ResourceAttributeConfig{
-			Enabled: true,
-		},
-		AwsEfaPort: ResourceAttributeConfig{
-			Enabled: true,
-		},
-	}
-}
-
 // MetricsBuilderConfig is a configuration for awsefareceiver metrics builder.
 type MetricsBuilderConfig struct {
-	Metrics            MetricsConfig            `mapstructure:"metrics"`
-	ResourceAttributes ResourceAttributesConfig `mapstructure:"resource_attributes"`
+	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
 func DefaultMetricsBuilderConfig() MetricsBuilderConfig {
 	return MetricsBuilderConfig{
-		Metrics:            DefaultMetricsConfig(),
-		ResourceAttributes: DefaultResourceAttributesConfig(),
+		Metrics: DefaultMetricsConfig(),
 	}
 }

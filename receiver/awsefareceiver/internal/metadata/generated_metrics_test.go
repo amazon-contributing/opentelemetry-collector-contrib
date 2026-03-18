@@ -42,15 +42,6 @@ func TestMetricsBuilder(t *testing.T) {
 			resAttrsSet: testDataSetNone,
 			expectEmpty: true,
 		},
-		{
-			name:        "filter_set_include",
-			resAttrsSet: testDataSetAll,
-		},
-		{
-			name:        "filter_set_exclude",
-			resAttrsSet: testDataSetAll,
-			expectEmpty: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,97 +61,93 @@ func TestMetricsBuilder(t *testing.T) {
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, 1)
+			mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaReadBytesDataPoint(ts, 1)
+			mb.RecordEfaRdmaReadBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaReadRespBytesDataPoint(ts, 1)
+			mb.RecordEfaRdmaReadRespBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaReadWrErrDataPoint(ts, 1)
+			mb.RecordEfaRdmaReadWrErrDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaReadWrsDataPoint(ts, 1)
+			mb.RecordEfaRdmaReadWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaWriteBytesDataPoint(ts, 1)
+			mb.RecordEfaRdmaWriteBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, 1)
+			mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaWriteWrErrDataPoint(ts, 1)
+			mb.RecordEfaRdmaWriteWrErrDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRdmaWriteWrsDataPoint(ts, 1)
+			mb.RecordEfaRdmaWriteWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRecvBytesDataPoint(ts, 1)
+			mb.RecordEfaRecvBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRecvWrsDataPoint(ts, 1)
+			mb.RecordEfaRecvWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRetransBytesDataPoint(ts, 1)
+			mb.RecordEfaRetransBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRetransPktsDataPoint(ts, 1)
+			mb.RecordEfaRetransPktsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRetransTimeoutEventsDataPoint(ts, 1)
+			mb.RecordEfaRetransTimeoutEventsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRxBytesDataPoint(ts, 1)
+			mb.RecordEfaRxBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRxDroppedDataPoint(ts, 1)
+			mb.RecordEfaRxDroppedDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaRxPktsDataPoint(ts, 1)
+			mb.RecordEfaRxPktsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaSendBytesDataPoint(ts, 1)
+			mb.RecordEfaSendBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaSendWrsDataPoint(ts, 1)
+			mb.RecordEfaSendWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaTxBytesDataPoint(ts, 1)
+			mb.RecordEfaTxBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaTxPktsDataPoint(ts, 1)
+			mb.RecordEfaTxPktsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, 1)
+			mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
 
-			rb := mb.NewResourceBuilder()
-			rb.SetAwsEfaDevice("aws.efa.device-val")
-			rb.SetAwsEfaEniID("aws.efa.eni.id-val")
-			rb.SetAwsEfaPort("aws.efa.port-val")
-			res := rb.Emit()
+			res := pcommon.NewResource()
 			metrics := mb.Emit(WithResource(res))
 
 			if tt.expectEmpty {
@@ -196,6 +183,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_read_bytes":
 					assert.False(t, validatedMetrics["efa_rdma_read_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_bytes")
 					validatedMetrics["efa_rdma_read_bytes"] = true
@@ -210,6 +206,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_read_resp_bytes":
 					assert.False(t, validatedMetrics["efa_rdma_read_resp_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_resp_bytes")
 					validatedMetrics["efa_rdma_read_resp_bytes"] = true
@@ -224,6 +229,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_read_wr_err":
 					assert.False(t, validatedMetrics["efa_rdma_read_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_read_wr_err")
 					validatedMetrics["efa_rdma_read_wr_err"] = true
@@ -238,6 +252,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_read_wrs":
 					assert.False(t, validatedMetrics["efa_rdma_read_wrs"], "Found a duplicate in the metrics slice: efa_rdma_read_wrs")
 					validatedMetrics["efa_rdma_read_wrs"] = true
@@ -252,6 +275,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_write_bytes":
 					assert.False(t, validatedMetrics["efa_rdma_write_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_bytes")
 					validatedMetrics["efa_rdma_write_bytes"] = true
@@ -266,6 +298,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_write_recv_bytes":
 					assert.False(t, validatedMetrics["efa_rdma_write_recv_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_recv_bytes")
 					validatedMetrics["efa_rdma_write_recv_bytes"] = true
@@ -280,6 +321,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_write_wr_err":
 					assert.False(t, validatedMetrics["efa_rdma_write_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_write_wr_err")
 					validatedMetrics["efa_rdma_write_wr_err"] = true
@@ -294,6 +344,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rdma_write_wrs":
 					assert.False(t, validatedMetrics["efa_rdma_write_wrs"], "Found a duplicate in the metrics slice: efa_rdma_write_wrs")
 					validatedMetrics["efa_rdma_write_wrs"] = true
@@ -308,6 +367,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_recv_bytes":
 					assert.False(t, validatedMetrics["efa_recv_bytes"], "Found a duplicate in the metrics slice: efa_recv_bytes")
 					validatedMetrics["efa_recv_bytes"] = true
@@ -322,6 +390,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_recv_wrs":
 					assert.False(t, validatedMetrics["efa_recv_wrs"], "Found a duplicate in the metrics slice: efa_recv_wrs")
 					validatedMetrics["efa_recv_wrs"] = true
@@ -336,6 +413,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_retrans_bytes":
 					assert.False(t, validatedMetrics["efa_retrans_bytes"], "Found a duplicate in the metrics slice: efa_retrans_bytes")
 					validatedMetrics["efa_retrans_bytes"] = true
@@ -350,6 +436,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_retrans_pkts":
 					assert.False(t, validatedMetrics["efa_retrans_pkts"], "Found a duplicate in the metrics slice: efa_retrans_pkts")
 					validatedMetrics["efa_retrans_pkts"] = true
@@ -364,6 +459,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_retrans_timeout_events":
 					assert.False(t, validatedMetrics["efa_retrans_timeout_events"], "Found a duplicate in the metrics slice: efa_retrans_timeout_events")
 					validatedMetrics["efa_retrans_timeout_events"] = true
@@ -378,6 +482,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rx_bytes":
 					assert.False(t, validatedMetrics["efa_rx_bytes"], "Found a duplicate in the metrics slice: efa_rx_bytes")
 					validatedMetrics["efa_rx_bytes"] = true
@@ -392,6 +505,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rx_dropped":
 					assert.False(t, validatedMetrics["efa_rx_dropped"], "Found a duplicate in the metrics slice: efa_rx_dropped")
 					validatedMetrics["efa_rx_dropped"] = true
@@ -406,6 +528,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_rx_pkts":
 					assert.False(t, validatedMetrics["efa_rx_pkts"], "Found a duplicate in the metrics slice: efa_rx_pkts")
 					validatedMetrics["efa_rx_pkts"] = true
@@ -420,6 +551,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_send_bytes":
 					assert.False(t, validatedMetrics["efa_send_bytes"], "Found a duplicate in the metrics slice: efa_send_bytes")
 					validatedMetrics["efa_send_bytes"] = true
@@ -434,6 +574,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_send_wrs":
 					assert.False(t, validatedMetrics["efa_send_wrs"], "Found a duplicate in the metrics slice: efa_send_wrs")
 					validatedMetrics["efa_send_wrs"] = true
@@ -448,6 +597,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_tx_bytes":
 					assert.False(t, validatedMetrics["efa_tx_bytes"], "Found a duplicate in the metrics slice: efa_tx_bytes")
 					validatedMetrics["efa_tx_bytes"] = true
@@ -462,6 +620,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_tx_pkts":
 					assert.False(t, validatedMetrics["efa_tx_pkts"], "Found a duplicate in the metrics slice: efa_tx_pkts")
 					validatedMetrics["efa_tx_pkts"] = true
@@ -476,6 +643,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				case "efa_unresponsive_remote_events":
 					assert.False(t, validatedMetrics["efa_unresponsive_remote_events"], "Found a duplicate in the metrics slice: efa_unresponsive_remote_events")
 					validatedMetrics["efa_unresponsive_remote_events"] = true
@@ -490,6 +666,15 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("aws.efa.device")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.device-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.port")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.port-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("aws.efa.eni.id")
+					assert.True(t, ok)
+					assert.Equal(t, "aws.efa.eni.id-val", attrVal.Str())
 				}
 			}
 		})

@@ -48,11 +48,6 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					EfaTxPkts:                   MetricConfig{Enabled: true},
 					EfaUnresponsiveRemoteEvents: MetricConfig{Enabled: true},
 				},
-				ResourceAttributes: ResourceAttributesConfig{
-					AwsEfaDevice: ResourceAttributeConfig{Enabled: true},
-					AwsEfaEniID:  ResourceAttributeConfig{Enabled: true},
-					AwsEfaPort:   ResourceAttributeConfig{Enabled: true},
-				},
 			},
 		},
 		{
@@ -82,18 +77,13 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					EfaTxPkts:                   MetricConfig{Enabled: false},
 					EfaUnresponsiveRemoteEvents: MetricConfig{Enabled: false},
 				},
-				ResourceAttributes: ResourceAttributesConfig{
-					AwsEfaDevice: ResourceAttributeConfig{Enabled: false},
-					AwsEfaEniID:  ResourceAttributeConfig{Enabled: false},
-					AwsEfaPort:   ResourceAttributeConfig{Enabled: false},
-				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadMetricsBuilderConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(MetricConfig{}, ResourceAttributeConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(MetricConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}
@@ -105,53 +95,6 @@ func loadMetricsBuilderConfig(t *testing.T, name string) MetricsBuilderConfig {
 	sub, err := cm.Sub(name)
 	require.NoError(t, err)
 	cfg := DefaultMetricsBuilderConfig()
-	require.NoError(t, sub.Unmarshal(&cfg))
-	return cfg
-}
-
-func TestResourceAttributesConfig(t *testing.T) {
-	tests := []struct {
-		name string
-		want ResourceAttributesConfig
-	}{
-		{
-			name: "default",
-			want: DefaultResourceAttributesConfig(),
-		},
-		{
-			name: "all_set",
-			want: ResourceAttributesConfig{
-				AwsEfaDevice: ResourceAttributeConfig{Enabled: true},
-				AwsEfaEniID:  ResourceAttributeConfig{Enabled: true},
-				AwsEfaPort:   ResourceAttributeConfig{Enabled: true},
-			},
-		},
-		{
-			name: "none_set",
-			want: ResourceAttributesConfig{
-				AwsEfaDevice: ResourceAttributeConfig{Enabled: false},
-				AwsEfaEniID:  ResourceAttributeConfig{Enabled: false},
-				AwsEfaPort:   ResourceAttributeConfig{Enabled: false},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := loadResourceAttributesConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(ResourceAttributeConfig{}))
-			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
-		})
-	}
-}
-
-func loadResourceAttributesConfig(t *testing.T, name string) ResourceAttributesConfig {
-	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
-	require.NoError(t, err)
-	sub, err := cm.Sub(name)
-	require.NoError(t, err)
-	sub, err = sub.Sub("resource_attributes")
-	require.NoError(t, err)
-	cfg := DefaultResourceAttributesConfig()
 	require.NoError(t, sub.Unmarshal(&cfg))
 	return cfg
 }

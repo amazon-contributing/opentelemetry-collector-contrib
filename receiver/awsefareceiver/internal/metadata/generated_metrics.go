@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
@@ -124,9 +123,10 @@ func (m *metricEfaImpairedRemoteConnEvents) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaImpairedRemoteConnEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaImpairedRemoteConnEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -134,6 +134,9 @@ func (m *metricEfaImpairedRemoteConnEvents) recordDataPoint(start pcommon.Timest
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -175,9 +178,10 @@ func (m *metricEfaRdmaReadBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaReadBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaReadBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -185,6 +189,9 @@ func (m *metricEfaRdmaReadBytes) recordDataPoint(start pcommon.Timestamp, ts pco
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -226,9 +233,10 @@ func (m *metricEfaRdmaReadRespBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaReadRespBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaReadRespBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -236,6 +244,9 @@ func (m *metricEfaRdmaReadRespBytes) recordDataPoint(start pcommon.Timestamp, ts
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -277,9 +288,10 @@ func (m *metricEfaRdmaReadWrErr) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaReadWrErr) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaReadWrErr) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -287,6 +299,9 @@ func (m *metricEfaRdmaReadWrErr) recordDataPoint(start pcommon.Timestamp, ts pco
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -328,9 +343,10 @@ func (m *metricEfaRdmaReadWrs) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaReadWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaReadWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -338,6 +354,9 @@ func (m *metricEfaRdmaReadWrs) recordDataPoint(start pcommon.Timestamp, ts pcomm
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -379,9 +398,10 @@ func (m *metricEfaRdmaWriteBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaWriteBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaWriteBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -389,6 +409,9 @@ func (m *metricEfaRdmaWriteBytes) recordDataPoint(start pcommon.Timestamp, ts pc
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -430,9 +453,10 @@ func (m *metricEfaRdmaWriteRecvBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaWriteRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaWriteRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -440,6 +464,9 @@ func (m *metricEfaRdmaWriteRecvBytes) recordDataPoint(start pcommon.Timestamp, t
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -481,9 +508,10 @@ func (m *metricEfaRdmaWriteWrErr) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaWriteWrErr) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaWriteWrErr) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -491,6 +519,9 @@ func (m *metricEfaRdmaWriteWrErr) recordDataPoint(start pcommon.Timestamp, ts pc
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -532,9 +563,10 @@ func (m *metricEfaRdmaWriteWrs) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRdmaWriteWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRdmaWriteWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -542,6 +574,9 @@ func (m *metricEfaRdmaWriteWrs) recordDataPoint(start pcommon.Timestamp, ts pcom
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -583,9 +618,10 @@ func (m *metricEfaRecvBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -593,6 +629,9 @@ func (m *metricEfaRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -634,9 +673,10 @@ func (m *metricEfaRecvWrs) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRecvWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRecvWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -644,6 +684,9 @@ func (m *metricEfaRecvWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.T
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -685,9 +728,10 @@ func (m *metricEfaRetransBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRetransBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRetransBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -695,6 +739,9 @@ func (m *metricEfaRetransBytes) recordDataPoint(start pcommon.Timestamp, ts pcom
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -736,9 +783,10 @@ func (m *metricEfaRetransPkts) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRetransPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRetransPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -746,6 +794,9 @@ func (m *metricEfaRetransPkts) recordDataPoint(start pcommon.Timestamp, ts pcomm
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -787,9 +838,10 @@ func (m *metricEfaRetransTimeoutEvents) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRetransTimeoutEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRetransTimeoutEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -797,6 +849,9 @@ func (m *metricEfaRetransTimeoutEvents) recordDataPoint(start pcommon.Timestamp,
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -838,9 +893,10 @@ func (m *metricEfaRxBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -848,6 +904,9 @@ func (m *metricEfaRxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.T
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -889,9 +948,10 @@ func (m *metricEfaRxDropped) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRxDropped) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRxDropped) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -899,6 +959,9 @@ func (m *metricEfaRxDropped) recordDataPoint(start pcommon.Timestamp, ts pcommon
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -940,9 +1003,10 @@ func (m *metricEfaRxPkts) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaRxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaRxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -950,6 +1014,9 @@ func (m *metricEfaRxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Ti
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -991,9 +1058,10 @@ func (m *metricEfaSendBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaSendBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaSendBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -1001,6 +1069,9 @@ func (m *metricEfaSendBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1042,9 +1113,10 @@ func (m *metricEfaSendWrs) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaSendWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaSendWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -1052,6 +1124,9 @@ func (m *metricEfaSendWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.T
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1093,9 +1168,10 @@ func (m *metricEfaTxBytes) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaTxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaTxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -1103,6 +1179,9 @@ func (m *metricEfaTxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.T
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1144,9 +1223,10 @@ func (m *metricEfaTxPkts) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaTxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaTxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -1154,6 +1234,9 @@ func (m *metricEfaTxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Ti
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1195,9 +1278,10 @@ func (m *metricEfaUnresponsiveRemoteEvents) init() {
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricEfaUnresponsiveRemoteEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricEfaUnresponsiveRemoteEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -1205,6 +1289,9 @@ func (m *metricEfaUnresponsiveRemoteEvents) recordDataPoint(start pcommon.Timest
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
+	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1240,8 +1327,6 @@ type MetricsBuilder struct {
 	metricsCapacity                   int                  // maximum observed number of metrics per resource.
 	metricsBuffer                     pmetric.Metrics      // accumulates metrics data before emitting.
 	buildInfo                         component.BuildInfo  // contains version information.
-	resourceAttributeIncludeFilter    map[string]filter.Filter
-	resourceAttributeExcludeFilter    map[string]filter.Filter
 	metricEfaImpairedRemoteConnEvents metricEfaImpairedRemoteConnEvents
 	metricEfaRdmaReadBytes            metricEfaRdmaReadBytes
 	metricEfaRdmaReadRespBytes        metricEfaRdmaReadRespBytes
@@ -1311,37 +1396,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricEfaTxBytes:                  newMetricEfaTxBytes(mbc.Metrics.EfaTxBytes),
 		metricEfaTxPkts:                   newMetricEfaTxPkts(mbc.Metrics.EfaTxPkts),
 		metricEfaUnresponsiveRemoteEvents: newMetricEfaUnresponsiveRemoteEvents(mbc.Metrics.EfaUnresponsiveRemoteEvents),
-		resourceAttributeIncludeFilter:    make(map[string]filter.Filter),
-		resourceAttributeExcludeFilter:    make(map[string]filter.Filter),
-	}
-	if mbc.ResourceAttributes.AwsEfaDevice.MetricsInclude != nil {
-		mb.resourceAttributeIncludeFilter["aws.efa.device"] = filter.CreateFilter(mbc.ResourceAttributes.AwsEfaDevice.MetricsInclude)
-	}
-	if mbc.ResourceAttributes.AwsEfaDevice.MetricsExclude != nil {
-		mb.resourceAttributeExcludeFilter["aws.efa.device"] = filter.CreateFilter(mbc.ResourceAttributes.AwsEfaDevice.MetricsExclude)
-	}
-	if mbc.ResourceAttributes.AwsEfaEniID.MetricsInclude != nil {
-		mb.resourceAttributeIncludeFilter["aws.efa.eni.id"] = filter.CreateFilter(mbc.ResourceAttributes.AwsEfaEniID.MetricsInclude)
-	}
-	if mbc.ResourceAttributes.AwsEfaEniID.MetricsExclude != nil {
-		mb.resourceAttributeExcludeFilter["aws.efa.eni.id"] = filter.CreateFilter(mbc.ResourceAttributes.AwsEfaEniID.MetricsExclude)
-	}
-	if mbc.ResourceAttributes.AwsEfaPort.MetricsInclude != nil {
-		mb.resourceAttributeIncludeFilter["aws.efa.port"] = filter.CreateFilter(mbc.ResourceAttributes.AwsEfaPort.MetricsInclude)
-	}
-	if mbc.ResourceAttributes.AwsEfaPort.MetricsExclude != nil {
-		mb.resourceAttributeExcludeFilter["aws.efa.port"] = filter.CreateFilter(mbc.ResourceAttributes.AwsEfaPort.MetricsExclude)
 	}
 
 	for _, op := range options {
 		op.apply(mb)
 	}
 	return mb
-}
-
-// NewResourceBuilder returns a new resource builder that should be used to build a resource associated with for the emitted metrics.
-func (mb *MetricsBuilder) NewResourceBuilder() *ResourceBuilder {
-	return NewResourceBuilder(mb.config.ResourceAttributes)
 }
 
 // updateCapacity updates max length of metrics and resource attributes that will be used for the slice capacity.
@@ -1427,16 +1487,6 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	for _, op := range options {
 		op.apply(rm)
 	}
-	for attr, filter := range mb.resourceAttributeIncludeFilter {
-		if val, ok := rm.Resource().Attributes().Get(attr); ok && !filter.Matches(val.AsString()) {
-			return
-		}
-	}
-	for attr, filter := range mb.resourceAttributeExcludeFilter {
-		if val, ok := rm.Resource().Attributes().Get(attr); ok && filter.Matches(val.AsString()) {
-			return
-		}
-	}
 
 	if ils.Metrics().Len() > 0 {
 		mb.updateCapacity(rm)
@@ -1455,113 +1505,113 @@ func (mb *MetricsBuilder) Emit(options ...ResourceMetricsOption) pmetric.Metrics
 }
 
 // RecordEfaImpairedRemoteConnEventsDataPoint adds a data point to efa_impaired_remote_conn_events metric.
-func (mb *MetricsBuilder) RecordEfaImpairedRemoteConnEventsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaImpairedRemoteConnEvents.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaImpairedRemoteConnEventsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaImpairedRemoteConnEvents.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaReadBytesDataPoint adds a data point to efa_rdma_read_bytes metric.
-func (mb *MetricsBuilder) RecordEfaRdmaReadBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaReadBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaReadBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaReadBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaReadRespBytesDataPoint adds a data point to efa_rdma_read_resp_bytes metric.
-func (mb *MetricsBuilder) RecordEfaRdmaReadRespBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaReadRespBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaReadRespBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaReadRespBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaReadWrErrDataPoint adds a data point to efa_rdma_read_wr_err metric.
-func (mb *MetricsBuilder) RecordEfaRdmaReadWrErrDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaReadWrErr.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaReadWrErrDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaReadWrErr.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaReadWrsDataPoint adds a data point to efa_rdma_read_wrs metric.
-func (mb *MetricsBuilder) RecordEfaRdmaReadWrsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaReadWrs.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaReadWrsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaReadWrs.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaWriteBytesDataPoint adds a data point to efa_rdma_write_bytes metric.
-func (mb *MetricsBuilder) RecordEfaRdmaWriteBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaWriteBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaWriteBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaWriteBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaWriteRecvBytesDataPoint adds a data point to efa_rdma_write_recv_bytes metric.
-func (mb *MetricsBuilder) RecordEfaRdmaWriteRecvBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaWriteRecvBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaWriteRecvBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaWriteRecvBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaWriteWrErrDataPoint adds a data point to efa_rdma_write_wr_err metric.
-func (mb *MetricsBuilder) RecordEfaRdmaWriteWrErrDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaWriteWrErr.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaWriteWrErrDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaWriteWrErr.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRdmaWriteWrsDataPoint adds a data point to efa_rdma_write_wrs metric.
-func (mb *MetricsBuilder) RecordEfaRdmaWriteWrsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRdmaWriteWrs.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRdmaWriteWrsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRdmaWriteWrs.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRecvBytesDataPoint adds a data point to efa_recv_bytes metric.
-func (mb *MetricsBuilder) RecordEfaRecvBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRecvBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRecvBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRecvBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRecvWrsDataPoint adds a data point to efa_recv_wrs metric.
-func (mb *MetricsBuilder) RecordEfaRecvWrsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRecvWrs.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRecvWrsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRecvWrs.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRetransBytesDataPoint adds a data point to efa_retrans_bytes metric.
-func (mb *MetricsBuilder) RecordEfaRetransBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRetransBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRetransBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRetransBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRetransPktsDataPoint adds a data point to efa_retrans_pkts metric.
-func (mb *MetricsBuilder) RecordEfaRetransPktsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRetransPkts.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRetransPktsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRetransPkts.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRetransTimeoutEventsDataPoint adds a data point to efa_retrans_timeout_events metric.
-func (mb *MetricsBuilder) RecordEfaRetransTimeoutEventsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRetransTimeoutEvents.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRetransTimeoutEventsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRetransTimeoutEvents.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRxBytesDataPoint adds a data point to efa_rx_bytes metric.
-func (mb *MetricsBuilder) RecordEfaRxBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRxBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRxBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRxBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRxDroppedDataPoint adds a data point to efa_rx_dropped metric.
-func (mb *MetricsBuilder) RecordEfaRxDroppedDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRxDropped.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRxDroppedDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRxDropped.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaRxPktsDataPoint adds a data point to efa_rx_pkts metric.
-func (mb *MetricsBuilder) RecordEfaRxPktsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaRxPkts.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaRxPktsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaRxPkts.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaSendBytesDataPoint adds a data point to efa_send_bytes metric.
-func (mb *MetricsBuilder) RecordEfaSendBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaSendBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaSendBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaSendBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaSendWrsDataPoint adds a data point to efa_send_wrs metric.
-func (mb *MetricsBuilder) RecordEfaSendWrsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaSendWrs.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaSendWrsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaSendWrs.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaTxBytesDataPoint adds a data point to efa_tx_bytes metric.
-func (mb *MetricsBuilder) RecordEfaTxBytesDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaTxBytes.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaTxBytesDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaTxBytes.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaTxPktsDataPoint adds a data point to efa_tx_pkts metric.
-func (mb *MetricsBuilder) RecordEfaTxPktsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaTxPkts.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaTxPktsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaTxPkts.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // RecordEfaUnresponsiveRemoteEventsDataPoint adds a data point to efa_unresponsive_remote_events metric.
-func (mb *MetricsBuilder) RecordEfaUnresponsiveRemoteEventsDataPoint(ts pcommon.Timestamp, val int64) {
-	mb.metricEfaUnresponsiveRemoteEvents.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordEfaUnresponsiveRemoteEventsDataPoint(ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
+	mb.metricEfaUnresponsiveRemoteEvents.recordDataPoint(mb.startTime, ts, val, awsEfaDeviceAttributeValue, awsEfaPortAttributeValue, awsEfaEniIDAttributeValue)
 }
 
 // Reset resets metrics builder to its initial state. It should be used when external metrics source is restarted,

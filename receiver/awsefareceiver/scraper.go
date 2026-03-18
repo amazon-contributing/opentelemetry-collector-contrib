@@ -23,75 +23,75 @@ import (
 // that records it. Defined once so the two can never drift out of sync.
 type efaCounter struct {
 	name   string // file name under hw_counters/
-	record func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, val int64)
+	record func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, val int64, device, port, eniID string)
 }
 
 var efaCounters = []efaCounter{
-	{"rdma_read_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaReadBytesDataPoint(ts, v)
+	{"rdma_read_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaReadBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rdma_write_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaWriteBytesDataPoint(ts, v)
+	{"rdma_write_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaWriteBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rdma_write_recv_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, v)
+	{"rdma_write_recv_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRxBytesDataPoint(ts, v)
+	{"rx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRxBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rx_drops", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRxDroppedDataPoint(ts, v)
+	{"rx_drops", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRxDroppedDataPoint(ts, v, device, port, eniID)
 	}},
-	{"tx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaTxBytesDataPoint(ts, v)
+	{"tx_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaTxBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"retrans_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRetransBytesDataPoint(ts, v)
+	{"retrans_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRetransBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"retrans_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRetransPktsDataPoint(ts, v)
+	{"retrans_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRetransPktsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"retrans_timeout_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRetransTimeoutEventsDataPoint(ts, v)
+	{"retrans_timeout_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRetransTimeoutEventsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"unresponsive_remote_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, v)
+	{"unresponsive_remote_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"impaired_remote_conn_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, v)
+	{"impaired_remote_conn_events", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"tx_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaTxPktsDataPoint(ts, v)
+	{"tx_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaTxPktsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rx_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRxPktsDataPoint(ts, v)
+	{"rx_pkts", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRxPktsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"send_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaSendBytesDataPoint(ts, v)
+	{"send_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaSendBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"recv_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRecvBytesDataPoint(ts, v)
+	{"recv_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRecvBytesDataPoint(ts, v, device, port, eniID)
 	}},
-	{"send_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaSendWrsDataPoint(ts, v)
+	{"send_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaSendWrsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"recv_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRecvWrsDataPoint(ts, v)
+	{"recv_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRecvWrsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rdma_write_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaWriteWrsDataPoint(ts, v)
+	{"rdma_write_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaWriteWrsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rdma_read_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaReadWrsDataPoint(ts, v)
+	{"rdma_read_wrs", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaReadWrsDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rdma_write_wr_err", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaWriteWrErrDataPoint(ts, v)
+	{"rdma_write_wr_err", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaWriteWrErrDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rdma_read_wr_err", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaReadWrErrDataPoint(ts, v)
+	{"rdma_read_wr_err", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaReadWrErrDataPoint(ts, v, device, port, eniID)
 	}},
-	{"rdma_read_resp_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64) {
-		mb.RecordEfaRdmaReadRespBytesDataPoint(ts, v)
+	{"rdma_read_resp_bytes", func(mb *metadata.MetricsBuilder, ts pcommon.Timestamp, v int64, device, port, eniID string) {
+		mb.RecordEfaRdmaReadRespBytesDataPoint(ts, v, device, port, eniID)
 	}},
 }
 
@@ -138,15 +138,7 @@ func (s *efaScraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 	now := pcommon.NewTimestampFromTime(time.Now())
 
 	for _, dev := range devices {
-		rb := s.mb.NewResourceBuilder()
-		rb.SetAwsEfaDevice(dev.name)
-		rb.SetAwsEfaPort(dev.port)
-		if dev.eniID != "" {
-			rb.SetAwsEfaEniID(dev.eniID)
-		}
-
-		s.recordMetrics(now, dev.counters)
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+		s.recordMetrics(now, dev.counters, dev.name, dev.port, dev.eniID)
 	}
 
 	return s.mb.Emit(), nil
@@ -248,7 +240,7 @@ func (s *efaScraper) readCounters(deviceName string, port string) (map[string]ui
 	return counters, errs
 }
 
-func (s *efaScraper) recordMetrics(ts pcommon.Timestamp, counters map[string]uint64) {
+func (s *efaScraper) recordMetrics(ts pcommon.Timestamp, counters map[string]uint64, device, port, eniID string) {
 	for _, c := range efaCounters {
 		val, ok := counters[c.name]
 		if !ok {
@@ -259,6 +251,6 @@ func (s *efaScraper) recordMetrics(ts pcommon.Timestamp, counters map[string]uin
 				zap.String("counter", c.name), zap.Uint64("value", val))
 			continue
 		}
-		c.record(s.mb, ts, int64(val))
+		c.record(s.mb, ts, int64(val), device, port, eniID)
 	}
 }
