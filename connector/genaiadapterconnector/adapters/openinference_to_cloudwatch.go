@@ -245,21 +245,26 @@ func TransformOpenInferenceSpan(span ptrace.Span) {
 }
 
 func mapAttribute(newKey string, value pcommon.Value, attrs pcommon.Map) {
-	if value.Type() == pcommon.ValueTypeStr && value.Str() == "" {
-		return
-	}
-	raw := value.AsRaw()
-	if i, ok := common.ParseInt(raw); ok {
-		attrs.PutInt(newKey, i)
-	} else if f, ok := common.ParseFloat(raw); ok {
-		attrs.PutDouble(newKey, f)
-	} else if s, ok := common.ParseStr(raw); ok {
+	switch value.Type() {
+	case pcommon.ValueTypeInt:
+		attrs.PutInt(newKey, value.Int())
+	case pcommon.ValueTypeDouble:
+		attrs.PutDouble(newKey, value.Double())
+	case pcommon.ValueTypeBool:
+		attrs.PutBool(newKey, value.Bool())
+	case pcommon.ValueTypeStr:
+		s := value.Str()
+		if s == "" {
+			return
+		}
 		if newKey == common.GenAIProviderName {
 			if mapped, ok := providerMap[s]; ok {
 				s = mapped
 			}
 		}
 		attrs.PutStr(newKey, s)
+	default:
+		value.CopyTo(attrs.PutEmpty(newKey))
 	}
 }
 
