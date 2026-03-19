@@ -16,6 +16,7 @@ import (
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector/adapters/common"
 )
@@ -25,73 +26,74 @@ var (
 	// https://arize-ai.github.io/openinference/spec/semantic_conventions.html#reserved-attributes
 	// ordered by priority: when two source keys map to the same target, the first one wins.
 	attributeMap = []struct{ from, to string }{
-		{"llm.provider", common.GenAIProviderName},
-		{"llm.system", common.GenAIProviderName},
-		{"llm.model_name", common.GenAIRequestModel},
-		{"embedding.model_name", common.GenAIRequestModel},
-		{"llm.token_count.prompt", common.GenAIUsageInputTokens},
-		{"llm.token_count.completion", common.GenAIUsageOutputTokens},
-		{"llm.tools", common.GenAIToolDefinitions},
-		{"agent.name", common.GenAIAgentName},
-		{"graph.node.id", common.GenAIAgentName},
-		{"agent.id", common.GenAIAgentID},
-		{"agent.description", common.GenAIAgentDescription},
-		{"session.id", common.GenAIConversationID},
-		{"tool.name", common.GenAIToolName},
-		{"tool.description", common.GenAIToolDescription},
-		{"tool.id", common.GenAIToolCallID},
-		{"llm.token_count.prompt_details.cache_read", common.GenAIUsageCacheReadTokens},
-		{"llm.token_count.prompt_details.cache_write", common.GenAIUsageCacheCreationTokens},
+		{"llm.provider", string(semconv.GenAIProviderNameKey)},
+		{"llm.system", string(semconv.GenAIProviderNameKey)},
+		{"llm.model_name", string(semconv.GenAIRequestModelKey)},
+		{"embedding.model_name", string(semconv.GenAIRequestModelKey)},
+		{"llm.token_count.prompt", string(semconv.GenAIUsageInputTokensKey)},
+		{"llm.token_count.completion", string(semconv.GenAIUsageOutputTokensKey)},
+		{"llm.tools", string(semconv.GenAIToolDefinitionsKey)},
+		{"agent.name", string(semconv.GenAIAgentNameKey)},
+		{"graph.node.id", string(semconv.GenAIAgentNameKey)},
+		{"agent.id", string(semconv.GenAIAgentIDKey)},
+		{"agent.description", string(semconv.GenAIAgentDescriptionKey)},
+		{"session.id", string(semconv.GenAIConversationIDKey)},
+		{"tool.name", string(semconv.GenAIToolNameKey)},
+		{"tool.description", string(semconv.GenAIToolDescriptionKey)},
+		{"tool.id", string(semconv.GenAIToolCallIDKey)},
+		// TODO: remove these once OTel has added these to semantic conventions package
+		{"llm.token_count.prompt_details.cache_read", "gen_ai.usage.cache_read.input_tokens"},
+		{"llm.token_count.prompt_details.cache_write", "gen_ai.usage.cache_creation.input_tokens"},
 	}
 
 	// https://arize-ai.github.io/openinference/spec/semantic_conventions.html#reserved-attributes
 	// under llm.invocations
 	invocationParamMap = map[string]string{
-		"temperature":       common.GenAIRequestTemperature,
-		"top_p":             common.GenAIRequestTopP,
-		"topP":              common.GenAIRequestTopP,
-		"max_tokens":        common.GenAIRequestMaxTokens,
-		"maxTokens":         common.GenAIRequestMaxTokens,
-		"frequency_penalty": common.GenAIRequestFreqPenalty,
-		"presence_penalty":  common.GenAIRequestPresPenalty,
-		"stop":              common.GenAIRequestStopSeq,
-		"stop_sequences":    common.GenAIRequestStopSeq,
-		"stopSequences":     common.GenAIRequestStopSeq,
+		"temperature":       string(semconv.GenAIRequestTemperatureKey),
+		"top_p":             string(semconv.GenAIRequestTopPKey),
+		"topP":              string(semconv.GenAIRequestTopPKey),
+		"max_tokens":        string(semconv.GenAIRequestMaxTokensKey),
+		"maxTokens":         string(semconv.GenAIRequestMaxTokensKey),
+		"frequency_penalty": string(semconv.GenAIRequestFrequencyPenaltyKey),
+		"presence_penalty":  string(semconv.GenAIRequestPresencePenaltyKey),
+		"stop":              string(semconv.GenAIRequestStopSequencesKey),
+		"stop_sequences":    string(semconv.GenAIRequestStopSequencesKey),
+		"stopSequences":     string(semconv.GenAIRequestStopSequencesKey),
 	}
 
 	// https://arize-ai.github.io/openinference/spec/semantic_conventions.html#span-kinds
 	operationMap = map[string]string{
-		"LLM":       common.GenAIOpChat,
-		"AGENT":     common.GenAIOpInvokeAgent,
-		"TOOL":      common.GenAIOpExecuteTool,
-		"EMBEDDING": common.GenAIOpEmbeddings,
+		"LLM":       semconv.GenAIOperationNameChat.Value.AsString(),
+		"AGENT":     semconv.GenAIOperationNameInvokeAgent.Value.AsString(),
+		"TOOL":      semconv.GenAIOperationNameExecuteTool.Value.AsString(),
+		"EMBEDDING": semconv.GenAIOperationNameEmbeddings.Value.AsString(),
 	}
 
 	// mapping for llm.system and llm.provider
 	providerMap = map[string]string{
-		"amazon_bedrock":   common.GenAIProviderBedrock,
-		"aws":              common.GenAIProviderBedrock,
-		"bedrock":          common.GenAIProviderBedrock,
-		"bedrock_converse": common.GenAIProviderBedrock,
-		"azure":            common.GenAIProviderAzureOpenAI,
-		"azure_ai":         common.GenAIProviderAzureOpenAI,
-		"azure_openai":     common.GenAIProviderAzureOpenAI,
-		"google":           common.GenAIProviderGCPGenAI,
-		"google_genai":     common.GenAIProviderGCPGenAI,
-		"google_vertexai":  common.GenAIProviderVertexAI,
-		"vertex":           common.GenAIProviderVertexAI,
-		"vertexai":         common.GenAIProviderVertexAI,
-		"mistral":          common.GenAIProviderMistral,
-		"mistralai":        common.GenAIProviderMistral,
-		"openai":           common.GenAIProviderOpenAI,
-		"anthropic":        common.GenAIProviderAnthropic,
-		"cohere":           common.GenAIProviderCohere,
-		"deepseek":         common.GenAIProviderDeepSeek,
-		"gemini":           common.GenAIProviderGemini,
-		"groq":             common.GenAIProviderGroq,
-		"perplexity":       common.GenAIProviderPerplexity,
-		"xai":              common.GenAIProviderXAI,
-		"x_ai":             common.GenAIProviderXAI,
+		"amazon_bedrock":   semconv.GenAIProviderNameAWSBedrock.Value.AsString(),
+		"aws":              semconv.GenAIProviderNameAWSBedrock.Value.AsString(),
+		"bedrock":          semconv.GenAIProviderNameAWSBedrock.Value.AsString(),
+		"bedrock_converse": semconv.GenAIProviderNameAWSBedrock.Value.AsString(),
+		"azure":            semconv.GenAIProviderNameAzureAIOpenAI.Value.AsString(),
+		"azure_ai":         semconv.GenAIProviderNameAzureAIOpenAI.Value.AsString(),
+		"azure_openai":     semconv.GenAIProviderNameAzureAIOpenAI.Value.AsString(),
+		"google":           semconv.GenAIProviderNameGCPGenAI.Value.AsString(),
+		"google_genai":     semconv.GenAIProviderNameGCPGenAI.Value.AsString(),
+		"google_vertexai":  semconv.GenAIProviderNameGCPVertexAI.Value.AsString(),
+		"vertex":           semconv.GenAIProviderNameGCPVertexAI.Value.AsString(),
+		"vertexai":         semconv.GenAIProviderNameGCPVertexAI.Value.AsString(),
+		"mistral":          semconv.GenAIProviderNameMistralAI.Value.AsString(),
+		"mistralai":        semconv.GenAIProviderNameMistralAI.Value.AsString(),
+		"openai":           semconv.GenAIProviderNameOpenAI.Value.AsString(),
+		"anthropic":        semconv.GenAIProviderNameAnthropic.Value.AsString(),
+		"cohere":           semconv.GenAIProviderNameCohere.Value.AsString(),
+		"deepseek":         semconv.GenAIProviderNameDeepseek.Value.AsString(),
+		"gemini":           semconv.GenAIProviderNameGCPGemini.Value.AsString(),
+		"groq":             semconv.GenAIProviderNameGroq.Value.AsString(),
+		"perplexity":       semconv.GenAIProviderNamePerplexity.Value.AsString(),
+		"xai":              semconv.GenAIProviderNameXAI.Value.AsString(),
+		"x_ai":             semconv.GenAIProviderNameXAI.Value.AsString(),
 	}
 
 	// attributes that are essentially just massive JSON dumps
@@ -160,7 +162,7 @@ func TransformOpenInferenceSpan(span ptrace.Span) {
 		switch {
 		case key == "openinference.span.kind":
 			if op, ok := operationMap[value.Str()]; ok {
-				attrs.PutStr(common.GenAIOperationName, op)
+				attrs.PutStr(string(semconv.GenAIOperationNameKey), op)
 			}
 			toRemove = append(toRemove, key)
 		case inputMsgPattern.MatchString(key):
@@ -218,16 +220,16 @@ func TransformOpenInferenceSpan(span ptrace.Span) {
 
 	if len(inputMessages) > 0 {
 		if data, err := json.Marshal(common.ParseJSON(convertMessages(inputMessages, false, ""), common.MaxJSONDepth)); err == nil {
-			attrs.PutStr(common.GenAIInputMessages, string(data))
+			attrs.PutStr(string(semconv.GenAIInputMessagesKey), string(data))
 		}
 	}
 	if len(outputMessages) > 0 {
 		var finishReason string
-		if v, ok := attrs.Get(common.GenAIResponseFinishReason); ok {
+		if v, ok := attrs.Get(string(semconv.GenAIResponseFinishReasonsKey)); ok {
 			finishReason = v.AsString()
 		}
 		if data, err := json.Marshal(common.ParseJSON(convertMessages(outputMessages, true, finishReason), common.MaxJSONDepth)); err == nil {
-			attrs.PutStr(common.GenAIOutputMessages, string(data))
+			attrs.PutStr(string(semconv.GenAIOutputMessagesKey), string(data))
 		}
 	}
 	if len(tools) > 0 {
@@ -240,7 +242,7 @@ func TransformOpenInferenceSpan(span ptrace.Span) {
 		for i, k := range keys {
 			toolList[i] = tools[k]
 		}
-		attrs.PutStr(common.GenAIToolDefinitions, "["+strings.Join(toolList, ",")+"]")
+		attrs.PutStr(string(semconv.GenAIToolDefinitionsKey), "["+strings.Join(toolList, ",")+"]")
 	}
 }
 
@@ -257,7 +259,7 @@ func mapAttribute(newKey string, value pcommon.Value, attrs pcommon.Map) {
 		if s == "" {
 			return
 		}
-		if newKey == common.GenAIProviderName {
+		if newKey == string(semconv.GenAIProviderNameKey) {
 			if mapped, ok := providerMap[s]; ok {
 				s = mapped
 			}
@@ -289,7 +291,7 @@ func parseInvocationParams(value string, attrs pcommon.Map) {
 func parseInputValue(value, spanKind string, attrs pcommon.Map) {
 	switch spanKind {
 	case "TOOL":
-		setIfAbsent(attrs, common.GenAIToolCallArguments, pcommon.NewValueStr(value))
+		setIfAbsent(attrs, string(semconv.GenAIToolCallArgumentsKey), pcommon.NewValueStr(value))
 	case "CHAIN":
 		// no deep parsing needed here unlike output.value chain input.value never
 		// contains unique metadata that's not already captured. if the input has
@@ -301,14 +303,14 @@ func parseInputValue(value, spanKind string, attrs pcommon.Map) {
 		}
 		if toolCall, ok := input["tool_call"].(map[string]any); ok {
 			if name, ok := common.ParseStr(toolCall["name"]); ok {
-				setIfAbsent(attrs, common.GenAIToolName, pcommon.NewValueStr(name))
+				setIfAbsent(attrs, string(semconv.GenAIToolNameKey), pcommon.NewValueStr(name))
 			}
 			if id, ok := common.ParseStr(toolCall["id"]); ok {
-				setIfAbsent(attrs, common.GenAIToolCallID, pcommon.NewValueStr(id))
+				setIfAbsent(attrs, string(semconv.GenAIToolCallIDKey), pcommon.NewValueStr(id))
 			}
 			if args, ok := toolCall["args"]; ok {
 				if s, ok := common.ParseStr(args); ok {
-					setIfAbsent(attrs, common.GenAIToolCallArguments, pcommon.NewValueStr(s))
+					setIfAbsent(attrs, string(semconv.GenAIToolCallArgumentsKey), pcommon.NewValueStr(s))
 				}
 			}
 		}
@@ -318,7 +320,7 @@ func parseInputValue(value, spanKind string, attrs pcommon.Map) {
 func parseOutputValue(value, spanKind string, attrs pcommon.Map) {
 	switch spanKind {
 	case "TOOL":
-		setIfAbsent(attrs, common.GenAIToolCallResult, pcommon.NewValueStr(value))
+		setIfAbsent(attrs, string(semconv.GenAIToolCallResultKey), pcommon.NewValueStr(value))
 	case "CHAIN":
 		parseChainOutput(value, attrs)
 	}
@@ -346,20 +348,20 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 				if addlKwargs, ok := msg["additional_kwargs"].(map[string]any); ok {
 					if usage, ok := addlKwargs["usage"].(map[string]any); ok {
 						if v, ok := common.ParseInt(usage["prompt_tokens"]); ok {
-							setIfAbsent(attrs, common.GenAIUsageInputTokens, pcommon.NewValueInt(v))
+							setIfAbsent(attrs, string(semconv.GenAIUsageInputTokensKey), pcommon.NewValueInt(v))
 						}
 						if v, ok := common.ParseInt(usage["completion_tokens"]); ok {
-							setIfAbsent(attrs, common.GenAIUsageOutputTokens, pcommon.NewValueInt(v))
+							setIfAbsent(attrs, string(semconv.GenAIUsageOutputTokensKey), pcommon.NewValueInt(v))
 						}
 					}
 					if v, ok := common.ParseStr(addlKwargs["model_id"]); ok {
-						setIfAbsent(attrs, common.GenAIRequestModel, pcommon.NewValueStr(v))
+						setIfAbsent(attrs, string(semconv.GenAIRequestModelKey), pcommon.NewValueStr(v))
 					}
 					if v, ok := common.ParseStr(addlKwargs["model_name"]); ok {
-						setIfAbsent(attrs, common.GenAIResponseModel, pcommon.NewValueStr(v))
+						setIfAbsent(attrs, string(semconv.GenAIResponseModelKey), pcommon.NewValueStr(v))
 					}
 					if v, ok := common.ParseStr(addlKwargs["stop_reason"]); ok {
-						setIfAbsent(attrs, common.GenAIResponseFinishReason, pcommon.NewValueStr(v))
+						setIfAbsent(attrs, string(semconv.GenAIResponseFinishReasonsKey), pcommon.NewValueStr(v))
 					}
 				}
 
@@ -398,11 +400,11 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 						}
 					}
 					if data, err := json.Marshal(common.ParseJSON([]map[string]any{otelMsg}, common.MaxJSONDepth)); err == nil {
-						setIfAbsent(attrs, common.GenAIOutputMessages, pcommon.NewValueStr(string(data)))
+						setIfAbsent(attrs, string(semconv.GenAIOutputMessagesKey), pcommon.NewValueStr(string(data)))
 					}
 				} else if msgType == "tool" {
 					if content, ok := msg["content"].(string); ok {
-						setIfAbsent(attrs, common.GenAIToolCallResult, pcommon.NewValueStr(content))
+						setIfAbsent(attrs, string(semconv.GenAIToolCallResultKey), pcommon.NewValueStr(content))
 					}
 				}
 			}
@@ -454,7 +456,7 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 			converted = append(converted, otelMsg)
 		}
 		if data, err := json.Marshal(common.ParseJSON(converted, common.MaxJSONDepth)); err == nil {
-			setIfAbsent(attrs, common.GenAIInputMessages, pcommon.NewValueStr(string(data)))
+			setIfAbsent(attrs, string(semconv.GenAIInputMessagesKey), pcommon.NewValueStr(string(data)))
 		}
 	}
 }

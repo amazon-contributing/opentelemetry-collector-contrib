@@ -43,12 +43,11 @@ func createDefaultConfig() component.Config {
 func getOrCreateConnector(set connector.Settings) *genAIAdapterConnector {
 	id := set.ID.String()
 	c := &genAIAdapterConnector{
-        logger:     set.Logger,
-        lloHandler: newLLOHandler(set.Logger),
-    }
-    actual, _ := connectors.LoadOrStore(id, c)
-    return actual.(*genAIAdapterConnector)
-	return c
+		logger:     set.Logger,
+		lloHandler: newLLOHandler(set.Logger),
+	}
+	actual, _ := connectors.LoadOrStore(id, c)
+	return actual.(*genAIAdapterConnector)
 }
 
 func createTracesToTraces(
