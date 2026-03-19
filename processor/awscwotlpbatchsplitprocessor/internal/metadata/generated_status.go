@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	Type      = component.MustNewType("awscwotlpbatchlog")
-	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchlogprocessor"
+	Type      = component.MustNewType("awscwotlpbatchsplit")
+	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor"
 )
 
 const (

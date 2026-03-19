@@ -1,4 +1,4 @@
-type: awscwotlpbatchlog
+type: awscwotlpbatchsplit
 
 status:
   class: processor

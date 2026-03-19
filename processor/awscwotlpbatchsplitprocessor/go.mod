@@ -1,4 +1,4 @@
-module github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchlogprocessor
+module github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor
 
 go 1.24.11
 

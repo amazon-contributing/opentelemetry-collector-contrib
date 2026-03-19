@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package awscwotlpbatchlogprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchlogprocessor"
+package awscwotlpbatchsplitprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor"
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/processor"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchlogprocessor/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor/internal/metadata"
 )
 
 func NewFactory() processor.Factory {

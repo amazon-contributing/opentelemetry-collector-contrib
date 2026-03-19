@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package awscwotlpbatchlogprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchlogprocessor"
+package awscwotlpbatchsplitprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor"
 
 const (
 	// 1 MB request size limit for the CloudWatch OTLP endpoint.

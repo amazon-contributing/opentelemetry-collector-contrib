@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package awscwotlpbatchlogprocessor
+package awscwotlpbatchsplitprocessor
 
 import (
 	"errors"
@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/collector/processor/processortest"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchlogprocessor/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor/internal/metadata"
 )
 
 func newTestProcessor(t *testing.T, maxSize int, sink *consumertest.LogsSink) *awsCWOTLPBatchLogProcessor {
@@ -63,7 +63,7 @@ func calculateBaseOverhead(p *awsCWOTLPBatchLogProcessor) int {
 
 func TestFactory(t *testing.T) {
 	f := NewFactory()
-	assert.Equal(t, "awscwotlpbatchlog", f.Type().String())
+	assert.Equal(t, "awscwotlpbatchsplit", f.Type().String())
 
 	cfg := f.CreateDefaultConfig()
 	require.NotNil(t, cfg)
