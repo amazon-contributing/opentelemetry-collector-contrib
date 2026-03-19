@@ -329,26 +329,11 @@ func (h *lloHandler) collectLLOAttributesFromSpan(span ptrace.Span) map[string]a
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/src/amazon/opentelemetry/distro/llo_handler.py#L327
-// updateSpanAttributes updates span attributes, preserving BoundedAttributes if present.
-func (h *lloHandler) updateSpanAttributes(span ptrace.Span, filtered map[string]any) {
-	if filtered == nil {
-		return
-	}
-	span.Attributes().Clear()
-	for k, v := range filtered {
-		switch val := v.(type) {
-		case string:
-			span.Attributes().PutStr(k, val)
-		case int64:
-			span.Attributes().PutInt(k, val)
-		case float64:
-			span.Attributes().PutDouble(k, val)
-		case bool:
-			span.Attributes().PutBool(k, val)
-		default:
-			_ = span.Attributes().PutEmpty(k).FromRaw(val)
-		}
-	}
+// removeLLOAttributes removes LLO attributes from span attributes in-place.
+func (h *lloHandler) removeLLOAttributes(span ptrace.Span) {
+	span.Attributes().RemoveIf(func(key string, _ pcommon.Value) bool {
+		return h.isLLOAttribute(key)
+	})
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/src/amazon/opentelemetry/distro/llo_handler.py#L438
@@ -519,32 +504,6 @@ func (h *lloHandler) emitLLOAttributes(
 // This helps maintain privacy and reduces the size of spans.
 //
 // Returns a new map with LLO attributes removed, or nil if input is nil.
-func (h *lloHandler) filterAttributes(attributes map[string]any) map[string]any {
-	if attributes == nil {
-		return nil
-	}
-
-	hasLLOAttrs := false
-	for key := range attributes {
-		if h.isLLOAttribute(key) {
-			hasLLOAttrs = true
-			break
-		}
-	}
-
-	if !hasLLOAttrs {
-		return attributes
-	}
-
-	filtered := make(map[string]any)
-	for key, value := range attributes {
-		if !h.isLLOAttribute(key) {
-			filtered[key] = value
-		}
-	}
-
-	return filtered
-}
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/src/amazon/opentelemetry/distro/llo_handler.py#L393
 // filterSpanEvents filters LLO attributes from span events.
@@ -659,11 +618,8 @@ func (h *lloHandler) processSpans(td ptrace.Traces) plog.Logs {
 					}
 				}
 
-				// 3. Filter span attributes
-				filteredAttrs := h.filterAttributes(spanAttrsToMap(span))
-
-				// 4. Update span attributes
-				h.updateSpanAttributes(span, filteredAttrs)
+				// 3. Remove LLO attributes from span
+				h.removeLLOAttributes(span)
 
 				// 5. Filter span events
 				h.filterSpanEvents(span)
@@ -672,15 +628,6 @@ func (h *lloHandler) processSpans(td ptrace.Traces) plog.Logs {
 	}
 
 	return allLogs
-}
-
-func spanAttrsToMap(span ptrace.Span) map[string]any {
-	result := make(map[string]any)
-	span.Attributes().Range(func(k string, v pcommon.Value) bool {
-		result[k] = v.AsRaw()
-		return true
-	})
-	return result
 }
 
 func formatContent(v any) string {

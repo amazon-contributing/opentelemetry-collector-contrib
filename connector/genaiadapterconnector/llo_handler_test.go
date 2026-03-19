@@ -130,74 +130,92 @@ func TestNewLLOHandler_NoPanic(t *testing.T) {
 // test_llo_handler_processing.py
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_processing.py#L16
-func TestFilterAttributes_RemovesLLO(t *testing.T) {
+func TestRemoveLLOAttributes_RemovesLLO(t *testing.T) {
 	h := newTestHandler()
-	attrs := map[string]any{
-		"gen_ai.prompt.0.content": "Hello",
-		"gen_ai.prompt.0.role":    "user",
-		"http.method":             "POST",
-	}
-	filtered := h.filterAttributes(attrs)
-	assert.NotContains(t, filtered, "gen_ai.prompt.0.content")
-	assert.Contains(t, filtered, "gen_ai.prompt.0.role")
-	assert.Contains(t, filtered, "http.method")
+	td := ptrace.NewTraces()
+	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.Attributes().PutStr("gen_ai.prompt.0.content", "Hello")
+	span.Attributes().PutStr("gen_ai.prompt.0.role", "user")
+	span.Attributes().PutStr("http.method", "POST")
+
+	h.removeLLOAttributes(span)
+
+	_, hasContent := span.Attributes().Get("gen_ai.prompt.0.content")
+	assert.False(t, hasContent)
+	_, hasRole := span.Attributes().Get("gen_ai.prompt.0.role")
+	assert.True(t, hasRole)
+	_, hasMethod := span.Attributes().Get("http.method")
+	assert.True(t, hasMethod)
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_processing.py#L35
-func TestFilterAttributes_EmptyMap(t *testing.T) {
+func TestRemoveLLOAttributes_EmptyAttrs(t *testing.T) {
 	h := newTestHandler()
-	filtered := h.filterAttributes(map[string]any{})
-	assert.Empty(t, filtered)
-}
+	td := ptrace.NewTraces()
+	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
 
-// https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_processing.py#L43
-func TestFilterAttributes_Nil(t *testing.T) {
-	h := newTestHandler()
-	filtered := h.filterAttributes(nil)
-	assert.Nil(t, filtered)
+	h.removeLLOAttributes(span)
+
+	assert.Equal(t, 0, span.Attributes().Len())
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_processing.py#L52
-func TestFilterAttributes_NoLLO(t *testing.T) {
+func TestRemoveLLOAttributes_NoLLO(t *testing.T) {
 	h := newTestHandler()
-	attrs := map[string]any{
-		"http.method":      "POST",
-		"http.status_code": 200,
-	}
-	filtered := h.filterAttributes(attrs)
-	assert.Equal(t, attrs, filtered)
+	td := ptrace.NewTraces()
+	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.Attributes().PutStr("http.method", "POST")
+	span.Attributes().PutInt("http.status_code", 200)
+
+	h.removeLLOAttributes(span)
+
+	assert.Equal(t, 2, span.Attributes().Len())
+	v, ok := span.Attributes().Get("http.method")
+	assert.True(t, ok)
+	assert.Equal(t, "POST", v.AsString())
 }
 
-func TestFilterAttributes_AllFrameworks(t *testing.T) {
+func TestRemoveLLOAttributes_AllFrameworks(t *testing.T) {
 	h := newTestHandler()
-	attrs := map[string]any{
-		"input.value":              "user input",
-		"output.value":             "assistant output",
-		"traceloop.entity.input":   "traceloop input",
-		"traceloop.entity.output":  "traceloop output",
-		"gen_ai.prompt":            "openlit prompt",
-		"gen_ai.completion":        "openlit completion",
-		"crewai.crew.tasks_output": "crew output",
-		"system_prompt":            "system prompt",
-		"tool.result":              "tool result",
-		"llm.prompts":              "llm prompts",
-		"gen_ai.user.message":      "user message",
-		"gen_ai.choice":            "choice",
-		"gen_ai.input.messages":    "[{\"role\":\"user\"}]",
-		"gen_ai.output.messages":   "[{\"role\":\"assistant\"}]",
-		"http.method":              "POST",
-		"gen_ai.request.model":     "gpt-4",
-	}
-	filtered := h.filterAttributes(attrs)
-	assert.Contains(t, filtered, "http.method")
-	assert.Contains(t, filtered, "gen_ai.request.model")
-	assert.NotContains(t, filtered, "input.value")
-	assert.NotContains(t, filtered, "output.value")
-	assert.NotContains(t, filtered, "traceloop.entity.input")
-	assert.NotContains(t, filtered, "gen_ai.prompt")
-	assert.NotContains(t, filtered, "gen_ai.user.message")
-	assert.NotContains(t, filtered, "gen_ai.input.messages")
-	assert.NotContains(t, filtered, "gen_ai.output.messages")
+	td := ptrace.NewTraces()
+	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.Attributes().PutStr("input.value", "user input")
+	span.Attributes().PutStr("output.value", "assistant output")
+	span.Attributes().PutStr("traceloop.entity.input", "traceloop input")
+	span.Attributes().PutStr("traceloop.entity.output", "traceloop output")
+	span.Attributes().PutStr("gen_ai.prompt", "openlit prompt")
+	span.Attributes().PutStr("gen_ai.completion", "openlit completion")
+	span.Attributes().PutStr("crewai.crew.tasks_output", "crew output")
+	span.Attributes().PutStr("system_prompt", "system prompt")
+	span.Attributes().PutStr("tool.result", "tool result")
+	span.Attributes().PutStr("llm.prompts", "llm prompts")
+	span.Attributes().PutStr("gen_ai.user.message", "user message")
+	span.Attributes().PutStr("gen_ai.choice", "choice")
+	span.Attributes().PutStr("gen_ai.input.messages", "[{\"role\":\"user\"}]")
+	span.Attributes().PutStr("gen_ai.output.messages", "[{\"role\":\"assistant\"}]")
+	span.Attributes().PutStr("http.method", "POST")
+	span.Attributes().PutStr("gen_ai.request.model", "gpt-4")
+
+	h.removeLLOAttributes(span)
+
+	_, hasMethod := span.Attributes().Get("http.method")
+	assert.True(t, hasMethod)
+	_, hasModel := span.Attributes().Get("gen_ai.request.model")
+	assert.True(t, hasModel)
+	_, hasInput := span.Attributes().Get("input.value")
+	assert.False(t, hasInput)
+	_, hasOutput := span.Attributes().Get("output.value")
+	assert.False(t, hasOutput)
+	_, hasTraceloop := span.Attributes().Get("traceloop.entity.input")
+	assert.False(t, hasTraceloop)
+	_, hasPrompt := span.Attributes().Get("gen_ai.prompt")
+	assert.False(t, hasPrompt)
+	_, hasUserMsg := span.Attributes().Get("gen_ai.user.message")
+	assert.False(t, hasUserMsg)
+	_, hasInputMsgs := span.Attributes().Get("gen_ai.input.messages")
+	assert.False(t, hasInputMsgs)
+	_, hasOutputMsgs := span.Attributes().Get("gen_ai.output.messages")
+	assert.False(t, hasOutputMsgs)
 }
 
 // test_llo_handler_events.py
@@ -1414,84 +1432,19 @@ func TestEmitLLOAttributes_SystemInstructionsWithMessages(t *testing.T) {
 	assert.GreaterOrEqual(t, oMsgs.Slice().Len(), 1)
 }
 
-func TestUpdateSpanAttributes_Nil(t *testing.T) {
-	h := newTestHandler()
-	td := ptrace.NewTraces()
-	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
-	span.Attributes().PutStr("existing", "value")
-
-	h.updateSpanAttributes(span, nil)
-
-	v, ok := span.Attributes().Get("existing")
-	assert.True(t, ok)
-	assert.Equal(t, "value", v.AsString())
-}
-
-func TestUpdateSpanAttributes_Primitives(t *testing.T) {
-	h := newTestHandler()
-	td := ptrace.NewTraces()
-	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
-	span.Attributes().PutStr("old", "removed")
-
-	filtered := map[string]any{
-		"str_attr":   "hello",
-		"int_attr":   int64(42),
-		"float_attr": float64(3.14),
-		"bool_attr":  true,
-	}
-	h.updateSpanAttributes(span, filtered)
-
-	_, hasOld := span.Attributes().Get("old")
-	assert.False(t, hasOld)
-
-	strVal, _ := span.Attributes().Get("str_attr")
-	assert.Equal(t, "hello", strVal.AsString())
-
-	intVal, _ := span.Attributes().Get("int_attr")
-	assert.Equal(t, int64(42), intVal.Int())
-
-	floatVal, _ := span.Attributes().Get("float_attr")
-	assert.InDelta(t, 3.14, floatVal.Double(), 0.001)
-
-	boolVal, _ := span.Attributes().Get("bool_attr")
-	assert.True(t, boolVal.Bool())
-}
-
-func TestUpdateSpanAttributes_MapAndSlice(t *testing.T) {
-	h := newTestHandler()
-	td := ptrace.NewTraces()
-	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
-
-	filtered := map[string]any{
-		"map_attr":   map[string]any{"nested_key": "nested_value"},
-		"slice_attr": []any{"a", "b", "c"},
-	}
-	h.updateSpanAttributes(span, filtered)
-
-	mapVal, hasMap := span.Attributes().Get("map_attr")
-	assert.True(t, hasMap)
-	nested, _ := mapVal.Map().Get("nested_key")
-	assert.Equal(t, "nested_value", nested.AsString())
-
-	sliceVal, hasSlice := span.Attributes().Get("slice_attr")
-	assert.True(t, hasSlice)
-	assert.Equal(t, 3, sliceVal.Slice().Len())
-	assert.Equal(t, "a", sliceVal.Slice().At(0).AsString())
-	assert.Equal(t, "b", sliceVal.Slice().At(1).AsString())
-	assert.Equal(t, "c", sliceVal.Slice().At(2).AsString())
-}
-
-func TestUpdateSpanAttributes_RoundTrip(t *testing.T) {
+func TestRemoveLLOAttributes_PreservesNonLLO(t *testing.T) {
 	h := newTestHandler()
 	td := ptrace.NewTraces()
 	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
 	span.Attributes().PutStr("keep", "preserved")
 	span.Attributes().PutInt("keep_int", 99)
+	span.Attributes().PutDouble("keep_float", 3.14)
+	span.Attributes().PutBool("keep_bool", true)
 	span.Attributes().PutStr("input.value", "remove me")
 
-	attrs := spanAttrsToMap(span)
-	filtered := h.filterAttributes(attrs)
-	h.updateSpanAttributes(span, filtered)
+	h.removeLLOAttributes(span)
+
+	assert.Equal(t, 4, span.Attributes().Len())
 
 	v, ok := span.Attributes().Get("keep")
 	assert.True(t, ok)
@@ -1501,88 +1454,35 @@ func TestUpdateSpanAttributes_RoundTrip(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, int64(99), iv.Int())
 
+	fv, ok := span.Attributes().Get("keep_float")
+	assert.True(t, ok)
+	assert.InDelta(t, 3.14, fv.Double(), 0.001)
+
+	bv, ok := span.Attributes().Get("keep_bool")
+	assert.True(t, ok)
+	assert.True(t, bv.Bool())
+
 	_, hasLLO := span.Attributes().Get("input.value")
 	assert.False(t, hasLLO)
 }
 
-func TestUpdateSpanAttributes_StringIntFloatBool(t *testing.T) {
+func TestRemoveLLOAttributes_PreservesOriginalTypes(t *testing.T) {
 	h := newTestHandler()
 	td := ptrace.NewTraces()
 	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
-	span.Attributes().PutStr("original", "will be cleared")
+	span.Attributes().PutStr("http.method", "POST")
+	span.Attributes().PutInt("http.status_code", 200)
+	span.Attributes().PutStr("gen_ai.prompt", "remove me")
 
-	filtered := map[string]any{
-		"str_attr":   "hello",
-		"int_attr":   int64(42),
-		"float_attr": 3.14,
-		"bool_attr":  true,
-	}
-
-	h.updateSpanAttributes(span, filtered)
-
-	assert.Equal(t, 4, span.Attributes().Len())
-
-	sv, ok := span.Attributes().Get("str_attr")
-	assert.True(t, ok)
-	assert.Equal(t, "hello", sv.AsString())
-
-	iv, ok := span.Attributes().Get("int_attr")
-	assert.True(t, ok)
-	assert.Equal(t, int64(42), iv.Int())
-
-	fv, ok := span.Attributes().Get("float_attr")
-	assert.True(t, ok)
-	assert.InDelta(t, 3.14, fv.Double(), 0.001)
-
-	bv, ok := span.Attributes().Get("bool_attr")
-	assert.True(t, ok)
-	assert.True(t, bv.Bool())
-
-	_, hasOriginal := span.Attributes().Get("original")
-	assert.False(t, hasOriginal)
-}
-
-func TestUpdateSpanAttributes_SliceAndMap(t *testing.T) {
-	h := newTestHandler()
-	td := ptrace.NewTraces()
-	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
-
-	filtered := map[string]any{
-		"slice_attr": []any{"a", "b", "c"},
-		"map_attr":   map[string]any{"key": "value", "num": int64(1)},
-	}
-
-	h.updateSpanAttributes(span, filtered)
+	h.removeLLOAttributes(span)
 
 	assert.Equal(t, 2, span.Attributes().Len())
 
-	sv, ok := span.Attributes().Get("slice_attr")
+	method, ok := span.Attributes().Get("http.method")
 	assert.True(t, ok)
-	assert.Equal(t, 3, sv.Slice().Len())
-	assert.Equal(t, "a", sv.Slice().At(0).AsString())
-	assert.Equal(t, "b", sv.Slice().At(1).AsString())
-	assert.Equal(t, "c", sv.Slice().At(2).AsString())
+	assert.Equal(t, "POST", method.AsString())
 
-	mv, ok := span.Attributes().Get("map_attr")
+	status, ok := span.Attributes().Get("http.status_code")
 	assert.True(t, ok)
-	kv, exists := mv.Map().Get("key")
-	assert.True(t, exists)
-	assert.Equal(t, "value", kv.AsString())
-	nv, exists := mv.Map().Get("num")
-	assert.True(t, exists)
-	assert.Equal(t, int64(1), nv.Int())
-}
-
-func TestUpdateSpanAttributes_NilFiltered(t *testing.T) {
-	h := newTestHandler()
-	td := ptrace.NewTraces()
-	span := td.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
-	span.Attributes().PutStr("existing", "should remain")
-
-	h.updateSpanAttributes(span, nil)
-
-	assert.Equal(t, 1, span.Attributes().Len())
-	v, ok := span.Attributes().Get("existing")
-	assert.True(t, ok)
-	assert.Equal(t, "should remain", v.AsString())
+	assert.Equal(t, int64(200), status.Int())
 }
