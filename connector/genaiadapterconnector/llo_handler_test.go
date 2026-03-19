@@ -300,20 +300,18 @@ func TestCollectLLOAttributesFromSpan_WithEvents(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_collection.py#L144
 func TestCollectAllLLOMessages_NilAttributes(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
-	messages := h.collectAllLLOMessages(span, nil)
+	messages := h.collectAllLLOMessages(nil)
 	assert.Empty(t, messages)
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L168
 func TestCollectAllLLOMessages_DirectPatterns(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"input.value":  "user input",
 		"output.value": "assistant output",
 	}
-	messages := h.collectAllLLOMessages(span, attrs)
+	messages := h.collectAllLLOMessages(attrs)
 	assert.Len(t, messages, 2)
 	for _, msg := range messages {
 		assert.Contains(t, msg, "content")
@@ -325,12 +323,11 @@ func TestCollectAllLLOMessages_DirectPatterns(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L13
 func TestCollectAllLLOMessages_Traceloop(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"traceloop.entity.input":  "traceloop input",
 		"traceloop.entity.output": "traceloop output",
 	}
-	messages := h.collectAllLLOMessages(span, attrs)
+	messages := h.collectAllLLOMessages(attrs)
 	assert.Len(t, messages, 2)
 
 	roles := map[string]bool{}
@@ -344,37 +341,34 @@ func TestCollectAllLLOMessages_Traceloop(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L112
 func TestCollectAllLLOMessages_OpenLit(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"gen_ai.prompt":                 "user prompt",
 		"gen_ai.completion":             "assistant completion",
 		"gen_ai.content.revised_prompt": "system revised",
 	}
-	messages := h.collectAllLLOMessages(span, attrs)
+	messages := h.collectAllLLOMessages(attrs)
 	assert.Len(t, messages, 3)
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L314
 func TestCollectAllLLOMessages_CrewAI(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"crewai.crew.tasks_output": "tasks output",
 		"crewai.crew.result":       "crew result",
 	}
-	messages := h.collectAllLLOMessages(span, attrs)
+	messages := h.collectAllLLOMessages(attrs)
 	assert.Len(t, messages, 2)
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L368
 func TestCollectAllLLOMessages_StrandsSDK(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"system_prompt": "you are helpful",
 		"tool.result":   "72F and sunny",
 	}
-	messages := h.collectAllLLOMessages(span, attrs)
+	messages := h.collectAllLLOMessages(attrs)
 	assert.Len(t, messages, 2)
 }
 
@@ -739,7 +733,6 @@ func TestCollectGenAICompletionMessages_OtherRole(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_collection.py#L222
 func TestCollectMethodsMessageFormat(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"input.value":              "oi input",
 		"output.value":             "oi output",
@@ -747,7 +740,7 @@ func TestCollectMethodsMessageFormat(t *testing.T) {
 		"gen_ai.prompt":            "openlit prompt",
 		"crewai.crew.tasks_output": "crew output",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	for _, msg := range msgs {
 		_, hasContent := msg["content"]
 		_, hasRole := msg["role"]
@@ -763,12 +756,11 @@ func TestCollectMethodsMessageFormat(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L13
 func TestCollectTraceloopMessages_Detailed(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"traceloop.entity.input":  "user input",
 		"traceloop.entity.output": "assistant output",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 2)
 	roles := map[string]string{}
 	for _, m := range msgs {
@@ -781,23 +773,21 @@ func TestCollectTraceloopMessages_Detailed(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L43
 func TestCollectTraceloopMessages_AllAttributes(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"traceloop.entity.input":   "tl input",
 		"traceloop.entity.output":  "tl output",
 		"crewai.crew.tasks_output": "crew output",
 		"crewai.crew.result":       "crew result",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	assert.Len(t, msgs, 4)
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L79
 func TestCollectOpenLitMessages_DirectPrompt(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{"gen_ai.prompt": "user prompt"}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "user", msgs[0]["role"])
 	assert.Equal(t, "prompt", msgs[0]["source"])
@@ -806,9 +796,8 @@ func TestCollectOpenLitMessages_DirectPrompt(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L95
 func TestCollectOpenLitMessages_DirectCompletion(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{"gen_ai.completion": "assistant completion"}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "assistant", msgs[0]["role"])
 	assert.Equal(t, "completion", msgs[0]["source"])
@@ -817,7 +806,6 @@ func TestCollectOpenLitMessages_DirectCompletion(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L112
 func TestCollectOpenLitMessages_AllAttributes(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"gen_ai.prompt":                 "prompt",
 		"gen_ai.completion":             "completion",
@@ -825,16 +813,15 @@ func TestCollectOpenLitMessages_AllAttributes(t *testing.T) {
 		"gen_ai.agent.actual_output":    "agent output",
 		"gen_ai.agent.human_input":      "agent input",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	assert.Len(t, msgs, 5)
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L152
 func TestCollectOpenLitMessages_RevisedPrompt(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{"gen_ai.content.revised_prompt": "revised system prompt"}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "system", msgs[0]["role"])
 	assert.Equal(t, "prompt", msgs[0]["source"])
@@ -871,7 +858,6 @@ func TestCollectOpenInferenceMessages_StructuredOutput(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L248
 func TestCollectOpenInferenceMessages_MixedAttributes(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"input.value":                           "direct input",
 		"output.value":                          "direct output",
@@ -880,16 +866,15 @@ func TestCollectOpenInferenceMessages_MixedAttributes(t *testing.T) {
 		"llm.output_messages.0.message.content": "structured output",
 		"llm.output_messages.0.message.role":    "assistant",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	assert.Len(t, msgs, 4)
 }
 
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L280
 func TestCollectOpenLitMessages_AgentActualOutput(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{"gen_ai.agent.actual_output": "agent output"}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "assistant", msgs[0]["role"])
 	assert.Equal(t, "output", msgs[0]["source"])
@@ -898,9 +883,8 @@ func TestCollectOpenLitMessages_AgentActualOutput(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L298
 func TestCollectOpenLitMessages_AgentHumanInput(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{"gen_ai.agent.human_input": "human input"}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "user", msgs[0]["role"])
 	assert.Equal(t, "input", msgs[0]["source"])
@@ -909,12 +893,11 @@ func TestCollectOpenLitMessages_AgentHumanInput(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L314
 func TestCollectTraceloopMessages_CrewOutputs(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"crewai.crew.tasks_output": "tasks output",
 		"crewai.crew.result":       "crew result",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 2)
 	sources := map[string]bool{}
 	for _, m := range msgs {
@@ -946,12 +929,11 @@ func TestOpenInferenceMessages_WithDefaultRoles(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L368
 func TestCollectStrandsSDKMessages_Detailed(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"system_prompt": "you are helpful",
 		"tool.result":   "72F and sunny",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 2)
 	roles := map[string]string{}
 	for _, m := range msgs {
@@ -964,11 +946,10 @@ func TestCollectStrandsSDKMessages_Detailed(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L397
 func TestCollectLLMPromptsMessages(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"llm.prompts": `[{"role": "user", "content": "Hello"}]`,
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "user", msgs[0]["role"])
 	assert.Equal(t, "prompt", msgs[0]["source"])
@@ -977,13 +958,12 @@ func TestCollectLLMPromptsMessages(t *testing.T) {
 // https://github.com/aws-observability/aws-otel-python-instrumentation/blob/35ef26e79e3ebf0253dc2f1bc03b97ab483cde31/aws-opentelemetry-distro/tests/amazon/opentelemetry/distro/llo_handler/test_llo_handler_frameworks.py#L418
 func TestCollectLLMPrompts_WithOtherMessages(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"llm.prompts":       `[{"role": "user", "content": "Hello"}]`,
 		"gen_ai.prompt":     "openlit prompt",
 		"gen_ai.completion": "openlit completion",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	assert.Len(t, msgs, 3)
 }
 
@@ -1354,11 +1334,10 @@ func TestIsLLOAttribute_SystemInstructions(t *testing.T) {
 
 func TestCollectAllLLOMessages_SystemInstructions(t *testing.T) {
 	h := newTestHandler()
-	span := newTestSpan(nil)
 	attrs := map[string]any{
 		"gen_ai.system_instructions": "You are a helpful assistant",
 	}
-	msgs := h.collectAllLLOMessages(span, attrs)
+	msgs := h.collectAllLLOMessages(attrs)
 	require.Len(t, msgs, 1)
 	assert.Equal(t, "system", msgs[0]["role"])
 	assert.Equal(t, "prompt", msgs[0]["source"])

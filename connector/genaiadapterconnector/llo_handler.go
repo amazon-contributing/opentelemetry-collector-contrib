@@ -185,7 +185,7 @@ func (h *lloHandler) isLLOAttribute(key string) bool {
 // in the registry and extracts messages accordingly.
 //
 // Returns a list of message maps with "content", "role", and "source" keys.
-func (h *lloHandler) collectAllLLOMessages(_ ptrace.Span, attributes map[string]any) []map[string]any {
+func (h *lloHandler) collectAllLLOMessages(attributes map[string]any) []map[string]any {
 	var messages []map[string]any
 
 	if attributes == nil {
@@ -420,7 +420,7 @@ func (h *lloHandler) emitLLOAttributes(
 		return logs
 	}
 
-	allMessages := h.collectAllLLOMessages(span, attributes)
+	allMessages := h.collectAllLLOMessages(attributes)
 	if len(allMessages) == 0 {
 		return logs
 	}
