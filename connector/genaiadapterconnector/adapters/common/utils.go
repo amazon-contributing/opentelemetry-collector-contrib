@@ -5,7 +5,7 @@ package common // import "github.com/open-telemetry/opentelemetry-collector-cont
 
 import "encoding/json"
 
-var MaxJSONDepth = 10
+const MaxJSONDepth = 10
 
 func ParseStr(val any) (string, bool) {
 	if val == nil {
