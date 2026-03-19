@@ -20,12 +20,12 @@ const otelSchemaBase = "https://opentelemetry.io/docs/specs/semconv/gen-ai"
 
 func fetchOTelSchema(t *testing.T, name string) map[string]any {
 	t.Helper()
-	return common.FetchJSONSchema(t, fmt.Sprintf("%s/%s.json", otelSchemaBase, name))
+	return FetchJSONSchema(t, fmt.Sprintf("%s/%s.json", otelSchemaBase, name))
 }
 
 func validateOtelSchemaMessages(t *testing.T, messages []map[string]any, schemaName string) {
 	t.Helper()
-	common.ValidateArrayItems(t, messages, fetchOTelSchema(t, schemaName), schemaName)
+	ValidateArrayItems(t, messages, fetchOTelSchema(t, schemaName), schemaName)
 }
 
 func TestLangchain_SimpleChat(t *testing.T) {

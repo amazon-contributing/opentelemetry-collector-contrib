@@ -5,7 +5,7 @@
 //
 // Implements a subset of the JSON Schema specification (Draft 2020-12):
 // https://json-schema.org/specification
-package common // import "github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector/adapters/common"
+package adapters
 
 import (
 	"encoding/json"
