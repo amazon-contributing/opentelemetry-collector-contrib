@@ -21,7 +21,21 @@ type logsOnlyConnector struct {
 	*genAIAdapterConnector
 }
 
-func (l *logsOnlyConnector) ConsumeTraces(_ context.Context, _ ptrace.Traces) error {
+func (l *logsOnlyConnector) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
+	if l.tracesConsumer != nil {
+		return nil
+	}
+
+	l.transformTraces(td)
+
+	logs := l.lloHandler.processSpans(td)
+
+	if l.logsConsumer != nil && logs.LogRecordCount() > 0 {
+		if err := l.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
