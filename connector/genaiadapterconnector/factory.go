@@ -42,14 +42,12 @@ func createDefaultConfig() component.Config {
 
 func getOrCreateConnector(set connector.Settings) *genAIAdapterConnector {
 	id := set.ID.String()
-	if existing, ok := connectors.Load(id); ok {
-		return existing.(*genAIAdapterConnector)
-	}
 	c := &genAIAdapterConnector{
-		logger:     set.Logger,
-		lloHandler: newLLOHandler(set.Logger),
-	}
-	connectors.Store(id, c)
+        logger:     set.Logger,
+        lloHandler: newLLOHandler(set.Logger),
+    }
+    actual, _ := connectors.LoadOrStore(id, c)
+    return actual.(*genAIAdapterConnector)
 	return c
 }
 
