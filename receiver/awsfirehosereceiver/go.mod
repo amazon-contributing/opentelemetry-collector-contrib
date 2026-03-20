@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsfirehosereceiver
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/gogo/protobuf v1.3.2

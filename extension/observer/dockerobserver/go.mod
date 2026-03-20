@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer/dockerobserver
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/docker/docker v28.3.3+incompatible

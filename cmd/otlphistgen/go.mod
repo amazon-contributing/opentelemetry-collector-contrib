@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/cmd/otlphistgen
 
-go 1.24.11
+go 1.24.13
 
 replace (
 	github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen => ../telemetrygen

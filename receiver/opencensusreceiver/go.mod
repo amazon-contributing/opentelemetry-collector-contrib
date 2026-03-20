@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/opencensusreceiver
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1

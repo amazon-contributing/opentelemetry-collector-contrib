@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/connector/servicegraphconnector
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/pdatautil v0.124.1

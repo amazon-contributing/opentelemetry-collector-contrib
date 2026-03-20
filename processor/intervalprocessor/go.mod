@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/processor/intervalprocessor
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/exp/metrics v0.124.1

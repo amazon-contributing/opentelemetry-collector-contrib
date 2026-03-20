@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/exporter/honeycombmarkerexporter
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/filter v0.124.1

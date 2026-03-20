@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/ntpreceiver
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/beevik/ntp v1.4.3

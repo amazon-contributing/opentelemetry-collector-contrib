@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/core/xidutils v0.124.1

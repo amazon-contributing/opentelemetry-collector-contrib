@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/pkg/status
 
-go 1.24.11
+go 1.24.13
 
 require (
 	github.com/stretchr/testify v1.11.1
