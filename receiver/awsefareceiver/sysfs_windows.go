@@ -43,6 +43,7 @@ func (r *windowsSysFsReader) ListPorts(_ string) ([]string, error) { return nil,
 func (r *windowsSysFsReader) ReadCounter(_ string, _ string, _ string) (uint64, error) {
 	return 0, errCounterNotAvailable
 }
+
 func (r *windowsSysFsReader) ReadGID(_ string) (string, error) {
 	return "", errors.New("EFA is not supported on Windows")
 }

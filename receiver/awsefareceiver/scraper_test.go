@@ -266,7 +266,7 @@ func TestScrapeENIResolutionRetryOnFailure(t *testing.T) {
 	pt := rm.ScopeMetrics().At(0).Metrics().At(0).Sum().DataPoints().At(0)
 	eniID, ok := pt.Attributes().Get("aws.efa.eni.id")
 	assert.True(t, ok, "expected aws.efa.eni.id attribute on data point")
-	assert.Equal(t, "", eniID.Str(), "expected empty eni.id on first scrape (IMDS failure)")
+	assert.Empty(t, eniID.Str(), "expected empty eni.id on first scrape (IMDS failure)")
 
 	// Second scrape: ENI resolver succeeds — should retry since failure wasn't cached
 	s.eniResolver = &mockENIResolver{
