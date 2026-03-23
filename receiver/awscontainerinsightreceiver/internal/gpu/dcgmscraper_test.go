@@ -180,6 +180,8 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 			Name: "dcgm",
 			Pages: []mocks.MockPrometheusResponse{
 				{Code: 200, Data: renameMetric},
+				{Code: 200, Data: renameMetric},
+				{Code: 200, Data: renameMetric},
 			},
 		},
 	}
@@ -234,11 +236,10 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 		scraper.Shutdown()
 	})
 
-	// wait for 2 scrapes, one initiated by us, another by the new scraper process
-	mp.Wg.Wait()
-	mp.Wg.Wait()
-	// make sure the consumer is called at scraping interval
-	assert.True(t, consumerCalled)
+	// wait until the consumer is called with valid metrics
+	assert.Eventually(t, func() bool {
+		return consumerCalled
+	}, 15*time.Second, 500*time.Millisecond, "consumer was never called with expected metrics")
 }
 
 func TestDcgmScraperJobName(t *testing.T) {
