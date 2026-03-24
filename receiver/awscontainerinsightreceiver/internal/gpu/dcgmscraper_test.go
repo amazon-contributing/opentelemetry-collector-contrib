@@ -238,9 +238,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 	})
 
 	// wait until the consumer is called with valid metrics
-	assert.Eventually(t, func() bool {
-		return consumerCalled.Load()
-	}, 15*time.Second, 500*time.Millisecond, "consumer was never called with expected metrics")
+	assert.Eventually(t, consumerCalled.Load, 15*time.Second, 500*time.Millisecond, "consumer was never called with expected metrics")
 }
 
 func TestDcgmScraperJobName(t *testing.T) {
