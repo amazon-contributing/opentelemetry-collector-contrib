@@ -35,6 +35,7 @@ It supports two pipeline paths:
 ```yaml
 connectors:
   genaiadapterconnector:
+    prompt_extraction_enabled: true
 
 service:
   pipelines:
@@ -50,6 +51,10 @@ service:
 ```
 
 Either or both receiver pipelines (`traces/out`, `logs/out`) can be configured independently.
+
+| Setting | Type | Default | Description |
+| ------- | ---- | ------- | ----------- |
+| `prompt_extraction_enabled` | bool | `false` | When `true`, LLO content (input/output messages, prompts, completions) is extracted from spans and emitted as Gen AI log events. When `false`, traces pass through with LLO attributes intact and no logs are extracted. |
 
 ## How It Works
 

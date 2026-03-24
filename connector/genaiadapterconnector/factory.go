@@ -28,11 +28,12 @@ func (l *logsOnlyConnector) ConsumeTraces(ctx context.Context, td ptrace.Traces)
 
 	l.transformTraces(td)
 
-	logs := l.lloHandler.processSpans(td)
-
-	if l.logsConsumer != nil && logs.LogRecordCount() > 0 {
-		if err := l.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
-			return err
+	if l.cfg.PromptExtractionEnabled {
+		logs := l.lloHandler.processSpans(td)
+		if l.logsConsumer != nil && logs.LogRecordCount() > 0 {
+			if err := l.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -45,16 +46,16 @@ func NewFactory() connector.Factory {
 		metadata.Type,
 		createDefaultConfig,
 		connector.WithTracesToTraces(
-			func(_ context.Context, set connector.Settings, _ component.Config, tc consumer.Traces) (connector.Traces, error) {
-				c := getOrCreateConnector(connectors, set)
+			func(_ context.Context, set connector.Settings, cfg component.Config, tc consumer.Traces) (connector.Traces, error) {
+				c := getOrCreateConnector(connectors, set, cfg.(*Config))
 				c.tracesConsumer = tc
 				return c, nil
 			},
 			metadata.TracesToTracesStability,
 		),
 		connector.WithTracesToLogs(
-			func(_ context.Context, set connector.Settings, _ component.Config, lc consumer.Logs) (connector.Traces, error) {
-				c := getOrCreateConnector(connectors, set)
+			func(_ context.Context, set connector.Settings, cfg component.Config, lc consumer.Logs) (connector.Traces, error) {
+				c := getOrCreateConnector(connectors, set, cfg.(*Config))
 				c.logsConsumer = lc
 				return &logsOnlyConnector{c}, nil
 			},
@@ -64,12 +65,15 @@ func NewFactory() connector.Factory {
 }
 
 func createDefaultConfig() component.Config {
-	return &Config{}
+	return &Config{
+		PromptExtractionEnabled: false,
+	}
 }
 
-func getOrCreateConnector(connectors *sync.Map, set connector.Settings) *genAIAdapterConnector {
+func getOrCreateConnector(connectors *sync.Map, set connector.Settings, cfg *Config) *genAIAdapterConnector {
 	id := set.ID.String()
 	c := &genAIAdapterConnector{
+		cfg:        cfg,
 		logger:     set.Logger,
 		lloHandler: newLLOHandler(set.Logger),
 	}

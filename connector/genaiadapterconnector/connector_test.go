@@ -33,8 +33,8 @@ func TestCreateDefaultConfig(t *testing.T) {
 func TestGetOrCreateConnector_Singleton(t *testing.T) {
 	connectors := &sync.Map{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c1 := getOrCreateConnector(connectors, set)
-	c2 := getOrCreateConnector(connectors, set)
+	c1 := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
+	c2 := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	assert.Same(t, c1, c2)
 }
 
@@ -44,8 +44,8 @@ func TestGetOrCreateConnector_DifferentIDs(t *testing.T) {
 	set2 := connectortest.NewNopSettings(metadata.Type)
 	set2.ID = component.MustNewIDWithName("genai_adapter", "other")
 
-	c1 := getOrCreateConnector(connectors, set1)
-	c2 := getOrCreateConnector(connectors, set2)
+	c1 := getOrCreateConnector(connectors, set1, &Config{PromptExtractionEnabled: true})
+	c2 := getOrCreateConnector(connectors, set2, &Config{PromptExtractionEnabled: true})
 	assert.NotSame(t, c1, c2)
 }
 
@@ -78,7 +78,7 @@ func TestCreateTracesToLogs(t *testing.T) {
 func TestStartShutdown(t *testing.T) {
 	connectors := &sync.Map{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 
 	assert.NoError(t, c.Start(t.Context(), componenttest.NewNopHost()))
 	assert.NoError(t, c.Shutdown(t.Context()))
@@ -88,7 +88,7 @@ func TestConsumeTraces_OISpanTransformed(t *testing.T) {
 	connectors := &sync.Map{}
 	tracesSink := &consumertest.TracesSink{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	c.tracesConsumer = tracesSink
 
 	td := ptrace.NewTraces()
@@ -112,7 +112,7 @@ func TestConsumeTraces_NonOISpanPassthrough(t *testing.T) {
 	connectors := &sync.Map{}
 	tracesSink := &consumertest.TracesSink{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	c.tracesConsumer = tracesSink
 
 	td := ptrace.NewTraces()
@@ -136,7 +136,7 @@ func TestConsumeTraces_LLOEmitsLogs(t *testing.T) {
 	connectors := &sync.Map{}
 	logsSink := &consumertest.LogsSink{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	c.logsConsumer = logsSink
 
 	td := ptrace.NewTraces()
@@ -159,11 +159,51 @@ func TestConsumeTraces_LLOEmitsLogs(t *testing.T) {
 	assert.False(t, hasOutput)
 }
 
+func TestConsumeTraces_NoLogsWhenPromptExtractionDisabled(t *testing.T) {
+	connectors := &sync.Map{}
+	logsSink := &consumertest.LogsSink{}
+	set := connectortest.NewNopSettings(metadata.Type)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: false})
+	c.logsConsumer = logsSink
+
+	td := ptrace.NewTraces()
+	rs := td.ResourceSpans().AppendEmpty()
+	ss := rs.ScopeSpans().AppendEmpty()
+	ss.Scope().SetName("test.scope")
+	span := ss.Spans().AppendEmpty()
+	span.Attributes().PutStr("input.value", "user prompt")
+	span.Attributes().PutStr("output.value", "assistant response")
+
+	err := c.ConsumeTraces(t.Context(), td)
+	require.NoError(t, err)
+	assert.Empty(t, logsSink.AllLogs())
+}
+
+func TestConsumeTraces_NoLogsWhenPromptExtractionDefault(t *testing.T) {
+	connectors := &sync.Map{}
+	logsSink := &consumertest.LogsSink{}
+	set := connectortest.NewNopSettings(metadata.Type)
+	c := getOrCreateConnector(connectors, set, &Config{})
+	c.logsConsumer = logsSink
+
+	td := ptrace.NewTraces()
+	rs := td.ResourceSpans().AppendEmpty()
+	ss := rs.ScopeSpans().AppendEmpty()
+	ss.Scope().SetName("test.scope")
+	span := ss.Spans().AppendEmpty()
+	span.Attributes().PutStr("input.value", "user prompt")
+	span.Attributes().PutStr("output.value", "assistant response")
+
+	err := c.ConsumeTraces(t.Context(), td)
+	require.NoError(t, err)
+	assert.Empty(t, logsSink.AllLogs())
+}
+
 func TestConsumeTraces_ForwardsToTracesConsumer(t *testing.T) {
 	connectors := &sync.Map{}
 	tracesSink := &consumertest.TracesSink{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	c.tracesConsumer = tracesSink
 
 	td := ptrace.NewTraces()
@@ -178,7 +218,7 @@ func TestConsumeTraces_ForwardsToLogsConsumer(t *testing.T) {
 	connectors := &sync.Map{}
 	logsSink := &consumertest.LogsSink{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	c.logsConsumer = logsSink
 
 	td := ptrace.NewTraces()
@@ -197,7 +237,7 @@ func TestConsumeTraces_NoLogsWhenNoLLO(t *testing.T) {
 	connectors := &sync.Map{}
 	logsSink := &consumertest.LogsSink{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	c.logsConsumer = logsSink
 
 	td := ptrace.NewTraces()
@@ -213,7 +253,7 @@ func TestLogsOnlyConnector_ConsumeTracesNoOp(t *testing.T) {
 	connectors := &sync.Map{}
 	tracesSink := &consumertest.TracesSink{}
 	set := connectortest.NewNopSettings(metadata.Type)
-	c := getOrCreateConnector(connectors, set)
+	c := getOrCreateConnector(connectors, set, &Config{PromptExtractionEnabled: true})
 	c.tracesConsumer = tracesSink
 
 	wrapper := &logsOnlyConnector{c}

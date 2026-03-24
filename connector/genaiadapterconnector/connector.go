@@ -15,6 +15,7 @@ import (
 )
 
 type genAIAdapterConnector struct {
+	cfg            *Config
 	logger         *zap.Logger
 	tracesConsumer consumer.Traces
 	logsConsumer   consumer.Logs
@@ -36,16 +37,17 @@ func (c *genAIAdapterConnector) Shutdown(_ context.Context) error {
 func (c *genAIAdapterConnector) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 	c.transformTraces(td)
 
-	logs := c.lloHandler.processSpans(td)
-
-	if c.tracesConsumer != nil {
-		if err := c.tracesConsumer.ConsumeTraces(ctx, td); err != nil {
-			return err
+	if c.cfg.PromptExtractionEnabled {
+		logs := c.lloHandler.processSpans(td)
+		if c.logsConsumer != nil && logs.LogRecordCount() > 0 {
+			if err := c.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
+				return err
+			}
 		}
 	}
 
-	if c.logsConsumer != nil && logs.LogRecordCount() > 0 {
-		if err := c.logsConsumer.ConsumeLogs(ctx, logs); err != nil {
+	if c.tracesConsumer != nil {
+		if err := c.tracesConsumer.ConsumeTraces(ctx, td); err != nil {
 			return err
 		}
 	}
