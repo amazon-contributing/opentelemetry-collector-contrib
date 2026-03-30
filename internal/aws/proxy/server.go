@@ -101,7 +101,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 
 			serviceName := cfg.ServiceName
 			region := *awsCfg.Region
-			endpoint := awsEndPoint
+			targetURL := awsURL
 			reqSigner := signer
 
 			// Check for custom routing rules
@@ -118,14 +118,13 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 					}
 				}
 				if serviceConfig.AWSEndpoint != "" {
-					endpoint = serviceConfig.AWSEndpoint
+					parsed, err := url.Parse(serviceConfig.AWSEndpoint)
+					if err != nil {
+						logger.Error("Unable to parse endpoint", zap.Error(err))
+					} else {
+						targetURL = parsed
+					}
 				}
-			}
-
-			targetURL, err := url.Parse(endpoint)
-			if err != nil {
-				logger.Error("Unable to parse endpoint", zap.Error(err))
-				targetURL = awsURL
 			}
 
 			// Set req url to target endpoint
@@ -150,22 +149,34 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 		},
 	}
 
-	// Wrap the reverse proxy to reject requests for paths with invalid routing rules
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		apiName := strings.TrimPrefix(r.URL.Path, "/")
-		if serviceConfig, exists := apiRouteMap[apiName]; exists && serviceConfig == nil {
-			logger.Warn("Rejecting request for path with invalid routing rule", zap.String("path", apiName))
-			http.Error(w, "invalid routing configuration for path: "+apiName, http.StatusBadGateway)
-			return
-		}
-		proxy.ServeHTTP(w, r)
-	})
+	handler := &proxyHandler{
+		proxy:       proxy,
+		apiRouteMap: apiRouteMap,
+		logger:      logger,
+	}
 
 	return &http.Server{
 		Addr:              cfg.Endpoint,
 		Handler:           handler,
 		ReadHeaderTimeout: 20 * time.Second,
 	}, nil
+}
+
+// proxyHandler wraps a reverse proxy with routing rule validation.
+type proxyHandler struct {
+	proxy       *httputil.ReverseProxy
+	apiRouteMap map[string]*RoutingRule
+	logger      *zap.Logger
+}
+
+func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	apiName := strings.TrimPrefix(r.URL.Path, "/")
+	if serviceConfig, exists := h.apiRouteMap[apiName]; exists && serviceConfig == nil {
+		h.logger.Warn("Rejecting request for path with invalid routing rule", zap.String("path", apiName))
+		http.Error(w, "invalid routing configuration for path: "+apiName, http.StatusBadRequest)
+		return
+	}
+	h.proxy.ServeHTTP(w, r)
 }
 
 // getServiceEndpoint returns X-Ray service endpoint.
@@ -278,6 +289,7 @@ func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner
 
 		// Map paths: valid routes get the config, invalid routes get nil
 		for _, path := range route.Paths {
+			path = strings.TrimPrefix(path, "/")
 			if _, exists := apiMap[path]; !exists {
 				if isValidRoute {
 					apiMap[path] = &route
