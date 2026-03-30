@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
 	"strings"
 	"testing"
 	"time"
@@ -244,7 +243,7 @@ func (m *mockReadCloser) Close() error {
 }
 
 func TestBuildRoutingMapsEmpty(t *testing.T) {
-	apiMap, signerMap := buildRoutingMaps(nil, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, signerMap := buildRoutingMaps(nil, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Empty(t, apiMap)
 	assert.Empty(t, signerMap)
 }
@@ -318,7 +317,7 @@ func TestInvalidRoutingRuleSkipsSigning(t *testing.T) {
 
 	mockTrans := &mockTransport{}
 	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
 	proxy.Transport = mockTrans
 
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:2000/InvalidPath", strings.NewReader(`{}`))
@@ -419,7 +418,7 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 
 	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 2)
-	assert.Equal(t, "logs", apiMap["/PutLogEvents"].ServiceName)
+	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
 }
 
@@ -470,7 +469,7 @@ func TestHandlerRoutingWithMultipleServices(t *testing.T) {
 	// Replace transport with mock
 	mockTrans := &mockTransport{}
 	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {
@@ -542,7 +541,7 @@ func TestHandlerRoutingWithAutoResolvedEndpoint(t *testing.T) {
 
 	mockTrans := &mockTransport{}
 	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {
@@ -588,7 +587,7 @@ func TestHandlerPreservesURLPath(t *testing.T) {
 
 	mockTrans := &mockTransport{}
 	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
 	proxy.Transport = mockTrans
 
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:2000/slos?MaxResults=1", strings.NewReader(`{}`))
@@ -755,7 +754,7 @@ func TestHandlerRoutingFallsBackToTopLevelRegion(t *testing.T) {
 
 	mockTrans := &mockTransport{}
 	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {
@@ -807,7 +806,7 @@ func TestHandlerRoutingAutoResolvesEndpointWhenRuleHasNoEndpoint(t *testing.T) {
 
 	mockTrans := &mockTransport{}
 	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*httputil.ReverseProxy)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {
