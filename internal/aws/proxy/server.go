@@ -83,7 +83,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 	}
 
 	// Reverse proxy handler
-	handler := &httputil.ReverseProxy{
+	proxy := &httputil.ReverseProxy{
 		Transport: transport,
 
 		// Handler for modifying and forwarding requests
@@ -98,12 +98,6 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			req.Header.Del(connHeader)
 
 			apiName := strings.TrimPrefix(req.URL.Path, "/")
-
-			// Skip signing for invalid routing rules
-			if serviceConfig, exists := apiRouteMap[apiName]; exists && serviceConfig == nil {
-				logger.Warn("Skipping signing for path with invalid routing rule", zap.String("path", apiName))
-				return
-			}
 
 			serviceName := cfg.ServiceName
 			region := *awsCfg.Region
@@ -155,6 +149,17 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			}
 		},
 	}
+
+	// Wrap the reverse proxy to reject requests for paths with invalid routing rules
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiName := strings.TrimPrefix(r.URL.Path, "/")
+		if serviceConfig, exists := apiRouteMap[apiName]; exists && serviceConfig == nil {
+			logger.Warn("Rejecting request for path with invalid routing rule", zap.String("path", apiName))
+			http.Error(w, "invalid routing configuration for path: "+apiName, http.StatusBadGateway)
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	})
 
 	return &http.Server{
 		Addr:              cfg.Endpoint,
@@ -216,7 +221,7 @@ func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner
 	}
 
 	for i := range routes {
-		route := &routes[i]
+		route := routes[i]
 		isValidRoute := true
 
 		if route.ServiceName == "" {
@@ -275,7 +280,7 @@ func buildRoutingMaps(routes []RoutingRule, defaultRoleARN string, defaultSigner
 		for _, path := range route.Paths {
 			if _, exists := apiMap[path]; !exists {
 				if isValidRoute {
-					apiMap[path] = route
+					apiMap[path] = &route
 				} else {
 					apiMap[path] = nil
 				}
