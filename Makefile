@@ -406,7 +406,10 @@ otelcontribcollite: genotelcontribcol
 .PHONY: genotelcolagentcore
 genotelcolagentcore: $(BUILDER)
 	./internal/buildscripts/ocb-add-replaces.sh otelcol-agentcore
-	$(BUILDER) --skip-compilation --config cmd/otelcol-agentcore/builder-config-replaced.yaml
+	$(BUILDER) --skip-compilation --skip-get-modules --config cmd/otelcol-agentcore/builder-config-replaced.yaml
+	cd ./cmd/otelcol-agentcore && \
+		$(GOCMD) get go.opentelemetry.io/otel/sdk/log@v0.17.0 go.opentelemetry.io/otel/exporters/stdout/stdoutlog@v0.17.0 go.opentelemetry.io/otel/log@v0.17.0 go.opentelemetry.io/otel/log/logtest@v0.17.0 && \
+		$(GOCMD) mod tidy -compat=1.23
 
 # Build the AgentCore Collector executable.
 .PHONY: otelcol-agentcore
