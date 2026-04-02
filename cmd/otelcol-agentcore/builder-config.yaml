@@ -27,6 +27,9 @@ extensions:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/awsproxy v0.124.1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension v0.124.1
 
+converters:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/converter/agentcorevalidator v0.124.1
+
 # When using `make genotelcolagentcore`, the `replaces` content is appended to
 # this file before passing it to OCB, to ensure that local versions are used
 # for all Contrib modules.
