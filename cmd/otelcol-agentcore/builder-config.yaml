@@ -14,6 +14,8 @@ processors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributesprocessor v0.124.1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.124.1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v0.124.1
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.124.1
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourceprocessor v0.124.1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor v0.124.1
   - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.124.0
 
