@@ -53,7 +53,7 @@ service:
   pipelines:
     logs/cloudwatch:
       receivers: [otlp]
-      processors: [batch]
+      processors: [batch, awscwotlpbatchsplit]
       exporters: [otlphttp/logs]
     metrics:
       receivers: [otlp]
