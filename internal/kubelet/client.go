@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 
 	"go.uber.org/zap"
@@ -36,29 +34,6 @@ var (
 	defaultSecurePort   = "10250"
 	defaultReadOnlyPort = "10255"
 )
-
-func init() {
-	updateSVCPath()
-}
-
-func updateSVCPath() {
-	// This is known that k8s token and cert file as available with CONTAINER_SANDBOX_MOUNT_POINT in path.
-	// https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/#containerd-v1-6
-	// todo: Remove this workaround func when Windows AMIs has containerd 1.7 which solves upstream bug
-	if isWindowsHostProcessContainer() {
-		svcAcctCACertPath = filepath.Join(os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"), svcAcctCACertPath)
-		svcAcctTokenPath = filepath.Join(os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"), svcAcctTokenPath)
-	}
-}
-
-func isWindowsHostProcessContainer() bool {
-	// todo: Remove this workaround func when Windows AMIs has containerd 1.7 which solves upstream bug
-	// https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/#containerd-v1-6
-	if runtime.GOOS == OperatingSystemWindows && os.Getenv(RunInContainer) == TrueValue && os.Getenv(RunAsHostProcessContainer) == TrueValue {
-		return true
-	}
-	return false
-}
 
 type Client interface {
 	Get(path string) ([]byte, error)

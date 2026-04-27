@@ -329,8 +329,6 @@ func initMetric(ilm pmetric.ScopeMetrics, name, unit string) pmetric.Metric {
 }
 
 func IsWindowsHostProcessContainer() bool {
-	// todo: Remove this workaround func when Windows AMIs has containerd 1.7 which solves upstream bug
-	// https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/#containerd-v1-6
 	if runtime.GOOS == OperatingSystemWindows && os.Getenv(RunInContainer) == TrueValue && os.Getenv(RunAsHostProcessContainer) == TrueValue {
 		return true
 	}
