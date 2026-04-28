@@ -108,6 +108,19 @@ func TestLoadConfig(t *testing.T) {
 				RunOnSystemd:          true,
 			},
 		},
+		{
+			id: component.NewIDWithName(metadata.Type, "enable_cost_allocation"),
+			expected: &Config{
+				CollectionInterval:        60 * time.Second,
+				CollectionRole:            ALL,
+				ContainerOrchestrator:     "eks",
+				TagService:                true,
+				PrefFullPodName:           false,
+				LeaderLockName:            "otel-container-insight-clusterleader",
+				EnableControlPlaneMetrics: false,
+				EnableCostAllocation:      true,
+			},
+		},
 	}
 
 	for _, tt := range tests {

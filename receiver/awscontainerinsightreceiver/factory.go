@@ -45,6 +45,9 @@ const (
 
 	// Don't enable EKS control plane metrics by default
 	defaultEnableControlPlaneMetrics = false
+
+	// Don't enable cost allocation by default
+	defaultEnableCostAllocation = false
 )
 
 // NewFactory creates a factory for AWS container insight receiver
@@ -67,6 +70,7 @@ func createDefaultConfig() component.Config {
 		ClusterName:                 defaultClusterName,
 		LeaderLockName:              defaultLeaderLockName,
 		EnableControlPlaneMetrics:   defaultEnableControlPlaneMetrics,
+		EnableCostAllocation:        defaultEnableCostAllocation,
 		CollectionRole:              defaultCollectionRole,
 	}
 }

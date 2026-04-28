@@ -92,4 +92,10 @@ type Config struct {
 	// MiddlewareID is an ID for an extension that can be used to configure the
 	// AWS client.
 	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
+
+	// EnableCostAllocation enables the Coeus cost allocation engine.
+	// When enabled, the receiver computes proportional cost attribution metrics
+	// at every Kubernetes hierarchy level (node, pod, container, namespace, cluster).
+	// Only effective in EKS mode. The default value is false.
+	EnableCostAllocation bool `mapstructure:"enable_cost_allocation"`
 }

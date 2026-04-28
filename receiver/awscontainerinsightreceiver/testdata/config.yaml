@@ -15,3 +15,5 @@ awscontainerinsightreceiver/custom_kube_config_path:
   host_ip: "1.2.3.4"
   host_name: "test-hostname"
   run_on_systemd: true
+awscontainerinsightreceiver/enable_cost_allocation:
+  enable_cost_allocation: true

@@ -13,15 +13,23 @@ import (
 	"time"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
+	"github.com/aws/aws-sdk-go-v2/config"
+	awseksv2 "github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/pricing"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/costallocation"
 	ecsinfo "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/ecsInfo"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/efa"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/gpu"
@@ -64,6 +72,8 @@ type awsContainerInsightReceiver struct {
 	nvmeLISScraper           *prometheusscraper.SimplePrometheusScraper
 	neuronMonitorScraper     *prometheusscraper.SimplePrometheusScraper
 	efaSysfsScraper          *efa.Scraper
+	costAllocator            *costallocation.CostAllocator
+	eciMetricsProvider       *costallocation.ECIMetricsProvider
 }
 
 // newAWSContainerInsightReceiver creates the aws container insight receiver with the given parameters.
@@ -232,6 +242,14 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 		err = acir.initEfaSysfsScraper(localNodeDecorator, hostInfo)
 		if err != nil {
 			acir.settings.Logger.Debug("Unable to start EFA scraper", zap.Error(err))
+		}
+	}
+
+	// Initialize cost allocation if enabled.
+	if acir.config.EnableCostAllocation {
+		err := acir.initCostAllocator(ctx, hostInfo)
+		if err != nil {
+			acir.settings.Logger.Warn("Unable to start cost allocator", zap.Error(err))
 		}
 	}
 
@@ -449,6 +467,70 @@ func (acir *awsContainerInsightReceiver) initEfaSysfsScraper(localNodeDecorator 
 	return nil
 }
 
+func (acir *awsContainerInsightReceiver) initCostAllocator(ctx context.Context, hostInfo *hostinfo.Info) error {
+	region := hostInfo.GetRegion()
+	clusterName := hostInfo.GetClusterName()
+
+	// Create AWS v1 session for Pricing and EC2 clients.
+	_, sess, err := awsutil.GetAWSConfigSession(acir.settings.Logger, &awsutil.Conn{}, &acir.config.AWSSessionSettings)
+	if err != nil {
+		return fmt.Errorf("failed to create AWS session for cost allocation: %w", err)
+	}
+
+	// Pricing API must be called from us-east-1 — create a dedicated session.
+	pricingSess, err := session.NewSession(&aws.Config{Region: aws.String("us-east-1")})
+	if err != nil {
+		return fmt.Errorf("failed to create pricing API session: %w", err)
+	}
+	pricingClient := costallocation.NewPricingClient(
+		pricing.New(pricingSess),
+		region,
+		24*time.Hour,
+		acir.settings.Logger,
+	)
+
+	instanceClient := costallocation.NewInstanceInfoClient(
+		ec2.New(sess, &aws.Config{Region: aws.String(region)}),
+		24*time.Hour,
+		acir.settings.Logger,
+	)
+
+	// Create AWS v2 config for EKS client.
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	if err != nil {
+		return fmt.Errorf("failed to create AWS v2 config for cost allocation: %w", err)
+	}
+	eksClient := awseksv2.NewFromConfig(cfg)
+
+	clusterClient := costallocation.NewClusterInfoClient(
+		eksClient,
+		clusterName,
+		time.Hour,
+		acir.settings.Logger,
+	)
+
+	acir.eciMetricsProvider = costallocation.NewECIMetricsProvider(acir.settings.Logger)
+
+	ca, err := costallocation.NewCostAllocator(costallocation.CostAllocatorOpts{
+		Logger:          acir.settings.Logger,
+		PricingClient:   pricingClient,
+		InstanceClient:  instanceClient,
+		ClusterClient:   clusterClient,
+		MetricsProvider: acir.eciMetricsProvider,
+		ClusterName:     clusterName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create cost allocator: %w", err)
+	}
+
+	ca.Start(ctx)
+	acir.costAllocator = ca
+	acir.settings.Logger.Info("Cost allocation engine initialized",
+		zap.String("clusterName", clusterName),
+		zap.String("region", region))
+	return nil
+}
+
 // Shutdown stops the awsContainerInsightReceiver receiver.
 func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.prometheusScraper != nil {
@@ -483,6 +565,9 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	}
 	if acir.efaSysfsScraper != nil {
 		acir.efaSysfsScraper.Shutdown()
+	}
+	if acir.costAllocator != nil {
+		errs = errors.Join(errs, acir.costAllocator.Shutdown())
 	}
 	if acir.decorators != nil {
 		for i := len(acir.decorators) - 1; i >= 0; i-- {
@@ -538,6 +623,15 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 
 	if acir.efaSysfsScraper != nil {
 		mds = append(mds, acir.efaSysfsScraper.GetMetrics()...)
+	}
+
+	if acir.costAllocator != nil {
+		// Feed the already-collected metrics to the ECIMetricsProvider so the
+		// CostAllocator can read node/pod/container utilization data.
+		if acir.eciMetricsProvider != nil {
+			acir.eciMetricsProvider.CollectFromOTLPMetrics(mds)
+		}
+		mds = append(mds, acir.costAllocator.GetMetrics()...)
 	}
 
 	for _, md := range mds {
