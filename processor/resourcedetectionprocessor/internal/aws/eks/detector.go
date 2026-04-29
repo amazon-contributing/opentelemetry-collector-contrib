@@ -5,6 +5,7 @@ package eks // import "github.com/open-telemetry/opentelemetry-collector-contrib
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -18,7 +19,6 @@ import (
 	"go.opentelemetry.io/collector/processor"
 	conventions "go.opentelemetry.io/collector/semconv/v1.6.1"
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -32,8 +32,13 @@ const (
 
 	// Environment variable that is set when running on Kubernetes.
 	kubernetesServiceHostEnvVar = "KUBERNETES_SERVICE_HOST"
-	authConfigmapNS             = "kube-system"
-	authConfigmapName           = "aws-auth"
+
+	eksClusterStringIdentifier      = "-eks-"
+	eksOIDCIssuerIdentifier         = "oidc.eks."
+	eksIRSATokenPathIdentifier      = "eks.amazonaws.com" //nolint:gosec // not a credential
+	eksPodIdentityPathIdentifier    = "eks-pod-identity"
+	awsWebIdentityTokenFileEnvVar   = "AWS_WEB_IDENTITY_TOKEN_FILE"            //nolint:gosec // env var name
+	awsContainerAuthTokenFileEnvVar = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE" //nolint:gosec // env var name
 
 	clusterNameAwsEksTag     = "aws:eks:cluster-name"
 	clusterNameEksTag        = "eks:cluster-name"
@@ -41,10 +46,11 @@ const (
 )
 
 type detectorUtils interface {
-	getConfigMap(ctx context.Context, namespace string, name string) (map[string]string, error)
 	getClusterName(ctx context.Context, logger *zap.Logger) string
 	getClusterNameTagFromReservations([]types.Reservation) string
 	getCloudAccountID(ctx context.Context, logger *zap.Logger) string
+	getOIDCIssuer(ctx context.Context) (string, error)
+	getServerVersion(ctx context.Context) (string, error)
 }
 
 type eksDetectorUtils struct {
@@ -85,7 +91,7 @@ func (d *detector) Detect(ctx context.Context) (resource pcommon.Resource, schem
 		return pcommon.NewResource(), "", nil
 	}
 	// Check if running on EKS.
-	isEKS, err := isEKS(ctx, d.utils)
+	isEKS, err := isEKS(ctx, d.utils, d.logger)
 	if !isEKS {
 		d.logger.Debug("Unable to identify EKS environment", zap.Error(err))
 		return pcommon.NewResource(), "", err
@@ -106,18 +112,40 @@ func (d *detector) Detect(ctx context.Context) (resource pcommon.Resource, schem
 	return d.rb.Emit(), conventions.SchemaURL, nil
 }
 
-func isEKS(ctx context.Context, utils detectorUtils) (bool, error) {
+func isEKS(ctx context.Context, utils detectorUtils, logger *zap.Logger) (bool, error) {
+	// Step 1: Must be running on Kubernetes
 	if os.Getenv(kubernetesServiceHostEnvVar) == "" {
 		return false, nil
 	}
 
-	// Make HTTP GET request
-	awsAuth, err := utils.getConfigMap(ctx, authConfigmapNS, authConfigmapName)
-	if err != nil {
-		return false, fmt.Errorf("isEks() error retrieving auth configmap: %w", err)
+	// Step 2: IRSA token path contains "eks.amazonaws.com"
+	if tokenFile := os.Getenv(awsWebIdentityTokenFileEnvVar); strings.Contains(tokenFile, eksIRSATokenPathIdentifier) {
+		return true, nil
 	}
 
-	return awsAuth != nil, nil
+	// Step 3: Pod Identity token path contains "eks-pod-identity"
+	if authFile := os.Getenv(awsContainerAuthTokenFileEnvVar); strings.Contains(authFile, eksPodIdentityPathIdentifier) {
+		return true, nil
+	}
+
+	// Step 4: OIDC issuer contains "oidc.eks."
+	issuer, err := utils.getOIDCIssuer(ctx)
+	if err != nil {
+		logger.Warn("Failed to get OIDC issuer, falling back to cluster version check", zap.Error(err))
+	} else if strings.Contains(issuer, eksOIDCIssuerIdentifier) {
+		return true, nil
+	}
+
+	// Step 5: gitVersion contains "-eks-"
+	version, err := utils.getServerVersion(ctx)
+	if err != nil {
+		return false, fmt.Errorf("isEks() error retrieving cluster version: %w", err)
+	}
+	if strings.Contains(version, eksClusterStringIdentifier) {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func newK8sDetectorUtils() (*eksDetectorUtils, error) {
@@ -136,12 +164,29 @@ func newK8sDetectorUtils() (*eksDetectorUtils, error) {
 	return &eksDetectorUtils{clientset: clientset}, nil
 }
 
-func (e eksDetectorUtils) getConfigMap(ctx context.Context, namespace string, name string) (map[string]string, error) {
-	cm, err := e.clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+func (e eksDetectorUtils) getOIDCIssuer(ctx context.Context) (string, error) {
+	body, err := e.clientset.Discovery().RESTClient().
+		Get().
+		AbsPath("/.well-known/openid-configuration").
+		DoRaw(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve ConfigMap %s/%s: %w", namespace, name, err)
+		return "", fmt.Errorf("failed to get OIDC configuration: %w", err)
 	}
-	return cm.Data, nil
+	var result struct {
+		Issuer string `json:"issuer"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("failed to parse OIDC configuration: %w", err)
+	}
+	return result.Issuer, nil
+}
+
+func (e eksDetectorUtils) getServerVersion(_ context.Context) (string, error) {
+	info, err := e.clientset.Discovery().ServerVersion()
+	if err != nil {
+		return "", fmt.Errorf("failed to get server version: %w", err)
+	}
+	return info.GitVersion, nil
 }
 
 func (e eksDetectorUtils) getClusterName(ctx context.Context, logger *zap.Logger) string {
