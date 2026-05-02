@@ -43,6 +43,8 @@ all_set:
       enabled: true
     postgresql.rows:
       enabled: true
+    postgresql.sessions:
+      enabled: true
     postgresql.sequential_scans:
       enabled: true
     postgresql.table.count:
@@ -77,6 +79,8 @@ all_set:
     postgresql.schema.name:
       enabled: true
     postgresql.table.name:
+      enabled: true
+    service.instance.id:
       enabled: true
 none_set:
   metrics:
@@ -122,6 +126,8 @@ none_set:
       enabled: false
     postgresql.rows:
       enabled: false
+    postgresql.sessions:
+      enabled: false
     postgresql.sequential_scans:
       enabled: false
     postgresql.table.count:
@@ -156,6 +162,8 @@ none_set:
     postgresql.schema.name:
       enabled: false
     postgresql.table.name:
+      enabled: false
+    service.instance.id:
       enabled: false
 filter_set_include:
   resource_attributes:
