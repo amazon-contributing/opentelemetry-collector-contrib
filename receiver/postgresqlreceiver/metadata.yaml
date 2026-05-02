@@ -53,6 +53,9 @@ attributes:
       - sync
       - write
     name_override: type
+  function:
+    description: The name of the function.
+    type: string
   lock_type:
     description: Type of the lockable object.
     type: string
@@ -201,6 +204,15 @@ metrics:
       monotonic: false
       aggregation_temporality: cumulative
     attributes: [state]
+  postgresql.function.calls:
+    enabled: false
+    description: The number of calls made to a function. Requires `track_functions=pl|all` in Postgres config.
+    unit: "{call}"
+    sum:
+      value_type: int
+      monotonic: true
+      aggregation_temporality: cumulative
+    attributes: [function]
   postgresql.index.scans:
     description: The number of index scans on a table.
     enabled: true
@@ -274,11 +286,19 @@ metrics:
   postgresql.table.vacuum.count:
     description: Number of times a table has manually been vacuumed.
     enabled: true
-    unit: "{vacuums}"
+    unit: "{vacuum}"
     sum:
       aggregation_temporality: cumulative
       monotonic: true
       value_type: int
+  postgresql.temp.io:
+    enabled: false
+    description: Total amount of data written to temporary files by queries.
+    unit: By
+    sum:
+      value_type: int
+      monotonic: true
+      aggregation_temporality: cumulative
   postgresql.temp_files:
     enabled: false
     description: The number of temp files.
