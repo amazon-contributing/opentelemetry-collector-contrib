@@ -143,6 +143,10 @@ type Sum struct {
 	Value string `mapstructure:"value"`
 }
 
+type Gauge struct {
+	Value string `mapstructure:"value"`
+}
+
 // MetricInfo defines the structure of the metric produced by the connector.
 type MetricInfo struct {
 	Name        string `mapstructure:"name"`
@@ -161,6 +165,7 @@ type MetricInfo struct {
 	Histogram            *Histogram            `mapstructure:"histogram"`
 	ExponentialHistogram *ExponentialHistogram `mapstructure:"exponential_histogram"`
 	Sum                  *Sum                  `mapstructure:"sum"`
+	Gauge                *Gauge                `mapstructure:"gauge"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
@@ -231,6 +236,15 @@ func (mi *MetricInfo) validateSum() error {
 	return nil
 }
 
+func (mi *MetricInfo) validateGauge() error {
+	if mi.Gauge != nil {
+		if mi.Gauge.Value == "" {
+			return errors.New("value must be defined for gauge metrics")
+		}
+	}
+	return nil
+}
+
 // validateMetricInfo is an utility method validate all supported metric
 // types defined for the metric info including any ottl expressions.
 func validateMetricInfo[K any](mi MetricInfo, parser ottl.Parser[K]) error {
@@ -245,6 +259,9 @@ func validateMetricInfo[K any](mi MetricInfo, parser ottl.Parser[K]) error {
 	}
 	if err := mi.validateSum(); err != nil {
 		return fmt.Errorf("sum validation failed: %w", err)
+	}
+	if err := mi.validateGauge(); err != nil {
+		return fmt.Errorf("gauge validation failed: %w", err)
 	}
 
 	// Exactly one metric should be defined. Also, validate OTTL expressions,
@@ -277,6 +294,12 @@ func validateMetricInfo[K any](mi MetricInfo, parser ottl.Parser[K]) error {
 		metricsDefinedCount++
 		if _, err := parser.ParseValueExpression(mi.Sum.Value); err != nil {
 			return fmt.Errorf("failed to parse value OTTL expression for summary: %w", err)
+		}
+	}
+	if mi.Gauge != nil {
+		metricsDefinedCount++
+		if _, err := parser.ParseValueExpression(mi.Gauge.Value); err != nil {
+			return fmt.Errorf("failed to parse value OTTL expression for gauge: %w", err)
 		}
 	}
 	if metricsDefinedCount != 1 {
