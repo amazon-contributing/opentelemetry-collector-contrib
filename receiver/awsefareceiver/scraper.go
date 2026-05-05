@@ -244,6 +244,8 @@ func (s *efaScraper) recordMetrics(ts pcommon.Timestamp, counters map[string]uin
 	for _, c := range efaCounters {
 		val, ok := counters[c.name]
 		if !ok {
+			s.logger.Debug("Counter not found for device, skipping",
+				zap.String("counter", c.name), zap.String("device", device))
 			continue
 		}
 		if val > math.MaxInt64 {
