@@ -2913,8 +2913,13 @@ func generateTestMetrics(tm testMetric) pmetric.Metrics {
 	return md
 }
 
-// Tests for per-declaration namespace and log_group_name overrides
-
+// Tests for per-declaration namespace and log_group_name overrides.
+//
+// Namespace overrides split at measurement-emission time: one grouped metric
+// can emit multiple cWMeasurements with distinct namespaces within the same
+// EMF event. Log-group overrides split at grouping time: metrics matching
+// multiple declarations with different log_group_name end up in distinct
+// groupedMetric entries (and thus distinct EMF events).
 
 func TestGroupedMetricToCWMeasurementsWithNamespaceOverride(t *testing.T) {
 	timestamp := int64(1596151098037)
@@ -2926,14 +2931,8 @@ func TestGroupedMetricToCWMeasurementsWithNamespaceOverride(t *testing.T) {
 		"c": "C",
 	}
 	metrics := map[string]*metricInfo{
-		"metric1": {
-			value: 1,
-			unit:  "Count",
-		},
-		"metric2": {
-			value: 200,
-			unit:  "Count",
-		},
+		"metric1": {value: 1, unit: "Count"},
+		"metric2": {value: 200, unit: "Count"},
 	}
 
 	logger := zap.NewNop()
@@ -2944,18 +2943,14 @@ func TestGroupedMetricToCWMeasurementsWithNamespaceOverride(t *testing.T) {
 			MetricNameSelectors: []string{"metric.*"},
 			Namespace:           "OverrideNamespace",
 		}
-		err := decl.init(logger)
-		assert.NoError(t, err)
+		require.NoError(t, decl.init(logger))
 
-		groupedMetric := &groupedMetric{
+		gm := &groupedMetric{
 			labels:  labels,
 			metrics: metrics,
-			metadata: cWMetricMetadata{
-				groupedMetricMetadata: groupedMetricMetadata{
-					namespace:   namespace,
-					timestampMs: timestamp,
-				},
-			},
+			metadata: cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+				namespace: namespace, timestampMs: timestamp,
+			}},
 		}
 		config := &Config{
 			DimensionRollupOption: "",
@@ -2963,9 +2958,9 @@ func TestGroupedMetricToCWMeasurementsWithNamespaceOverride(t *testing.T) {
 			logger:                logger,
 		}
 
-		cWMeasurements := groupedMetricToCWMeasurementsWithFilters(groupedMetric, config)
-		assert.Len(t, cWMeasurements, 1)
-		assert.Equal(t, "OverrideNamespace", cWMeasurements[0].Namespace)
+		out := groupedMetricToCWMeasurementsWithFilters(gm, config)
+		assert.Len(t, out, 1)
+		assert.Equal(t, "OverrideNamespace", out[0].Namespace)
 	})
 
 	t.Run("declaration without namespace uses global", func(t *testing.T) {
@@ -2973,31 +2968,52 @@ func TestGroupedMetricToCWMeasurementsWithNamespaceOverride(t *testing.T) {
 			Dimensions:          [][]string{{"a"}},
 			MetricNameSelectors: []string{"metric.*"},
 		}
-		err := decl.init(logger)
-		assert.NoError(t, err)
+		require.NoError(t, decl.init(logger))
 
-		groupedMetric := &groupedMetric{
+		gm := &groupedMetric{
 			labels:  labels,
 			metrics: metrics,
-			metadata: cWMetricMetadata{
-				groupedMetricMetadata: groupedMetricMetadata{
-					namespace:   namespace,
-					timestampMs: timestamp,
-				},
-			},
+			metadata: cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+				namespace: namespace, timestampMs: timestamp,
+			}},
 		}
-		config := &Config{
-			DimensionRollupOption: "",
-			MetricDeclarations:    []*MetricDeclaration{decl},
-			logger:                logger,
-		}
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
 
-		cWMeasurements := groupedMetricToCWMeasurementsWithFilters(groupedMetric, config)
-		assert.Len(t, cWMeasurements, 1)
-		assert.Equal(t, namespace, cWMeasurements[0].Namespace)
+		out := groupedMetricToCWMeasurementsWithFilters(gm, config)
+		assert.Len(t, out, 1)
+		assert.Equal(t, namespace, out[0].Namespace)
 	})
 
-	t.Run("mixed declarations with and without namespace override", func(t *testing.T) {
+	t.Run("two declarations, different namespaces, same metric → two measurements in one EMF event", func(t *testing.T) {
+		decl1 := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric1"},
+			Namespace:           "NS_A",
+		}
+		decl2 := &MetricDeclaration{
+			Dimensions:          [][]string{{"a", "b"}},
+			MetricNameSelectors: []string{"metric1"},
+			Namespace:           "NS_B",
+		}
+		require.NoError(t, decl1.init(logger))
+		require.NoError(t, decl2.init(logger))
+
+		gm := &groupedMetric{
+			labels:  labels,
+			metrics: map[string]*metricInfo{"metric1": {value: 1, unit: "Count"}},
+			metadata: cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+				namespace: namespace, timestampMs: timestamp,
+			}},
+		}
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl1, decl2}, logger: logger}
+
+		out := groupedMetricToCWMeasurementsWithFilters(gm, config)
+		assert.Len(t, out, 2)
+		namespaces := []string{out[0].Namespace, out[1].Namespace}
+		assert.ElementsMatch(t, []string{"NS_A", "NS_B"}, namespaces)
+	})
+
+	t.Run("mixed: one declaration with override, one without → two measurements (global + override)", func(t *testing.T) {
 		decl1 := &MetricDeclaration{
 			Dimensions:          [][]string{{"a"}},
 			MetricNameSelectors: []string{"metric1"},
@@ -3007,155 +3023,317 @@ func TestGroupedMetricToCWMeasurementsWithNamespaceOverride(t *testing.T) {
 			MetricNameSelectors: []string{"metric2"},
 			Namespace:           "OverrideNamespace",
 		}
-		err := decl1.init(logger)
-		assert.NoError(t, err)
-		err = decl2.init(logger)
-		assert.NoError(t, err)
+		require.NoError(t, decl1.init(logger))
+		require.NoError(t, decl2.init(logger))
 
-		groupedMetric := &groupedMetric{
+		gm := &groupedMetric{
 			labels:  labels,
 			metrics: metrics,
-			metadata: cWMetricMetadata{
-				groupedMetricMetadata: groupedMetricMetadata{
-					namespace:   namespace,
-					timestampMs: timestamp,
-				},
-			},
+			metadata: cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+				namespace: namespace, timestampMs: timestamp,
+			}},
 		}
-		config := &Config{
-			DimensionRollupOption: "",
-			MetricDeclarations:    []*MetricDeclaration{decl1, decl2},
-			logger:                logger,
-		}
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl1, decl2}, logger: logger}
 
-		cWMeasurements := groupedMetricToCWMeasurementsWithFilters(groupedMetric, config)
-		assert.Len(t, cWMeasurements, 2)
+		out := groupedMetricToCWMeasurementsWithFilters(gm, config)
+		assert.Len(t, out, 2)
 
-		var m1Measurement, m2Measurement *cWMeasurement
-		for i := range cWMeasurements {
-			for _, m := range cWMeasurements[i].Metrics {
+		var m1, m2 *cWMeasurement
+		for i := range out {
+			for _, m := range out[i].Metrics {
 				if m.Name == "metric1" {
-					m1Measurement = &cWMeasurements[i]
+					m1 = &out[i]
 				}
 				if m.Name == "metric2" {
-					m2Measurement = &cWMeasurements[i]
+					m2 = &out[i]
 				}
 			}
 		}
+		require.NotNil(t, m1)
+		require.NotNil(t, m2)
+		assert.Equal(t, namespace, m1.Namespace)
+		assert.Equal(t, "OverrideNamespace", m2.Namespace)
+	})
 
-		assert.NotNil(t, m1Measurement)
-		assert.NotNil(t, m2Measurement)
-		assert.Equal(t, namespace, m1Measurement.Namespace)
-		assert.Equal(t, "OverrideNamespace", m2Measurement.Namespace)
+	t.Run("placeholder resolved from resource attrs", func(t *testing.T) {
+		decl := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric.*"},
+			Namespace:           "{ClusterName}",
+		}
+		require.NoError(t, decl.init(logger))
+
+		gm := &groupedMetric{
+			labels:        labels,
+			metrics:       metrics,
+			resourceAttrs: map[string]string{"ClusterName": "my-cluster"},
+			metadata: cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+				namespace: namespace, timestampMs: timestamp,
+			}},
+		}
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
+
+		out := groupedMetricToCWMeasurementsWithFilters(gm, config)
+		require.Len(t, out, 1)
+		assert.Equal(t, "my-cluster", out[0].Namespace)
+	})
+
+	t.Run("placeholder falls back to labels when missing from resource attrs", func(t *testing.T) {
+		decl := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric.*"},
+			Namespace:           "{ClusterName}",
+		}
+		require.NoError(t, decl.init(logger))
+
+		labelsWithCluster := map[string]string{"a": "A", "b": "B", "ClusterName": "label-cluster"}
+		gm := &groupedMetric{
+			labels:  labelsWithCluster,
+			metrics: metrics,
+			metadata: cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+				namespace: namespace, timestampMs: timestamp,
+			}},
+		}
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
+
+		out := groupedMetricToCWMeasurementsWithFilters(gm, config)
+		require.Len(t, out, 1)
+		assert.Equal(t, "label-cluster", out[0].Namespace)
+	})
+
+	t.Run("placeholder missing from both → undefined", func(t *testing.T) {
+		decl := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric.*"},
+			Namespace:           "{ClusterName}",
+		}
+		require.NoError(t, decl.init(logger))
+
+		gm := &groupedMetric{
+			labels:  labels,
+			metrics: metrics,
+			metadata: cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+				namespace: namespace, timestampMs: timestamp,
+			}},
+		}
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
+
+		out := groupedMetricToCWMeasurementsWithFilters(gm, config)
+		require.Len(t, out, 1)
+		assert.Equal(t, "undefined", out[0].Namespace)
 	})
 }
 
-func TestGroupedMetricToCWMeasurementsWithLogGroupOverride(t *testing.T) {
-	timestamp := int64(1596151098037)
-	namespace := "Namespace"
-	logGroup := "/default/log-group"
-
-	labels := map[string]string{
-		"a": "A",
-		"b": "B",
-		"c": "C",
-	}
-	metrics := map[string]*metricInfo{
-		"metric1": {value: 1, unit: "Count"},
-	}
+func TestFanOutByLogGroupOverride(t *testing.T) {
 	logger := zap.NewNop()
+	const globalLogGroup = "/default/log-group"
 
-	t.Run("declaration with log_group_name override", func(t *testing.T) {
+	// Build a single-datapoint gauge metric named "metric1" with label a=A,b=B.
+	buildInput := func() pmetric.Metric {
+		rms := pmetric.NewResourceMetrics()
+		ilm := rms.ScopeMetrics().AppendEmpty()
+		m := ilm.Metrics().AppendEmpty()
+		m.SetName("metric1")
+		dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+		dp.SetDoubleValue(1.0)
+		dp.Attributes().PutStr("a", "A")
+		dp.Attributes().PutStr("b", "B")
+		return m
+	}
+	baseMeta := cWMetricMetadata{groupedMetricMetadata: groupedMetricMetadata{
+		namespace:      "NS",
+		timestampMs:    1596151098037,
+		logGroup:       globalLogGroup,
+		logStream:      "stream",
+		metricDataType: pmetric.MetricTypeGauge,
+	}}
+
+	t.Run("single override → single groupedMetric at overridden log group", func(t *testing.T) {
 		decl := &MetricDeclaration{
-			Dimensions:          [][]string{{"a"}, {"a", "b"}},
+			Dimensions:          [][]string{{"a"}},
 			MetricNameSelectors: []string{"metric.*"},
 			LogGroupName:        "/override/log-group",
 		}
-		err := decl.init(logger)
-		assert.NoError(t, err)
+		require.NoError(t, decl.init(logger))
 
-		groupedMetric := &groupedMetric{
-			labels:  labels,
-			metrics: metrics,
-			metadata: cWMetricMetadata{
-				groupedMetricMetadata: groupedMetricMetadata{
-					namespace:   namespace,
-					timestampMs: timestamp,
-					logGroup:    logGroup,
-				},
-			},
-		}
 		config := &Config{
-			DimensionRollupOption: "",
-			MetricDeclarations:    []*MetricDeclaration{decl},
-			logger:                logger,
+			MetricDeclarations: []*MetricDeclaration{decl},
+			logger:             logger,
 		}
-
-		groupedMetricToCWMeasurementsWithFilters(groupedMetric, config)
-		assert.Equal(t, "/override/log-group", groupedMetric.metadata.logGroup)
+		calcs := setupEmfCalculators()
+		groupedMetrics := map[any]*groupedMetric{}
+		require.NoError(t, addToGroupedMetric(buildInput(), groupedMetrics, baseMeta, true, nil, config, calcs, nil))
+		require.Len(t, groupedMetrics, 1)
+		for _, g := range groupedMetrics {
+			assert.Equal(t, "/override/log-group", g.metadata.logGroup)
+		}
 	})
 
-	t.Run("declaration without log_group_name uses global", func(t *testing.T) {
-		decl := &MetricDeclaration{
+	t.Run("two declarations, different log groups → two groupedMetrics", func(t *testing.T) {
+		decl1 := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric.*"},
+			LogGroupName:        "/log-a",
+		}
+		decl2 := &MetricDeclaration{
+			Dimensions:          [][]string{{"a", "b"}},
+			MetricNameSelectors: []string{"metric.*"},
+			LogGroupName:        "/log-b",
+		}
+		require.NoError(t, decl1.init(logger))
+		require.NoError(t, decl2.init(logger))
+
+		config := &Config{
+			MetricDeclarations: []*MetricDeclaration{decl1, decl2},
+			logger:             logger,
+		}
+		calcs := setupEmfCalculators()
+		groupedMetrics := map[any]*groupedMetric{}
+		require.NoError(t, addToGroupedMetric(buildInput(), groupedMetrics, baseMeta, true, nil, config, calcs, nil))
+
+		require.Len(t, groupedMetrics, 2)
+		got := make(map[string]bool, 2)
+		for _, g := range groupedMetrics {
+			got[g.metadata.logGroup] = true
+		}
+		assert.True(t, got["/log-a"])
+		assert.True(t, got["/log-b"])
+	})
+
+	t.Run("mixed override and no-override → two groupedMetrics (global + override)", func(t *testing.T) {
+		decl1 := &MetricDeclaration{
 			Dimensions:          [][]string{{"a"}},
 			MetricNameSelectors: []string{"metric.*"},
 		}
-		err := decl.init(logger)
-		assert.NoError(t, err)
-
-		groupedMetric := &groupedMetric{
-			labels:  labels,
-			metrics: metrics,
-			metadata: cWMetricMetadata{
-				groupedMetricMetadata: groupedMetricMetadata{
-					namespace:   namespace,
-					timestampMs: timestamp,
-					logGroup:    logGroup,
-				},
-			},
+		decl2 := &MetricDeclaration{
+			Dimensions:          [][]string{{"a", "b"}},
+			MetricNameSelectors: []string{"metric.*"},
+			LogGroupName:        "/override",
 		}
+		require.NoError(t, decl1.init(logger))
+		require.NoError(t, decl2.init(logger))
+
 		config := &Config{
-			DimensionRollupOption: "",
-			MetricDeclarations:    []*MetricDeclaration{decl},
-			logger:                logger,
+			MetricDeclarations: []*MetricDeclaration{decl1, decl2},
+			logger:             logger,
 		}
+		calcs := setupEmfCalculators()
+		groupedMetrics := map[any]*groupedMetric{}
+		require.NoError(t, addToGroupedMetric(buildInput(), groupedMetrics, baseMeta, true, nil, config, calcs, nil))
 
-		groupedMetricToCWMeasurementsWithFilters(groupedMetric, config)
-		assert.Equal(t, logGroup, groupedMetric.metadata.logGroup)
+		require.Len(t, groupedMetrics, 2)
+		got := make(map[string]bool, 2)
+		for _, g := range groupedMetrics {
+			got[g.metadata.logGroup] = true
+		}
+		assert.True(t, got[globalLogGroup])
+		assert.True(t, got["/override"])
 	})
 
-	t.Run("log_group_name with placeholder resolved from labels", func(t *testing.T) {
+	t.Run("log_group_name placeholder resolved from resource attrs", func(t *testing.T) {
 		decl := &MetricDeclaration{
 			Dimensions:          [][]string{{"a"}},
 			MetricNameSelectors: []string{"metric.*"},
-			LogGroupName:        "/override/{ClusterName}/metrics",
+			LogGroupName:        "/{ClusterName}/metrics",
 		}
-		err := decl.init(logger)
-		assert.NoError(t, err)
+		require.NoError(t, decl.init(logger))
 
-		labelsWithCluster := map[string]string{
-			"a":           "A",
-			"b":           "B",
-			"ClusterName": "my-cluster",
-		}
-		groupedMetric := &groupedMetric{
-			labels:  labelsWithCluster,
-			metrics: metrics,
-			metadata: cWMetricMetadata{
-				groupedMetricMetadata: groupedMetricMetadata{
-					namespace:   namespace,
-					timestampMs: timestamp,
-					logGroup:    logGroup,
-				},
-			},
-		}
-		config := &Config{
-			DimensionRollupOption: "",
-			MetricDeclarations:    []*MetricDeclaration{decl},
-			logger:                logger,
-		}
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
+		calcs := setupEmfCalculators()
+		groupedMetrics := map[any]*groupedMetric{}
+		resAttrs := map[string]string{"ClusterName": "my-cluster"}
+		require.NoError(t, addToGroupedMetric(buildInput(), groupedMetrics, baseMeta, true, nil, config, calcs, resAttrs))
 
-		groupedMetricToCWMeasurementsWithFilters(groupedMetric, config)
-		assert.Equal(t, "/override/my-cluster/metrics", groupedMetric.metadata.logGroup)
+		require.Len(t, groupedMetrics, 1)
+		for _, g := range groupedMetrics {
+			assert.Equal(t, "/my-cluster/metrics", g.metadata.logGroup)
+		}
+	})
+
+	t.Run("log_group_name placeholder falls back to labels", func(t *testing.T) {
+		decl := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric.*"},
+			LogGroupName:        "/{ClusterName}/metrics",
+		}
+		require.NoError(t, decl.init(logger))
+
+		rms := pmetric.NewResourceMetrics()
+		ilm := rms.ScopeMetrics().AppendEmpty()
+		m := ilm.Metrics().AppendEmpty()
+		m.SetName("metric1")
+		dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+		dp.SetDoubleValue(1.0)
+		dp.Attributes().PutStr("a", "A")
+		dp.Attributes().PutStr("ClusterName", "label-cluster")
+
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
+		calcs := setupEmfCalculators()
+		groupedMetrics := map[any]*groupedMetric{}
+		require.NoError(t, addToGroupedMetric(m, groupedMetrics, baseMeta, true, nil, config, calcs, nil))
+
+		require.Len(t, groupedMetrics, 1)
+		for _, g := range groupedMetrics {
+			assert.Equal(t, "/label-cluster/metrics", g.metadata.logGroup)
+		}
+	})
+
+	t.Run("log_group_name placeholder missing from both → undefined", func(t *testing.T) {
+		decl := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric.*"},
+			LogGroupName:        "/{ClusterName}/metrics",
+		}
+		require.NoError(t, decl.init(logger))
+
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
+		calcs := setupEmfCalculators()
+		groupedMetrics := map[any]*groupedMetric{}
+		require.NoError(t, addToGroupedMetric(buildInput(), groupedMetrics, baseMeta, true, nil, config, calcs, nil))
+
+		require.Len(t, groupedMetrics, 1)
+		for _, g := range groupedMetrics {
+			assert.Equal(t, "/undefined/metrics", g.metadata.logGroup)
+		}
+	})
+
+	// Regression: fan-out and the downstream filter must see the same label
+	// set. Both now operate on filterAWSEMFAttributes-stripped labels. If they
+	// diverge, a declaration whose label_matchers or {Placeholder} depend on a
+	// stripped key would contribute a bucket in fan-out but get dropped in the
+	// filter pass, silently losing the metric.
+	t.Run("matches_labels consistent across fan-out and filter when EMF meta keys are present", func(t *testing.T) {
+		decl := &MetricDeclaration{
+			Dimensions:          [][]string{{"a"}},
+			MetricNameSelectors: []string{"metric.*"},
+			LogGroupName:        "/override",
+		}
+		require.NoError(t, decl.init(logger))
+
+		// Build a metric whose datapoint carries the EMF storage-resolution
+		// attribute and an entity-prefixed label — both stripped by
+		// filterAWSEMFAttributes.
+		rms := pmetric.NewResourceMetrics()
+		ilm := rms.ScopeMetrics().AppendEmpty()
+		m := ilm.Metrics().AppendEmpty()
+		m.SetName("metric1")
+		dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+		dp.SetDoubleValue(1.0)
+		dp.Attributes().PutStr("a", "A")
+		dp.Attributes().PutStr("aws.emf.storage_resolution", "1")
+		dp.Attributes().PutStr("com.amazonaws.cloudwatch.entity.internal.service.name", "svc")
+
+		config := &Config{MetricDeclarations: []*MetricDeclaration{decl}, logger: logger}
+		calcs := setupEmfCalculators()
+		groupedMetrics := map[any]*groupedMetric{}
+		require.NoError(t, addToGroupedMetric(m, groupedMetrics, baseMeta, true, nil, config, calcs, nil))
+
+		require.Len(t, groupedMetrics, 1)
+		for _, g := range groupedMetrics {
+			assert.Equal(t, "/override", g.metadata.logGroup)
+			// And the downstream filter must not drop this group.
+			out := groupedMetricToCWMeasurementsWithFilters(g, config)
+			require.Len(t, out, 1, "filter must not drop the group that fan-out produced")
+		}
 	})
 }

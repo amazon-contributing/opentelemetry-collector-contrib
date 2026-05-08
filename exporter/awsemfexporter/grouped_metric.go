@@ -19,6 +19,10 @@ type groupedMetric struct {
 	labels   map[string]string
 	metrics  map[string]*metricInfo
 	metadata cWMetricMetadata
+	// resourceAttrs is a snapshot of the source ResourceMetrics' resource
+	// attributes. Used for two-pass placeholder resolution on per-declaration
+	// namespace / log_group_name overrides. Not part of the group key.
+	resourceAttrs map[string]string
 }
 
 // metricInfo defines value and unit for OT Metrics
@@ -36,6 +40,7 @@ func addToGroupedMetric(
 	descriptor map[string]MetricDescriptor,
 	config *Config,
 	calculators *emfCalculators,
+	resourceAttrs map[string]string,
 ) error {
 	dps := getDataPoints(pmd, metadata, config.logger)
 	if dps == nil || dps.Len() == 0 {
@@ -47,7 +52,8 @@ func addToGroupedMetric(
 	if shouldConvertToDistribution(pmd, config) {
 		histogram, labels, updatedMetadata := convertToDistribution(filteredDps, metadata, patternReplaceSucceeded, config)
 		if histogram != nil {
-			upsertGroupedMetric(groupedMetrics, updatedMetadata, labels, pmd.Name(), histogram, translateUnit(pmd, descriptor), config.logger)
+			fanOutByLogGroupOverride(groupedMetrics, updatedMetadata, labels, pmd.Name(), histogram,
+				translateUnit(pmd, descriptor), resourceAttrs, config)
 		}
 	} else {
 		for i, dp := range filteredDps {
@@ -70,11 +76,70 @@ func addToGroupedMetric(
 					metadata.metricDataType = pmetric.MetricTypeSum
 				}
 			}
-			upsertGroupedMetric(groupedMetrics, metadata, labels, dp.name, dp.value, translateUnit(pmd, descriptor), config.logger)
+			fanOutByLogGroupOverride(groupedMetrics, metadata, labels, dp.name, dp.value,
+				translateUnit(pmd, descriptor), resourceAttrs, config)
 		}
 	}
 
 	return nil
+}
+
+// fanOutByLogGroupOverride upserts the metric into one groupedMetric per
+// distinct effective log group. The set of effective log groups is derived
+// from the matching metric_declarations:
+//   - a declaration with no log_group_name override contributes the global
+//     (pre-resolved) log group already on metadata.
+//   - a declaration with an override contributes its resolved value.
+//
+// If no declaration matches (or no declarations are configured), the metric
+// lands in a single bucket at the global log group — identical to the
+// pre-override behavior.
+//
+// MatchesLabels and placeholder resolution both use filtered labels (i.e.
+// labels with AWS-EMF meta keys stripped), matching what
+// groupedMetricToCWMeasurementsWithFilters does downstream. If these two
+// sites diverged, a declaration could contribute a bucket here but then be
+// dropped by the filter pass, silently losing its metrics. Raw labels are
+// still stored on the groupedMetric via upsertGroupedMetric — callers that
+// care about the full label set (dimension rollup, EMF field emission)
+// continue to see it.
+func fanOutByLogGroupOverride(
+	groupedMetrics map[any]*groupedMetric,
+	metadata cWMetricMetadata,
+	labels map[string]string,
+	metricName string,
+	metricVal any,
+	unit string,
+	resourceAttrs map[string]string,
+	config *Config,
+) {
+	logger := config.logger
+	filteredLabels := filterAWSEMFAttributes(labels, true)
+	buckets := map[string]struct{}{}
+	matchedAnyDecl := false
+	for _, decl := range config.MetricDeclarations {
+		if !decl.MatchesName(metricName) || !decl.MatchesLabels(filteredLabels) {
+			continue
+		}
+		matchedAnyDecl = true
+		if decl.LogGroupName == "" {
+			buckets[metadata.logGroup] = struct{}{}
+			continue
+		}
+		buckets[replacePatternsTwoPass(decl.LogGroupName, resourceAttrs, filteredLabels, logger)] = struct{}{}
+	}
+	// No declarations configured, or none matched: preserve current behavior
+	// (one group at the global log group; downstream filter will drop metrics
+	// that match no declaration when declarations are configured).
+	if !matchedAnyDecl || len(buckets) == 0 {
+		buckets[metadata.logGroup] = struct{}{}
+	}
+
+	for lg := range buckets {
+		metaCopy := metadata
+		metaCopy.logGroup = lg
+		upsertGroupedMetric(groupedMetrics, metaCopy, labels, metricName, metricVal, unit, logger, resourceAttrs)
+	}
 }
 
 type kubernetesObj struct {
@@ -243,6 +308,7 @@ func upsertGroupedMetric(
 	metricVal any,
 	unit string,
 	logger *zap.Logger,
+	resourceAttrs map[string]string,
 ) {
 	metric := &metricInfo{value: metricVal, unit: unit}
 	groupKey := aws.NewKey(metadata.groupedMetricMetadata, labels)
@@ -256,9 +322,10 @@ func upsertGroupedMetric(
 		}
 	} else {
 		groupedMetrics[groupKey] = &groupedMetric{
-			labels:   labels,
-			metrics:  map[string]*metricInfo{metricName: metric},
-			metadata: metadata,
+			labels:        labels,
+			metrics:       map[string]*metricInfo{metricName: metric},
+			metadata:      metadata,
+			resourceAttrs: resourceAttrs,
 		}
 	}
 }

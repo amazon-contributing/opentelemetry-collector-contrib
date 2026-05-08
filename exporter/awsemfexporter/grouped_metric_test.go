@@ -114,7 +114,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 					true,
 					nil,
 					testCfg,
-					emfCalcs)
+					emfCalcs, nil)
 				assert.NoError(t, err)
 			}
 
@@ -156,7 +156,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 				true,
 				nil,
 				testCfg,
-				emfCalcs)
+				emfCalcs, nil)
 			assert.NoError(t, err)
 		}
 
@@ -227,7 +227,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 				true,
 				nil,
 				testCfg,
-				emfCalcs)
+				emfCalcs, nil)
 			assert.NoError(t, err)
 		}
 
@@ -277,7 +277,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 			true,
 			nil,
 			testCfg,
-			emfCalcs)
+			emfCalcs, nil)
 		assert.NoError(t, err)
 
 		metricMetadata2 := generateTestMetricMetadata(namespace,
@@ -287,7 +287,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 			instrumentationLibName,
 			metric.Type(),
 		)
-		err = addToGroupedMetric(metric, groupedMetrics, metricMetadata2, true, nil, testCfg, emfCalcs)
+		err = addToGroupedMetric(metric, groupedMetrics, metricMetadata2, true, nil, testCfg, emfCalcs, nil)
 		assert.NoError(t, err)
 
 		assert.Len(t, groupedMetrics, 2)
@@ -345,6 +345,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 				nil,
 				testCfg,
 				emfCalcs,
+				nil,
 			)
 			assert.NoError(t, err)
 		}
@@ -386,6 +387,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 			nil,
 			testCfg,
 			emfCalcs,
+			nil,
 		)
 		assert.NoError(t, err)
 		assert.Empty(t, groupedMetrics)
@@ -427,6 +429,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 				nil,
 				testCfg,
 				emfCalcs,
+				nil,
 			)
 			assert.NoError(t, err)
 		}
@@ -478,6 +481,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 				nil,
 				cfg,
 				emfCalcs,
+				nil,
 			)
 			assert.NoError(t, err)
 		}
@@ -537,6 +541,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 			nil,
 			cfg,
 			emfCalcs,
+			nil,
 		)
 
 		// Verify results
@@ -611,6 +616,7 @@ func TestAddToGroupedMetric(t *testing.T) {
 				nil,
 				cfg,
 				emfCalcs,
+				nil,
 			)
 			assert.NoError(t, err)
 		}
@@ -716,7 +722,7 @@ func BenchmarkAddToGroupedMetric(b *testing.B) {
 		groupedMetrics := make(map[any]*groupedMetric)
 		for i := 0; i < numMetrics; i++ {
 			metadata := generateTestMetricMetadata("namespace", int64(1596151098037), "log-group", "log-stream", "cloudwatch-otel", metrics.At(i).Type())
-			err := addToGroupedMetric(metrics.At(i), groupedMetrics, metadata, true, nil, testCfg, emfCalcs)
+			err := addToGroupedMetric(metrics.At(i), groupedMetrics, metadata, true, nil, testCfg, emfCalcs, nil)
 			assert.NoError(b, err)
 		}
 	}

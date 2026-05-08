@@ -63,6 +63,8 @@ incoming metrics' labels and metric names.
 | `dimensions`                       | List of dimension sets to be exported. Dimension sets that include dimensions that are not labels are ignored. Use empty dimension set `[]` for metrics without labels. | [[ ]]   |
 | `metric_name_selectors`            | List of regex strings to filter metric names by.                                                                                                                        |         |
 | [`label_matchers`](#label_matcher) | (Optional) list of label matching rules to filter metrics by their labels. This rule is applied to any metric that matches any of the label matchers.                   | [ ]     |
+| `namespace`                        | (Optional) per-declaration CloudWatch namespace. Supports the same `{Placeholder}` tokens as the exporter-level `namespace` (resolved from resource attributes, then labels). Declarations with distinct namespaces produce separate measurements in the EMF event; each carries only its own dimensions (they are not merged).                      |         |
+| `log_group_name`                   | (Optional) per-declaration CloudWatch log group. Same placeholder syntax as the exporter-level `log_group_name`. Declarations with distinct log groups produce separate EMF events (one per log group).                                                                                                                                              |         |
 
 #### label_matcher
 
@@ -141,3 +143,31 @@ exporters:
         metric_name_selectors:
           - "^node_filesystem_readonly$"
 ```
+
+Per-declaration `namespace` and `log_group_name` overrides let different
+metrics route to different CloudWatch namespaces and log groups from a
+single exporter. Both fields are optional, support `{Placeholder}` tokens,
+and fall back to the exporter-level configuration when empty:
+
+```yaml
+exporters:
+  awsemf:
+    namespace: DefaultNamespace
+    log_group_name: /default/metrics
+    metric_declarations:
+      - metric_name_selectors: [ "^Latency$" ]
+        dimensions: [ [ Service, Operation ] ]
+        # inherits the exporter-level namespace and log group
+
+      - metric_name_selectors: [ "^ErrorCount$" ]
+        dimensions: [ [ Service, ErrorType ] ]
+        namespace: CustomErrorNamespace
+        log_group_name: /custom/errors/{ClusterName}   # placeholders resolved
+                                                        # from resource attrs,
+                                                        # then labels
+```
+
+When two declarations match the same metric with different resolved
+overrides, namespace differences produce multiple measurements inside the
+same EMF event, while log-group differences split into separate EMF events
+(one per resolved log group).

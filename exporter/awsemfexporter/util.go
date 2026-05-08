@@ -36,6 +36,27 @@ func replacePatterns(s string, attrMap map[string]string, logger *zap.Logger) (s
 	return s, success
 }
 
+// replacePatternsTwoPass resolves {Placeholder} tokens in s using resourceAttrs
+// first; if any token is missing from resourceAttrs, it retries against labels.
+// Mirrors the two-pass strategy in replacePatternsIfNeeded so per-declaration
+// overrides honor the same resolution behavior as the global LogGroupName.
+//
+// The labels-fallback pass runs against the original template, not the
+// partially-resolved first-pass output — matching replacePatternsIfNeeded.
+// Tokens that remain unresolved after both passes become "undefined" per
+// replacePatterns semantics.
+func replacePatternsTwoPass(s string, resourceAttrs, labels map[string]string, logger *zap.Logger) string {
+	if s == "" {
+		return s
+	}
+	resolved, ok := replacePatterns(s, resourceAttrs, logger)
+	if ok {
+		return resolved
+	}
+	fallback, _ := replacePatterns(s, labels, logger)
+	return fallback
+}
+
 func replacePatternWithAttrValue(s, patternKey string, attrMap map[string]string, logger *zap.Logger) (string, bool) {
 	pattern := "{" + patternKey + "}"
 	if strings.Contains(s, pattern) {

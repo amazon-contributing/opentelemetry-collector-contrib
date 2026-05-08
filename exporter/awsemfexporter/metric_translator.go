@@ -135,6 +135,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 	cWNamespace := getNamespace(rm, config.Namespace)
 	logGroup, logStream, patternReplaceSucceeded := getLogInfo(rm, cWNamespace, config)
 	deltaInitialValue := config.RetainInitialValueOfDeltaMetric
+	resourceAttrs := attrMaptoStringMap(rm.Resource().Attributes())
 
 	ilms := rm.ScopeMetrics()
 	var metricReceiver string
@@ -176,7 +177,7 @@ func (mt metricTranslator) translateOTelToGroupedMetric(rm pmetric.ResourceMetri
 				instrumentationScopeName: instrumentationScopeName,
 				receiver:                 metricReceiver,
 			}
-			err := addToGroupedMetric(metric, groupedMetrics, metadata, patternReplaceSucceeded, mt.metricDescriptor, config, mt.calculators)
+			err := addToGroupedMetric(metric, groupedMetrics, metadata, patternReplaceSucceeded, mt.metricDescriptor, config, mt.calculators, resourceAttrs)
 			if err != nil {
 				return err
 			}
@@ -307,15 +308,51 @@ func groupedMetricToCWMeasurement(groupedMetric *groupedMetric, config *Config) 
 
 // groupedMetricToCWMeasurementsWithFilters filters the grouped metric using the given list of metric
 // declarations and returns the corresponding list of CW Measurements.
+//
+// Per-declaration overrides:
+//   - log_group_name: LogGroup is per-EMF-event, so fan-out by effective log
+//     group happens at grouping time (see fanOutByLogGroupOverride). This
+//     function only contributes measurements that belong to *this*
+//     groupedMetric's log group: declarations without an override always
+//     participate (they inherit the global log group, matching
+//     groupedMetric.metadata.logGroup by construction), and declarations
+//     whose resolved override != metadata.logGroup are skipped. Note that
+//     the global log group itself may be "undefined" when resolution failed
+//     upstream; declarations without an override still participate in that
+//     case, preserving the pre-override behavior.
+//   - namespace: Namespace is per-cWMeasurement, so a single groupedMetric
+//     can emit multiple measurements with distinct namespaces within the
+//     same EMF event. Declarations matching the same dimension group are
+//     partitioned by their resolved namespace; each partition emits its
+//     own cWMeasurement carrying only that partition's dimensions.
+//
+// Both overrides support {Placeholder} tokens resolved via a two-pass
+// strategy (resource attrs first, labels fallback).
 func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, config *Config) (cWMeasurements []cWMeasurement) {
 	labels := filterAWSEMFAttributes(groupedMetric.labels, true)
 
-	// Filter metric declarations by labels
+	// Filter metric declarations by labels and log-group match. A declaration
+	// with no log_group_name override inherits the global log group and
+	// always participates here; a declaration with an override participates
+	// only when its resolved value equals this groupedMetric's log group.
+	currentLogGroup := groupedMetric.metadata.logGroup
 	metricDeclarations := make([]*MetricDeclaration, 0, len(config.MetricDeclarations))
 	for _, metricDeclaration := range config.MetricDeclarations {
-		if metricDeclaration.MatchesLabels(labels) {
-			metricDeclarations = append(metricDeclarations, metricDeclaration)
+		if !metricDeclaration.MatchesLabels(labels) {
+			continue
 		}
+		if metricDeclaration.LogGroupName != "" {
+			resolved := replacePatternsTwoPass(
+				metricDeclaration.LogGroupName,
+				groupedMetric.resourceAttrs,
+				labels,
+				config.logger,
+			)
+			if resolved != currentLogGroup {
+				continue
+			}
+		}
+		metricDeclarations = append(metricDeclarations, metricDeclaration)
 	}
 
 	// If the whole batch of metrics don't match any metric declarations, drop them
@@ -387,75 +424,41 @@ func groupedMetricToCWMeasurementsWithFilters(groupedMetric *groupedMetric, conf
 	// Apply single/zero dimension rollup to labels
 	rollupDimensionArray := dimensionRollup(config.DimensionRollupOption, labels)
 
-	// LogGroup is per-event (one EMF event → one PutLogEvents call → one log group),
-	// so different declarations targeting the same metric can conflict. First override wins.
-	//
-	// Example conflict: two declarations both select "Latency" but with different dimensions
-	// and different log_group_name overrides:
-	//
-	//   - metric_name_selectors: [Latency]
-	//     dimensions: [[Service]]
-	//     log_group_name: /service/latency         # override A
-	//
-	//   - metric_name_selectors: [Latency]
-	//     dimensions: [[Service, Operation]]
-	//     log_group_name: /operation/latency        # override B (conflicts with A)
-	var firstLogGroupOverride string
-
-	// Translate each group into a CW Measurement
+	// Translate each group into cWMeasurement(s). A single group can emit
+	// multiple measurements when its matching declarations resolve to
+	// different namespaces.
 	cWMeasurements = make([]cWMeasurement, 0, len(metricDeclGroups))
 	for _, group := range metricDeclGroups {
-		var dimensions [][]string
-		// Extract dimensions and resolve per-declaration overrides
-		nsOverridden := false
-		ns := groupedMetric.metadata.namespace
-		logGroupOverride := ""
+		// Partition the declarations in this group by their resolved namespace.
+		// Preserve insertion order so output is deterministic w.r.t. config order.
+		nsOrder := make([]string, 0)
+		byNamespace := make(map[string][][]string)
 		for _, metricDeclIdx := range group.metricDeclIdxList {
-			dims := metricDeclarations[metricDeclIdx].ExtractDimensions(labels)
-			dimensions = append(dimensions, dims...)
-			// Namespace is per-measurement (each cWMeasurement in the EMF event can have
-			// its own namespace), so no conflict detection is needed — first match wins.
-			if !nsOverridden && metricDeclarations[metricDeclIdx].Namespace != "" {
-				ns = metricDeclarations[metricDeclIdx].Namespace
-				nsOverridden = true
+			decl := metricDeclarations[metricDeclIdx]
+			ns := groupedMetric.metadata.namespace
+			if decl.Namespace != "" {
+				ns = replacePatternsTwoPass(decl.Namespace, groupedMetric.resourceAttrs, labels, config.logger)
 			}
-			// First log group override wins (see conflict comment above)
-			if logGroupOverride == "" && metricDeclarations[metricDeclIdx].LogGroupName != "" {
-				logGroupOverride = metricDeclarations[metricDeclIdx].LogGroupName
+			if _, seen := byNamespace[ns]; !seen {
+				nsOrder = append(nsOrder, ns)
+			}
+			byNamespace[ns] = append(byNamespace[ns], decl.ExtractDimensions(labels)...)
+		}
+
+		for _, ns := range nsOrder {
+			dimensions := append([][]string{}, byNamespace[ns]...)
+			dimensions = append(dimensions, rollupDimensionArray...)
+			dimensions = dedupDimensions(dimensions)
+
+			// Export metrics only with non-empty dimensions list
+			if len(dimensions) > 0 {
+				cWMeasurements = append(cWMeasurements, cWMeasurement{
+					Namespace:  ns,
+					Dimensions: dimensions,
+					Metrics:    group.metrics,
+				})
 			}
 		}
-		// Warn when a later declaration wants a different log group than the first match
-		if logGroupOverride != "" {
-			if firstLogGroupOverride == "" {
-				firstLogGroupOverride = logGroupOverride
-			} else if firstLogGroupOverride != logGroupOverride {
-				config.logger.Debug(
-					"Conflicting log_group_name overrides in metric declarations for the same grouped metric; using first override",
-					zap.String("first", firstLogGroupOverride),
-					zap.String("conflicting", logGroupOverride),
-				)
-			}
-		}
-		dimensions = append(dimensions, rollupDimensionArray...)
-
-		// De-duplicate dimensions
-		dimensions = dedupDimensions(dimensions)
-
-		// Export metrics only with non-empty dimensions list
-		if len(dimensions) > 0 {
-			cwm := cWMeasurement{
-				Namespace:  ns,
-				Dimensions: dimensions,
-				Metrics:    group.metrics,
-			}
-			cWMeasurements = append(cWMeasurements, cwm)
-		}
-	}
-
-	// Apply log group override, resolving placeholders (e.g., {ClusterName}) from labels.
-	if firstLogGroupOverride != "" {
-		resolved, _ := replacePatterns(firstLogGroupOverride, labels, config.logger)
-		groupedMetric.metadata.logGroup = resolved
 	}
 
 	return

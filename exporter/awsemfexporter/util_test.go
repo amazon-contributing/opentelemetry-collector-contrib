@@ -365,3 +365,81 @@ func TestGetLogInfo(t *testing.T) {
 		}
 	}
 }
+
+func TestReplacePatternsTwoPass(t *testing.T) {
+	logger := zap.NewNop()
+
+	tests := []struct {
+		name          string
+		template      string
+		resourceAttrs map[string]string
+		labels        map[string]string
+		want          string
+	}{
+		{
+			name:     "empty template returns empty",
+			template: "",
+			want:     "",
+		},
+		{
+			name:     "no placeholders returns template verbatim",
+			template: "/plain/log-group",
+			want:     "/plain/log-group",
+		},
+		{
+			name:          "resolved from resource attrs on first pass",
+			template:      "/{ClusterName}/metrics",
+			resourceAttrs: map[string]string{"ClusterName": "cluster-a"},
+			labels:        map[string]string{"ClusterName": "should-be-ignored"},
+			want:          "/cluster-a/metrics",
+		},
+		{
+			name:          "falls back to labels when missing from resource attrs",
+			template:      "/{ClusterName}/metrics",
+			resourceAttrs: map[string]string{},
+			labels:        map[string]string{"ClusterName": "cluster-from-labels"},
+			want:          "/cluster-from-labels/metrics",
+		},
+		{
+			name:          "falls back to labels when resource-attr lookup yields empty",
+			template:      "/{ClusterName}/metrics",
+			resourceAttrs: map[string]string{"ClusterName": ""},
+			labels:        map[string]string{"ClusterName": "cluster-from-labels"},
+			want:          "/cluster-from-labels/metrics",
+		},
+		{
+			name:     "unresolved placeholder in both maps becomes undefined",
+			template: "/{ClusterName}/metrics",
+			want:     "/undefined/metrics",
+		},
+		{
+			name:          "resource-attr resolution wins when both maps supply value",
+			template:      "/{ClusterName}/{TaskId}",
+			resourceAttrs: map[string]string{"ClusterName": "cluster-res", "TaskId": "task-res"},
+			labels:        map[string]string{"ClusterName": "cluster-lbl", "TaskId": "task-lbl"},
+			want:          "/cluster-res/task-res",
+		},
+		{
+			// When resource attrs partially resolve (ClusterName present, TaskId missing),
+			// the full fallback pass runs against labels — both tokens resolve there.
+			name:          "partial resource match forces label-pass for all tokens",
+			template:      "/{ClusterName}/{TaskId}",
+			resourceAttrs: map[string]string{"ClusterName": "cluster-res"},
+			labels:        map[string]string{"ClusterName": "cluster-lbl", "TaskId": "task-lbl"},
+			want:          "/cluster-lbl/task-lbl",
+		},
+		{
+			name:          "semconv attribute name also accepted on resource pass",
+			template:      "/{ClusterName}/metrics",
+			resourceAttrs: map[string]string{"aws.ecs.cluster.name": "cluster-via-semconv"},
+			want:          "/cluster-via-semconv/metrics",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := replacePatternsTwoPass(tc.template, tc.resourceAttrs, tc.labels, logger)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
