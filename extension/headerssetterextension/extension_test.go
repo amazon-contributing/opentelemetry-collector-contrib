@@ -89,7 +89,7 @@ func TestPerRPCCredentials(t *testing.T) {
 
 var (
 	mrt           = &mockRoundTripper{}
-	header        = "header_name"
+	headername    = "header_name"
 	anotherHeader = "another_header_name"
 	tests         = []struct {
 		cfg             *Config
@@ -100,7 +100,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:         &header,
+						Key:         &headername,
 						Action:      INSERT,
 						FromContext: stringp("tenant"),
 					},
@@ -117,7 +117,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:    &header,
+						Key:    &headername,
 						Action: INSERT,
 						Value:  stringp("config value"),
 					},
@@ -131,7 +131,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:         &header,
+						Key:         &headername,
 						Action:      INSERT,
 						FromContext: stringp("tenant"),
 					},
@@ -154,7 +154,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:         &header,
+						Key:         &headername,
 						Action:      INSERT,
 						FromContext: stringp(""),
 					},
@@ -168,7 +168,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:    &header,
+						Key:    &headername,
 						Action: INSERT,
 						Value:  stringp(""),
 					},
@@ -182,7 +182,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:         &header,
+						Key:         &headername,
 						Action:      INSERT,
 						FromContext: stringp("tenant"),
 					},
@@ -205,7 +205,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:         &header,
+						Key:         &headername,
 						Action:      INSERT,
 						FromContext: stringp("tenant_"),
 					},
@@ -222,7 +222,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:          &header,
+						Key:          &headername,
 						Action:       INSERT,
 						FromContext:  stringp("tenant"),
 						DefaultValue: opaquep("default_tenant"),
@@ -240,7 +240,7 @@ var (
 			cfg: &Config{
 				HeadersConfig: []HeaderConfig{
 					{
-						Key:          &header,
+						Key:          &headername,
 						Action:       INSERT,
 						FromContext:  stringp("tenant"),
 						DefaultValue: opaquep("default_tenant"),

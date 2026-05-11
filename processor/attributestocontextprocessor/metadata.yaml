@@ -1,0 +1,8 @@
+type: attributestocontext
+
+status:
+  class: processor
+  stability:
+    alpha: [logs]
+  codeowners:
+    active: []
