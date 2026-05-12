@@ -20,25 +20,39 @@ jobs:
           cache: false
 
       - name: Hydrate Go module proxy
+        env:
+          GONOSUMCHECK: "*"
+          GONOSUMDB: "*"
         run: |
-          WORK_DIR=$(mktemp -d)
-          cd "${WORK_DIR}"
-          go mod init hydrate-goproxy
+          REPO_BASE="github.com/amazon-contributing/opentelemetry-collector-contrib"
 
+          # Build module list from directory paths relative to repo root.
           MODULE_LIST=$(find "${GITHUB_WORKSPACE}" -name 'go.mod' -type f \
-            -exec grep -h '^module ' {} \; \
-            | awk '{print $2}' \
+            | while read -r f; do
+                dir=$(dirname "$f")
+                rel=${dir#"${GITHUB_WORKSPACE}"}
+                if [ -z "$rel" ]; then
+                  echo "${REPO_BASE}"
+                else
+                  echo "${REPO_BASE}${rel}"
+                fi
+              done \
             | sort)
 
           TOTAL=$(echo "${MODULE_LIST}" | wc -l)
           echo "Found ${TOTAL} modules to hydrate at ref ${GITHUB_SHA}"
 
+          # Each go get runs in its own temp module to avoid go.mod conflicts.
           echo "${MODULE_LIST}" | xargs -I{} -P 10 bash -c '
+            d=$(mktemp -d)
+            cd "$d"
+            go mod init hydrate 2>/dev/null
             if go get "{}@'"${GITHUB_SHA}"'" 2>/dev/null; then
               echo "OK: {}"
             else
               echo "FAIL: {}"
             fi
+            rm -rf "$d"
           '
 
           echo "Hydration complete."
