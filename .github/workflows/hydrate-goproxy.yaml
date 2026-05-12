@@ -4,6 +4,10 @@ on:
   push:
     branches: [aws-cwa-dev, add-hydrate-goproxy-workflow]
   workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit SHA to hydrate (defaults to HEAD of selected branch)"
+        required: false
 
 jobs:
   hydrate:
@@ -23,6 +27,7 @@ jobs:
         env:
           GONOSUMCHECK: "*"
           GONOSUMDB: "*"
+          TARGET_SHA: ${{ inputs.sha || github.sha }}
         run: |
           REPO_BASE="github.com/amazon-contributing/opentelemetry-collector-contrib"
 
@@ -40,14 +45,14 @@ jobs:
             | sort)
 
           TOTAL=$(echo "${MODULE_LIST}" | wc -l)
-          echo "Found ${TOTAL} modules to hydrate at ref ${GITHUB_SHA}"
+          echo "Found ${TOTAL} modules to hydrate at ref ${TARGET_SHA}"
 
           # Each go get runs in its own temp module to avoid go.mod conflicts.
           echo "${MODULE_LIST}" | xargs -I{} -P 10 bash -c '
             d=$(mktemp -d)
             cd "$d"
             go mod init hydrate 2>/dev/null
-            if go get "{}@'"${GITHUB_SHA}"'" 2>/dev/null; then
+            if go get "{}@'"${TARGET_SHA}"'" 2>/dev/null; then
               echo "OK: {}"
             else
               echo "FAIL: {}"
