@@ -1,0 +1,44 @@
+name: hydrate-goproxy
+
+on:
+  push:
+    branches: [aws-cwa-dev, add-hydrate-goproxy-workflow]
+  workflow_dispatch:
+
+jobs:
+  hydrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ~1.24.13
+          cache: false
+
+      - name: Hydrate Go module proxy
+        run: |
+          WORK_DIR=$(mktemp -d)
+          cd "${WORK_DIR}"
+          go mod init hydrate-goproxy
+
+          MODULE_LIST=$(find "${GITHUB_WORKSPACE}" -name 'go.mod' -type f \
+            -exec grep -h '^module ' {} \; \
+            | awk '{print $2}' \
+            | sort)
+
+          TOTAL=$(echo "${MODULE_LIST}" | wc -l)
+          echo "Found ${TOTAL} modules to hydrate at ref ${GITHUB_SHA}"
+
+          echo "${MODULE_LIST}" | xargs -I{} -P 10 bash -c '
+            if go get "{}@'"${GITHUB_SHA}"'" 2>/dev/null; then
+              echo "OK: {}"
+            else
+              echo "FAIL: {}"
+            fi
+          '
+
+          echo "Hydration complete."
