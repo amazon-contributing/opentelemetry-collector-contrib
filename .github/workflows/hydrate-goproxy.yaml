@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -68,8 +70,9 @@ jobs:
           echo "Added ${TOTAL} modules"
 
           echo "Running go mod download..."
-          go mod download -json > /tmp/download-results.json 2>&1 || true
-          FAILED=$(jq -r 'select(.Error != null) | .Path' /tmp/download-results.json)
+          go mod download -json > /tmp/download-results.json 2>/tmp/download-errors.log || true
+          [ -s /tmp/download-errors.log ] && cat /tmp/download-errors.log >&2
+          FAILED=$(jq -r 'select(.Error != null) | "\(.Path): \(.Error)"' /tmp/download-results.json)
           if [ -n "$FAILED" ]; then
             echo "FAILED modules:"
             echo "$FAILED"
