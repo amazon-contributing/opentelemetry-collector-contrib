@@ -76,6 +76,7 @@ type client interface {
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	getSessionStates(ctx context.Context) (map[string]int64, error)
 }
 
 type postgreSQLClient struct {
@@ -767,6 +768,26 @@ func tableKey(database, schema, table string) tableIdentifier {
 
 func indexKey(database, schema, table, index string) indexIdentifer {
 	return indexIdentifer(fmt.Sprintf("%s|%s|%s|%s", database, schema, table, index))
+}
+
+func (c *postgreSQLClient) getSessionStates(ctx context.Context) (map[string]int64, error) {
+	rows, err := c.client.QueryContext(ctx, `SELECT state, count(*) AS count FROM pg_stat_activity WHERE state IS NOT NULL GROUP BY state;`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	states := map[string]int64{}
+	var errs error
+	for rows.Next() {
+		var state string
+		var count int64
+		if err := rows.Scan(&state, &count); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		states[state] = count
+	}
+	return states, errs
 }
 
 //go:embed templates/querySampleTemplate.tmpl

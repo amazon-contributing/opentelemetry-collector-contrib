@@ -67,15 +67,16 @@ func createDefaultConfig() component.Config {
 		MetricsBuilderConfig: metadata.DefaultMetricsBuilderConfig(),
 		LogsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
 		QuerySampleCollection: QuerySampleCollection{
-			MaxRowsPerQuery: 1000,
+			MaxRowsPerQuery:    1000,
+			CollectionInterval: time.Minute,
 		},
 		TopQueryCollection: TopQueryCollection{
-			CollectionInterval:     time.Minute,
 			TopNQuery:              200,
 			MaxRowsPerQuery:        1000,
 			MaxExplainEachInterval: 1000,
 			QueryPlanCacheSize:     1000,
 			QueryPlanCacheTTL:      time.Hour,
+			CollectionInterval:     time.Minute,
 		},
 	}
 }
@@ -125,6 +126,12 @@ func createLogsReceiver(
 
 	opts := make([]scraperhelper.ControllerOption, 0)
 
+	// Use independent collection interval for logs controller
+	logsControllerConfig := cfg.ControllerConfig
+	if cfg.QuerySampleCollection.CollectionInterval > 0 {
+		logsControllerConfig.CollectionInterval = cfg.QuerySampleCollection.CollectionInterval
+	}
+
 	if cfg.Events.DbServerQuerySample.Enabled {
 		// query sample collection does not need cache, but we do not want to make it
 		// nil, so create one size 1 cache as a placeholder.
@@ -161,6 +168,6 @@ func createLogsReceiver(
 	}
 
 	return scraperhelper.NewLogsController(
-		&cfg.ControllerConfig, params, logsConsumer, opts...,
+		&logsControllerConfig, params, logsConsumer, opts...,
 	)
 }
