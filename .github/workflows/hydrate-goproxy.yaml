@@ -12,6 +12,8 @@ on:
 jobs:
   hydrate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -46,14 +48,16 @@ jobs:
           echo "Found ${TOTAL} modules to hydrate at ref ${TARGET_SHA}"
 
           echo "Resolving commit SHA to pseudo-version..."
-          PSEUDO_VERSION=$(go list -m "${REPO_BASE}/override/aws@${TARGET_SHA}" \
-            | awk '{print $2}')
-          [ -n "$PSEUDO_VERSION" ] || { echo "ERROR: go list -m returned empty version"; exit 1; }
+          COMMIT_TIME=$(git log -1 --format=%ct "${TARGET_SHA}")
+          DATE=$(date -u -d "@${COMMIT_TIME}" +%Y%m%d%H%M%S)
+          SHORT_SHA=${TARGET_SHA:0:12}
+          PSEUDO_VERSION="v0.0.0-${DATE}-${SHORT_SHA}"
           echo "Resolved: ${PSEUDO_VERSION}"
 
           d=$(mktemp -d)
+          trap 'rm -rf "$d"' EXIT
           cd "$d"
-          go mod init hydrate 2>/dev/null
+          go mod init hydrate
 
           echo "Adding require and replace directives..."
           for mod in ${MODULE_LIST}; do
@@ -64,12 +68,12 @@ jobs:
           echo "Added ${TOTAL} modules"
 
           echo "Running go mod download..."
-          if go mod download; then
-            echo "Success: all ${TOTAL} modules downloaded"
-          else
-            echo "FAILED: some modules failed to download"
+          go mod download -json > /tmp/download-results.json 2>&1 || true
+          FAILED=$(jq -r 'select(.Error != null) | .Path' /tmp/download-results.json)
+          if [ -n "$FAILED" ]; then
+            echo "FAILED modules:"
+            echo "$FAILED"
             exit 1
           fi
-
-          rm -rf "$d"
+          echo "Success: all ${TOTAL} modules downloaded"
           echo "Hydration complete."
