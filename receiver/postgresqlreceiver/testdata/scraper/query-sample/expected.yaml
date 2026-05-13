@@ -1,6 +1,9 @@
 resourceLogs:
   - resource:
-      attributes: []
+      attributes:
+        - key: service.instance.id
+          value:
+            stringValue: ""
     scopeLogs:
       - logRecords:
           - attributes:
@@ -46,8 +49,11 @@ resourceLogs:
               - key: db.query.text
                 value:
                   stringValue: "select * from pg_stat_activity where id = ?"
-            body:
-              stringValue: sample
+              - key: postgresql.total_exec_time
+                value:
+                  doubleValue: 0
+            body: {}
+            eventName: db.server.query_sample
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver
-          version: 0.0.1
+          version: latest
