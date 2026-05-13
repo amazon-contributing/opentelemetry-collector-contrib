@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/internal/tools
 
-go 1.24.13
+go 1.25.0
 
 require (
 	github.com/Khan/genqlient v0.8.0
@@ -19,7 +19,7 @@ require (
 	go.opentelemetry.io/collector/cmd/builder v0.124.0
 	go.opentelemetry.io/collector/cmd/mdatagen v0.124.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/tools v0.39.0
+	golang.org/x/tools v0.43.0
 	golang.org/x/vuln v1.1.4
 	gotest.tools/gotestsum v1.12.1
 	mvdan.cc/gofumpt v0.7.0
@@ -36,13 +36,13 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudflare/circl v1.6.0 // indirect
-	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
+	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.6.2 // indirect
+	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-git/go-git/v5 v5.14.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -107,15 +107,15 @@ require (
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/mod v0.30.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/mod v0.34.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/telemetry v0.0.0-20251111182119-bc8e575c7b54 // indirect
-	golang.org/x/term v0.38.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260311193753-579e4da9a98c // indirect
+	golang.org/x/term v0.42.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
 	google.golang.org/grpc v1.71.1 // indirect
