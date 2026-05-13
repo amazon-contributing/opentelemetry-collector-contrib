@@ -2,7 +2,7 @@ name: hydrate-goproxy
 
 on:
   push:
-    branches: [aws-cwa-dev, add-hydrate-goproxy-workflow]
+    branches: [aws-cwa-dev]
   workflow_dispatch:
     inputs:
       sha:
@@ -25,39 +25,51 @@ jobs:
 
       - name: Hydrate Go module proxy
         env:
-          GONOSUMCHECK: "*"
-          GONOSUMDB: "*"
+          GONOSUMDB: "github.com/amazon-contributing/*"
           TARGET_SHA: ${{ inputs.sha || github.sha }}
         run: |
           REPO_BASE="github.com/amazon-contributing/opentelemetry-collector-contrib"
 
-          # Build module list from directory paths relative to repo root.
           MODULE_LIST=$(find "${GITHUB_WORKSPACE}" -name 'go.mod' -type f \
             | while read -r f; do
                 dir=$(dirname "$f")
                 rel=${dir#"${GITHUB_WORKSPACE}"}
                 if [ -z "$rel" ]; then
-                  echo "${REPO_BASE}"
+                  continue
                 else
                   echo "${REPO_BASE}${rel}"
                 fi
               done \
             | sort)
 
-          TOTAL=$(echo "${MODULE_LIST}" | wc -l)
+          TOTAL=$(echo "${MODULE_LIST}" | wc -l | tr -d ' ')
           echo "Found ${TOTAL} modules to hydrate at ref ${TARGET_SHA}"
 
-          # Each go get runs in its own temp module to avoid go.mod conflicts.
-          echo "${MODULE_LIST}" | xargs -I{} -P 10 bash -c '
-            d=$(mktemp -d)
-            cd "$d"
-            go mod init hydrate 2>/dev/null
-            if go get "{}@'"${TARGET_SHA}"'" 2>/dev/null; then
-              echo "OK: {}"
-            else
-              echo "FAIL: {}"
-            fi
-            rm -rf "$d"
-          '
+          echo "Resolving commit SHA to pseudo-version..."
+          PSEUDO_VERSION=$(go list -m "${REPO_BASE}/override/aws@${TARGET_SHA}" \
+            | awk '{print $2}')
+          [ -n "$PSEUDO_VERSION" ] || { echo "ERROR: go list -m returned empty version"; exit 1; }
+          echo "Resolved: ${PSEUDO_VERSION}"
 
+          d=$(mktemp -d)
+          cd "$d"
+          go mod init hydrate 2>/dev/null
+
+          echo "Adding require and replace directives..."
+          for mod in ${MODULE_LIST}; do
+            upstream=${mod/amazon-contributing/open-telemetry}
+            go mod edit -require "${upstream}@${PSEUDO_VERSION}"
+            go mod edit -replace "${upstream}=${mod}@${PSEUDO_VERSION}"
+          done
+          echo "Added ${TOTAL} modules"
+
+          echo "Running go mod download..."
+          if go mod download; then
+            echo "Success: all ${TOTAL} modules downloaded"
+          else
+            echo "FAILED: some modules failed to download"
+            exit 1
+          fi
+
+          rm -rf "$d"
           echo "Hydration complete."
