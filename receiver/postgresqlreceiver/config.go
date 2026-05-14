@@ -39,8 +39,9 @@ type TopQueryCollection struct {
 }
 
 type QuerySampleCollection struct {
-	Enabled         bool  `mapstructure:"enabled"`
-	MaxRowsPerQuery int64 `mapstructure:"max_rows_per_query"`
+	Enabled            bool          `mapstructure:"enabled"`
+	MaxRowsPerQuery    int64         `mapstructure:"max_rows_per_query"`
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
