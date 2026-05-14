@@ -55,8 +55,8 @@ type postgreSQLScraper struct {
 	// if enabled, uses a separated attribute for the schema
 	separateSchemaAttr   bool
 	queryPlanCache       *expirable.LRU[string, string]
-	newestQueryTimestamp float64
-	serviceInstanceID    string
+	newestQueryTimestamp    float64
+	serviceInstanceID      string
 	lastExecutionTimestamp time.Time
 }
 
@@ -180,6 +180,7 @@ func (p *postgreSQLScraper) scrape(ctx context.Context) (pmetric.Metrics, error)
 	p.collectReplicationStats(ctx, now, listClient, &errs)
 	p.collectMaxConnections(ctx, now, listClient, &errs)
 	p.collectDatabaseLocks(ctx, now, listClient, &errs)
+	p.collectSessionStates(ctx, now, listClient, &errs)
 
 	rb := p.setupResourceBuilder(p.mb.NewResourceBuilder(), "", "", "", "")
 	return p.mb.Emit(metadata.WithResource(rb.Emit())), errs.combine()
@@ -217,7 +218,6 @@ func (p *postgreSQLScraper) scrapeTopQuery(ctx context.Context, maxRowsPerQuery,
 
 func (p *postgreSQLScraper) isCollectionDue(collectionTime time.Time, interval time.Duration) bool {
 	if p.lastExecutionTimestamp.IsZero() {
-		// This is the first collection
 		return true
 	}
 
@@ -604,6 +604,24 @@ func (p *postgreSQLScraper) collectDatabaseLocks(
 	}
 	for _, dbLock := range dbLocks {
 		p.mb.RecordPostgresqlDatabaseLocksDataPoint(now, dbLock.locks, dbLock.relation, dbLock.mode, dbLock.lockType)
+	}
+}
+
+func (p *postgreSQLScraper) collectSessionStates(
+	ctx context.Context,
+	now pcommon.Timestamp,
+	client client,
+	errs *errsMux,
+) {
+	states, err := client.getSessionStates(ctx)
+	if err != nil {
+		errs.addPartial(err)
+		return
+	}
+	for state, count := range states {
+		if ss, ok := metadata.MapAttributeSessionState[state]; ok {
+			p.mb.RecordPostgresqlSessionsDataPoint(now, count, ss)
+		}
 	}
 }
 

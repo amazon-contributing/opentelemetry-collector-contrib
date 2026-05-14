@@ -61,3 +61,21 @@ func TestCreateDefaultConfig(t *testing.T) {
 
 	assert.Equal(t, int64(1000), defaultCfg.QuerySampleCollection.MaxRowsPerQuery)
 }
+
+func TestCreateLogs(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.Events.DbServerQuerySample.Enabled = true
+	cfg.QuerySampleCollection.CollectionInterval = 30 * time.Second
+
+	logsReceiver, err := factory.CreateLogs(
+		context.Background(),
+		receivertest.NewNopSettings(metadata.Type),
+		cfg,
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, logsReceiver)
+}
