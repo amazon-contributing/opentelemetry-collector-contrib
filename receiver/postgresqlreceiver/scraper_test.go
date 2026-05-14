@@ -565,6 +565,10 @@ func TestScrapeTopQueries(t *testing.T) {
 		"shared_blks_hit":     "1112",
 		"shared_blks_read":    "1113",
 		"shared_blks_written": "1114",
+		"local_blks_hit":      "2001",
+		"local_blks_read":     "2002",
+		"local_blks_dirtied":  "2003",
+		"local_blks_written":  "2004",
 		"temp_blks_read":      "1115",
 		"temp_blks_written":   "1116",
 		"query":               "select * from pg_stat_activity where id = 32",
@@ -919,6 +923,11 @@ func (m *mockClient) getVersion(_ context.Context) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockClient) getSessionStates(_ context.Context) (map[string]int64, error) {
+	args := m.Called()
+	return args.Get(0).(map[string]int64), args.Error(1)
+}
+
 func (m *mockClientFactory) getClient(database string) (client, error) {
 	args := m.Called(database)
 	return args.Get(0).(client), args.Error(1)
@@ -1035,6 +1044,12 @@ func (m *mockClient) initMocks(database string, schema string, databases []strin
 				replayLag:    -1,
 				writeLag:     -1,
 			},
+		}, nil)
+		m.On("getSessionStates", mock.Anything).Return(map[string]int64{
+			"active":                            3,
+			"idle":                              5,
+			"idle in transaction":               1,
+			"idle in transaction (aborted)":     0,
 		}, nil)
 	} else {
 		table1 := "table1"
@@ -1153,4 +1168,33 @@ func TestGetInstanceId(t *testing.T) {
 	localInstanceID = getInstanceID(hostNameErrorSample, zap.NewNop())
 	assert.NotNil(t, localInstanceID)
 	assert.Equal(t, "unknown:5432", localInstanceID)
+}
+
+func TestCollectSessionStates(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Metrics.PostgresqlSessions.Enabled = true
+
+	factory := new(mockClientFactory)
+	factory.initMocks([]string{"otel"})
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	scraper := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+
+	actualMetrics, err := scraper.scrape(context.Background())
+	require.NoError(t, err)
+
+	// Verify that postgresql.sessions metric is present
+	found := false
+	for i := 0; i < actualMetrics.ResourceMetrics().Len(); i++ {
+		rm := actualMetrics.ResourceMetrics().At(i)
+		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
+			sm := rm.ScopeMetrics().At(j)
+			for k := 0; k < sm.Metrics().Len(); k++ {
+				if sm.Metrics().At(k).Name() == "postgresql.sessions" {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "postgresql.sessions metric should be present when enabled")
 }
