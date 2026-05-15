@@ -5,8 +5,11 @@ package postgresqlreceiver // import "github.com/open-telemetry/opentelemetry-co
 
 import (
 	"database/sql"
+	"fmt"
+	"net"
 	"sync"
 
+	"github.com/jackc/pgpassfile"
 	"github.com/lib/pq"
 	"go.opentelemetry.io/collector/featuregate"
 	"go.uber.org/multierr"
@@ -30,6 +33,7 @@ type postgreSQLClientFactory interface {
 // defaultClientFactory creates one PG connection per call
 type defaultClientFactory struct {
 	baseConfig postgreSQLConfig
+	passfile   string
 }
 
 func newDefaultClientFactory(cfg *Config) *defaultClientFactory {
@@ -40,11 +44,20 @@ func newDefaultClientFactory(cfg *Config) *defaultClientFactory {
 			address:  cfg.AddrConfig,
 			tls:      cfg.ClientConfig,
 		},
+		passfile: cfg.Passfile,
 	}
 }
 
 func (d *defaultClientFactory) getClient(database string) (client, error) {
-	db, err := getDB(d.baseConfig, database)
+	cfg := d.baseConfig
+	if cfg.password == "" && d.passfile != "" {
+		pw, err := resolvePasswordFromPassfile(d.passfile, cfg.address.Endpoint, database, cfg.username)
+		if err != nil {
+			return nil, err
+		}
+		cfg.password = pw
+	}
+	db, err := getDB(cfg, database)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +72,7 @@ func (d *defaultClientFactory) close() error {
 type poolClientFactory struct {
 	sync.Mutex
 	baseConfig postgreSQLConfig
+	passfile   string
 	poolConfig *ConnectionPool
 	pool       map[string]*sql.DB
 	closed     bool
@@ -73,6 +87,7 @@ func newPoolClientFactory(cfg *Config) *poolClientFactory {
 			address:  cfg.AddrConfig,
 			tls:      cfg.ClientConfig,
 		},
+		passfile:   cfg.Passfile,
 		poolConfig: &poolCfg,
 		pool:       make(map[string]*sql.DB),
 		closed:     false,
@@ -84,12 +99,20 @@ func (p *poolClientFactory) getClient(database string) (client, error) {
 	defer p.Unlock()
 	db, ok := p.pool[database]
 	if !ok {
+		cfg := p.baseConfig
+		if cfg.password == "" && p.passfile != "" {
+			pw, err := resolvePasswordFromPassfile(p.passfile, cfg.address.Endpoint, database, cfg.username)
+			if err != nil {
+				return nil, err
+			}
+			cfg.password = pw
+		}
 		var err error
-		db, err = getDB(p.baseConfig, database)
-		p.setPoolSettings(db)
+		db, err = getDB(cfg, database)
 		if err != nil {
 			return nil, err
 		}
+		p.setPoolSettings(db)
 		p.pool[database] = db
 	}
 	return &postgreSQLClient{client: db, closeFn: nil}, nil
@@ -150,4 +173,20 @@ func getDB(cfg postgreSQLConfig, database string) (*sql.DB, error) {
 		return nil, err
 	}
 	return sql.OpenDB(conn), nil
+}
+
+func resolvePasswordFromPassfile(passfile, endpoint, database, username string) (string, error) {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse endpoint for passfile lookup: %w", err)
+	}
+	passfileData, err := pgpassfile.ReadPassfile(passfile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read passfile: %w", err)
+	}
+	password := passfileData.FindPassword(host, port, database, username)
+	if password == "" {
+		return "", fmt.Errorf("no matching entry in passfile for host=%s port=%s database=%s user=%s", host, port, database, username)
+	}
+	return password, nil
 }

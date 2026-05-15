@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/jackc/pgpassfile"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/config/configtls"
@@ -21,7 +22,7 @@ import (
 // Errors for missing required config parameters.
 const (
 	ErrNoUsername          = "invalid config: missing username"
-	ErrNoPassword          = "invalid config: missing password" // #nosec G101 - not hardcoded credentials
+	ErrNoPassword          = "invalid config: missing password"                // #nosec G101 - not hardcoded credentials
 	ErrNotSupported        = "invalid config: field '%s' not supported"
 	ErrTransportsSupported = "invalid config: 'transport' must be 'tcp' or 'unix'"
 	ErrHostPort            = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
@@ -50,6 +51,7 @@ type Config struct {
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
 	Username                       string                         `mapstructure:"username"`
 	Password                       configopaque.String            `mapstructure:"password"`
+	Passfile                       string                         `mapstructure:"passfile,omitempty"`
 	Databases                      []string                       `mapstructure:"databases"`
 	ExcludeDatabases               []string                       `mapstructure:"exclude_databases"`
 	confignet.AddrConfig           `mapstructure:",squash"`       // provides Endpoint and Transport
@@ -70,11 +72,23 @@ type ConnectionPool struct {
 
 func (cfg *Config) Validate() error {
 	var err error
+
 	if cfg.Username == "" {
 		err = multierr.Append(err, errors.New(ErrNoUsername))
 	}
-	if cfg.Password == "" {
+
+	if cfg.Password == "" && cfg.Passfile == "" {
 		err = multierr.Append(err, errors.New(ErrNoPassword))
+	}
+
+	// When Password is empty and Passfile is set, validate the file.
+	if cfg.Password == "" && cfg.Passfile != "" {
+		if permErr := cfg.validatePassfilePermissions(); permErr != nil {
+			err = multierr.Append(err, permErr)
+		}
+		if _, parseErr := pgpassfile.ReadPassfile(cfg.Passfile); parseErr != nil {
+			err = multierr.Append(err, fmt.Errorf("failed to parse passfile: %w", parseErr))
+		}
 	}
 
 	// The lib/pq module does not support overriding ServerName or specifying supported TLS versions
