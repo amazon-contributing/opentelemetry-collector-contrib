@@ -32,8 +32,8 @@ type postgreSQLClientFactory interface {
 
 // defaultClientFactory creates one PG connection per call
 type defaultClientFactory struct {
-	baseConfig postgreSQLConfig
-	passfile   string
+	baseConfig     postgreSQLConfig
+	parsedPassfile *pgpassfile.Passfile
 }
 
 func newDefaultClientFactory(cfg *Config) *defaultClientFactory {
@@ -44,14 +44,14 @@ func newDefaultClientFactory(cfg *Config) *defaultClientFactory {
 			address:  cfg.AddrConfig,
 			tls:      cfg.ClientConfig,
 		},
-		passfile: cfg.Passfile,
+		parsedPassfile: parsePassfile(cfg),
 	}
 }
 
 func (d *defaultClientFactory) getClient(database string) (client, error) {
 	cfg := d.baseConfig
-	if cfg.password == "" && d.passfile != "" {
-		pw, err := resolvePasswordFromPassfile(d.passfile, cfg.address.Endpoint, database, cfg.username)
+	if cfg.password == "" && d.parsedPassfile != nil {
+		pw, err := resolvePasswordFromPassfile(d.parsedPassfile, cfg.address.Endpoint, database, cfg.username)
 		if err != nil {
 			return nil, err
 		}
@@ -71,11 +71,11 @@ func (d *defaultClientFactory) close() error {
 // poolClientFactory creates one PG connection per database, keeping a pool of connections
 type poolClientFactory struct {
 	sync.Mutex
-	baseConfig postgreSQLConfig
-	passfile   string
-	poolConfig *ConnectionPool
-	pool       map[string]*sql.DB
-	closed     bool
+	baseConfig     postgreSQLConfig
+	parsedPassfile *pgpassfile.Passfile
+	poolConfig     *ConnectionPool
+	pool           map[string]*sql.DB
+	closed         bool
 }
 
 func newPoolClientFactory(cfg *Config) *poolClientFactory {
@@ -87,10 +87,10 @@ func newPoolClientFactory(cfg *Config) *poolClientFactory {
 			address:  cfg.AddrConfig,
 			tls:      cfg.ClientConfig,
 		},
-		passfile:   cfg.Passfile,
-		poolConfig: &poolCfg,
-		pool:       make(map[string]*sql.DB),
-		closed:     false,
+		parsedPassfile: parsePassfile(cfg),
+		poolConfig:     &poolCfg,
+		pool:           make(map[string]*sql.DB),
+		closed:         false,
 	}
 }
 
@@ -100,8 +100,8 @@ func (p *poolClientFactory) getClient(database string) (client, error) {
 	db, ok := p.pool[database]
 	if !ok {
 		cfg := p.baseConfig
-		if cfg.password == "" && p.passfile != "" {
-			pw, err := resolvePasswordFromPassfile(p.passfile, cfg.address.Endpoint, database, cfg.username)
+		if cfg.password == "" && p.parsedPassfile != nil {
+			pw, err := resolvePasswordFromPassfile(p.parsedPassfile, cfg.address.Endpoint, database, cfg.username)
 			if err != nil {
 				return nil, err
 			}
@@ -175,16 +175,22 @@ func getDB(cfg postgreSQLConfig, database string) (*sql.DB, error) {
 	return sql.OpenDB(conn), nil
 }
 
-func resolvePasswordFromPassfile(passfile, endpoint, database, username string) (string, error) {
+func parsePassfile(cfg *Config) *pgpassfile.Passfile {
+	if cfg.Password == "" && cfg.Passfile != "" {
+		parsed, err := pgpassfile.ReadPassfile(cfg.Passfile)
+		if err == nil {
+			return parsed
+		}
+	}
+	return nil
+}
+
+func resolvePasswordFromPassfile(passfile *pgpassfile.Passfile, endpoint, database, username string) (string, error) {
 	host, port, err := net.SplitHostPort(endpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse endpoint for passfile lookup: %w", err)
 	}
-	passfileData, err := pgpassfile.ReadPassfile(passfile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read passfile: %w", err)
-	}
-	password := passfileData.FindPassword(host, port, database, username)
+	password := passfile.FindPassword(host, port, database, username)
 	if password == "" {
 		return "", fmt.Errorf("no matching entry in passfile for host=%s port=%s database=%s user=%s", host, port, database, username)
 	}
