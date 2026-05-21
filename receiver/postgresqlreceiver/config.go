@@ -9,7 +9,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/jackc/pgpassfile"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/config/configtls"
@@ -85,9 +84,6 @@ func (cfg *Config) Validate() error {
 	if cfg.Password == "" && cfg.Passfile != "" {
 		if permErr := cfg.validatePassfilePermissions(); permErr != nil {
 			err = multierr.Append(err, permErr)
-		}
-		if _, parseErr := pgpassfile.ReadPassfile(cfg.Passfile); parseErr != nil {
-			err = multierr.Append(err, fmt.Errorf("failed to parse passfile: %w", parseErr))
 		}
 	}
 

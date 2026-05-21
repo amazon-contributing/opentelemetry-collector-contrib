@@ -171,6 +171,7 @@ var _ client = (*postgreSQLClient)(nil)
 type postgreSQLConfig struct {
 	username string
 	password string
+	passfile string
 	database string
 	address  confignet.AddrConfig
 	tls      configtls.ClientConfig
@@ -219,7 +220,13 @@ func (c postgreSQLConfig) ConnectionString() (string, error) {
 		host = "/" + host
 	}
 
-	return fmt.Sprintf("port=%s host=%s user=%s password=%s dbname=%s %s", port, host, c.username, c.password, database, sslConnectionString(c.tls)), nil
+	connStr := fmt.Sprintf("port=%s host=%s user=%s dbname=%s %s", port, host, c.username, database, sslConnectionString(c.tls))
+	if c.passfile != "" && c.password == "" {
+		connStr += fmt.Sprintf(" passfile=%s", c.passfile)
+	} else {
+		connStr += fmt.Sprintf(" password=%s", c.password)
+	}
+	return connStr, nil
 }
 
 func (c *postgreSQLClient) Close() error {
