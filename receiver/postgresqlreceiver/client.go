@@ -222,7 +222,7 @@ func (c postgreSQLConfig) ConnectionString() (string, error) {
 
 	connStr := fmt.Sprintf("port=%s host=%s user=%s dbname=%s %s", port, host, c.username, database, sslConnectionString(c.tls))
 	if c.passfile != "" && c.password == "" {
-		connStr += fmt.Sprintf(" passfile=%s", c.passfile)
+		connStr += fmt.Sprintf(" passfile='%s'", c.passfile)
 	} else {
 		connStr += fmt.Sprintf(" password=%s", c.password)
 	}

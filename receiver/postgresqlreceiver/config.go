@@ -21,7 +21,7 @@ import (
 // Errors for missing required config parameters.
 const (
 	ErrNoUsername          = "invalid config: missing username"
-	ErrNoPassword          = "invalid config: missing password"                // #nosec G101 - not hardcoded credentials
+	ErrNoPassword          = "invalid config: missing password or passfile" // #nosec G101 - not hardcoded credentials
 	ErrNotSupported        = "invalid config: field '%s' not supported"
 	ErrTransportsSupported = "invalid config: 'transport' must be 'tcp' or 'unix'"
 	ErrHostPort            = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
