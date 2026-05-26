@@ -11,13 +11,11 @@ import (
 	"go.opentelemetry.io/collector/client"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/plog"
-
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributestocontextprocessor/internal/actions"
 )
 
 func TestLogsProcessor(t *testing.T) {
 	cfg := &Config{
-		Actions: []actions.KeyValue{
+		Actions: []ActionKeyValue{
 			{Key: "cwlogs.log_group", FromResourceAttribute: "cwlogs.log_group"},
 			{Key: "cwlogs.log_stream", FromResourceAttribute: "cwlogs.log_stream"},
 		},
@@ -62,7 +60,7 @@ func (*mockLogsConsumer) Capabilities() consumer.Capabilities {
 
 func TestLogsProcessor_MultipleResourceLogs_LastWins(t *testing.T) {
 	cfg := &Config{
-		Actions: []actions.KeyValue{
+		Actions: []ActionKeyValue{
 			{Key: "cwlogs.log_group", FromResourceAttribute: "cwlogs.log_group"},
 		},
 	}
@@ -92,7 +90,7 @@ func TestLogsProcessor_MultipleResourceLogs_LastWins(t *testing.T) {
 
 func TestLogsProcessor_PreservesUpstreamMetadata(t *testing.T) {
 	cfg := &Config{
-		Actions: []actions.KeyValue{
+		Actions: []ActionKeyValue{
 			{Key: "cwlogs.log_group", FromResourceAttribute: "cwlogs.log_group"},
 		},
 	}
@@ -124,7 +122,7 @@ func TestLogsProcessor_PreservesUpstreamMetadata(t *testing.T) {
 
 func TestLogsProcessor_MissingAttribute_SkipsSilently(t *testing.T) {
 	cfg := &Config{
-		Actions: []actions.KeyValue{
+		Actions: []ActionKeyValue{
 			{Key: "cwlogs.log_group", FromResourceAttribute: "cwlogs.log_group"},
 		},
 	}
