@@ -55,8 +55,7 @@ func TestProcessMetrics_NodeNotInCache(t *testing.T) {
 func TestProcessMetrics_AddsTaints(t *testing.T) {
 	p := newTestProcessor(t)
 	p.nodes["node1"] = &nodeTaints{attrs: map[string]string{
-		"k8s.node.taint.dedicated":                    "gpu",
-		"k8s.node.taint.node.kubernetes.io/not-ready": "",
+		"k8s.node.taint.dedicated": "gpu",
 	}}
 
 	md := pmetric.NewMetrics()
@@ -73,9 +72,8 @@ func TestProcessMetrics_AddsTaints(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "gpu", val.Str())
 
-	val, ok = attrs.Get("k8s.node.taint.node.kubernetes.io/not-ready")
-	require.True(t, ok)
-	assert.Empty(t, val.Str())
+	_, ok = attrs.Get("k8s.node.taint.node.kubernetes.io/not-ready")
+	assert.False(t, ok, "empty-value taints should not be present")
 }
 
 func TestProcessMetrics_MultipleResourceMetrics(t *testing.T) {
@@ -124,7 +122,8 @@ func TestHandleNodeAdd(t *testing.T) {
 	defer p.mu.RUnlock()
 	require.Contains(t, p.nodes, "node1")
 	assert.Equal(t, "gpu", p.nodes["node1"].attrs["k8s.node.taint.dedicated"])
-	assert.Empty(t, p.nodes["node1"].attrs["k8s.node.taint.special"])
+	_, hasEmpty := p.nodes["node1"].attrs["k8s.node.taint.special"]
+	assert.False(t, hasEmpty, "empty-value taints should be skipped")
 }
 
 func TestHandleNodeUpdate(t *testing.T) {

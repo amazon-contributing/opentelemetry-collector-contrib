@@ -142,6 +142,9 @@ func (p *k8sTaintsProcessor) handleNodeDelete(obj any) {
 func (p *k8sTaintsProcessor) updateNodeTaints(node *api_v1.Node) {
 	attrs := make(map[string]string, len(node.Spec.Taints))
 	for _, t := range node.Spec.Taints {
+		if t.Value == "" {
+			continue
+		}
 		attrKey := taintAttrPrefix + t.Key
 		if _, exists := attrs[attrKey]; !exists {
 			attrs[attrKey] = t.Value
