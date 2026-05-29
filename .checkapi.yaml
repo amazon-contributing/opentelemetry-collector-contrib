@@ -50,6 +50,7 @@ ignored_paths:
   - receiver/aerospikereceiver # 43995
   - receiver/carbonreceiver
   - receiver/statsdreceiver
+  - receiver/prometheusreceiver # AWS fork exports NewManager for CloudWatch Agent usage
   - extension/awsmiddleware
   - override/aws
   - connector/genaiadapterconnector
