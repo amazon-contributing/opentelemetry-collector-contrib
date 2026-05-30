@@ -82,7 +82,8 @@ func IsContainer(mType string) bool {
 		TypeContainerDiskIO,
 		TypeContainerEFA,
 		TypeContainerFS,
-		TypeContainerGPU:
+		TypeContainerGPU,
+		TypeContainerNeuron:
 		return true
 	}
 	return false
