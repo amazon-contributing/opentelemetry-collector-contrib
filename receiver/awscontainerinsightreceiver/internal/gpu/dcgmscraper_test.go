@@ -202,7 +202,7 @@ func TestNewDcgmScraperEndToEnd(t *testing.T) {
 	}
 	scrapeConfig.ServiceDiscoveryConfigs = discovery.Configs{
 		// using dummy static config to avoid service discovery initialization
-		&discovery.StaticConfig{
+		discovery.StaticConfig{
 			{
 				Targets: []model.LabelSet{
 					{

@@ -43,7 +43,8 @@ func GetNeuronScrapeConfig(hostinfo prometheusscraper.HostInfoProvider) *config.
 		MetricsPath:            scraperMetricsPath,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
-				Role: kubernetes.RoleService,
+				Role:             kubernetes.RoleService,
+				HTTPClientConfig: configutil.DefaultHTTPClientConfig,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
 					IncludeOwnNamespace: true,
 				},
