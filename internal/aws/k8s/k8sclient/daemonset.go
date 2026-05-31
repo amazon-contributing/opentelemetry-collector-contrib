@@ -24,11 +24,11 @@ type DaemonSetClient interface {
 
 type noOpDaemonSetClient struct{}
 
-func (nd *noOpDaemonSetClient) DaemonSetInfos() []*DaemonSetInfo {
+func (*noOpDaemonSetClient) DaemonSetInfos() []*DaemonSetInfo {
 	return []*DaemonSetInfo{}
 }
 
-func (nd *noOpDaemonSetClient) shutdown() {
+func (*noOpDaemonSetClient) shutdown() {
 }
 
 type daemonSetClientOption func(*daemonSetClient)
