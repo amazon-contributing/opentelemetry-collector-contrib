@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/types"
 )
 
 // stubListerClient returns an empty ListPodResourcesResponse.
@@ -72,7 +74,7 @@ func TestGetContainerInfo_NoData(t *testing.T) {
 func TestGetContainerInfo_WithData(t *testing.T) {
 	c := NewClient(zap.NewNop())
 	c.mu.Lock()
-	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = ContainerInfo{
+	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = types.ContainerInfo{
 		PodName: "ml-pod", Namespace: "default", ContainerName: "trainer",
 	}
 	c.mu.Unlock()
@@ -87,7 +89,7 @@ func TestGetContainerInfo_WithData(t *testing.T) {
 func TestGetContainerInfo_WrongResource(t *testing.T) {
 	c := NewClient(zap.NewNop())
 	c.mu.Lock()
-	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = ContainerInfo{
+	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = types.ContainerInfo{
 		PodName: "ml-pod", Namespace: "default", ContainerName: "trainer",
 	}
 	c.mu.Unlock()

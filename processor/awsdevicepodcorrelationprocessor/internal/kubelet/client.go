@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/types"
 )
 
 const (
@@ -22,13 +24,6 @@ const (
 	defaultRefreshInterval = 10 * time.Second
 )
 
-// ContainerInfo holds Kubernetes pod/container metadata for a device.
-type ContainerInfo struct {
-	PodName       string
-	ContainerName string
-	Namespace     string
-}
-
 // Client connects to the Kubelet Pod Resources API and maintains
 // an in-memory cache of device-to-pod mappings.
 type Client struct {
@@ -36,7 +31,7 @@ type Client struct {
 	listerClient    podresourcesapi.PodResourcesListerClient
 	resourceNames   map[string]struct{}
 	mu              sync.RWMutex
-	deviceToPod     map[deviceKey]ContainerInfo
+	deviceToPod     map[deviceKey]types.ContainerInfo
 	cancel          context.CancelFunc
 	wg              sync.WaitGroup
 	socketPath      string
@@ -66,7 +61,7 @@ func NewClient(logger *zap.Logger, opts ...ClientOption) *Client {
 		socketPath:      DefaultSocketPath,
 		refreshInterval: defaultRefreshInterval,
 		resourceNames:   make(map[string]struct{}),
-		deviceToPod:     make(map[deviceKey]ContainerInfo),
+		deviceToPod:     make(map[deviceKey]types.ContainerInfo),
 		logger:          logger,
 	}
 	for _, opt := range opts {
@@ -117,7 +112,7 @@ func (c *Client) AddResourceName(resourceName string) {
 }
 
 // GetContainerInfo looks up the pod/container that owns the given device.
-func (c *Client) GetContainerInfo(deviceID string, resourceName string) *ContainerInfo {
+func (c *Client) GetContainerInfo(deviceID string, resourceName string) *types.ContainerInfo {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	key := deviceKey{DeviceID: deviceID, ResourceName: resourceName}
@@ -166,14 +161,14 @@ func (c *Client) refresh(ctx context.Context) {
 		return
 	}
 
-	newMap := make(map[deviceKey]ContainerInfo)
+	newMap := make(map[deviceKey]types.ContainerInfo)
 	for _, pod := range resp.GetPodResources() {
 		for _, container := range pod.GetContainers() {
 			for _, device := range container.GetDevices() {
 				if _, tracked := trackedResources[device.GetResourceName()]; !tracked {
 					continue
 				}
-				info := ContainerInfo{
+				info := types.ContainerInfo{
 					PodName:       pod.GetName(),
 					Namespace:     pod.GetNamespace(),
 					ContainerName: container.GetName(),
