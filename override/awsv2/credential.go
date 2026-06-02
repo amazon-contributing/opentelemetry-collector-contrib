@@ -45,7 +45,7 @@ func (c *CredentialsChainOverride) AppendCredentialsChain(factory CredentialsPro
 	c.factories = append(c.factories, factory)
 }
 
-// GetCredentialsChain returns a snapshot of the registered factories; callers may iterate without locking.
+// GetCredentialsChain returns a snapshot of the registered factories, so callers may iterate without locking.
 func (c *CredentialsChainOverride) GetCredentialsChain() []CredentialsProviderFactory {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -55,7 +55,7 @@ func (c *CredentialsChainOverride) GetCredentialsChain() []CredentialsProviderFa
 // NewV1ProviderAdapter wraps a v1 SDK credentials.Provider as an aws.CredentialsProvider, or returns
 // nil if the provider is nil.
 //
-// To convey expiration, the provider must implement credentialsv1.Expirer; most v1 providers do via embedded
+// To convey expiration, the provider must implement credentialsv1.Expirer. Most v1 providers do via embedded
 // credentials.Expiry. Without it, the v2 CredentialsCache treats the credentials as never-expiring.
 //
 // v1's Provider.Retrieve takes no context, so the ctx passed to v2 Retrieve does not propagate.

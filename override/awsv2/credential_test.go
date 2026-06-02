@@ -61,8 +61,8 @@ func TestAppendCredentialsChain_NilFactoryReturnPropagates(t *testing.T) {
 	resetOverride(t)
 
 	o := GetCredentialsChainOverride()
-	// Factory returns nil for paths it doesn't handle. The registry stores the factory as-is;
-	// downstream chain consumers must filter nil. This test pins that behavior.
+	// Factory returns nil for paths it doesn't handle. The registry stores the factory as-is.
+	// Downstream chain consumers must filter nil. This test pins that behavior.
 	o.AppendCredentialsChain(func(filename string) aws.CredentialsProvider {
 		if filename == "match" {
 			return staticV2Provider("got-match")

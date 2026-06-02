@@ -18,47 +18,26 @@ func TestIMDSRetryer_IsErrorRetryable(t *testing.T) {
 		err  error
 		want bool
 	}{
-		"ErrorIsNilNotRetryable": {
+		"Nil": {
 			err:  nil,
 			want: false,
 		},
-		"ErrorIsIMDSResponseErrorRetryable": {
-			err: &smithyhttp.ResponseError{
-				Response: &smithyhttp.Response{
-					Response: &http.Response{
-						StatusCode: http.StatusNotFound,
-					},
-				},
-				Err: errors.New("request to EC2 IMDS failed"),
-			},
+		"ResponseError4xx": {
+			err:  smithyResponseError(http.StatusNotFound),
 			want: true,
 		},
-		"ErrorIsIMDSResponseError5xxRetryable": {
-			err: &smithyhttp.ResponseError{
-				Response: &smithyhttp.Response{
-					Response: &http.Response{
-						StatusCode: http.StatusInternalServerError,
-					},
-				},
-				Err: errors.New("request to EC2 IMDS failed"),
-			},
+		"ResponseError5xx": {
+			err:  smithyResponseError(http.StatusInternalServerError),
 			want: true,
 		},
-		"ErrorIsWrappedIMDSResponseErrorRetryable": {
+		"WrappedResponseError": {
 			err: errors.Join(
 				errors.New("outer error"),
-				&smithyhttp.ResponseError{
-					Response: &smithyhttp.Response{
-						Response: &http.Response{
-							StatusCode: http.StatusServiceUnavailable,
-						},
-					},
-					Err: errors.New("request to EC2 IMDS failed"),
-				},
+				smithyResponseError(http.StatusServiceUnavailable),
 			),
 			want: true,
 		},
-		"ErrorIsGenericErrorNotRetryableByDefault": {
+		"GenericError": {
 			err:  errors.New("some other error"),
 			want: false, // Standard retryer doesn't treat generic errors as retryable by default
 		},
@@ -83,7 +62,7 @@ func TestIMDSRetryer_MaxAttempts(t *testing.T) {
 			retries: DefaultIMDSRetries,
 			want:    DefaultIMDSRetries + 1,
 		},
-		"TwoRetries": {
+		"PositiveRetries": {
 			retries: 2,
 			want:    3,
 		},
@@ -102,5 +81,15 @@ func TestIMDSRetryer_MaxAttempts(t *testing.T) {
 			retryer := NewIMDSRetryer(testCase.retries)
 			assert.Equal(t, testCase.want, retryer.MaxAttempts())
 		})
+	}
+}
+
+// smithyResponseError builds a *smithyhttp.ResponseError carrying the given HTTP status code.
+func smithyResponseError(statusCode int) *smithyhttp.ResponseError {
+	return &smithyhttp.ResponseError{
+		Response: &smithyhttp.Response{
+			Response: &http.Response{StatusCode: statusCode},
+		},
+		Err: errors.New("request to EC2 IMDS failed"),
 	}
 }
