@@ -25,9 +25,7 @@ var _ aws.RetryerV2 = (*imdsRetryer)(nil)
 // NewIMDSRetryer returns an IMDS retryer with MaxAttempts = retries + 1. Negative values are clamped to 0.
 // The retryer treats any smithyhttp.ResponseError as retryable. Otherwise behavior matches retry.Standard.
 func NewIMDSRetryer(retries int) aws.RetryerV2 {
-	if retries < 0 {
-		retries = 0
-	}
+	retries = max(retries, 0)
 	return &imdsRetryer{
 		Standard: retry.NewStandard(func(o *retry.StandardOptions) {
 			o.MaxAttempts = retries + 1 // MaxAttempts include the first attempt

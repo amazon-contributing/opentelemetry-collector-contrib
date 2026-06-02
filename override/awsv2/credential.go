@@ -73,7 +73,7 @@ type v1ProviderAdapter struct {
 
 var _ aws.CredentialsProvider = (*v1ProviderAdapter)(nil)
 
-func (a *v1ProviderAdapter) Retrieve(_ context.Context) (aws.Credentials, error) {
+func (a *v1ProviderAdapter) Retrieve(context.Context) (aws.Credentials, error) {
 	val, err := a.provider.Retrieve()
 	if err != nil {
 		return aws.Credentials{}, err
