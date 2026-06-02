@@ -7,6 +7,7 @@ module-sets:
     modules:
       - github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware
       - github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws
+      - github.com/amazon-contributing/opentelemetry-collector-contrib/override/awsv2
       - github.com/open-telemetry/opentelemetry-collector-contrib
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/opampsupervisor
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/otlphistgen
