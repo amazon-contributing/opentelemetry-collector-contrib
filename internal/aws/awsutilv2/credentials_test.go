@@ -270,12 +270,12 @@ func applyOptions(t *testing.T, opts []func(*config.LoadOptions) error) config.L
 
 func TestBuildLoadOptions_Region(t *testing.T) {
 	t.Run("Set", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{}, testRegion, nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{}, testRegion)
 		lo := applyOptions(t, opts)
 		assert.Equal(t, testRegion, lo.Region)
 	})
 	t.Run("Empty", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{}, "", nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{}, "")
 		lo := applyOptions(t, opts)
 		assert.Empty(t, lo.Region)
 	})
@@ -283,12 +283,12 @@ func TestBuildLoadOptions_Region(t *testing.T) {
 
 func TestBuildLoadOptions_Endpoint(t *testing.T) {
 	t.Run("Set", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{Endpoint: "https://endpoint.example.com"}, "", nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{Endpoint: "https://endpoint.example.com"}, "")
 		lo := applyOptions(t, opts)
 		assert.Equal(t, "https://endpoint.example.com", lo.BaseEndpoint)
 	})
 	t.Run("Empty", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{}, "", nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{}, "")
 		lo := applyOptions(t, opts)
 		assert.Empty(t, lo.BaseEndpoint)
 	})
@@ -296,17 +296,17 @@ func TestBuildLoadOptions_Endpoint(t *testing.T) {
 
 func TestBuildLoadOptions_MaxRetries(t *testing.T) {
 	t.Run("Positive", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{MaxRetries: 5}, "", nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{MaxRetries: 5}, "")
 		lo := applyOptions(t, opts)
 		assert.Equal(t, 6, lo.RetryMaxAttempts)
 	})
 	t.Run("Zero", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{}, "", nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{}, "")
 		lo := applyOptions(t, opts)
 		assert.Equal(t, 1, lo.RetryMaxAttempts)
 	})
 	t.Run("Negative", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{MaxRetries: -3}, "", nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{MaxRetries: -3}, "")
 		lo := applyOptions(t, opts)
 		assert.Equal(t, 1, lo.RetryMaxAttempts)
 	})
@@ -317,13 +317,19 @@ func TestBuildLoadOptions_Provider(t *testing.T) {
 		p := aws.CredentialsProviderFunc(func(context.Context) (aws.Credentials, error) {
 			return aws.Credentials{AccessKeyID: "test"}, nil
 		})
-		opts := buildLoadOptions(&AWSSessionSettings{}, "", nil, nil, p)
+		opts := buildLoadOptions(&AWSSessionSettings{}, "", nil, nil, nil, p)
 		lo := applyOptions(t, opts)
 		require.NotNil(t, lo.Credentials)
 	})
 	t.Run("Nil", func(t *testing.T) {
-		opts := buildLoadOptions(&AWSSessionSettings{}, "", nil, nil, nil)
+		opts := testBuildLoadOptions(&AWSSessionSettings{}, "")
 		lo := applyOptions(t, opts)
 		assert.Nil(t, lo.Credentials)
 	})
+}
+
+// testBuildLoadOptions is a test helper for the common case of calling buildLoadOptions
+// with only settings and region; shared config files, HTTP client, and credentials provider are nil.
+func testBuildLoadOptions(settings *AWSSessionSettings, region string) []func(*config.LoadOptions) error {
+	return buildLoadOptions(settings, region, nil, nil, nil, nil)
 }

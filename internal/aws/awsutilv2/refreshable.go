@@ -43,7 +43,10 @@ func (p *sharedCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentia
 	var opts []func(*config.LoadSharedConfigOptions)
 	if p.filename != "" {
 		opts = append(opts, func(o *config.LoadSharedConfigOptions) {
+			// Read credentials only from the caller's file. Empty ConfigFiles prevents
+			// the SDK from consulting $HOME/.aws/config.
 			o.CredentialsFiles = []string{p.filename}
+			o.ConfigFiles = []string{}
 		})
 	}
 	sharedConfig, err := config.LoadSharedConfigProfile(ctx, p.profile, opts...)

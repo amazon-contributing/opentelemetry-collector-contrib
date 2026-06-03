@@ -24,10 +24,12 @@ import (
 // A successful return does not guarantee credentials are valid. The early Retrieve is for logging only.
 // Lazy retry happens on actual SDK API calls.
 func loadConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionSettings, region string, provider aws.CredentialsProvider, httpClient *awshttp.BuildableClient, retryDelay time.Duration, load loadConfigFn) (aws.Config, error) {
-	cfgFiles := getFallbackSharedConfigFiles(backwardsCompatibleUserHomeDir)
-	logger.Debug("Fallback shared config file(s)", zap.Strings("files", cfgFiles))
+	credentialsFiles, configFiles := getFallbackSharedConfigFiles(backwardsCompatibleUserHomeDir)
+	logger.Debug("Fallback shared config file(s)",
+		zap.Strings("credentials", credentialsFiles),
+		zap.Strings("config", configFiles))
 
-	opts := buildLoadOptions(settings, region, cfgFiles, httpClient, provider)
+	opts := buildLoadOptions(settings, region, credentialsFiles, configFiles, httpClient, provider)
 
 	cfg, err := load(ctx, opts...)
 	if err != nil {
@@ -60,7 +62,8 @@ func loadConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionSet
 // directory but the active credentials came from IMDS. The user may have intended for those files to be used.
 func warnIfUnusedSharedConfigFiles(logger *zap.Logger) {
 	var found []string
-	for _, cfgFile := range getFallbackSharedConfigFiles(currentUserHomeDir) {
+	credentialsFiles, configFiles := getFallbackSharedConfigFiles(currentUserHomeDir)
+	for _, cfgFile := range append(credentialsFiles, configFiles...) {
 		if _, err := os.Stat(cfgFile); err == nil {
 			found = append(found, cfgFile)
 		}
@@ -120,14 +123,15 @@ func ensureCached(p aws.CredentialsProvider) aws.CredentialsProvider {
 }
 
 // buildLoadOptions assembles the SDK LoadOptions used by loadConfig.
-func buildLoadOptions(settings *AWSSessionSettings, region string, cfgFiles []string, httpClient *awshttp.BuildableClient, provider aws.CredentialsProvider) []func(*config.LoadOptions) error {
+func buildLoadOptions(settings *AWSSessionSettings, region string, credentialsFiles, configFiles []string, httpClient *awshttp.BuildableClient, provider aws.CredentialsProvider) []func(*config.LoadOptions) error {
 	// v2 SDK's RetryMaxAttempts counts the initial attempt. The +1 keeps the v1 contract
 	// where MaxRetries=N means N retries beyond the initial. Negative values clamp to 0.
 	retries := max(settings.MaxRetries, 0)
 	opts := []func(*config.LoadOptions) error{
 		config.WithHTTPClient(httpClient),
 		config.WithRetryMaxAttempts(retries + 1),
-		config.WithSharedCredentialsFiles(cfgFiles),
+		config.WithSharedCredentialsFiles(credentialsFiles),
+		config.WithSharedConfigFiles(configFiles),
 	}
 	if region != "" {
 		opts = append(opts, config.WithRegion(region))

@@ -30,6 +30,8 @@ const (
 // stsCredentialsProvider retrieves credentials from the regional STS endpoint, falling back to the
 // partition's primary endpoint when the region is disabled.
 type stsCredentialsProvider struct {
+	// fallback latches onto partitional after the first RegionDisabledException. Atomic so the
+	// latch is race-safe when callers use this provider unwrapped.
 	fallback    atomic.Pointer[aws.CredentialsProvider]
 	regional    aws.CredentialsProvider
 	partitional aws.CredentialsProvider

@@ -22,13 +22,14 @@ func TestSharedCredentialsProvider_MissingProfile(t *testing.T) {
 }
 
 func TestSharedCredentialsProvider_MissingFileDefaultProfile(t *testing.T) {
+	isolateSharedConfig(t)
 	p := newSharedCredentialsProvider("/nonexistent", "default")
-	creds, err := p.Retrieve(t.Context())
-	require.NoError(t, err)
-	assert.Empty(t, creds.AccessKeyID)
+	_, err := p.Retrieve(t.Context())
+	require.Error(t, err, "v2 SDK errors on missing file even for the default profile")
 }
 
 func TestSharedCredentialsProvider_MissingFileNonDefaultProfile(t *testing.T) {
+	isolateSharedConfig(t)
 	p := newSharedCredentialsProvider("/nonexistent", "named-profile")
 	_, err := p.Retrieve(t.Context())
 	require.Error(t, err)

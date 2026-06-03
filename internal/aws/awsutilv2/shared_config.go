@@ -18,17 +18,17 @@ const (
 )
 
 // getFallbackSharedConfigFiles follows the same logic as the AWS SDK but accepts a userHomeDir
-// provider so callers can override how the home directory is discovered.
-func getFallbackSharedConfigFiles(userHomeDirProvider func() string) []string {
+// provider so callers can override how the home directory is discovered. The two return values
+// must not be merged: the v2 SDK rejects format-mismatched sections (a config-style
+// `[profile foo]` header passed in via WithSharedCredentialsFiles is dropped, and vice versa).
+// configFiles is empty unless AWS_SDK_LOAD_CONFIG is set to a truthy value.
+func getFallbackSharedConfigFiles(userHomeDirProvider func() string) (credentialsFiles, configFiles []string) {
 	home := userHomeDirProvider()
-	sharedCredentialsFile := envOr(envAwsSharedCredentialsFile, defaultSharedCredentialsFile(home))
-	sharedConfigFile := envOr(envAwsSharedConfigFile, defaultSharedConfig(home))
-
-	var cfgFiles []string
+	credentialsFiles = []string{envOr(envAwsSharedCredentialsFile, defaultSharedCredentialsFile(home))}
 	if enableSharedConfig, _ := strconv.ParseBool(os.Getenv(envAwsSdkLoadConfig)); enableSharedConfig {
-		cfgFiles = append(cfgFiles, sharedConfigFile)
+		configFiles = []string{envOr(envAwsSharedConfigFile, defaultSharedConfig(home))}
 	}
-	return append(cfgFiles, sharedCredentialsFile)
+	return credentialsFiles, configFiles
 }
 
 func defaultSharedCredentialsFile(home string) string {

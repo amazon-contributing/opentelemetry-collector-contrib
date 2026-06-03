@@ -18,7 +18,9 @@ func TestGetFallbackSharedConfigFiles(t *testing.T) {
 		t.Setenv(envAwsSharedCredentialsFile, "credentials")
 		t.Setenv(envAwsSharedConfigFile, "config")
 
-		assert.Equal(t, []string{"config", "credentials"}, getFallbackSharedConfigFiles(homeProvider))
+		credentialsFiles, configFiles := getFallbackSharedConfigFiles(homeProvider)
+		assert.Equal(t, []string{"credentials"}, credentialsFiles)
+		assert.Equal(t, []string{"config"}, configFiles)
 	})
 
 	t.Run("LoadConfigFalse", func(t *testing.T) {
@@ -26,7 +28,9 @@ func TestGetFallbackSharedConfigFiles(t *testing.T) {
 		t.Setenv(envAwsSharedCredentialsFile, "credentials")
 		t.Setenv(envAwsSharedConfigFile, "config")
 
-		assert.Equal(t, []string{"credentials"}, getFallbackSharedConfigFiles(homeProvider))
+		credentialsFiles, configFiles := getFallbackSharedConfigFiles(homeProvider)
+		assert.Equal(t, []string{"credentials"}, credentialsFiles)
+		assert.Empty(t, configFiles)
 	})
 
 	t.Run("EmptyFilePaths", func(t *testing.T) {
@@ -34,8 +38,8 @@ func TestGetFallbackSharedConfigFiles(t *testing.T) {
 		t.Setenv(envAwsSharedCredentialsFile, "")
 		t.Setenv(envAwsSharedConfigFile, "")
 
-		assert.Equal(t,
-			[]string{defaultSharedConfig("home"), defaultSharedCredentialsFile("home")},
-			getFallbackSharedConfigFiles(homeProvider))
+		credentialsFiles, configFiles := getFallbackSharedConfigFiles(homeProvider)
+		assert.Equal(t, []string{defaultSharedCredentialsFile("home")}, credentialsFiles)
+		assert.Equal(t, []string{defaultSharedConfig("home")}, configFiles)
 	})
 }

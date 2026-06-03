@@ -58,3 +58,13 @@ func tempCredentialsFile(t *testing.T) string {
 	require.NoError(t, os.WriteFile(path, content, 0o600))
 	return path
 }
+
+// isolateSharedConfig prevents the v2 SDK from reading the host's shared credentials or config
+// files by overriding HOME, AWS_SHARED_CREDENTIALS_FILE, AWS_CONFIG_FILE, and AWS_PROFILE.
+func isolateSharedConfig(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", "/nonexistent")
+	t.Setenv("AWS_CONFIG_FILE", "/nonexistent")
+	t.Setenv("AWS_PROFILE", "")
+}
