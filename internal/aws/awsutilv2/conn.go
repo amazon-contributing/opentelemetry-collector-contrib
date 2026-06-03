@@ -13,7 +13,9 @@ import (
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/override/awsv2"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"go.uber.org/zap"
 )
@@ -68,9 +70,28 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 
 	provider := rootCredentialsProvider(settings, awsv2.GetCredentialsChainOverride().GetCredentialsChain())
 
-	cfg, err := loadConfig(ctx, logger, settings, region, provider, httpClient, retryDelay, load)
+	credentialsFiles, configFiles := getFallbackSharedConfigFiles(backwardsCompatibleUserHomeDir)
+	logger.Debug("Fallback shared config file(s)",
+		zap.Strings("credentials", credentialsFiles),
+		zap.Strings("config", configFiles))
+
+	opts := buildLoadOptions(settings, region, credentialsFiles, configFiles, httpClient, provider)
+
+	cfg, err := loadConfigWithRetry(ctx, logger, load, opts, retryDelay)
 	if err != nil {
 		return aws.Config{}, err
+	}
+
+	// Eagerly retrieve credentials so the source can be logged and an IMDS-fallback warning
+	// surfaced when applicable. A successful return does not guarantee credentials are valid.
+	cred, err := cfg.Credentials.Retrieve(ctx)
+	if err != nil {
+		logger.Error("Failed to get credential from session", zap.Error(err))
+	} else {
+		logger.Debug("Using credential", zap.String("access-key", cred.AccessKeyID), zap.String("source", cred.Source))
+		if cred.Source == ec2rolecreds.ProviderName {
+			warnIfUnusedSharedConfigFiles(logger)
+		}
 	}
 
 	if settings.RoleARN != "" {
@@ -133,4 +154,67 @@ func getIMDSRegion(ctx context.Context, opts imds.Options) (string, error) {
 		return "", err
 	}
 	return out.Region, nil
+}
+
+// loadConfigWithRetry calls load once, and retries once after retryDelay if the first attempt fails.
+// Returns the second attempt's result, or ctx.Err() if the context is canceled during the wait.
+func loadConfigWithRetry(ctx context.Context, logger *zap.Logger, load loadConfigFn, opts []func(*config.LoadOptions) error, retryDelay time.Duration) (aws.Config, error) {
+	cfg, err := load(ctx, opts...)
+	if err == nil {
+		return cfg, nil
+	}
+	logger.Error("Failed to create credential sessions, retrying", zap.Duration("delay", retryDelay), zap.Error(err))
+
+	timer := time.NewTimer(retryDelay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+		return aws.Config{}, ctx.Err()
+	}
+
+	cfg, err = load(ctx, opts...)
+	if err != nil {
+		logger.Error("Retry failed to create credential sessions", zap.Error(err))
+		return aws.Config{}, err
+	}
+	return cfg, nil
+}
+
+// warnIfUnusedSharedConfigFiles logs a warning when shared config files exist in the current user's home
+// directory but the active credentials came from IMDS. The user may have intended for those files to be used.
+func warnIfUnusedSharedConfigFiles(logger *zap.Logger) {
+	var found []string
+	credentialsFiles, configFiles := getFallbackSharedConfigFiles(currentUserHomeDir)
+	for _, cfgFile := range append(credentialsFiles, configFiles...) {
+		if _, err := os.Stat(cfgFile); err == nil {
+			found = append(found, cfgFile)
+		}
+	}
+	if len(found) > 0 {
+		logger.Warn("Unused shared config file(s) found", zap.Strings("files", found))
+	}
+}
+
+// buildLoadOptions assembles the SDK LoadOptions used by getAWSConfig.
+func buildLoadOptions(settings *AWSSessionSettings, region string, credentialsFiles, configFiles []string, httpClient *awshttp.BuildableClient, provider aws.CredentialsProvider) []func(*config.LoadOptions) error {
+	// v2 SDK's RetryMaxAttempts counts the initial attempt. The +1 keeps the v1 contract
+	// where MaxRetries=N means N retries beyond the initial. Negative values clamp to 0.
+	retries := max(settings.MaxRetries, 0)
+	opts := []func(*config.LoadOptions) error{
+		config.WithHTTPClient(httpClient),
+		config.WithRetryMaxAttempts(retries + 1),
+		config.WithSharedCredentialsFiles(credentialsFiles),
+		config.WithSharedConfigFiles(configFiles),
+	}
+	if region != "" {
+		opts = append(opts, config.WithRegion(region))
+	}
+	if settings.Endpoint != "" {
+		opts = append(opts, config.WithBaseEndpoint(settings.Endpoint))
+	}
+	if provider != nil {
+		opts = append(opts, config.WithCredentialsProvider(provider))
+	}
+	return opts
 }
