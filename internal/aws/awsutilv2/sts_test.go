@@ -87,12 +87,12 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 			partitional: partitional,
 		}
 
-		assert.Nil(t, provider.fallback)
+		assert.Nil(t, provider.fallback.Load())
 
 		got, err := provider.Retrieve(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, testCredentials, got)
-		assert.NotNil(t, provider.fallback)
+		assert.NotNil(t, provider.fallback.Load())
 
 		// Second call should use fallback directly.
 		got, err = provider.Retrieve(t.Context())

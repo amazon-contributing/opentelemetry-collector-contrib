@@ -26,10 +26,10 @@ type sharedCredentialsProvider struct {
 
 var _ aws.CredentialsProvider = (*sharedCredentialsProvider)(nil)
 
-// NewSharedCredentialsProvider creates a credentials provider that loads from a shared credentials
+// newSharedCredentialsProvider creates a credentials provider that loads from a shared credentials
 // file and profile. An empty filename uses the SDK default shared-credentials file resolution.
 // An empty profile resolves to AWS_PROFILE if set, otherwise "default".
-func NewSharedCredentialsProvider(filename, profile string) aws.CredentialsProvider {
+func newSharedCredentialsProvider(filename, profile string) aws.CredentialsProvider {
 	if profile == "" {
 		profile = os.Getenv(envAwsProfile)
 	}
@@ -60,11 +60,11 @@ type refreshableSharedCredentialsProvider struct {
 
 var _ aws.CredentialsProvider = (*refreshableSharedCredentialsProvider)(nil)
 
-// NewRefreshableSharedCredentialsProvider wraps NewSharedCredentialsProvider with periodic re-reads.
+// NewRefreshableSharedCredentialsProvider wraps newSharedCredentialsProvider with periodic re-reads.
 // expiryWindow controls how often credentials are refreshed.
 func NewRefreshableSharedCredentialsProvider(filename, profile string, expiryWindow time.Duration) aws.CredentialsProvider {
 	return &refreshableSharedCredentialsProvider{
-		provider:     NewSharedCredentialsProvider(filename, profile),
+		provider:     newSharedCredentialsProvider(filename, profile),
 		expiryWindow: expiryWindow,
 	}
 }

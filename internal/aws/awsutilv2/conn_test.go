@@ -6,11 +6,13 @@ package awsutilv2
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/stretchr/testify/assert"
@@ -48,6 +50,58 @@ func TestResolveRegion(t *testing.T) {
 		assert.ErrorContains(t, err, "failed to resolve region from EC2 metadata")
 		assert.Empty(t, got)
 	})
+}
+
+func TestResolveRegionFromIMDS(t *testing.T) {
+	t.Run("StrictV2Succeeds", func(t *testing.T) {
+		var seen []imds.Options
+		stubGetRegionFromIMDS(t, func(_ context.Context, opts imds.Options) (string, error) {
+			seen = append(seen, opts)
+			return testRegion, nil
+		})
+
+		got, err := resolveRegionFromIMDS(t.Context(), zap.NewNop(), 0, nil)
+		require.NoError(t, err)
+		assert.Equal(t, testRegion, got)
+		require.Len(t, seen, 1, "permissive client should not be invoked when strict succeeds")
+		assert.Equal(t, aws.FalseTernary, seen[0].EnableFallback, "strict client must disable fallback")
+	})
+
+	t.Run("StrictFailsPermissiveSucceeds", func(t *testing.T) {
+		var seen []imds.Options
+		stubGetRegionFromIMDS(t, func(_ context.Context, opts imds.Options) (string, error) {
+			seen = append(seen, opts)
+			if len(seen) == 1 {
+				return "", errors.New("strict v2 failed")
+			}
+			return testRegion, nil
+		})
+
+		got, err := resolveRegionFromIMDS(t.Context(), zap.NewNop(), 0, nil)
+		require.NoError(t, err)
+		assert.Equal(t, testRegion, got)
+		require.Len(t, seen, 2, "should attempt strict then permissive")
+		assert.Equal(t, aws.FalseTernary, seen[0].EnableFallback, "first call must be strict")
+		assert.Equal(t, aws.TrueTernary, seen[1].EnableFallback, "second call must enable fallback")
+	})
+
+	t.Run("BothFail", func(t *testing.T) {
+		var seen []imds.Options
+		stubGetRegionFromIMDS(t, func(_ context.Context, opts imds.Options) (string, error) {
+			seen = append(seen, opts)
+			return "", errors.New("imds unavailable")
+		})
+
+		_, err := resolveRegionFromIMDS(t.Context(), zap.NewNop(), 0, nil)
+		require.Error(t, err)
+		assert.Len(t, seen, 2)
+	})
+}
+
+func stubGetRegionFromIMDS(t *testing.T, stub func(context.Context, imds.Options) (string, error)) {
+	t.Helper()
+	getRegionFromIMDS = stub
+	t.Cleanup(func() { getRegionFromIMDS = getIMDSRegion })
 }
 
 func TestGetAWSConfig_AssumeRole(t *testing.T) {

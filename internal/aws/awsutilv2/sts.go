@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
@@ -29,7 +30,7 @@ const (
 // stsCredentialsProvider retrieves credentials from the regional STS endpoint, falling back to the
 // partition's primary endpoint when the region is disabled.
 type stsCredentialsProvider struct {
-	fallback    aws.CredentialsProvider
+	fallback    atomic.Pointer[aws.CredentialsProvider]
 	regional    aws.CredentialsProvider
 	partitional aws.CredentialsProvider
 }
@@ -37,15 +38,15 @@ type stsCredentialsProvider struct {
 var _ aws.CredentialsProvider = (*stsCredentialsProvider)(nil)
 
 func (p *stsCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
-	if p.fallback != nil {
-		return p.fallback.Retrieve(ctx)
+	if fb := p.fallback.Load(); fb != nil {
+		return (*fb).Retrieve(ctx)
 	}
 	creds, err := p.regional.Retrieve(ctx)
 	if err != nil {
 		var rde *types.RegionDisabledException
 		if errors.As(err, &rde) {
-			p.fallback = p.partitional
-			return p.fallback.Retrieve(ctx)
+			p.fallback.Store(&p.partitional)
+			return p.partitional.Retrieve(ctx)
 		}
 	}
 	return creds, err

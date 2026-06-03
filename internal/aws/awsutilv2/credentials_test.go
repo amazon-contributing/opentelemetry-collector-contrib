@@ -144,7 +144,7 @@ func TestBuildCredentialProviderChain_FactoryNilFiltered(t *testing.T) {
 
 	settings := &AWSSessionSettings{SharedCredentialsFile: []string{"nope", "match", "also-nope"}}
 	chain := buildCredentialProviderChain(settings, factories)
-	require.Len(t, chain, 4, "expect 1 override + 3 per-file refreshables")
+	require.Len(t, chain, 4, "expect 1 non-nil factory result (matched \"match\" only) + 3 per-file refreshables")
 }
 
 func TestGetAWSConfig_Refreshable(t *testing.T) {

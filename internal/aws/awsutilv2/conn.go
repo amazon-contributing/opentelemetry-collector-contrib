@@ -108,26 +108,27 @@ func resolveRegion(ctx context.Context, logger *zap.Logger, settings *AWSSession
 // resolveRegionFromIMDS tries IMDSv2 strictly (no fallback to v1) with the configured retryer. On failure,
 // retries with a permissive client that allows IMDSv1 fallback and uses the SDK default retryer.
 func resolveRegionFromIMDS(ctx context.Context, logger *zap.Logger, retries int, httpClient aws.HTTPClient) (string, error) {
-	v2Client := imds.New(imds.Options{
+	region, err := getRegionFromIMDS(ctx, imds.Options{
 		HTTPClient:     httpClient,
 		Retryer:        awsv2.NewIMDSRetryer(retries),
 		EnableFallback: aws.FalseTernary,
 	})
-	region, err := getIMDSRegion(ctx, v2Client)
 	if err == nil {
 		return region, nil
 	}
 	logger.Debug("IMDSv2 strict region lookup failed, falling back to permissive client", zap.Error(err))
 
-	v1Client := imds.New(imds.Options{
+	return getRegionFromIMDS(ctx, imds.Options{
 		HTTPClient:     httpClient,
 		EnableFallback: aws.TrueTernary,
 	})
-	return getIMDSRegion(ctx, v1Client)
 }
 
-func getIMDSRegion(ctx context.Context, c *imds.Client) (string, error) {
-	out, err := c.GetRegion(ctx, &imds.GetRegionInput{})
+// getRegionFromIMDS is overrideable in tests.
+var getRegionFromIMDS = getIMDSRegion
+
+func getIMDSRegion(ctx context.Context, opts imds.Options) (string, error) {
+	out, err := imds.New(opts).GetRegion(ctx, &imds.GetRegionInput{})
 	if err != nil {
 		return "", err
 	}

@@ -22,12 +22,13 @@ import (
 // *awshttp.BuildableClient so the SDK can still apply AWS_CA_BUNDLE / config.WithCustomCABundle
 // (which type-asserts the registered client).
 func buildHTTPClient(logger *zap.Logger, settings *AWSSessionSettings) (*awshttp.BuildableClient, error) {
-	logger.Debug("Using proxy address", zap.String("proxyAddr", settings.ProxyAddress))
+	if settings.ProxyAddress != "" {
+		logger.Debug("Using proxy address", zap.String("proxyAddr", settings.ProxyAddress))
+	}
 
 	rootCAs, err := loadCertPool(settings.CertificateFilePath)
 	if settings.CertificateFilePath != "" && err != nil {
-		logger.Warn("Failed to load custom CA bundle",
-			zap.String("file", settings.CertificateFilePath), zap.Error(err))
+		logger.Warn("Failed to load custom CA bundle", zap.Error(err))
 	}
 
 	proxy, err := getProxyFunc(settings.ProxyAddress)
@@ -46,8 +47,8 @@ func buildHTTPClient(logger *zap.Logger, settings *AWSSessionSettings) (*awshttp
 			}
 			t.Proxy = proxy
 			// Best-effort HTTP/2. The transport falls back to HTTP/1.1 if configuration fails.
-			if err = http2.ConfigureTransport(t); err != nil {
-				logger.Debug("HTTP/2 configuration failed, falling back to HTTP/1.1", zap.Error(err))
+			if herr := http2.ConfigureTransport(t); herr != nil {
+				logger.Debug("HTTP/2 configuration failed, falling back to HTTP/1.1", zap.Error(herr))
 			}
 		})
 	return client, nil
