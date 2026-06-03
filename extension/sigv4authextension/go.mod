@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.13
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.66
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.18
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2 v0.124.1
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/collector/component v1.30.0
 	go.opentelemetry.io/collector/component/componenttest v0.124.0
@@ -20,6 +21,8 @@ require (
 )
 
 require (
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/awsv2 v0.124.1 // indirect
+	github.com/aws/aws-sdk-go v1.55.6 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34 // indirect
@@ -69,3 +72,7 @@ retract (
 	v0.76.1
 	v0.65.0
 )
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2 => ../../internal/aws/awsutilv2
+
+replace github.com/amazon-contributing/opentelemetry-collector-contrib/override/awsv2 => ../../override/awsv2

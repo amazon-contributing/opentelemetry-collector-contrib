@@ -31,6 +31,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
+	cfg.Region = "us-east-1"
 
 	ext, err := createExtension(t.Context(), extensiontest.NewNopSettings(extensiontest.NopType), cfg)
 	assert.NoError(t, err)

@@ -72,9 +72,12 @@ func TestGetCredsProviderFromConfig(t *testing.T) {
 	// run tests
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
+			// Isolate the credential chain so tests are deterministic regardless of
+			// the host's ~/.aws config, environment variables, or IMDS access.
+			isolateAWSEnv(t)
 			t.Setenv("AWS_ACCESS_KEY_ID", testcase.AccessKeyID)
 			t.Setenv("AWS_SECRET_ACCESS_KEY", testcase.SecretAccessKey)
-			credsProvider, err := getCredsProviderFromConfig(testcase.cfg)
+			credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), testcase.cfg)
 
 			if testcase.shouldError {
 				assert.Error(t, err)
@@ -112,7 +115,7 @@ func TestGetCredsProviderFromWebIdentityConfig(t *testing.T) {
 	// run tests
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
-			credsProvider, err := getCredsProviderFromWebIdentityConfig(testcase.cfg)
+			credsProvider, err := getCredsProviderFromWebIdentityConfig(t.Context(), zap.NewNop(), testcase.cfg)
 
 			if testcase.shouldError {
 				assert.Error(t, err)
@@ -172,4 +175,20 @@ func mockCredentials() *aws.CredentialsProvider {
 	awscfg.Credentials = aws.NewCredentialsCache(provider)
 
 	return &awscfg.Credentials
+}
+
+// isolateAWSEnv prevents the v2 SDK from reading the host's shared credentials
+// or config files by overriding HOME, AWS_SHARED_CREDENTIALS_FILE,
+// AWS_CONFIG_FILE, AWS_PROFILE, AWS_EC2_METADATA_DISABLED, and the static
+// credential env vars. Tests that need specific values for credential env vars
+// should call t.Setenv after this helper.
+func isolateAWSEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AWS_PROFILE", "")
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", "/nonexistent")
+	t.Setenv("AWS_CONFIG_FILE", "/nonexistent")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	t.Setenv("AWS_ACCESS_KEY_ID", "")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
 }

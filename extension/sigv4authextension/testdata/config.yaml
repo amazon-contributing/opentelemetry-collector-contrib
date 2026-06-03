@@ -3,9 +3,11 @@ sigv4auth:
   service: "service"
   assume_role:
     session_name: "role_session_name"
-sigv4auth/missing_credentials:
+sigv4auth/web_identity_no_arn:
   region: "region"
   service: "service"
+  assume_role:
+    web_identity_token_file: "testdata/token_file"
 sigv4auth/web_identity:
   region: "region"
   service: "service"
