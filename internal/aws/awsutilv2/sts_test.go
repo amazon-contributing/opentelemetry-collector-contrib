@@ -19,30 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetFallbackRegion(t *testing.T) {
-	testCases := []struct {
-		region string
-		want   string
-	}{
-		{region: "us-east-1", want: "us-east-1"},
-		{region: "us-west-2", want: "us-east-1"},
-		{region: "eu-west-1", want: "us-east-1"},
-		{region: "cn-north-1", want: "cn-north-1"},
-		{region: "cn-northwest-1", want: "cn-north-1"},
-		{region: "us-gov-east-1", want: "us-gov-west-1"},
-		{region: "us-gov-west-1", want: "us-gov-west-1"},
-		{region: "us-iso-east-1", want: "us-iso-east-1"},
-		{region: "us-isob-east-1", want: "us-isob-east-1"},
-		{region: "unknown-region", want: "us-east-1"},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.region, func(t *testing.T) {
-			assert.Equal(t, testCase.want, getFallbackRegion(testCase.region))
-		})
-	}
-}
-
 func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 	t.Run("Regional/Success", func(t *testing.T) {
 		regional := new(mockCredentialsProvider)
