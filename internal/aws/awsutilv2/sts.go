@@ -27,8 +27,8 @@ const (
 	envSourceArn           = "AMZ_SOURCE_ARN"
 )
 
-// stsCredentialsProvider retrieves credentials from the regional STS endpoint, falling back to the
-// partition's primary endpoint when the region is disabled.
+// stsCredentialsProvider retrieves credentials from the regional STS endpoint, falling back to
+// the partition's primary endpoint when the region is disabled.
 type stsCredentialsProvider struct {
 	// fallback latches onto partitional after the first RegionDisabledException. Atomic so the
 	// latch is race-safe when callers use this provider unwrapped.
@@ -46,7 +46,7 @@ func (p *stsCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials,
 	creds, err := p.regional.Retrieve(ctx)
 	if err != nil {
 		var rde *types.RegionDisabledException
-		if errors.As(err, &rde) && p.partitional != nil {
+		if errors.As(err, &rde) {
 			p.fallback.Store(&p.partitional)
 			return p.partitional.Retrieve(ctx)
 		}
@@ -54,6 +54,12 @@ func (p *stsCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials,
 	return creds, err
 }
 
+var getPartitionPrimaryRegion = awsv2.GetPartitionPrimaryRegion
+
+// newStsCredentialsProvider returns a credentials provider that assumes roleARN at the regional
+// STS endpoint. When the region's partition primary is known, the provider falls back to that
+// primary on RegionDisabledException; otherwise the bare regional provider is returned and no
+// fallback is attempted.
 func newStsCredentialsProvider(cfg aws.Config, roleARN, region, externalID string) aws.CredentialsProvider {
 	regionalCfg := cfg.Copy()
 	regionalCfg.Region = region
@@ -62,15 +68,18 @@ func newStsCredentialsProvider(cfg aws.Config, roleARN, region, externalID strin
 			o.ExternalID = &externalID
 		}
 	}
-	p := &stsCredentialsProvider{
-		regional: stscreds.NewAssumeRoleProvider(newAssumeRoleClient(regionalCfg), roleARN, opts),
+	regional := stscreds.NewAssumeRoleProvider(newAssumeRoleClient(regionalCfg), roleARN, opts)
+
+	fallback := getPartitionPrimaryRegion(region)
+	if fallback == "" {
+		return regional
 	}
-	if fallback := awsv2.GetPartitionPrimaryRegion(region); fallback != "" {
-		partitionalCfg := cfg.Copy()
-		partitionalCfg.Region = fallback
-		p.partitional = stscreds.NewAssumeRoleProvider(newAssumeRoleClient(partitionalCfg), roleARN, opts)
+	partitionalCfg := cfg.Copy()
+	partitionalCfg.Region = fallback
+	return &stsCredentialsProvider{
+		regional:    regional,
+		partitional: stscreds.NewAssumeRoleProvider(newAssumeRoleClient(partitionalCfg), roleARN, opts),
 	}
-	return p
 }
 
 // newAssumeRoleClient is overrideable in tests.

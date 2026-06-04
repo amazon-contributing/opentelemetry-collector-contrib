@@ -24,9 +24,9 @@ func GetPartition(region string) string {
 	return p.Name
 }
 
-// GetPartitionPrimaryRegion returns the primary region of the partition that
-// contains region, used as a partitional STS fallback when the regional STS
-// endpoint is disabled. Returns "" if the partition cannot be resolved.
+// GetPartitionPrimaryRegion returns the primary region of the partition that contains region,
+// used as a partitional STS fallback when the regional STS endpoint is disabled. Returns "" if
+// the partition cannot be resolved.
 func GetPartitionPrimaryRegion(region string) string {
 	p := awsrulesfn.GetPartition(region)
 	if p == nil {

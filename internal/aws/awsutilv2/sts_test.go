@@ -78,6 +78,19 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 		regional.AssertExpectations(t)
 		partitional.AssertExpectations(t)
 	})
+
+	t.Run("Fallback/NoPartitional", func(t *testing.T) {
+		orig := getPartitionPrimaryRegion
+		t.Cleanup(func() { getPartitionPrimaryRegion = orig })
+		getPartitionPrimaryRegion = func(string) string { return "" }
+
+		provider := newStsCredentialsProvider(aws.Config{}, testRoleARN, testRegion, "")
+		require.NotNil(t, provider)
+		_, wrapped := provider.(*stsCredentialsProvider)
+		assert.False(t, wrapped)
+		_, ok := provider.(*stscreds.AssumeRoleProvider)
+		assert.True(t, ok)
+	})
 }
 
 func TestNewStsCredentialsProvider(t *testing.T) {

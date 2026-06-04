@@ -4,7 +4,7 @@
 //go:build ignore
 
 // gen.go regenerates partition.go and partitions.go from aws-sdk-go-v2's internal/endpoints/awsrulesfn package using
-// the local Go module cache. Run: go generate ./override/aws/awsrulesfn/
+// the local Go module cache. Run: go generate ./override/awsv2/awsrulesfn/
 package main
 
 import (
@@ -38,7 +38,7 @@ func main() {
 	fmt.Printf("Regenerated awsrulesfn from %s@%s\n", info.Path, info.Version)
 }
 
-func copyWithHeader(srcPath, dstName, modPath, version string) error {
+func copyWithHeader(srcPath, dstName, modPath, version string) (retErr error) {
 	src, err := os.Open(srcPath)
 	if err != nil {
 		return err
@@ -48,7 +48,11 @@ func copyWithHeader(srcPath, dstName, modPath, version string) error {
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer func() {
+		if cerr := dst.Close(); retErr == nil {
+			retErr = cerr
+		}
+	}()
 	if _, err := fmt.Fprintf(dst, "// Code generated from %s@%s/internal/endpoints/awsrulesfn. DO NOT EDIT.\n", modPath, version); err != nil {
 		return err
 	}
