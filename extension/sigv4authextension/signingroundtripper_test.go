@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -34,24 +35,28 @@ func TestRoundTrip(t *testing.T) {
 		rt          http.RoundTripper
 		shouldError bool
 		cfg         *Config
+		creds       *aws.CredentialsProvider
 	}{
 		{
 			"valid_round_tripper",
 			defaultRoundTripper,
 			false,
-			&Config{Region: "region", Service: "service", credsProvider: awsCredsProvider},
+			&Config{Region: "region", Service: "service"},
+			awsCredsProvider,
 		},
 		{
 			"error_round_tripper",
 			errorRoundTripper,
 			true,
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}, credsProvider: awsCredsProvider},
+			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}},
+			awsCredsProvider,
 		},
 		{
 			"error_invalid_credsProvider",
 			defaultRoundTripper,
 			true,
-			&Config{Region: "region", Service: "service", credsProvider: nil},
+			&Config{Region: "region", Service: "service"},
+			nil,
 		},
 	}
 
@@ -74,7 +79,7 @@ func TestRoundTrip(t *testing.T) {
 			defer server.Close()
 			serverURL, _ := url.Parse(server.URL)
 
-			sa := newSigv4Extension(testcase.cfg, awsSDKInfo, zap.NewNop())
+			sa := newSigv4Extension(testcase.cfg, testcase.creds, awsSDKInfo, zap.NewNop())
 			rt, err := sa.RoundTripper(testcase.rt)
 			assert.NoError(t, err)
 
@@ -177,7 +182,7 @@ func TestInferServiceAndRegion(t *testing.T) {
 	// run tests
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
-			sa := newSigv4Extension(testcase.cfg, "awsSDKInfo", zap.NewNop())
+			sa := newSigv4Extension(testcase.cfg, nil, "awsSDKInfo", zap.NewNop())
 			assert.NotNil(t, sa)
 
 			rt, err := sa.RoundTripper((http.RoundTripper)(http.DefaultTransport.(*http.Transport).Clone()))

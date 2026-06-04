@@ -6,6 +6,7 @@ package sigv4authextension
 import (
 	"context"
 	"net/http"
+	"path/filepath"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -19,7 +20,7 @@ import (
 func TestNewSigv4Extension(t *testing.T) {
 	cfg := &Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}}
 
-	sa := newSigv4Extension(cfg, "awsSDKInfo", zap.NewNop())
+	sa := newSigv4Extension(cfg, nil, "awsSDKInfo", zap.NewNop())
 	assert.Equal(t, cfg.Region, sa.cfg.Region)
 	assert.Equal(t, cfg.Service, sa.cfg.Service)
 	assert.Equal(t, cfg.AssumeRole.ARN, sa.cfg.AssumeRole.ARN)
@@ -30,9 +31,9 @@ func TestRoundTripper(t *testing.T) {
 
 	base := (http.RoundTripper)(http.DefaultTransport.(*http.Transport).Clone())
 	awsSDKInfo := "awsSDKInfo"
-	cfg := &Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}, credsProvider: awsCredsProvider}
+	cfg := &Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}}
 
-	sa := newSigv4Extension(cfg, awsSDKInfo, zap.NewNop())
+	sa := newSigv4Extension(cfg, awsCredsProvider, awsSDKInfo, zap.NewNop())
 	assert.NotNil(t, sa)
 
 	rt, err := sa.RoundTripper(base)
@@ -43,7 +44,7 @@ func TestRoundTripper(t *testing.T) {
 	assert.Equal(t, cfg.Region, si.region)
 	assert.Equal(t, cfg.Service, si.service)
 	assert.Equal(t, awsSDKInfo, si.awsSDKInfo)
-	assert.Equal(t, cfg.credsProvider, si.credsProvider)
+	assert.Equal(t, awsCredsProvider, si.credsProvider)
 }
 
 func TestGetCredsProviderFromConfig(t *testing.T) {
@@ -72,8 +73,6 @@ func TestGetCredsProviderFromConfig(t *testing.T) {
 	// run tests
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
-			// Isolate the credential chain so tests are deterministic regardless of
-			// the host's ~/.aws config, environment variables, or IMDS access.
 			isolateAWSEnv(t)
 			t.Setenv("AWS_ACCESS_KEY_ID", testcase.AccessKeyID)
 			t.Setenv("AWS_SECRET_ACCESS_KEY", testcase.SecretAccessKey)
@@ -93,6 +92,54 @@ func TestGetCredsProviderFromConfig(t *testing.T) {
 			require.NotNil(t, creds)
 		})
 	}
+}
+
+func TestGetCredsProviderFromConfig_SharedCredentialsFile(t *testing.T) {
+	isolateAWSEnv(t)
+	cfg := &Config{
+		Region:                "region",
+		Service:               "service",
+		SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
+		AssumeRole:            AssumeRole{STSRegion: "region"},
+	}
+
+	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, credsProvider)
+
+	creds, err := (*credsProvider).Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "AKIAIOSFODNN7EXAMPLE", creds.AccessKeyID)
+}
+
+func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
+	isolateAWSEnv(t)
+	cfg := &Config{
+		Region:                "region",
+		Service:               "service",
+		Profile:               "default",
+		SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
+		AssumeRole:            AssumeRole{STSRegion: "region"},
+	}
+
+	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, credsProvider)
+}
+
+func TestGetCredsProviderFromConfig_LocalMode(t *testing.T) {
+	isolateAWSEnv(t)
+	cfg := &Config{
+		Region:                "region",
+		Service:               "service",
+		LocalMode:             true,
+		SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
+		AssumeRole:            AssumeRole{STSRegion: "region"},
+	}
+
+	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, credsProvider)
 }
 
 func TestGetCredsProviderFromWebIdentityConfig(t *testing.T) {
@@ -115,6 +162,7 @@ func TestGetCredsProviderFromWebIdentityConfig(t *testing.T) {
 	// run tests
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
+			isolateAWSEnv(t)
 			credsProvider, err := getCredsProviderFromWebIdentityConfig(t.Context(), zap.NewNop(), testcase.cfg)
 
 			if testcase.shouldError {

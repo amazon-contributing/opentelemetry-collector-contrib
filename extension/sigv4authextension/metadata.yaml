@@ -18,4 +18,5 @@ tests:
   config:
     region: us-east-1
     profile: default
-    shared_credentials_file: testdata/credentials
+    shared_credentials_file:
+      - testdata/credentials

@@ -5,6 +5,7 @@ package sigv4authextension // import "github.com/open-telemetry/opentelemetry-co
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -25,10 +26,13 @@ func createDefaultConfig() component.Config {
 
 func createExtension(ctx context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
 	c := cfg.(*Config)
-	c.setDefaults()
-	if err := resolveCredentialsProvider(ctx, set.Logger, c); err != nil {
+	credsProvider, err := resolveCredentialsProvider(ctx, set.Logger, c)
+	if err != nil {
 		return nil, err
 	}
+	if credsProvider == nil {
+		return nil, errors.New("credential provider cannot be nil")
+	}
 	awsSDKInfo := fmt.Sprintf("%s/%s", aws.SDKName, aws.SDKVersion)
-	return newSigv4Extension(c, awsSDKInfo, set.Logger), nil
+	return newSigv4Extension(c, credsProvider, awsSDKInfo, set.Logger), nil
 }

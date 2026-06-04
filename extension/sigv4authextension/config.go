@@ -6,7 +6,6 @@ package sigv4authextension // import "github.com/open-telemetry/opentelemetry-co
 import (
 	"errors"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"go.opentelemetry.io/collector/component"
 )
 
@@ -15,10 +14,9 @@ type Config struct {
 	Region                string     `mapstructure:"region,omitempty"`
 	Service               string     `mapstructure:"service,omitempty"`
 	Profile               string     `mapstructure:"profile,omitempty"`
-	SharedCredentialsFile string     `mapstructure:"shared_credentials_file,omitempty"`
+	SharedCredentialsFile []string   `mapstructure:"shared_credentials_file,omitempty"`
 	LocalMode             bool       `mapstructure:"local_mode,omitempty"`
 	AssumeRole            AssumeRole `mapstructure:"assume_role"`
-	credsProvider         *aws.CredentialsProvider
 }
 
 // AssumeRole holds the configuration needed to assume a role
@@ -40,10 +38,10 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
-// setDefaults applies default values to the configuration. Called at extension creation,
-// before any consumer reads the config.
-func (cfg *Config) setDefaults() {
-	if cfg.AssumeRole.STSRegion == "" && cfg.Region != "" {
-		cfg.AssumeRole.STSRegion = cfg.Region
+// resolvedSTSRegion returns AssumeRole.STSRegion if set, otherwise falls back to Region.
+func (cfg *Config) resolvedSTSRegion() string {
+	if cfg.AssumeRole.STSRegion != "" {
+		return cfg.AssumeRole.STSRegion
 	}
+	return cfg.Region
 }

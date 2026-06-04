@@ -38,8 +38,6 @@ func TestLoadConfig(t *testing.T) {
 		AssumeRole: AssumeRole{
 			SessionName: "role_session_name",
 		},
-		// Ensure creds are the same for load config test; tested in extension_test.go
-		credsProvider: cfg.(*Config).credsProvider,
 	}, cfg)
 }
 
@@ -60,7 +58,6 @@ func TestLoadWebIdentityConfig(t *testing.T) {
 			ARN:                  "arn:aws:iam::12345678910:role/my_role",
 			WebIdentityTokenFile: "testdata/token_file",
 		},
-		credsProvider: cfg.(*Config).credsProvider,
 	}, cfg)
 }
 

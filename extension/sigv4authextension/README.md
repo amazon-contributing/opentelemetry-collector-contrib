@@ -29,7 +29,7 @@ The configuration fields are as follows:
 * `service`: **Optional**. The AWS service for AWS Sigv4
     * Note for supported services an attempt will be made to obtain a valid service from the endpoint of the service you are exporting to. Supported services include - workspaces, es, logs and traces.
 * `profile`: **Optional**. AWS profile to use from the shared credentials file.
-* `shared_credentials_file`: **Optional**. Path to a shared credentials file.
+* `shared_credentials_file`: **Optional**. List of paths to shared credentials files.
 * `local_mode`: **Optional**. Disable EC2 IMDS region detection. Use when running outside EC2.
 
 
