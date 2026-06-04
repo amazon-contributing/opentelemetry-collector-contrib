@@ -109,7 +109,7 @@ func TestGetCredsProviderFromConfig_SharedCredentialsFile(t *testing.T) {
 
 	creds, err := (*credsProvider).Retrieve(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, "AKIAIOSFODNN7EXAMPLE", creds.AccessKeyID)
+	assert.Equal(t, "FAKEAWSACCESSKEYID00", creds.AccessKeyID)
 }
 
 func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
@@ -117,7 +117,7 @@ func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
 	cfg := &Config{
 		Region:                "region",
 		Service:               "service",
-		Profile:               "default",
+		Profile:               "testprofile",
 		SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
 		AssumeRole:            AssumeRole{STSRegion: "region"},
 	}
@@ -125,6 +125,10 @@ func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
 	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, credsProvider)
+
+	creds, err := (*credsProvider).Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "FAKEAWSACCESSKEYID01", creds.AccessKeyID)
 }
 
 func TestGetCredsProviderFromConfig_LocalMode(t *testing.T) {
