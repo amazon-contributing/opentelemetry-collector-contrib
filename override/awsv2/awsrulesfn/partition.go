@@ -1,4 +1,4 @@
-// Code generated from github.com/aws/aws-sdk-go-v2@v1.36.3/internal/endpoints/awsrulesfn. DO NOT EDIT.
+// Code generated from github.com/aws/aws-sdk-go-v2@v1.41.12/internal/endpoints/awsrulesfn. DO NOT EDIT.
 package awsrulesfn
 
 import "regexp"

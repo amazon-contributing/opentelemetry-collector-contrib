@@ -22,6 +22,7 @@ func TestGetPartition(t *testing.T) {
 		"us-isob-east-1":  "aws-iso-b",
 		"eu-isoe-west-1":  "aws-iso-e",
 		"us-isof-south-1": "aws-iso-f",
+		"eusc-de-east-1":  "aws-eusc",
 		"":                "aws", // empty resolves to default partition
 		"not-a-region":    "aws", // unknown patterns fall through to default
 	}
@@ -45,6 +46,7 @@ func TestGetPartitionPrimaryRegion(t *testing.T) {
 		"us-isob-east-1":  "us-isob-east-1",
 		"eu-isoe-west-1":  "eu-isoe-west-1",
 		"us-isof-south-1": "us-isof-south-1",
+		"eusc-de-east-1":  "eusc-de-east-1",
 		// Unknown patterns resolve to "aws" partition, mapping to its primary.
 		"":             "us-east-1",
 		"not-a-region": "us-east-1",
