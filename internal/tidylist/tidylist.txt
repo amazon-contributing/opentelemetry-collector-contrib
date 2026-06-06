@@ -1,3 +1,5 @@
+override/aws
+extension/awsmiddleware
 cmd/codecovgen
 pkg/pdatautil
 pkg/golden

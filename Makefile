@@ -155,6 +155,13 @@ tidylist:
 		--skip cmd/oteltestbedcol/go.mod \
 		--skip cmd/otelcol-agentcore/go.mod \
 		tidylist.txt
+	# override/aws and extension/awsmiddleware declare their module paths under the
+	# github.com/amazon-contributing/... namespace, so crosslink's root-namespace
+	# HasPrefix filter skips them. Append them (leaf modules with no in-repo
+	# dependencies, so topologically safe at the top) so `make gotidy` covers them too.
+	cd internal/tidylist && \
+	{ echo "override/aws"; echo "extension/awsmiddleware"; cat tidylist.txt; } > tidylist.txt.tmp && \
+	mv tidylist.txt.tmp tidylist.txt
 
 # internal/tidylist/tidylist.txt lists modules in topological order, to ensure `go mod tidy` converges.
 .PHONY: gotidy
