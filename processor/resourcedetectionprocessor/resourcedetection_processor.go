@@ -13,16 +13,18 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/pprofile"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 )
 
 type resourceDetectionProcessor struct {
-	provider           *internal.ResourceProvider
-	override           bool
-	httpClientSettings confighttp.ClientConfig
-	refreshInterval    time.Duration
-	telemetrySettings  component.TelemetrySettings
+	provider             *internal.ResourceProvider
+	override             bool
+	httpClientSettings   confighttp.ClientConfig
+	refreshInterval      time.Duration
+	telemetrySettings    component.TelemetrySettings
+	ignoreDetectorErrors bool
 }
 
 // Start is invoked during service startup.
@@ -36,7 +38,10 @@ func (rdp *resourceDetectionProcessor) Start(ctx context.Context, host component
 	// Perform initial resource detection
 	err = rdp.provider.Refresh(ctx, client)
 	if err != nil {
-		return err
+		if !rdp.ignoreDetectorErrors {
+			return err
+		}
+		rdp.telemetrySettings.Logger.Warn("resource detection completed with errors; continuing", zap.Error(err))
 	}
 
 	// Start periodic refresh if configured

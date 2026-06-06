@@ -90,10 +90,11 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id: component.NewIDWithName(metadata.Type, "ec2"),
 			expected: &Config{
-				Detectors:      []string{"env", "ec2"},
-				DetectorConfig: ec2Config,
-				ClientConfig:   cfg,
-				Override:       false,
+				Detectors:            []string{"env", "ec2"},
+				DetectorConfig:       ec2Config,
+				ClientConfig:         cfg,
+				Override:             false,
+				IgnoreDetectorErrors: true,
 			},
 		},
 		{

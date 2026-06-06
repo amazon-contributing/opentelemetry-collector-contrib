@@ -236,11 +236,12 @@ func (f *factory) getResourceDetectionProcessor(
 	}
 
 	return &resourceDetectionProcessor{
-		provider:           provider,
-		override:           oCfg.Override,
-		httpClientSettings: oCfg.ClientConfig,
-		refreshInterval:    oCfg.RefreshInterval,
-		telemetrySettings:  params.TelemetrySettings,
+		provider:             provider,
+		override:             oCfg.Override,
+		httpClientSettings:   oCfg.ClientConfig,
+		refreshInterval:      oCfg.RefreshInterval,
+		telemetrySettings:    params.TelemetrySettings,
+		ignoreDetectorErrors: oCfg.IgnoreDetectorErrors,
 	}, nil
 }
 

@@ -58,6 +58,12 @@ type Config struct {
 
 	// MiddlewareID is an ID for an extension that can be used to configure the AWS client.
 	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
+
+	// IgnoreDetectorErrors, when true, logs detector errors during the initial
+	// detection and continues startup with whatever resource attributes were
+	// detected instead of returning the error from Start. It does not affect
+	// periodic refreshes, which always retain the last successful snapshot.
+	IgnoreDetectorErrors bool `mapstructure:"ignore_detector_errors"`
 }
 
 // DetectorConfig contains user-specified configurations unique to all individual detectors

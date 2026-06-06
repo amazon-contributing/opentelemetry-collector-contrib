@@ -21,7 +21,15 @@ override the resource value in telemetry data with this information.
 
 > **Note**
 >
-> If a configured resource detector fails, the error will propagate and stop the collector from starting.
+> If a configured resource detector fails, the error will propagate and stop the collector from
+> starting. Set `ignore_detector_errors: true` to instead log the error at `Warn` level and start
+> with whatever resource attributes were successfully detected. This setting only governs the
+> initial detection at startup; when `refresh_interval` is set, periodic refreshes always retain
+> the last successful snapshot on failure.
+>
+> | Option                   | Default | Description |
+> | ------------------------ | ------- | ----------- |
+> | `ignore_detector_errors` | `false` | When `false`, a detector error aborts collector startup. When `true`, the error is logged and startup continues with the detected (possibly partial or empty) resource. |
 
 ## Supported detectors
 

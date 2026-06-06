@@ -863,3 +863,53 @@ func TestStartFailsGracefullyOnInvalidHTTPClientConfig(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to load")
 	})
 }
+
+func TestStart_IgnoreDetectorErrors(t *testing.T) {
+	tests := []struct {
+		name                 string
+		ignoreDetectorErrors bool
+		expectErr            bool
+	}{
+		{
+			name:                 "detector error aborts startup by default",
+			ignoreDetectorErrors: false,
+			expectErr:            true,
+		},
+		{
+			name:                 "detector error is ignored when configured",
+			ignoreDetectorErrors: true,
+			expectErr:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			md := &mockDetector{}
+			md.On("Detect").Return(pcommon.NewResource(), errors.New("detector boom"))
+
+			set := processortest.NewNopSettings(metadata.Type)
+			// A short client timeout bounds the detector's retry/backoff loop.
+			clientConfig := confighttp.NewDefaultClientConfig()
+			clientConfig.Timeout = 50 * time.Millisecond
+
+			rdp := &resourceDetectionProcessor{
+				provider:             internal.NewResourceProvider(set.Logger, 50*time.Millisecond, md),
+				override:             true,
+				httpClientSettings:   clientConfig,
+				telemetrySettings:    set.TelemetrySettings,
+				ignoreDetectorErrors: tt.ignoreDetectorErrors,
+			}
+
+			err := rdp.Start(context.Background(), componenttest.NewNopHost())
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				res, _, _ := rdp.provider.Get(context.Background(), nil)
+				assert.Equal(t, 0, res.Attributes().Len())
+			}
+
+			require.NoError(t, rdp.Shutdown(context.Background()))
+		})
+	}
+}

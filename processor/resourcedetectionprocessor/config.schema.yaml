@@ -92,6 +92,9 @@ properties:
     type: array
     items:
       type: string
+  ignore_detector_errors:
+    description: IgnoreDetectorErrors, when true, logs detector errors during the initial detection and continues startup with whatever resource attributes were detected instead of returning the error from Start. It does not affect periodic refreshes, which always retain the last successful snapshot.
+    type: boolean
   middleware:
     description: MiddlewareID is an ID for an extension that can be used to configure the AWS client.
     x-pointer: true

@@ -23,6 +23,7 @@ resourcedetection/ec2:
   detectors: [env, ec2]
   timeout: 2s
   override: false
+  ignore_detector_errors: true
   ec2:
     tags:
       - ^tag1$
