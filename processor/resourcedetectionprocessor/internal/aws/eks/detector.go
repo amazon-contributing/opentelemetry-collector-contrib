@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -102,13 +103,19 @@ func NewDetector(set processor.Settings, dcfg internal.DetectorConfig) (internal
 	}
 
 	return &detector{
-		cfg:          cfg,
-		logger:       set.Logger,
-		apiProvider:  apiProvider, // may be nil — see fork carry above
-		imdsProvider: imdsprovider.NewProvider(awsConfig),
-		ra:           cfg.ResourceAttributes,
-		rb:           metadata.NewResourceBuilder(cfg.ResourceAttributes),
-		utils:        utils,
+		cfg:         cfg,
+		logger:      set.Logger,
+		apiProvider: apiProvider, // may be nil — see fork carry above
+		// Strict-then-permissive IMDS client (override/aws): retries transient
+		// IMDS errors and falls back to IMDSv1, keeping metadata retrieval
+		// working on hosts where the IMDSv2 token hop limit blocks the strict
+		// path (for example, EKS nodes with a hop limit of 1).
+		imdsProvider: imdsprovider.NewProviderFromClient(
+			override.NewIMDSClientFromConfig(awsConfig, set.Logger, override.GetDefaultRetryNumber()),
+		),
+		ra:    cfg.ResourceAttributes,
+		rb:    metadata.NewResourceBuilder(cfg.ResourceAttributes),
+		utils: utils,
 	}, nil
 }
 

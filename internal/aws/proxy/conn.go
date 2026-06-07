@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -34,7 +35,7 @@ const (
 )
 
 var getEC2Region = func(ctx context.Context, cfg aws.Config) (string, error) {
-	client := imds.NewFromConfig(cfg)
+	client := override.NewIMDSClientFromConfig(cfg, nil, override.GetDefaultRetryNumber())
 	output, err := client.GetRegion(ctx, &imds.GetRegionInput{})
 	if err != nil {
 		return "", err

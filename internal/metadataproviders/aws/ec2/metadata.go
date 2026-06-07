@@ -21,16 +21,27 @@ type Provider interface {
 	Tag(ctx context.Context, key string) (string, error)
 }
 
+// IMDSClient is the subset of the EC2 IMDS client API used by the provider. It
+// is satisfied by *imds.Client and by wrappers with the same method set.
+type IMDSClient interface {
+	GetMetadata(ctx context.Context, params *imds.GetMetadataInput, optFns ...func(*imds.Options)) (*imds.GetMetadataOutput, error)
+	GetInstanceIdentityDocument(ctx context.Context, params *imds.GetInstanceIdentityDocumentInput, optFns ...func(*imds.Options)) (*imds.GetInstanceIdentityDocumentOutput, error)
+}
+
 type metadataClient struct {
-	client *imds.Client
+	client IMDSClient
 }
 
 var _ Provider = (*metadataClient)(nil)
 
+// NewProvider returns a Provider backed by the default IMDS client built from cfg.
 func NewProvider(cfg aws.Config) Provider {
-	return &metadataClient{
-		client: imds.NewFromConfig(cfg),
-	}
+	return NewProviderFromClient(imds.NewFromConfig(cfg))
+}
+
+// NewProviderFromClient returns a Provider backed by the supplied IMDS client.
+func NewProviderFromClient(client IMDSClient) Provider {
+	return &metadataClient{client: client}
 }
 
 func (c *metadataClient) getMetadata(ctx context.Context, path string) (string, error) {

@@ -155,22 +155,18 @@ func (p envMetadataProvider) get(_ context.Context) string {
 }
 
 type ec2MetadataProvider struct {
-	client               *imds.Client
-	clientFallbackEnable *imds.Client
-	metadataKey          string
+	client      *override.IMDSClient
+	metadataKey string
 }
 
 func (p ec2MetadataProvider) get(ctx context.Context) string {
 	if metadata, err := readMetadata(ctx, p.client, p.metadataKey); err == nil {
 		return metadata
 	}
-	if metadata, err := readMetadata(ctx, p.clientFallbackEnable, p.metadataKey); err == nil {
-		return metadata
-	}
 	return ""
 }
 
-func readMetadata(ctx context.Context, c *imds.Client, key string) (string, error) {
+func readMetadata(ctx context.Context, c *override.IMDSClient, key string) (string, error) {
 	resp, err := c.GetMetadata(ctx, &imds.GetMetadataInput{Path: key})
 	if err != nil {
 		return "", err
@@ -196,22 +192,14 @@ func ToOptions(ctx context.Context, cfg Config, awsConfig aws.Config, settings *
 		envMetadataProvider{envKey: envAWSInstanceID},
 	}
 	if !settings.LocalMode {
-		metadataClient := imds.NewFromConfig(awsConfig, func(o *imds.Options) {
-			o.Retryer = override.NewIMDSRetryer(settings.IMDSRetries)
-			o.EnableFallback = aws.FalseTernary
-		})
-		metadataClientFallbackEnable := imds.NewFromConfig(awsConfig, func(o *imds.Options) {
-			o.EnableFallback = aws.TrueTernary
-		})
+		metadataClient := override.NewIMDSClientFromConfig(awsConfig, nil, settings.IMDSRetries)
 		hostnameProviders = append(hostnameProviders, ec2MetadataProvider{
-			client:               metadataClient,
-			clientFallbackEnable: metadataClientFallbackEnable,
-			metadataKey:          metadataHostname,
+			client:      metadataClient,
+			metadataKey: metadataHostname,
 		})
 		instanceIDProviders = append(instanceIDProviders, ec2MetadataProvider{
-			client:               metadataClient,
-			clientFallbackEnable: metadataClientFallbackEnable,
-			metadataKey:          metadataInstanceID,
+			client:      metadataClient,
+			metadataKey: metadataInstanceID,
 		})
 	}
 	return []Option{

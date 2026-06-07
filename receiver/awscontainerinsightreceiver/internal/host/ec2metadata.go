@@ -29,18 +29,17 @@ type ec2MetadataProvider interface {
 }
 
 type ec2Metadata struct {
-	logger               *zap.Logger
-	client               metadataClient
-	clientFallbackEnable metadataClient
-	refreshInterval      time.Duration
-	instanceID           string
-	instanceType         string
-	instanceIP           string
-	region               string
-	instanceIDReadyC     chan bool
-	instanceIPReadyC     chan bool
-	localMode            bool
-	networkInterfaceIDs  map[string]string
+	logger              *zap.Logger
+	client              metadataClient
+	refreshInterval     time.Duration
+	instanceID          string
+	instanceType        string
+	instanceIP          string
+	region              string
+	instanceIDReadyC    chan bool
+	instanceIPReadyC    chan bool
+	localMode           bool
+	networkInterfaceIDs map[string]string
 }
 
 type ec2MetadataOption func(*ec2Metadata)
@@ -56,13 +55,7 @@ func newEC2Metadata(
 	options ...ec2MetadataOption,
 ) ec2MetadataProvider {
 	emd := &ec2Metadata{
-		client: imds.NewFromConfig(cfg, func(o *imds.Options) {
-			o.Retryer = override.NewIMDSRetryer(imdsRetries)
-			o.EnableFallback = aws.FalseTernary
-		}),
-		clientFallbackEnable: imds.NewFromConfig(cfg, func(o *imds.Options) {
-			o.EnableFallback = aws.TrueTernary
-		}),
+		client:              override.NewIMDSClientFromConfig(cfg, logger, imdsRetries),
 		refreshInterval:     refreshInterval,
 		instanceIDReadyC:    instanceIDReadyC,
 		instanceIPReadyC:    instanceIPReadyC,
@@ -94,21 +87,13 @@ func (emd *ec2Metadata) refresh(ctx context.Context) {
 
 	doc, err := emd.client.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 	if err != nil {
-		docInner, errInner := emd.clientFallbackEnable.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
-		if errInner != nil {
-			emd.logger.Error("Failed to get ec2 metadata", zap.Error(err))
-			return
-		}
-		emd.instanceID = docInner.InstanceID
-		emd.instanceType = docInner.InstanceType
-		emd.region = docInner.Region
-		emd.instanceIP = docInner.PrivateIP
-	} else {
-		emd.instanceID = doc.InstanceID
-		emd.instanceType = doc.InstanceType
-		emd.region = doc.Region
-		emd.instanceIP = doc.PrivateIP
+		emd.logger.Error("Failed to get ec2 metadata", zap.Error(err))
+		return
 	}
+	emd.instanceID = doc.InstanceID
+	emd.instanceType = doc.InstanceType
+	emd.region = doc.Region
+	emd.instanceIP = doc.PrivateIP
 
 	// notify ec2tags and ebsvolume that the instance id is ready
 	if emd.instanceID != "" {
@@ -155,10 +140,7 @@ func (emd *ec2Metadata) getNetworkInterfaceID(macAddress string) (string, error)
 
 func (emd *ec2Metadata) loadNetworkInterfaceID(macAddress string) (string, error) {
 	in := &imds.GetMetadataInput{Path: "network/interfaces/macs/" + macAddress + "/interface-id"}
-	if out, err := emd.client.GetMetadata(context.Background(), in); err == nil {
-		return readAndClose(out.Content)
-	}
-	out, err := emd.clientFallbackEnable.GetMetadata(context.Background(), in)
+	out, err := emd.client.GetMetadata(context.Background(), in)
 	if err != nil {
 		return "", err
 	}

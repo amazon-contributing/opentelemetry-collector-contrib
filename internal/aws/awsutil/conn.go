@@ -107,36 +107,22 @@ func resolveRegion(
 	return region, nil
 }
 
-// resolveRegionFromIMDS tries IMDSv2-only first, falling back to a
-// permissive client (IMDSv1 fallback enabled, no custom retryer) on
-// failure. Both clients share the supplied httpClient so per-component
-// TLS / proxy / cert-pool config flows through to IMDS too.
+// resolveRegionFromIMDS resolves the region via EC2 IMDS using the shared
+// strict-then-permissive client from override/aws: an IMDSv2-only client
+// (with the IMDS retryer) is tried first, falling back to a permissive client
+// (IMDSv1 fallback enabled) on failure. The supplied httpClient flows through
+// to both underlying clients so per-component TLS / proxy / cert-pool config
+// applies to IMDS too.
 func resolveRegionFromIMDS(
 	ctx context.Context,
 	logger *zap.Logger,
 	retries int,
 	httpClient aws.HTTPClient,
 ) (string, error) {
-	v2Client := imds.New(imds.Options{
-		HTTPClient:     httpClient,
-		Retryer:        override.NewIMDSRetryer(retries),
-		EnableFallback: aws.FalseTernary,
+	client := override.NewIMDSClient(logger, retries, func(o *imds.Options) {
+		o.HTTPClient = httpClient
 	})
-	if region, err := getIMDSRegion(ctx, v2Client); err == nil {
-		return region, nil
-	} else {
-		logger.Debug("IMDSv2 strict region lookup failed; falling back to permissive client", zap.Error(err))
-	}
-
-	v1Client := imds.New(imds.Options{
-		HTTPClient:     httpClient,
-		EnableFallback: aws.TrueTernary,
-	})
-	return getIMDSRegion(ctx, v1Client)
-}
-
-func getIMDSRegion(ctx context.Context, c *imds.Client) (string, error) {
-	out, err := c.GetRegion(ctx, &imds.GetRegionInput{})
+	out, err := client.GetRegion(ctx, &imds.GetRegionInput{})
 	if err != nil {
 		return "", err
 	}

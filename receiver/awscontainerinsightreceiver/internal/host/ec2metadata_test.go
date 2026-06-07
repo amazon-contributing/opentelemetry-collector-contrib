@@ -96,12 +96,11 @@ func TestEC2Metadata(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			c := test.client(t)
 			e := &ec2Metadata{
-				logger:               zap.NewNop(),
-				client:               c,
-				clientFallbackEnable: c, // share for happy path; fallback path covered by separate test
-				refreshInterval:      3 * time.Millisecond,
-				instanceIDReadyC:     make(chan bool),
-				instanceIPReadyC:     make(chan bool),
+				logger:           zap.NewNop(),
+				client:           c,
+				refreshInterval:  3 * time.Millisecond,
+				instanceIDReadyC: make(chan bool),
+				instanceIPReadyC: make(chan bool),
 			}
 			e.refresh(t.Context())
 
@@ -123,53 +122,16 @@ func TestEC2MetadataLocalMode(t *testing.T) {
 		},
 	}
 	e := &ec2Metadata{
-		logger:               zap.NewNop(),
-		client:               c,
-		clientFallbackEnable: c,
-		refreshInterval:      3 * time.Millisecond,
-		instanceIDReadyC:     make(chan bool),
-		instanceIPReadyC:     make(chan bool),
-		localMode:            true,
+		logger:           zap.NewNop(),
+		client:           c,
+		refreshInterval:  3 * time.Millisecond,
+		instanceIDReadyC: make(chan bool),
+		instanceIPReadyC: make(chan bool),
+		localMode:        true,
 	}
 	e.refresh(t.Context())
 	assert.False(t, called, "IMDS should not be called in local mode")
 	assert.Empty(t, e.getInstanceID())
-}
-
-// TestEC2MetadataDualClientFallback exercises the dual-client pattern: strict
-// client fails, fallback client succeeds.
-func TestEC2MetadataDualClientFallback(t *testing.T) {
-	strict := &mockMetadataClient{
-		identityFn: func(_ context.Context, _ *imds.GetInstanceIdentityDocumentInput, _ ...func(*imds.Options)) (*imds.GetInstanceIdentityDocumentOutput, error) {
-			return nil, errors.New("strict client failed")
-		},
-	}
-	fallback := &mockMetadataClient{
-		identityFn: func(_ context.Context, _ *imds.GetInstanceIdentityDocumentInput, _ ...func(*imds.Options)) (*imds.GetInstanceIdentityDocumentOutput, error) {
-			return &imds.GetInstanceIdentityDocumentOutput{
-				InstanceIdentityDocument: imds.InstanceIdentityDocument{
-					Region:       "us-west-2",
-					InstanceID:   "i-fallback-only",
-					InstanceType: "t3.medium",
-					PrivateIP:    "172.16.0.1",
-				},
-			}, nil
-		},
-	}
-	e := &ec2Metadata{
-		logger:               zap.NewNop(),
-		client:               strict,
-		clientFallbackEnable: fallback,
-		refreshInterval:      3 * time.Millisecond,
-		instanceIDReadyC:     make(chan bool),
-		instanceIPReadyC:     make(chan bool),
-	}
-	e.refresh(t.Context())
-
-	assert.Equal(t, "i-fallback-only", e.getInstanceID())
-	assert.Equal(t, "t3.medium", e.getInstanceType())
-	assert.Equal(t, "us-west-2", e.getRegion())
-	assert.Equal(t, "172.16.0.1", e.getInstanceIP())
 }
 
 // TestEC2MetadataGetNetworkInterfaceID exercises the ENI lookup via
@@ -187,10 +149,9 @@ func TestEC2MetadataGetNetworkInterfaceID(t *testing.T) {
 		},
 	}
 	e := &ec2Metadata{
-		logger:               zap.NewNop(),
-		client:               c,
-		clientFallbackEnable: c,
-		networkInterfaceIDs:  make(map[string]string),
+		logger:              zap.NewNop(),
+		client:              c,
+		networkInterfaceIDs: make(map[string]string),
 	}
 
 	eniID, err := e.getNetworkInterfaceID("00:00:00:00:00:01")
