@@ -27,7 +27,8 @@ func NewFactory() receiver.Factory {
 
 func createDefaultConfig() component.Config {
 	cfg := &Config{
-		ControllerConfig: scraperhelper.NewDefaultControllerConfig(),
+		ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+		MetricsBuilderConfig: metadata.DefaultMetricsBuilderConfig(),
 	}
 	cfg.CollectionInterval = 60 * time.Second
 	return cfg
