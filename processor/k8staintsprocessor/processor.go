@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
@@ -96,6 +97,10 @@ func (p *k8sTaintsProcessor) Start(_ context.Context, _ component.Host) error {
 	}
 
 	go p.informer.Run(p.stopCh)
+
+	if !cache.WaitForCacheSync(p.stopCh, p.informer.HasSynced) {
+		return errors.New("timed out waiting for node informer cache to sync")
+	}
 	return nil
 }
 
@@ -142,10 +147,15 @@ func (p *k8sTaintsProcessor) handleNodeDelete(obj any) {
 func (p *k8sTaintsProcessor) updateNodeTaints(node *api_v1.Node) {
 	attrs := make(map[string]string, len(node.Spec.Taints))
 	for _, t := range node.Spec.Taints {
+		// Skip taints with empty values. CloudWatch rejects resource attributes
+		// with blank string values, causing the entire export batch to be dropped.
 		if t.Value == "" {
 			continue
 		}
 		attrKey := taintAttrPrefix + t.Key
+		// Keep first value seen for a given key. Multiple taints can share a key
+		// with different effects (e.g. NoSchedule vs NoExecute); effects are not
+		// encoded in the attribute schema so we keep the first value encountered.
 		if _, exists := attrs[attrKey]; !exists {
 			attrs[attrKey] = t.Value
 		}
@@ -155,58 +165,40 @@ func (p *k8sTaintsProcessor) updateNodeTaints(node *api_v1.Node) {
 	p.mu.Unlock()
 }
 
+// enrichResource stamps taint attributes onto a resource's attribute map
+// based on the k8s.node.name resource attribute.
+func (p *k8sTaintsProcessor) enrichResource(resourceAttrs pcommon.Map) {
+	nodeNameVal, ok := resourceAttrs.Get(nodeNameAttr)
+	if !ok {
+		return
+	}
+	nodeName := nodeNameVal.Str()
+	if nodeName == "" {
+		return
+	}
+
+	p.mu.RLock()
+	nt, exists := p.nodes[nodeName]
+	p.mu.RUnlock()
+	if !exists {
+		return
+	}
+
+	for attrKey, value := range nt.attrs {
+		resourceAttrs.PutStr(attrKey, value)
+	}
+}
+
 func (p *k8sTaintsProcessor) processMetrics(_ context.Context, md pmetric.Metrics) (pmetric.Metrics, error) {
 	for i := 0; i < md.ResourceMetrics().Len(); i++ {
-		rm := md.ResourceMetrics().At(i)
-		resourceAttrs := rm.Resource().Attributes()
-
-		nodeNameVal, ok := resourceAttrs.Get(nodeNameAttr)
-		if !ok {
-			continue
-		}
-		nodeName := nodeNameVal.Str()
-		if nodeName == "" {
-			continue
-		}
-
-		p.mu.RLock()
-		nt, exists := p.nodes[nodeName]
-		p.mu.RUnlock()
-		if !exists {
-			continue
-		}
-
-		for attrKey, value := range nt.attrs {
-			resourceAttrs.PutStr(attrKey, value)
-		}
+		p.enrichResource(md.ResourceMetrics().At(i).Resource().Attributes())
 	}
 	return md, nil
 }
 
 func (p *k8sTaintsProcessor) processLogs(_ context.Context, ld plog.Logs) (plog.Logs, error) {
 	for i := 0; i < ld.ResourceLogs().Len(); i++ {
-		rl := ld.ResourceLogs().At(i)
-		resourceAttrs := rl.Resource().Attributes()
-
-		nodeNameVal, ok := resourceAttrs.Get(nodeNameAttr)
-		if !ok {
-			continue
-		}
-		nodeName := nodeNameVal.Str()
-		if nodeName == "" {
-			continue
-		}
-
-		p.mu.RLock()
-		nt, exists := p.nodes[nodeName]
-		p.mu.RUnlock()
-		if !exists {
-			continue
-		}
-
-		for attrKey, value := range nt.attrs {
-			resourceAttrs.PutStr(attrKey, value)
-		}
+		p.enrichResource(ld.ResourceLogs().At(i).Resource().Attributes())
 	}
 	return ld, nil
 }

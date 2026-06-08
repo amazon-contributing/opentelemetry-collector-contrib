@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap/zaptest"
 	api_v1 "k8s.io/api/core/v1"
@@ -223,4 +224,56 @@ func TestShutdown_CalledTwice_NoPanic(t *testing.T) {
 	p := newTestProcessor(t)
 	require.NoError(t, p.Shutdown(t.Context()))
 	require.NoError(t, p.Shutdown(t.Context()))
+}
+
+func TestProcessLogs_NoNodeName(t *testing.T) {
+	p := newTestProcessor(t)
+	p.nodes["node1"] = &nodeTaints{attrs: map[string]string{"k8s.node.taint.key1": "val1"}}
+
+	ld := plog.NewLogs()
+	rl := ld.ResourceLogs().AppendEmpty()
+	rl.Resource().Attributes().PutStr("other.attr", "x")
+	rl.ScopeLogs().AppendEmpty().LogRecords().AppendEmpty()
+
+	result, err := p.processLogs(t.Context(), ld)
+	require.NoError(t, err)
+
+	attrs := result.ResourceLogs().At(0).Resource().Attributes()
+	_, exists := attrs.Get("k8s.node.taint.key1")
+	assert.False(t, exists, "should not add taints when k8s.node.name is missing")
+}
+
+func TestProcessLogs_AddsTaints(t *testing.T) {
+	p := newTestProcessor(t)
+	p.nodes["node1"] = &nodeTaints{attrs: map[string]string{
+		"k8s.node.taint.dedicated": "gpu",
+	}}
+
+	ld := plog.NewLogs()
+	rl := ld.ResourceLogs().AppendEmpty()
+	rl.Resource().Attributes().PutStr("k8s.node.name", "node1")
+	rl.ScopeLogs().AppendEmpty().LogRecords().AppendEmpty()
+
+	result, err := p.processLogs(t.Context(), ld)
+	require.NoError(t, err)
+
+	attrs := result.ResourceLogs().At(0).Resource().Attributes()
+	val, ok := attrs.Get("k8s.node.taint.dedicated")
+	require.True(t, ok)
+	assert.Equal(t, "gpu", val.Str())
+}
+
+func TestProcessLogs_NodeNotInCache(t *testing.T) {
+	p := newTestProcessor(t)
+
+	ld := plog.NewLogs()
+	rl := ld.ResourceLogs().AppendEmpty()
+	rl.Resource().Attributes().PutStr("k8s.node.name", "unknown-node")
+	rl.ScopeLogs().AppendEmpty().LogRecords().AppendEmpty()
+
+	result, err := p.processLogs(t.Context(), ld)
+	require.NoError(t, err)
+
+	attrs := result.ResourceLogs().At(0).Resource().Attributes()
+	assert.Equal(t, 1, attrs.Len(), "should only have k8s.node.name")
 }
