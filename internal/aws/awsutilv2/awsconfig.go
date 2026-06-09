@@ -1,0 +1,40 @@
+// Copyright The OpenTelemetry Authors
+// Portions of this file Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package awsutilv2 // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+
+// AWSSessionSettings defines the common session configs for the v2 AWS credential chain.
+type AWSSessionSettings struct {
+	// NumberOfWorkers is the maximum idle connections per host.
+	NumberOfWorkers int `mapstructure:"num_workers"`
+	// Endpoint overrides the AWS service endpoint.
+	Endpoint string `mapstructure:"endpoint"`
+	// RequestTimeoutSeconds is the HTTP request timeout in seconds.
+	RequestTimeoutSeconds int `mapstructure:"request_timeout_seconds"`
+	// MaxRetries is the number of retries beyond the initial attempt.
+	MaxRetries int `mapstructure:"max_retries"`
+	// NoVerifySSL disables TLS certificate verification.
+	NoVerifySSL bool `mapstructure:"no_verify_ssl"`
+	// ProxyAddress is the HTTP proxy address. When empty, the SDK default (http.ProxyFromEnvironment) honors
+	// HTTPS_PROXY/HTTP_PROXY/NO_PROXY at request time.
+	ProxyAddress string `mapstructure:"proxy_address"`
+	// Region is the AWS region for credential resolution and STS calls.
+	Region string `mapstructure:"region"`
+	// LocalMode skips EC2 IMDS region resolution.
+	LocalMode bool `mapstructure:"local_mode"`
+	// ResourceARN is the Amazon Resource Name (ARN) of the AWS resource running the collector.
+	ResourceARN string `mapstructure:"resource_arn"`
+	// RoleARN is the IAM role to assume after resolving root credentials.
+	RoleARN string `mapstructure:"role_arn"`
+	// Profile changes the default profile for the shared credentials file.
+	Profile string `mapstructure:"profile"`
+	// SharedCredentialsFile changes the default shared credentials file location.
+	SharedCredentialsFile []string `mapstructure:"shared_credentials_file"`
+	// CertificateFilePath adds a custom certificates file.
+	CertificateFilePath string `mapstructure:"certificate_file_path"`
+	// IMDSRetries is the number of retries beyond the initial attempt for IMDS region resolution.
+	IMDSRetries int `mapstructure:"imds_retries"`
+	// ExternalID is used to verify third party role assumption.
+	ExternalID string `mapstructure:"external_id"`
+}

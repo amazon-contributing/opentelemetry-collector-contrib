@@ -1,0 +1,6 @@
+attributestocontext:
+  actions:
+    - key: "cwlogs.log_group"
+      from_resource_attribute: "cwlogs.log_group"
+    - key: "cwlogs.log_stream"
+      from_resource_attribute: "cwlogs.log_stream"
