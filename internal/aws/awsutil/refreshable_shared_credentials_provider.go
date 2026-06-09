@@ -5,13 +5,18 @@ package awsutil // import "github.com/open-telemetry/opentelemetry-collector-con
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 )
 
-const defaultExpiryWindow = 10 * time.Minute
+const (
+	defaultExpiryWindow = 10 * time.Minute
+	defaultProfileName  = "default"
+	envAwsProfile       = "AWS_PROFILE"
+)
 
 // RefreshableSharedCredentialsProvider stamps an expiry on credentials
 // retrieved from Provider so the SDK's credentials cache will re-read
@@ -40,7 +45,11 @@ func (p RefreshableSharedCredentialsProvider) Retrieve(ctx context.Context) (aws
 
 // SharedCredentialsProvider loads credentials from a shared-credentials
 // file and profile. An empty Filename uses the SDK's default
-// shared-credentials file resolution.
+// shared-credentials file resolution. An empty Profile resolves to the
+// AWS_PROFILE environment variable when set, otherwise "default": the v2
+// SDK's LoadSharedConfigProfile rejects an empty profile name, so passing
+// it through unchanged would fail whenever a caller sets a credentials
+// file without an explicit profile.
 type SharedCredentialsProvider struct {
 	Filename string
 	Profile  string
@@ -49,13 +58,26 @@ type SharedCredentialsProvider struct {
 var _ aws.CredentialsProvider = (*SharedCredentialsProvider)(nil)
 
 func (p SharedCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
+	profile := p.Profile
+	if profile == "" {
+		profile = os.Getenv(envAwsProfile)
+	}
+	if profile == "" {
+		profile = defaultProfileName
+	}
 	var opts []func(*config.LoadSharedConfigOptions)
 	if p.Filename != "" {
 		opts = append(opts, func(o *config.LoadSharedConfigOptions) {
+			// Read credentials only from the caller's file. Empty ConfigFiles
+			// prevents the SDK from also merging the default shared config file
+			// (for example $HOME/.aws/config), so an explicitly configured
+			// credentials file is authoritative and a missing file or profile
+			// fails loudly instead of silently resolving elsewhere.
 			o.CredentialsFiles = []string{p.Filename}
+			o.ConfigFiles = []string{}
 		})
 	}
-	sharedConfig, err := config.LoadSharedConfigProfile(ctx, p.Profile, opts...)
+	sharedConfig, err := config.LoadSharedConfigProfile(ctx, profile, opts...)
 	if err != nil {
 		return aws.Credentials{}, err
 	}

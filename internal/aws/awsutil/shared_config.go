@@ -18,23 +18,29 @@ const (
 )
 
 // getFallbackSharedConfigFiles follows the same logic as the AWS SDK but takes a getUserHomeDir
-// function.
-func getFallbackSharedConfigFiles(userHomeDirProvider func() string) []string {
+// function. It returns the shared-credentials file list and the shared-config file list
+// separately: the v2 SDK drops format-mismatched sections, so a config-style "[profile foo]"
+// header passed via WithSharedCredentialsFiles is silently ignored (and a credentials-style
+// header passed via WithSharedConfigFiles likewise). configFiles stays nil unless
+// AWS_SDK_LOAD_CONFIG is set to a truthy value, so passing it to WithSharedConfigFiles preserves
+// the SDK's default shared-config-file resolution.
+func getFallbackSharedConfigFiles(userHomeDirProvider func() string) (credentialsFiles, configFiles []string) {
 	var sharedCredentialsFile, sharedConfigFile string
 	setFromEnvVal(&sharedCredentialsFile, envAwsSharedCredentialsFile)
-	setFromEnvVal(&sharedConfigFile, envAwsSharedConfigFile)
 	if sharedCredentialsFile == "" {
 		sharedCredentialsFile = defaultSharedCredentialsFile(userHomeDirProvider())
 	}
-	if sharedConfigFile == "" {
-		sharedConfigFile = defaultSharedConfig(userHomeDirProvider())
-	}
-	var cfgFiles []string
+	credentialsFiles = []string{sharedCredentialsFile}
+
 	enableSharedConfig, _ := strconv.ParseBool(os.Getenv(envAwsSdkLoadConfig))
 	if enableSharedConfig {
-		cfgFiles = append(cfgFiles, sharedConfigFile)
+		setFromEnvVal(&sharedConfigFile, envAwsSharedConfigFile)
+		if sharedConfigFile == "" {
+			sharedConfigFile = defaultSharedConfig(userHomeDirProvider())
+		}
+		configFiles = []string{sharedConfigFile}
 	}
-	return append(cfgFiles, sharedCredentialsFile)
+	return credentialsFiles, configFiles
 }
 
 func setFromEnvVal(dst *string, keys ...string) {

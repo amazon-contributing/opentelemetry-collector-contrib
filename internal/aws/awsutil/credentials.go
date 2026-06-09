@@ -93,12 +93,15 @@ func loadConfig(
 	provider aws.CredentialsProvider,
 	httpClient aws.HTTPClient,
 ) (aws.Config, error) {
-	cfgFiles := getFallbackSharedConfigFiles(backwardsCompatibleUserHomeDir)
-	logger.Debug("Fallback shared config file(s)", zap.Strings("files", cfgFiles))
+	credentialsFiles, configFiles := getFallbackSharedConfigFiles(backwardsCompatibleUserHomeDir)
+	logger.Debug("Fallback shared config file(s)",
+		zap.Strings("credentials", credentialsFiles),
+		zap.Strings("config", configFiles))
 
 	opts := []func(*config.LoadOptions) error{
 		config.WithHTTPClient(httpClient),
-		config.WithSharedCredentialsFiles(cfgFiles),
+		config.WithSharedCredentialsFiles(credentialsFiles),
+		config.WithSharedConfigFiles(configFiles),
 	}
 	if region != "" {
 		opts = append(opts, config.WithRegion(region))
@@ -129,7 +132,8 @@ func loadConfig(
 
 	if cred.Source == ec2rolecreds.ProviderName {
 		var found []string
-		for _, f := range getFallbackSharedConfigFiles(currentUserHomeDir) {
+		credFiles, cfgFiles := getFallbackSharedConfigFiles(currentUserHomeDir)
+		for _, f := range append(credFiles, cfgFiles...) {
 			if _, statErr := os.Stat(f); statErr == nil {
 				found = append(found, f)
 			}

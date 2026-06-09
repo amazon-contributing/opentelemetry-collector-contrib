@@ -17,15 +17,17 @@ import (
 
 const testProfile = "default"
 
-func TestSharedCredentialsProvider_MissingProfile(t *testing.T) {
-	// config.LoadSharedConfigProfile in v2 returns empty credentials
-	// without erroring on a missing file or profile. Pin that behavior.
+func TestSharedCredentialsProvider_MissingFile(t *testing.T) {
+	// With an explicit credentials file the SDK reads only that file (ConfigFiles
+	// is emptied), so a missing file fails loudly even for the default profile
+	// rather than silently resolving empty credentials from elsewhere.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
 	tmp := filepath.Join(t.TempDir(), "missing")
 	p := SharedCredentialsProvider{Filename: tmp, Profile: testProfile}
-	creds, err := p.Retrieve(context.Background())
-	require.NoError(t, err)
-	assert.Empty(t, creds.AccessKeyID)
-	assert.Empty(t, creds.SecretAccessKey)
+	_, err := p.Retrieve(context.Background())
+	require.Error(t, err)
 }
 
 func TestRefreshableSharedCredentialsProvider_DefaultsExpiryWindow(t *testing.T) {
@@ -89,4 +91,35 @@ func writeTempCredentials(t *testing.T, fixtureName string) string {
 	tmp := filepath.Join(t.TempDir(), "credentials")
 	require.NoError(t, os.WriteFile(tmp, content, 0o600))
 	return tmp
+}
+
+func TestSharedCredentialsProvider_EmptyProfileDefaultsToDefault(t *testing.T) {
+	// An empty Profile must resolve to "default" rather than be passed through
+	// to LoadSharedConfigProfile, which rejects an empty profile name. HOME is
+	// pointed at a temp dir so real ~/.aws files cannot influence the result.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsProfile, "")
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmpFile := writeTempCredentials(t, "credential_original")
+
+	p := SharedCredentialsProvider{Filename: tmpFile, Profile: ""}
+	creds, err := p.Retrieve(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "o1rLD3ykKN09originalSECRETxxxxxxxxxxxxxxxx", creds.SecretAccessKey)
+}
+
+func TestSharedCredentialsProvider_EmptyProfileHonorsAwsProfileEnv(t *testing.T) {
+	// An empty Profile falls back to AWS_PROFILE before "default".
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmp := filepath.Join(t.TempDir(), "credentials")
+	require.NoError(t, os.WriteFile(tmp, []byte("[custom]\naws_access_key_id = AKIDEXAMPLE\naws_secret_access_key = customSecretValue\n"), 0o600))
+	t.Setenv(envAwsProfile, "custom")
+
+	p := SharedCredentialsProvider{Filename: tmp, Profile: ""}
+	creds, err := p.Retrieve(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "customSecretValue", creds.SecretAccessKey)
 }

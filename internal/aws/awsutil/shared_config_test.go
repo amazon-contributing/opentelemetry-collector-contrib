@@ -15,17 +15,22 @@ func TestGetFallbackSharedConfigFiles(t *testing.T) {
 	t.Setenv(envAwsSharedCredentialsFile, "credentials")
 	t.Setenv(envAwsSharedConfigFile, "config")
 
-	got := getFallbackSharedConfigFiles(noOpGetUserHomeDir)
-	assert.Equal(t, []string{"config", "credentials"}, got)
+	credFiles, cfgFiles := getFallbackSharedConfigFiles(noOpGetUserHomeDir)
+	assert.Equal(t, []string{"credentials"}, credFiles)
+	assert.Equal(t, []string{"config"}, cfgFiles)
 
+	// AWS_SDK_LOAD_CONFIG disabled -> no config files (nil), so callers preserve
+	// the SDK's default shared-config-file resolution via WithSharedConfigFiles(nil).
 	t.Setenv(envAwsSdkLoadConfig, "false")
-	got = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
-	assert.Equal(t, []string{"credentials"}, got)
+	credFiles, cfgFiles = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
+	assert.Equal(t, []string{"credentials"}, credFiles)
+	assert.Nil(t, cfgFiles)
 
 	t.Setenv(envAwsSdkLoadConfig, "true")
 	t.Setenv(envAwsSharedCredentialsFile, "")
 	t.Setenv(envAwsSharedConfigFile, "")
 
-	got = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
-	assert.Equal(t, []string{defaultSharedConfig("home"), defaultSharedCredentialsFile("home")}, got)
+	credFiles, cfgFiles = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
+	assert.Equal(t, []string{defaultSharedCredentialsFile("home")}, credFiles)
+	assert.Equal(t, []string{defaultSharedConfig("home")}, cfgFiles)
 }
