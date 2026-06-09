@@ -7,13 +7,13 @@ package awsutilv2 // import "github.com/open-telemetry/opentelemetry-collector-c
 // AWSSessionSettings defines the common session configs for the v2 AWS credential chain.
 type AWSSessionSettings struct {
 	// NumberOfWorkers is the maximum idle connections per host.
-	NumberOfWorkers int `mapstructure:"num_workers,omitempty"`
+	NumberOfWorkers int `mapstructure:"num_workers"`
 	// Endpoint overrides the AWS service endpoint.
 	Endpoint string `mapstructure:"endpoint,omitempty"`
 	// RequestTimeoutSeconds is the per-request HTTP timeout in seconds.
-	RequestTimeoutSeconds int `mapstructure:"request_timeout_seconds,omitempty"`
+	RequestTimeoutSeconds int `mapstructure:"request_timeout_seconds"`
 	// MaxRetries is the number of retries beyond the initial attempt.
-	MaxRetries int `mapstructure:"max_retries,omitempty"`
+	MaxRetries int `mapstructure:"max_retries"`
 	// NoVerifySSL disables TLS certificate verification.
 	NoVerifySSL bool `mapstructure:"no_verify_ssl,omitempty"`
 	// ProxyAddress is the HTTP proxy address. When empty, the SDK default (http.ProxyFromEnvironment) honors
@@ -34,7 +34,7 @@ type AWSSessionSettings struct {
 	// CertificateFilePath adds a custom certificates file.
 	CertificateFilePath string `mapstructure:"certificate_file_path,omitempty"`
 	// IMDSRetries is the number of retries beyond the initial attempt for IMDS region resolution.
-	IMDSRetries int `mapstructure:"imds_retries,omitempty"`
+	IMDSRetries int `mapstructure:"imds_retries"`
 	// ExternalID is used to verify third party role assumption.
 	ExternalID string `mapstructure:"external_id,omitempty"`
 }
@@ -44,14 +44,7 @@ type AWSSessionSettings struct {
 func CreateDefaultSessionConfig() AWSSessionSettings {
 	return AWSSessionSettings{
 		NumberOfWorkers:       8,
-		Endpoint:              "",
 		RequestTimeoutSeconds: 30,
 		MaxRetries:            2,
-		NoVerifySSL:           false,
-		ProxyAddress:          "",
-		Region:                "",
-		LocalMode:             false,
-		ResourceARN:           "",
-		RoleARN:               "",
 	}
 }

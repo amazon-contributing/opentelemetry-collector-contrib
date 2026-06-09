@@ -79,3 +79,17 @@ func TestLoadConfigError(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "must specify ARN")
 }
+
+func TestValidateRejectsBothRoleARNs(t *testing.T) {
+	cfg := &Config{
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{
+			RoleARN: "arn:aws:iam::123456789012:role/role1",
+		},
+		AssumeRole: AssumeRole{
+			ARN: "arn:aws:iam::123456789012:role/role2",
+		},
+	}
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "role_arn and assume_role.arn cannot both be set")
+}
