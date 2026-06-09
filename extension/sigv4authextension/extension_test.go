@@ -177,11 +177,23 @@ func TestGetCredsProviderFromWebIdentityConfig(t *testing.T) {
 		shouldError bool
 	}{
 		{
-			"valid_token",
+			"valid_token_with_assume_role_arn",
 			&Config{
 				AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"},
 				Service:            "service",
 				AssumeRole:         AssumeRole{ARN: "arn:aws:iam::123456789012:role/my_role", WebIdentityTokenFile: "testdata/token_file"},
+			},
+			false,
+		},
+		{
+			"valid_token_with_role_arn",
+			&Config{
+				AWSSessionSettings: awsutilv2.AWSSessionSettings{
+					Region:  "region",
+					RoleARN: "arn:aws:iam::123456789012:role/my_role",
+				},
+				Service:    "service",
+				AssumeRole: AssumeRole{WebIdentityTokenFile: "testdata/token_file"},
 			},
 			false,
 		},

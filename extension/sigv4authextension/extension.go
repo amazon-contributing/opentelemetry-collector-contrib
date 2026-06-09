@@ -91,9 +91,7 @@ func resolveCredentialsProvider(ctx context.Context, logger *zap.Logger, cfg *Co
 func getCredsProviderFromConfig(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
 	settings := cfg.AWSSessionSettings
 	settings.Region = cfg.resolvedSTSRegion()
-	if cfg.AssumeRole.ARN != "" {
-		settings.RoleARN = cfg.AssumeRole.ARN
-	}
+	settings.RoleARN = cfg.resolvedRoleARN()
 	awscfg, err := awsutilv2.GetAWSConfig(ctx, logger, &settings)
 	if err != nil {
 		return nil, err
@@ -114,11 +112,12 @@ func getCredsProviderFromWebIdentityConfig(ctx context.Context, logger *zap.Logg
 	}
 
 	stsRegion := cfg.resolvedSTSRegion()
+	roleARN := cfg.resolvedRoleARN()
 	awscfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithWebIdentityRoleCredentialOptions(
 			func(options *stscreds.WebIdentityRoleOptions) {
 				options.TokenRetriever = tokenRetriever
-				options.RoleARN = cfg.AssumeRole.ARN
+				options.RoleARN = roleARN
 			},
 		),
 		awsconfig.WithRegion(stsRegion),
@@ -128,10 +127,10 @@ func getCredsProviderFromWebIdentityConfig(ctx context.Context, logger *zap.Logg
 	}
 	stsSvc := sts.NewFromConfig(awscfg)
 
-	provider := stscreds.NewWebIdentityRoleProvider(stsSvc, cfg.AssumeRole.ARN, tokenRetriever)
+	provider := stscreds.NewWebIdentityRoleProvider(stsSvc, roleARN, tokenRetriever)
 	awscfg.Credentials = aws.NewCredentialsCache(provider)
 	logger.Debug("Web identity credentials provider configured",
-		zap.String("role-arn", cfg.AssumeRole.ARN),
+		zap.String("role-arn", roleARN),
 		zap.String("region", stsRegion))
 
 	return &awscfg.Credentials, nil

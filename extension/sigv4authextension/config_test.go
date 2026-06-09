@@ -77,7 +77,7 @@ func TestLoadConfigError(t *testing.T) {
 
 	err = xconfmap.Validate(cfg)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "must specify ARN")
+	assert.ErrorContains(t, err, "must specify role_arn or assume_role.arn")
 }
 
 func TestValidateRejectsBothRoleARNs(t *testing.T) {
@@ -92,4 +92,35 @@ func TestValidateRejectsBothRoleARNs(t *testing.T) {
 	err := cfg.Validate()
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "role_arn and assume_role.arn cannot both be set")
+}
+
+func TestResolvedRoleARN(t *testing.T) {
+	const sessionARN = "arn:aws:iam::123456789012:role/session"
+	const assumeARN = "arn:aws:iam::123456789012:role/assume"
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{
+			name: "neither_set",
+			cfg:  &Config{},
+			want: "",
+		},
+		{
+			name: "session_role_arn_only",
+			cfg:  &Config{AWSSessionSettings: awsutilv2.AWSSessionSettings{RoleARN: sessionARN}},
+			want: sessionARN,
+		},
+		{
+			name: "assume_role_arn_only",
+			cfg:  &Config{AssumeRole: AssumeRole{ARN: assumeARN}},
+			want: assumeARN,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, tc.cfg.resolvedRoleARN())
+		})
+	}
 }
