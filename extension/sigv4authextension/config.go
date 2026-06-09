@@ -7,16 +7,16 @@ import (
 	"errors"
 
 	"go.opentelemetry.io/collector/component"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 // Config stores the configuration for the Sigv4 Authenticator
 type Config struct {
-	Region                string     `mapstructure:"region,omitempty"`
-	Service               string     `mapstructure:"service,omitempty"`
-	Profile               string     `mapstructure:"profile,omitempty"`
-	SharedCredentialsFile []string   `mapstructure:"shared_credentials_file,omitempty"`
-	LocalMode             bool       `mapstructure:"local_mode,omitempty"`
-	AssumeRole            AssumeRole `mapstructure:"assume_role"`
+	awsutilv2.AWSSessionSettings `mapstructure:",squash"`
+
+	Service    string     `mapstructure:"service,omitempty"`
+	AssumeRole AssumeRole `mapstructure:"assume_role"`
 }
 
 // AssumeRole holds the configuration needed to assume a role
@@ -34,6 +34,9 @@ var _ component.Config = (*Config)(nil)
 func (cfg *Config) Validate() error {
 	if cfg.AssumeRole.WebIdentityTokenFile != "" && cfg.AssumeRole.ARN == "" {
 		return errors.New("must specify ARN when using WebIdentityTokenFile")
+	}
+	if cfg.AssumeRole.ARN != "" && cfg.RoleARN != "" {
+		return errors.New("role_arn and assume_role.arn cannot both be set")
 	}
 	return nil
 }

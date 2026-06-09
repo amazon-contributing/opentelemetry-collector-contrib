@@ -59,12 +59,28 @@ func tempCredentialsFile(t *testing.T) string {
 	return path
 }
 
-// isolateSharedConfig prevents the v2 SDK from reading the host's shared credentials or config
-// files by overriding HOME, AWS_SHARED_CREDENTIALS_FILE, AWS_CONFIG_FILE, and AWS_PROFILE.
-func isolateSharedConfig(t *testing.T) {
+// isolateAWSEnv clears AWS-related env vars and points the SDK at fake config paths so GetAWSConfig
+// tests don't pick up state from the host.
+func isolateAWSEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", "/nonexistent")
 	t.Setenv("AWS_CONFIG_FILE", "/nonexistent")
 	t.Setenv("AWS_PROFILE", "")
+	t.Setenv("AWS_REGION", "")
+	t.Setenv("AWS_DEFAULT_REGION", "")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	t.Setenv("AWS_CA_BUNDLE", "")
+	t.Setenv("HTTPS_PROXY", "")
+	t.Setenv("HTTP_PROXY", "")
+	t.Setenv("AWS_ENDPOINT_URL", "")
+	t.Setenv("AWS_ACCESS_KEY_ID", "")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+	t.Setenv("AWS_SESSION_TOKEN", "")
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+	t.Setenv("AWS_ROLE_ARN", "")
+	t.Setenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "")
+	t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "")
+	t.Setenv("AWS_USE_DUALSTACK_ENDPOINT", "")
+	t.Setenv("AWS_USE_FIPS_ENDPOINT", "")
 }

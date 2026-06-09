@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/extension/extensiontest"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 func TestNewFactory(t *testing.T) {
@@ -35,7 +37,7 @@ func TestNewFactory(t *testing.T) {
 
 func TestCreateDefaultConfig(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
-	assert.Equal(t, &Config{}, cfg)
+	assert.Equal(t, &Config{AWSSessionSettings: awsutilv2.CreateDefaultSessionConfig()}, cfg)
 	assert.NoError(t, componenttest.CheckConfigStruct(cfg))
 }
 

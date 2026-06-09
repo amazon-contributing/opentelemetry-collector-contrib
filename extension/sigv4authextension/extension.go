@@ -89,12 +89,10 @@ func resolveCredentialsProvider(ctx context.Context, logger *zap.Logger, cfg *Co
 // getCredsProviderFromConfig builds an aws.CredentialsProvider from cfg: shared profile/file when
 // configured, otherwise the SDK default chain, optionally wrapped with regional/partitional assume-role.
 func getCredsProviderFromConfig(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
-	settings := awsutilv2.AWSSessionSettings{
-		Region:                cfg.resolvedSTSRegion(),
-		RoleARN:               cfg.AssumeRole.ARN,
-		Profile:               cfg.Profile,
-		LocalMode:             cfg.LocalMode,
-		SharedCredentialsFile: cfg.SharedCredentialsFile,
+	settings := cfg.AWSSessionSettings
+	settings.Region = cfg.resolvedSTSRegion()
+	if cfg.AssumeRole.ARN != "" {
+		settings.RoleARN = cfg.AssumeRole.ARN
 	}
 	awscfg, err := awsutilv2.GetAWSConfig(ctx, logger, &settings)
 	if err != nil {

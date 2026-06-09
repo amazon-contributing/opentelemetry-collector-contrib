@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/collector/confmap/xconfmap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -32,13 +33,15 @@ func TestLoadConfig(t *testing.T) {
 	require.NoError(t, sub.Unmarshal(cfg))
 
 	assert.NoError(t, xconfmap.Validate(cfg))
-	assert.Equal(t, &Config{
-		Region:  "region",
-		Service: "service",
+	expected := &Config{
+		AWSSessionSettings: awsutilv2.CreateDefaultSessionConfig(),
+		Service:            "service",
 		AssumeRole: AssumeRole{
 			SessionName: "role_session_name",
 		},
-	}, cfg)
+	}
+	expected.Region = "region"
+	assert.Equal(t, expected, cfg)
 }
 
 func TestLoadWebIdentityConfig(t *testing.T) {
@@ -51,14 +54,16 @@ func TestLoadWebIdentityConfig(t *testing.T) {
 	require.NoError(t, sub.Unmarshal(cfg))
 
 	assert.NoError(t, xconfmap.Validate(cfg))
-	assert.Equal(t, &Config{
-		Region:  "region",
-		Service: "service",
+	expected := &Config{
+		AWSSessionSettings: awsutilv2.CreateDefaultSessionConfig(),
+		Service:            "service",
 		AssumeRole: AssumeRole{
 			ARN:                  "arn:aws:iam::12345678910:role/my_role",
 			WebIdentityTokenFile: "testdata/token_file",
 		},
-	}, cfg)
+	}
+	expected.Region = "region"
+	assert.Equal(t, expected, cfg)
 }
 
 func TestLoadConfigError(t *testing.T) {

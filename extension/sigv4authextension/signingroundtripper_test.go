@@ -16,6 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 type errorRoundTripper struct{}
@@ -41,21 +43,21 @@ func TestRoundTrip(t *testing.T) {
 			"valid_round_tripper",
 			defaultRoundTripper,
 			false,
-			&Config{Region: "region", Service: "service"},
+			&Config{AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"}, Service: "service"},
 			awsCredsProvider,
 		},
 		{
 			"error_round_tripper",
 			errorRoundTripper,
 			true,
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}},
+			&Config{AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"}, Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}},
 			awsCredsProvider,
 		},
 		{
 			"error_invalid_credsProvider",
 			defaultRoundTripper,
 			true,
-			&Config{Region: "region", Service: "service"},
+			&Config{AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"}, Service: "service"},
 			nil,
 		},
 	}
@@ -152,14 +154,14 @@ func TestInferServiceAndRegion(t *testing.T) {
 		{
 			"no_match_with_config",
 			req4,
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}},
+			&Config{AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"}, Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}},
 			"service",
 			"region",
 		},
 		{
 			"match_with_config",
 			req5,
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}},
+			&Config{AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"}, Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}},
 			"service",
 			"region",
 		},

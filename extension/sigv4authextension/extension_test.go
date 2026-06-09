@@ -15,10 +15,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 func TestNewSigv4Extension(t *testing.T) {
-	cfg := &Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}}
+	cfg := &Config{
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"},
+		Service:            "service",
+		AssumeRole:         AssumeRole{ARN: "rolearn", STSRegion: "region"},
+	}
 
 	sa := newSigv4Extension(cfg, nil, "awsSDKInfo", zap.NewNop())
 	assert.Equal(t, cfg.Region, sa.cfg.Region)
@@ -31,7 +37,11 @@ func TestRoundTripper(t *testing.T) {
 
 	base := (http.RoundTripper)(http.DefaultTransport.(*http.Transport).Clone())
 	awsSDKInfo := "awsSDKInfo"
-	cfg := &Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "rolearn", STSRegion: "region"}}
+	cfg := &Config{
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"},
+		Service:            "service",
+		AssumeRole:         AssumeRole{ARN: "rolearn", STSRegion: "region"},
+	}
 
 	sa := newSigv4Extension(cfg, awsCredsProvider, awsSDKInfo, zap.NewNop())
 	assert.NotNil(t, sa)
@@ -57,14 +67,22 @@ func TestGetCredsProviderFromConfig(t *testing.T) {
 	}{
 		{
 			"success_case_without_role",
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{STSRegion: "region"}},
+			&Config{
+				AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"},
+				Service:            "service",
+				AssumeRole:         AssumeRole{STSRegion: "region"},
+			},
 			"AccessKeyID",
 			"SecretAccessKey",
 			false,
 		},
 		{
 			"failure_case_without_role",
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{STSRegion: "region"}},
+			&Config{
+				AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"},
+				Service:            "service",
+				AssumeRole:         AssumeRole{STSRegion: "region"},
+			},
 			"",
 			"",
 			true,
@@ -97,10 +115,12 @@ func TestGetCredsProviderFromConfig(t *testing.T) {
 func TestGetCredsProviderFromConfig_SharedCredentialsFile(t *testing.T) {
 	isolateAWSEnv(t)
 	cfg := &Config{
-		Region:                "region",
-		Service:               "service",
-		SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
-		AssumeRole:            AssumeRole{STSRegion: "region"},
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{
+			Region:                "region",
+			SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
+		},
+		Service:    "service",
+		AssumeRole: AssumeRole{STSRegion: "region"},
 	}
 
 	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
@@ -115,11 +135,13 @@ func TestGetCredsProviderFromConfig_SharedCredentialsFile(t *testing.T) {
 func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
 	isolateAWSEnv(t)
 	cfg := &Config{
-		Region:                "region",
-		Service:               "service",
-		Profile:               "testprofile",
-		SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
-		AssumeRole:            AssumeRole{STSRegion: "region"},
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{
+			Region:                "region",
+			Profile:               "testprofile",
+			SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
+		},
+		Service:    "service",
+		AssumeRole: AssumeRole{STSRegion: "region"},
 	}
 
 	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
@@ -134,11 +156,13 @@ func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
 func TestGetCredsProviderFromConfig_LocalMode(t *testing.T) {
 	isolateAWSEnv(t)
 	cfg := &Config{
-		Region:                "region",
-		Service:               "service",
-		LocalMode:             true,
-		SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
-		AssumeRole:            AssumeRole{STSRegion: "region"},
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{
+			Region:                "region",
+			LocalMode:             true,
+			SharedCredentialsFile: []string{filepath.Join("testdata", "credentials")},
+		},
+		Service:    "service",
+		AssumeRole: AssumeRole{STSRegion: "region"},
 	}
 
 	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
@@ -154,12 +178,20 @@ func TestGetCredsProviderFromWebIdentityConfig(t *testing.T) {
 	}{
 		{
 			"valid_token",
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "arn:aws:iam::123456789012:role/my_role", WebIdentityTokenFile: "testdata/token_file"}},
+			&Config{
+				AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"},
+				Service:            "service",
+				AssumeRole:         AssumeRole{ARN: "arn:aws:iam::123456789012:role/my_role", WebIdentityTokenFile: "testdata/token_file"},
+			},
 			false,
 		},
 		{
 			"missing_token_file",
-			&Config{Region: "region", Service: "service", AssumeRole: AssumeRole{ARN: "arn:aws:iam::123456789012:role/my_role", WebIdentityTokenFile: "testdata/no_token_file"}},
+			&Config{
+				AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "region"},
+				Service:            "service",
+				AssumeRole:         AssumeRole{ARN: "arn:aws:iam::123456789012:role/my_role", WebIdentityTokenFile: "testdata/no_token_file"},
+			},
 			true,
 		},
 	}

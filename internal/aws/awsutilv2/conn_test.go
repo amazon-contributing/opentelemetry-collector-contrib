@@ -7,12 +7,16 @@ package awsutilv2
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -371,4 +375,287 @@ func TestBuildLoadOptions_Provider(t *testing.T) {
 // with only settings and region; shared config files, HTTP client, and credentials provider are nil.
 func testBuildLoadOptions(settings *AWSSessionSettings, region string) []func(*config.LoadOptions) error {
 	return buildLoadOptions(settings, region, nil, nil, nil, nil)
+}
+
+func TestGetAWSConfig_Region(t *testing.T) {
+	t.Run("FromEnv", func(t *testing.T) {
+		isolateAWSEnv(t)
+		t.Setenv("AWS_REGION", "eu-west-2")
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{LocalMode: true})
+		require.NoError(t, err)
+		assert.Equal(t, "eu-west-2", cfg.Region)
+	})
+
+	t.Run("FromSettings", func(t *testing.T) {
+		isolateAWSEnv(t)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+			Region:    "ap-northeast-1",
+			LocalMode: true,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "ap-northeast-1", cfg.Region)
+	})
+}
+
+func TestGetAWSConfig_SharedCredentials(t *testing.T) {
+	credsPath := tempCredentialsFile(t)
+
+	t.Run("FromEnv", func(t *testing.T) {
+		isolateAWSEnv(t)
+		t.Setenv("AWS_SHARED_CREDENTIALS_FILE", credsPath)
+		t.Setenv("AWS_PROFILE", testProfile)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+			Region:    testRegion,
+			LocalMode: true,
+		})
+		require.NoError(t, err)
+
+		creds, err := cfg.Credentials.Retrieve(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, "ASIAIKJ", creds.AccessKeyID)
+	})
+
+	t.Run("FromSettings", func(t *testing.T) {
+		isolateAWSEnv(t)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+			Region:                testRegion,
+			LocalMode:             true,
+			Profile:               testProfile,
+			SharedCredentialsFile: []string{credsPath},
+		})
+		require.NoError(t, err)
+
+		creds, err := cfg.Credentials.Retrieve(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, "ASIAIKJ", creds.AccessKeyID)
+	})
+}
+
+func TestGetAWSConfig_CABundle(t *testing.T) {
+	certPath := writeSelfSignedCert(t)
+
+	t.Run("FromEnv", func(t *testing.T) {
+		isolateAWSEnv(t)
+		t.Setenv("AWS_CA_BUNDLE", certPath)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+			Region:    testRegion,
+			LocalMode: true,
+		})
+		require.NoError(t, err)
+		assertHTTPClientHasRootCAs(t, cfg.HTTPClient)
+	})
+
+	t.Run("FromSettings", func(t *testing.T) {
+		isolateAWSEnv(t)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+			Region:              testRegion,
+			LocalMode:           true,
+			CertificateFilePath: certPath,
+		})
+		require.NoError(t, err)
+		assertHTTPClientHasRootCAs(t, cfg.HTTPClient)
+	})
+}
+
+func TestGetAWSConfig_Proxy(t *testing.T) {
+	const proxy = "http://proxy.example.com:3128"
+
+	t.Run("FromEnv", func(t *testing.T) {
+		isolateAWSEnv(t)
+		t.Setenv("HTTPS_PROXY", proxy)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+			Region:    testRegion,
+			LocalMode: true,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, proxy, resolvedProxyAddr(t, cfg.HTTPClient))
+	})
+
+	t.Run("FromSettings", func(t *testing.T) {
+		isolateAWSEnv(t)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+			Region:       testRegion,
+			LocalMode:    true,
+			ProxyAddress: proxy,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, proxy, resolvedProxyAddr(t, cfg.HTTPClient))
+	})
+}
+
+func TestGetAWSConfig_Endpoint(t *testing.T) {
+	const endpoint = "https://endpoint.example.com"
+
+	isolateAWSEnv(t)
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:    testRegion,
+		LocalMode: true,
+		Endpoint:  endpoint,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, cfg.BaseEndpoint)
+	assert.Equal(t, endpoint, *cfg.BaseEndpoint)
+}
+
+// assertHTTPClientHasRootCAs verifies the HTTP client's TLS config has a custom CA pool loaded.
+func assertHTTPClientHasRootCAs(t *testing.T, httpClient aws.HTTPClient) {
+	t.Helper()
+	bc, ok := httpClient.(*awshttp.BuildableClient)
+	require.True(t, ok, "expected *awshttp.BuildableClient")
+	require.NotNil(t, bc.GetTransport().TLSClientConfig)
+	assert.NotNil(t, bc.GetTransport().TLSClientConfig.RootCAs,
+		"CA bundle should be populated in TLS config")
+}
+
+// resolvedProxyAddr returns the HTTP client's resolved proxy URL string, or empty if no proxy.
+func resolvedProxyAddr(t *testing.T, httpClient aws.HTTPClient) string {
+	t.Helper()
+	bc, ok := httpClient.(*awshttp.BuildableClient)
+	require.True(t, ok, "expected *awshttp.BuildableClient")
+	got := resolvedProxy(t, bc.GetTransport())
+	if got == nil {
+		return ""
+	}
+	return got.String()
+}
+
+// TestGetAWSConfig_StaticCredentialsFromEnv confirms AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY flow into the
+// credential chain when no Profile or SharedCredentialsFile override is configured.
+func TestGetAWSConfig_StaticCredentialsFromEnv(t *testing.T) {
+	isolateAWSEnv(t)
+	t.Setenv("AWS_ACCESS_KEY_ID", "AKIAEXAMPLE")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:    testRegion,
+		LocalMode: true,
+	})
+	require.NoError(t, err)
+
+	creds, err := cfg.Credentials.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "AKIAEXAMPLE", creds.AccessKeyID)
+	assert.Equal(t, "secret", creds.SecretAccessKey)
+}
+
+// TestGetAWSConfig_WebIdentityFromEnv confirms AWS_WEB_IDENTITY_TOKEN_FILE activates the web identity
+// provider. The token file is non-existent so Retrieve fails deterministically with a token-read error.
+func TestGetAWSConfig_WebIdentityFromEnv(t *testing.T) {
+	isolateAWSEnv(t)
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/nonexistent/web-identity-token")
+	t.Setenv("AWS_ROLE_ARN", testRoleARN)
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:    testRegion,
+		LocalMode: true,
+	})
+	require.NoError(t, err)
+
+	_, retrieveErr := cfg.Credentials.Retrieve(t.Context())
+	require.Error(t, retrieveErr)
+	assert.Contains(t, strings.ToLower(retrieveErr.Error()), "web-identity-token",
+		"web identity provider should have attempted to read the configured token file")
+}
+
+// TestGetAWSConfig_ContainerCredentialsFromEnv confirms AWS_CONTAINER_CREDENTIALS_FULL_URI activates the
+// container provider, using a local httptest server that returns synthetic credentials.
+func TestGetAWSConfig_ContainerCredentialsFromEnv(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{
+			"AccessKeyId":     "AKIACONTAINER",
+			"SecretAccessKey": "container-secret",
+			"Token":           "container-token",
+			"Expiration":      "2099-01-01T00:00:00Z"
+		}`))
+	}))
+	defer server.Close()
+
+	isolateAWSEnv(t)
+	t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", server.URL+"/credentials")
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:    testRegion,
+		LocalMode: true,
+	})
+	require.NoError(t, err)
+
+	creds, err := cfg.Credentials.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "AKIACONTAINER", creds.AccessKeyID,
+		"creds should originate from the container credentials endpoint")
+}
+
+// TestGetAWSConfig_DualStackEndpointFromEnv confirms AWS_USE_DUALSTACK_ENDPOINT
+// is reflected in cfg.ConfigSources. Env-only — no AWSSessionSettings field.
+func TestGetAWSConfig_DualStackEndpointFromEnv(t *testing.T) {
+	isolateAWSEnv(t)
+	t.Setenv("AWS_USE_DUALSTACK_ENDPOINT", "true")
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:    testRegion,
+		LocalMode: true,
+	})
+	require.NoError(t, err)
+
+	state, found := getDualStackEndpointState(cfg)
+	require.True(t, found, "AWS_USE_DUALSTACK_ENDPOINT should be reflected in ConfigSources")
+	assert.Equal(t, aws.DualStackEndpointStateEnabled, state)
+}
+
+// TestGetAWSConfig_FIPSEndpointFromEnv confirms AWS_USE_FIPS_ENDPOINT is
+// reflected in cfg.ConfigSources. Env-only — no AWSSessionSettings field.
+func TestGetAWSConfig_FIPSEndpointFromEnv(t *testing.T) {
+	isolateAWSEnv(t)
+	t.Setenv("AWS_USE_FIPS_ENDPOINT", "true")
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:    testRegion,
+		LocalMode: true,
+	})
+	require.NoError(t, err)
+
+	state, found := getFIPSEndpointState(cfg)
+	require.True(t, found, "AWS_USE_FIPS_ENDPOINT should be reflected in ConfigSources")
+	assert.Equal(t, aws.FIPSEndpointStateEnabled, state)
+}
+
+// getDualStackEndpointState mirrors how AWS service clients resolve the flag at
+// request time.
+func getDualStackEndpointState(cfg aws.Config) (aws.DualStackEndpointState, bool) {
+	for _, src := range cfg.ConfigSources {
+		if v, ok := src.(interface {
+			GetUseDualStackEndpoint(context.Context) (aws.DualStackEndpointState, bool, error)
+		}); ok {
+			state, found, _ := v.GetUseDualStackEndpoint(context.Background())
+			if found {
+				return state, true
+			}
+		}
+	}
+	return aws.DualStackEndpointStateUnset, false
+}
+
+// getFIPSEndpointState mirrors how AWS service clients resolve the flag at
+// request time.
+func getFIPSEndpointState(cfg aws.Config) (aws.FIPSEndpointState, bool) {
+	for _, src := range cfg.ConfigSources {
+		if v, ok := src.(interface {
+			GetUseFIPSEndpoint(context.Context) (aws.FIPSEndpointState, bool, error)
+		}); ok {
+			state, found, _ := v.GetUseFIPSEndpoint(context.Background())
+			if found {
+				return state, true
+			}
+		}
+	}
+	return aws.FIPSEndpointStateUnset, false
 }
