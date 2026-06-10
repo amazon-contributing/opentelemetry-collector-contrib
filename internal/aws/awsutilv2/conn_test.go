@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -468,14 +469,18 @@ func TestGetAWSConfig_Proxy(t *testing.T) {
 
 	t.Run("FromEnv", func(t *testing.T) {
 		isolateAWSEnv(t)
-		t.Setenv("HTTPS_PROXY", proxy)
 
 		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
 			Region:    testRegion,
 			LocalMode: true,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, proxy, resolvedProxyAddr(t, cfg.HTTPClient))
+		bc, ok := cfg.HTTPClient.(*awshttp.BuildableClient)
+		require.True(t, ok)
+		assert.Equal(t,
+			reflect.ValueOf(http.ProxyFromEnvironment).Pointer(),
+			reflect.ValueOf(bc.GetTransport().Proxy).Pointer(),
+			"expected http.ProxyFromEnvironment when no explicit proxy is set")
 	})
 
 	t.Run("FromSettings", func(t *testing.T) {
