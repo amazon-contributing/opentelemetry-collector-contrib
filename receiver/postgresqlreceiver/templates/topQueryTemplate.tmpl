@@ -25,6 +25,5 @@ WHERE
   query != '<insufficient privilege>'
   AND query NOT LIKE '/* otel-collector-ignore */%'
   AND rolname != current_user
-  AND NOT rolsuper
 ORDER BY calls DESC
 LIMIT {{ .limit }};
