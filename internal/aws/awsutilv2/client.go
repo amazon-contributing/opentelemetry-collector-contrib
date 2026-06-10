@@ -11,17 +11,41 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 )
 
-// buildHTTPClient builds an HTTP client from settings for use via config.WithHTTPClient. Returns
-// *awshttp.BuildableClient so the SDK can still apply AWS_CA_BUNDLE / config.WithCustomCABundle
-// (which type-asserts the registered client).
-func buildHTTPClient(logger *zap.Logger, settings *AWSSessionSettings) (*awshttp.BuildableClient, error) {
+var (
+	httpClientsMu sync.Mutex
+	httpClients   = map[httpClientSettings]aws.HTTPClient{}
+)
+
+// getHTTPClient returns a shared HTTP client for the given settings. Sharing the client enables connection pooling
+// and reuse across all AWS API calls, which reduces memory and file descriptor usage. Callers with identical
+// transport-relevant settings share a single client.
+func getHTTPClient(logger *zap.Logger, settings *AWSSessionSettings) (aws.HTTPClient, error) {
+	key := settings.httpClientSettings()
+	httpClientsMu.Lock()
+	defer httpClientsMu.Unlock()
+	if c, ok := httpClients[key]; ok {
+		return c, nil
+	}
+	c, err := buildHTTPClient(logger, key)
+	if err != nil {
+		return nil, err
+	}
+	httpClients[key] = c
+	return c, nil
+}
+
+// buildHTTPClient builds an HTTP client for AWS SDK operations. Returns a BuildableClient because the SDK will only
+// append custom CA bundles if the client is of that type. https://github.com/aws/aws-sdk-go-v2/blob/v1.41.12/config/resolve.go#L57
+func buildHTTPClient(logger *zap.Logger, settings httpClientSettings) (*awshttp.BuildableClient, error) {
 	if settings.ProxyAddress != "" {
 		logger.Debug("Using proxy address", zap.String("proxyAddr", settings.ProxyAddress))
 	}

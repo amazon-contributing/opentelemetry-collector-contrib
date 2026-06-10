@@ -39,6 +39,29 @@ type AWSSessionSettings struct {
 	ExternalID string `mapstructure:"external_id,omitempty"`
 }
 
+// httpClientSettings is the subset of AWSSessionSettings that determines the HTTP transport
+// configuration. Callers with identical settings share a single BuildableClient (and its
+// connection pool).
+type httpClientSettings struct {
+	ProxyAddress          string
+	CertificateFilePath   string
+	NoVerifySSL           bool
+	RequestTimeoutSeconds int
+	NumberOfWorkers       int
+}
+
+// httpClientSettings returns the transport-relevant subset of settings used as
+// a cache key for shared HTTP clients.
+func (s *AWSSessionSettings) httpClientSettings() httpClientSettings {
+	return httpClientSettings{
+		ProxyAddress:          s.ProxyAddress,
+		CertificateFilePath:   s.CertificateFilePath,
+		NoVerifySSL:           s.NoVerifySSL,
+		RequestTimeoutSeconds: s.RequestTimeoutSeconds,
+		NumberOfWorkers:       s.NumberOfWorkers,
+	}
+}
+
 // CreateDefaultSessionConfig returns AWSSessionSettings with sensible defaults. Mirrors v1
 // awsutil.CreateDefaultSessionConfig.
 func CreateDefaultSessionConfig() AWSSessionSettings {

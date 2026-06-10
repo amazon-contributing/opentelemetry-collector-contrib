@@ -6,6 +6,7 @@ package awsutilv2
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,6 +38,17 @@ var (
 		Credentials: credentials.NewStaticCredentialsProvider(testCredentials.AccessKeyID, testCredentials.SecretAccessKey, testCredentials.SessionToken),
 	}
 )
+
+type mockHTTPClient struct {
+	mock.Mock
+}
+
+var _ aws.HTTPClient = (*mockHTTPClient)(nil)
+
+func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	args := m.Called(req)
+	return args.Get(0).(*http.Response), args.Error(1)
+}
 
 type mockCredentialsProvider struct {
 	mock.Mock

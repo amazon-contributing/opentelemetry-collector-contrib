@@ -51,12 +51,12 @@ func TestResolveRegion(t *testing.T) {
 	t.Run("IMDSDisabledError", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "")
 		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-		client, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{})
-		require.NoError(t, err)
+		client := &mockHTTPClient{}
 		got, err := resolveRegion(t.Context(), zap.NewNop(), &AWSSessionSettings{}, client)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "failed to resolve region from EC2 metadata")
 		assert.Empty(t, got)
+		client.AssertNotCalled(t, "Do")
 	})
 }
 
