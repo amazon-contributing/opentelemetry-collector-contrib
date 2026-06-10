@@ -86,7 +86,7 @@ func TestConnectionStringWithPassfile(t *testing.T) {
 
 	connStr, err := cfg.ConnectionString()
 	require.NoError(t, err)
-	require.Contains(t, connStr, "passfile=/tmp/pgpass")
+	require.Contains(t, connStr, "passfile='/tmp/pgpass'")
 }
 
 func TestConnectionStringWithoutPassfile(t *testing.T) {

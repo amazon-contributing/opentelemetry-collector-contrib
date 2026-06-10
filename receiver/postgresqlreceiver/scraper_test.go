@@ -696,10 +696,12 @@ func TestScrapeTopQueriesCollectsOnlyWhenIntervalHasElapsed(t *testing.T) {
 	cfg.Databases = []string{}
 	cfg.Events.DbServerTopQuery.Enabled = true
 	cfg.TopQueryCollection.CollectionInterval = 600 * time.Second
-	db, _, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	assert.NoError(t, err)
 
 	defer db.Close()
+
+	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(sqlmock.NewRows([]string{"calls", "datname", "shared_blks_dirtied", "shared_blks_hit", "shared_blks_read", "shared_blks_written", "local_blks_hit", "local_blks_read", "local_blks_dirtied", "local_blks_written", "temp_blks_read", "temp_blks_written", "query", "queryid", "rolname", "rows", "total_exec_time", "total_plan_time"}))
 
 	factory := mockSimpleClientFactory{
 		db: db,
