@@ -4,6 +4,7 @@
 package mysqlreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver"
 
 import (
+	"errors"
 	"time"
 
 	"go.opentelemetry.io/collector/config/confignet"
@@ -25,6 +26,7 @@ type Config struct {
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
 	Username                       string              `mapstructure:"username,omitempty"`
 	Password                       configopaque.String `mapstructure:"password,omitempty"`
+	Passfile                       string              `mapstructure:"passfile,omitempty"`
 	Database                       string              `mapstructure:"database,omitempty"`
 	AllowNativePasswords           bool                `mapstructure:"allow_native_passwords,omitempty"`
 	confignet.AddrConfig           `mapstructure:",squash"`
@@ -44,12 +46,12 @@ type TopQueryCollection struct {
 	QueryPlanCacheSize  int           `mapstructure:"query_plan_cache_size"`
 	QueryPlanCacheTTL   time.Duration `mapstructure:"query_plan_cache_ttl"`
 
-	_ struct{}
+	_ struct{} // prevents unkeyed struct literal initialization
 }
 type QuerySampleCollection struct {
 	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
 
-	_ struct{}
+	_ struct{} // prevents unkeyed struct literal initialization
 }
 
 type StatementEventsConfig struct {
@@ -72,4 +74,17 @@ func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
 	}
 
 	return componentParser.Unmarshal(cfg)
+}
+
+func (cfg *Config) Validate() error {
+	if cfg.Password != "" && cfg.Passfile != "" {
+		return errors.New("invalid config: only one of 'password' or 'passfile' may be set")
+	}
+	if cfg.Password == "" && cfg.Passfile == "" {
+		return errors.New("invalid config: missing password or passfile")
+	}
+	if cfg.Passfile != "" {
+		return cfg.validatePassfilePermissions()
+	}
+	return nil
 }

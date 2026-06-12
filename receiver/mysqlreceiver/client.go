@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"net"
 	"strings"
 	"text/template"
 	"time"
@@ -232,16 +233,29 @@ func newMySQLClient(conf *Config) (client, error) {
 	}
 	tlsConfig := ""
 	if tls != nil {
-		err := mysql.RegisterTLSConfig("custom", tls)
+		tlsKey := fmt.Sprintf("mysql-receiver-%p", tls)
+		if err := mysql.RegisterTLSConfig(tlsKey, tls); err != nil {
+			return nil, err
+		}
+		tlsConfig = tlsKey
+	}
+
+	password := string(conf.Password)
+	if password == "" && conf.Passfile != "" {
+		host, port, err := splitHostPort(conf.Endpoint)
 		if err != nil {
 			return nil, err
 		}
-		tlsConfig = "custom"
+		resolved, err := resolvePasswordFromPassfile(conf.Passfile, host, port, conf.Database, conf.Username)
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve password from passfile: %w", err)
+		}
+		password = resolved
 	}
 
 	driverConf := mysql.Config{
 		User:                 conf.Username,
-		Passwd:               string(conf.Password),
+		Passwd:               password,
 		Net:                  string(conf.Transport),
 		Addr:                 conf.Endpoint,
 		DBName:               conf.Database,
@@ -365,8 +379,8 @@ func (c *mySQLClient) getIndexIoWaitsStats() ([]indexIoWaitsStats, error) {
 	for rows.Next() {
 		var s indexIoWaitsStats
 		err := rows.Scan(&s.schema, &s.name, &s.index,
-			&s.countDelete, &s.countFetch, &s.countInsert, &s.countUpdate,
-			&s.timeDelete, &s.timeFetch, &s.timeInsert, &s.timeUpdate)
+			&s.countFetch, &s.countInsert, &s.countUpdate, &s.countDelete,
+			&s.timeFetch, &s.timeInsert, &s.timeUpdate, &s.timeDelete)
 		if err != nil {
 			return nil, err
 		}
@@ -691,7 +705,9 @@ func (c *mySQLClient) getReplicaStatusStats() ([]replicaStatusStats, error) {
 			case "replicate_ignore_domain_ids":
 				dest = append(dest, &s.replicateIgnoreDomainIDs)
 			default:
-				return nil, fmt.Errorf("unknown column name %s for replica status", col)
+				// ignore unrecognized columns for forward compatibility
+				var discard any
+				dest = append(dest, &discard)
 			}
 		}
 		err := rows.Scan(dest...)
@@ -707,8 +723,13 @@ func (c *mySQLClient) getReplicaStatusStats() ([]replicaStatusStats, error) {
 //go:embed templates/topQuery.tmpl
 var topQueryTemplate string
 
+var (
+	querySampleTmpl = template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
+	topQueryTmpl    = template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
+)
+
 func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64) ([]topQuery, error) {
-	tmpl := template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
+	tmpl := topQueryTmpl
 	buf := bytes.Buffer{}
 
 	if err := tmpl.Execute(&buf, map[string]any{
@@ -748,7 +769,7 @@ func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64) ([]topQuery,
 var querySampleTemplate string
 
 func (c *mySQLClient) getQuerySamples(limit uint64) ([]querySample, error) {
-	tmpl := template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
+	tmpl := querySampleTmpl
 	buf := bytes.Buffer{}
 
 	if err := tmpl.Execute(&buf, map[string]any{
@@ -803,15 +824,22 @@ func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest s
 		return ""
 	}
 
+	conn, err := c.client.Conn(context.Background())
+	if err != nil {
+		logger.Warn("unable to acquire connection for explain", zap.String("digest", digest), zap.Error(err))
+		return ""
+	}
+	defer conn.Close()
+
 	if schema != "" {
-		if _, err := c.client.Exec(fmt.Sprintf("/* otel-collector-ignore */ USE `%s`;", strings.ReplaceAll(schema, "`", "``"))); err != nil {
+		if _, err := conn.ExecContext(context.Background(), fmt.Sprintf("/* otel-collector-ignore */ USE `%s`;", strings.ReplaceAll(schema, "`", "``"))); err != nil {
 			logger.Warn(fmt.Sprintf("unable to use schema: %s", schema), zap.String("digest", digest), zap.Error(err))
 			return ""
 		}
 	}
 
 	var plan string
-	err := c.client.QueryRow("EXPLAIN FORMAT=json " + strings.TrimSpace(sampleStatement)).Scan(&plan)
+	err = conn.QueryRowContext(context.Background(), "EXPLAIN FORMAT=json "+strings.TrimSpace(sampleStatement)).Scan(&plan)
 	if err != nil {
 		logger.Warn("unable to execute explain statement", zap.String("digest", digest), zap.Error(err))
 		return ""
@@ -867,4 +895,12 @@ func (c *mySQLClient) Close() error {
 		return c.client.Close()
 	}
 	return nil
+}
+
+func splitHostPort(endpoint string) (host, port string, err error) {
+	host, port, err = net.SplitHostPort(endpoint)
+	if err != nil {
+		return endpoint, "3306", fmt.Errorf("malformed endpoint %q: %w", endpoint, err)
+	}
+	return host, port, nil
 }

@@ -4,9 +4,14 @@
 package mysqlreceiver
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/config/confignet"
+	"go.opentelemetry.io/collector/config/configtls"
 	"go.uber.org/zap"
 )
 
@@ -116,4 +121,86 @@ func TestExplainQueryEarlyExits(t *testing.T) {
 		result := c.explainQuery("SHOW TABLES", "SHOW TABLES", "", "digest2", logger)
 		assert.Empty(t, result)
 	})
+}
+
+func TestNewMySQLClient_PassfileResolvesPassword(t *testing.T) {
+	content := "localhost:3306:testdb:cw_monitor:secret_from_file\n"
+	dir := t.TempDir()
+	passfilePath := filepath.Join(dir, ".mysql_credentials")
+	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
+
+	conf := &Config{
+		Username: "cw_monitor",
+		Passfile: passfilePath,
+		Database: "testdb",
+		AddrConfig: confignet.AddrConfig{
+			Endpoint:  "localhost:3306",
+			Transport: confignet.TransportTypeTCP,
+		},
+		AllowNativePasswords: true,
+		TLS: configtls.ClientConfig{
+			Insecure: true,
+		},
+	}
+
+	c, err := newMySQLClient(conf)
+	require.NoError(t, err)
+
+	mc := c.(*mySQLClient)
+	assert.Contains(t, mc.connStr, "secret_from_file")
+	assert.Contains(t, mc.connStr, "cw_monitor")
+}
+
+func TestNewMySQLClient_PassfileNoMatch(t *testing.T) {
+	content := "otherhost:3306:otherdb:otheruser:pass\n"
+	dir := t.TempDir()
+	passfilePath := filepath.Join(dir, ".mysql_credentials")
+	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
+
+	conf := &Config{
+		Username: "cw_monitor",
+		Passfile: passfilePath,
+		Database: "testdb",
+		AddrConfig: confignet.AddrConfig{
+			Endpoint:  "localhost:3306",
+			Transport: confignet.TransportTypeTCP,
+		},
+		AllowNativePasswords: true,
+		TLS: configtls.ClientConfig{
+			Insecure: true,
+		},
+	}
+
+	_, err := newMySQLClient(conf)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "unable to resolve password from passfile")
+}
+
+func TestNewMySQLClient_InlinePasswordTakesPrecedence(t *testing.T) {
+	content := "localhost:3306:*:cw_monitor:file_password\n"
+	dir := t.TempDir()
+	passfilePath := filepath.Join(dir, ".mysql_credentials")
+	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
+
+	conf := &Config{
+		Username: "cw_monitor",
+		Password: "inline_password",
+		Passfile: passfilePath,
+		Database: "testdb",
+		AddrConfig: confignet.AddrConfig{
+			Endpoint:  "localhost:3306",
+			Transport: confignet.TransportTypeTCP,
+		},
+		AllowNativePasswords: true,
+		TLS: configtls.ClientConfig{
+			Insecure: true,
+		},
+	}
+
+	c, err := newMySQLClient(conf)
+	require.NoError(t, err)
+
+	mc := c.(*mySQLClient)
+	assert.Contains(t, mc.connStr, "inline_password")
+	assert.NotContains(t, mc.connStr, "file_password")
 }

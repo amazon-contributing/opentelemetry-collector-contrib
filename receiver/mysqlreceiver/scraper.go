@@ -4,7 +4,6 @@
 package mysqlreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver"
 
 import (
-	"container/heap"
 	"context"
 	"errors"
 	"net"
@@ -24,7 +23,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/priorityqueue"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver/internal/metadata"
 )
 
@@ -38,9 +36,6 @@ type mySQLScraper struct {
 	queryPlanCache         *expirable.LRU[string, string]
 	obfuscator             *obfuscator
 	lastExecutionTimestamp time.Time
-
-	// Feature gates regarding resource attributes
-	renameCommands bool
 }
 
 func newMySQLScraper(
@@ -89,7 +84,7 @@ func (m *mySQLScraper) shutdown(context.Context) error {
 // scrape scrapes the mysql db metric stats, transforms them and labels them into a metric slices.
 func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 	if m.sqlclient == nil {
-		return pmetric.Metrics{}, errors.New("failed to connect to http client")
+		return pmetric.Metrics{}, errors.New("failed to initialize MySQL client")
 	}
 
 	now := pcommon.NewTimestampFromTime(time.Now())
@@ -139,15 +134,15 @@ func (m *mySQLScraper) scrapeTopQueryFunc(_ context.Context) (plog.Logs, error) 
 		return plog.NewLogs(), errors.New("failed to connect to MySQL client")
 	}
 
-	errs := &scrapererror.ScrapeErrors{}
-
 	now := pcommon.NewTimestampFromTime(time.Now())
 
 	if m.lastExecutionTimestamp.Add(m.config.TopQueryCollection.CollectionInterval).After(now.AsTime()) {
 		m.logger.Debug("Skipping top queries scrape, not enough time has passed since last execution")
-	} else {
-		m.scrapeTopQueries(now, errs)
+		return plog.NewLogs(), nil
 	}
+
+	errs := &scrapererror.ScrapeErrors{}
+	m.scrapeTopQueries(now, errs)
 	rb := m.lb.NewResourceBuilder()
 	rb.SetMysqlInstanceEndpoint(m.config.Endpoint)
 	return m.lb.Emit(metadata.WithLogsResource(rb.Emit())), errs.Combine()
@@ -661,29 +656,31 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 		return
 	}
 
-	sumTimerWaitInPicoSecondsDiff := make([]int64, len(queries))
+	type rankedQuery struct {
+		query topQuery
+		diff  int64
+	}
+	ranked := make([]rankedQuery, len(queries))
 	for i, q := range queries {
 		if cached, diff := m.cacheAndDiff(q.schemaName, q.digest, "sum_timer_wait", q.sumTimerWaitInPicoSeconds); cached && diff > 0 {
-			sumTimerWaitInPicoSecondsDiff[i] = diff
+			ranked[i] = rankedQuery{q, diff}
+		} else {
+			ranked[i] = rankedQuery{q, 0}
 		}
 	}
-
-	// sort the rows based on the sumTimerWaitInPicoSecondsDiff in descending order,
-	// only report first T(T=topQueryCount) rows.
-	queries = sortTopQueries(queries, sumTimerWaitInPicoSecondsDiff, m.config.TopQueryCollection.TopQueryCount)
-
-	// sort the totalElapsedTimeDiffs in descending order as well
-	sort.Slice(sumTimerWaitInPicoSecondsDiff, func(i, j int) bool { return sumTimerWaitInPicoSecondsDiff[i] > sumTimerWaitInPicoSecondsDiff[j] })
+	sort.Slice(ranked, func(i, j int) bool { return ranked[i].diff > ranked[j].diff })
+	if uint64(len(ranked)) > m.config.TopQueryCollection.TopQueryCount {
+		ranked = ranked[:m.config.TopQueryCollection.TopQueryCount]
+	}
 
 	m.lastExecutionTimestamp = now.AsTime()
 
-	for i, q := range queries {
-		// skip the rest queries due to desc order
-		if sumTimerWaitInPicoSecondsDiff[i] == 0 {
+	for _, r := range ranked {
+		if r.diff == 0 {
 			break
 		}
-
-		sumTimerWaitVal := float64(sumTimerWaitInPicoSecondsDiff[i]) / 1_000_000_000_000.0 // convert to seconds
+		q := r.query
+		sumTimerWaitVal := float64(r.diff) / 1_000_000_000_000.0
 
 		cached, countStarVal := m.cacheAndDiff(q.schemaName, q.digest, "count_star", q.countStar)
 		if !cached {
@@ -692,26 +689,25 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 
 		obfuscatedQuery, err := m.obfuscator.obfuscateSQLString(q.digestText)
 		if err != nil {
-			m.logger.Error("Failed to obfuscate query", zap.Error(err))
+			m.logger.Error("failed to obfuscate query, skipping event", zap.Error(err))
+			continue
 		}
 
 		var queryPlan string
 		var ok bool
 		if queryPlan, ok = m.queryPlanCache.Get(q.schemaName + "-" + q.digest); !ok {
-			// attempt to explain the query
 			queryPlan = m.sqlclient.explainQuery(q.digestText, q.querySampleText, q.schemaName, q.digest, m.logger)
 			if queryPlan == "" {
 				m.logger.Debug("query plan not available", zap.String("digest", q.digest), zap.String("digest_text", q.digestText))
 			} else {
-				// Obfuscate the plan
 				queryPlan, err = m.obfuscator.obfuscatePlan(queryPlan)
 				if err != nil {
-					// Obfuscation returned an error, log it. We cannot publish the unobfuscated plan as it may contain sensitive data
-					m.logger.Error("Failed to obfuscate query plan", zap.Error(err))
+					m.logger.Error("failed to obfuscate query plan", zap.Error(err))
+					queryPlan = ""
+				} else {
+					m.queryPlanCache.Add(q.schemaName+"-"+q.digest, queryPlan)
 				}
 			}
-			// add the obfuscated plan to the cache so we can use it again
-			m.queryPlanCache.Add(q.schemaName+"-"+q.digest, queryPlan)
 		}
 
 		m.lb.RecordDbServerTopQueryEvent(
@@ -758,7 +754,8 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 
 		obfuscatedQuery, obfErr := m.obfuscator.obfuscateSQLString(sample.sqlText)
 		if obfErr != nil {
-			m.logger.Error("Failed to obfuscate query", zap.Error(obfErr))
+			m.logger.Error("failed to obfuscate query, skipping event", zap.Error(obfErr))
+			continue
 		}
 
 		// Use context.Background() as the default (not the scraper ctx) so that log
@@ -881,32 +878,3 @@ func (m *mySQLScraper) cacheAndDiff(schemaName, digest, column string, val int64
 	return true, 0
 }
 
-// sortTopQueries sorts the top queries based on the `values` slice in descending order and returns the first M(M=maximum) queries
-// Input: (row: [query1, query2, query3], values: [100, 10, 1000], maximum: 2
-// Expected Output: (row: [query3, query1])
-func sortTopQueries(queries []topQuery, values []int64, maximum uint64) []topQuery {
-	results := make([]topQuery, 0)
-
-	if len(queries) == 0 ||
-		len(values) == 0 ||
-		len(queries) != len(values) ||
-		maximum <= 0 {
-		return []topQuery{}
-	}
-	pq := make(priorityqueue.PriorityQueue[topQuery, int64], len(queries))
-	for i, q := range queries {
-		value := values[i]
-		pq[i] = &priorityqueue.QueueItem[topQuery, int64]{
-			Value:    q,
-			Priority: value,
-			Index:    i,
-		}
-	}
-	heap.Init(&pq)
-
-	for pq.Len() > 0 && len(results) < int(maximum) {
-		item := heap.Pop(&pq).(*priorityqueue.QueueItem[topQuery, int64])
-		results = append(results, item.Value)
-	}
-	return results
-}
