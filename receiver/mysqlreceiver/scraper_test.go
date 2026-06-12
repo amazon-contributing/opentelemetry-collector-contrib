@@ -84,8 +84,6 @@ func TestScrape(t *testing.T) {
 			topQueriesFile:              "top_queries",
 		}
 
-		scraper.renameCommands = true
-
 		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
@@ -188,8 +186,6 @@ func TestScrapeBufferPoolPagesMiscOutOfBounds(t *testing.T) {
 		tableLockWaitEventStatsFile: "table_lock_wait_event_stats_empty",
 		replicaStatusFile:           "replica_stats_empty",
 	}
-
-	scraper.renameCommands = true
 
 	actualMetrics, err := scraper.scrape(t.Context())
 	require.NoError(t, err)

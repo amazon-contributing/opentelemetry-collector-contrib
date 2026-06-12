@@ -14,26 +14,22 @@ var (
 	}
 )
 
-type obfuscator obfuscate.Obfuscator
+type obfuscator struct{ inner *obfuscate.Obfuscator }
 
 func newObfuscator() *obfuscator {
-	return (*obfuscator)(obfuscate.NewObfuscator(obfuscatorConfig))
+	return &obfuscator{inner: obfuscate.NewObfuscator(obfuscatorConfig)}
 }
 
 func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
-	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sql, &obfuscateSQLConfig)
+	res, err := o.inner.ObfuscateSQLStringWithOptions(sql, &obfuscateSQLConfig)
 	if err != nil {
 		return "", err
 	}
-	return obfuscatedQuery.Query, nil
+	return res.Query, nil
 }
 
 func (o *obfuscator) obfuscatePlan(plan string) (string, error) {
-	obfuscated, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLExecPlan(plan, false)
-	if err != nil {
-		return "", err
-	}
-	return obfuscated, nil
+	return o.inner.ObfuscateSQLExecPlan(plan, false)
 }
 
 // For further information, see https://dev.mysql.com/doc/refman/8.4/en/explain.html
@@ -43,17 +39,15 @@ func (o *obfuscator) obfuscatePlan(plan string) (string, error) {
 var defaultSQLPlanObfuscateSettings = obfuscate.JSONConfig{
 	Enabled: true,
 	ObfuscateSQLValues: []string{
-		// v2: the full query text
 		"query",
-		// v2: SQL condition expression on a filter node
 		"condition",
-		// v2: human-readable description of a plan node (e.g. "Filter: (...)", "Table scan on ...")
 		"operation",
-		// v1: SQL condition expression attached to a table scan
 		"attached_condition",
 	},
+	// KeepValues is an allowlist. New structural keys added by MySQL EXPLAIN
+	// output must be added here to avoid silent obfuscation. Review after
+	// MySQL minor version upgrades.
 	KeepValues: []string{
-		// v1 structural fields
 		"cost_info",
 		"ordering_operation",
 		"query_block",
@@ -63,7 +57,6 @@ var defaultSQLPlanObfuscateSettings = obfuscate.JSONConfig{
 		"table",
 		"used_columns",
 		"using_filesort",
-		// v2 structural fields
 		"access_type",
 		"covering",
 		"estimated_rows",
