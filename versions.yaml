@@ -7,7 +7,6 @@ module-sets:
     modules:
       - github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware
       - github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws
-      - github.com/amazon-contributing/opentelemetry-collector-contrib/override/awsv2
       - github.com/open-telemetry/opentelemetry-collector-contrib
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/golden
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/opampsupervisor
@@ -134,7 +133,6 @@ module-sets:
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/sumologicextension
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/k8sleaderelector
       - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil
-      - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2
       - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight
       - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/cwlogs
       - github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil

@@ -33,6 +33,9 @@ The configuration fields are as follows:
     * [List of AWS regions](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html)
 * `service`: **Optional**. The AWS service for AWS Sigv4
     * Note for supported services an attempt will be made to obtain a valid service from the endpoint of the service you are exporting to. Supported services include - workspaces, es, logs and traces.
+* `profile`: **Optional**. The named profile to use from the shared credentials file(s).
+* `shared_credentials_file`: **Optional**. List of paths to shared credentials files to read credentials from.
+* `local_mode`: **Optional**. Skip EC2 IMDS region detection. Use when running outside EC2 (`region` must be set).
 
 
 ## Assume Role

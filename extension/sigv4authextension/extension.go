@@ -17,6 +17,8 @@ import (
 	"go.opentelemetry.io/collector/extension"
 	"go.opentelemetry.io/collector/extension/extensionauth"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // sigv4Auth is a struct that implements the extensionauth.HTTPClient interface.
@@ -24,6 +26,7 @@ import (
 type sigv4Auth struct {
 	cfg                    *Config
 	logger                 *zap.Logger
+	credsProvider          *aws.CredentialsProvider
 	awsSDKInfo             string
 	component.StartFunc    // embedded default behavior to do nothing with Start()
 	component.ShutdownFunc // embedded default behavior to do nothing with Shutdown()
@@ -47,7 +50,7 @@ func (sa *sigv4Auth) RoundTripper(base http.RoundTripper) (http.RoundTripper, er
 		signer:        signer,
 		region:        cfg.Region,
 		service:       cfg.Service,
-		credsProvider: cfg.credsProvider,
+		credsProvider: sa.credsProvider,
 		awsSDKInfo:    sa.awsSDKInfo,
 		logger:        sa.logger,
 	}
@@ -55,41 +58,56 @@ func (sa *sigv4Auth) RoundTripper(base http.RoundTripper) (http.RoundTripper, er
 	return &rt, nil
 }
 
-// newSigv4Extension() is called by createExtension() in factory.go and
-// returns a new sigv4Auth struct.
-func newSigv4Extension(cfg *Config, awsSDKInfo string, logger *zap.Logger) *sigv4Auth {
+// newSigv4Extension returns a new sigv4Auth backed by the given credentials provider.
+func newSigv4Extension(cfg *Config, credsProvider *aws.CredentialsProvider, awsSDKInfo string, logger *zap.Logger) *sigv4Auth {
 	return &sigv4Auth{
-		cfg:        cfg,
-		logger:     logger,
-		awsSDKInfo: awsSDKInfo,
+		cfg:           cfg,
+		credsProvider: credsProvider,
+		logger:        logger,
+		awsSDKInfo:    awsSDKInfo,
 	}
+}
+
+// resolveCredentialsProvider dispatches to the appropriate credential source (web-identity or
+// the shared-credentials chain) and returns the resolved provider.
+func resolveCredentialsProvider(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
+	var (
+		creds *aws.CredentialsProvider
+		err   error
+	)
+	if cfg.AssumeRole.WebIdentityTokenFile != "" {
+		creds, err = getCredsProviderFromWebIdentityConfig(ctx, logger, cfg)
+	} else {
+		creds, err = getCredsProviderFromConfig(ctx, logger, cfg)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve credential provider: %w", err)
+	}
+	return creds, nil
 }
 
 // getCredsProviderFromConfig() is a helper function that gets AWS credentials
 // from the Config.
-func getCredsProviderFromConfig(cfg *Config) (*aws.CredentialsProvider, error) {
-	awscfg, err := awsconfig.LoadDefaultConfig(context.Background(),
-		awsconfig.WithRegion(cfg.AssumeRole.STSRegion),
-	)
+func getCredsProviderFromConfig(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
+	settings := awsutil.AWSSessionSettings{
+		Region:                cfg.resolvedSTSRegion(),
+		RoleARN:               cfg.AssumeRole.ARN,
+		Profile:               cfg.Profile,
+		LocalMode:             cfg.LocalMode,
+		SharedCredentialsFile: cfg.SharedCredentialsFile,
+		ExternalID:            cfg.AssumeRole.ExternalID,
+	}
+	awscfg, err := awsutil.GetAWSConfig(ctx, logger, &settings)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.AssumeRole.ARN != "" {
-		stsSvc := sts.NewFromConfig(awscfg)
-
-		provider := stscreds.NewAssumeRoleProvider(stsSvc, cfg.AssumeRole.ARN, assumeRoleOptions(cfg))
-		awscfg.Credentials = aws.NewCredentialsCache(provider)
-	}
-
-	_, err = awscfg.Credentials.Retrieve(context.Background())
-	if err != nil {
+	if _, err = awscfg.Credentials.Retrieve(ctx); err != nil {
 		return nil, err
 	}
-
 	return &awscfg.Credentials, nil
 }
 
-func getCredsProviderFromWebIdentityConfig(cfg *Config) (*aws.CredentialsProvider, error) {
+func getCredsProviderFromWebIdentityConfig(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
 	tokenRetriever := stscreds.IdentityTokenRetriever(
 		stscreds.IdentityTokenFile(cfg.AssumeRole.WebIdentityTokenFile),
 	)
@@ -98,14 +116,15 @@ func getCredsProviderFromWebIdentityConfig(cfg *Config) (*aws.CredentialsProvide
 		return nil, fmt.Errorf("unable to retrieve token file: %w", err)
 	}
 
-	awscfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+	stsRegion := cfg.resolvedSTSRegion()
+	awscfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithWebIdentityRoleCredentialOptions(
 			func(options *stscreds.WebIdentityRoleOptions) {
 				options.TokenRetriever = tokenRetriever
 				options.RoleARN = cfg.AssumeRole.ARN
 			},
 		),
-		awsconfig.WithRegion(cfg.AssumeRole.STSRegion),
+		awsconfig.WithRegion(stsRegion),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load AWS configuration: %w", err)
@@ -114,14 +133,9 @@ func getCredsProviderFromWebIdentityConfig(cfg *Config) (*aws.CredentialsProvide
 
 	provider := stscreds.NewWebIdentityRoleProvider(stsSvc, cfg.AssumeRole.ARN, tokenRetriever)
 	awscfg.Credentials = aws.NewCredentialsCache(provider)
+	logger.Debug("Web identity credentials provider configured",
+		zap.String("role-arn", cfg.AssumeRole.ARN),
+		zap.String("region", stsRegion))
 
 	return &awscfg.Credentials, nil
-}
-
-func assumeRoleOptions(cfg *Config) func(*stscreds.AssumeRoleOptions) {
-	return func(o *stscreds.AssumeRoleOptions) {
-		if cfg.AssumeRole.ExternalID != "" {
-			o.ExternalID = &cfg.AssumeRole.ExternalID
-		}
-	}
 }

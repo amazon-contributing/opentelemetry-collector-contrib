@@ -20,13 +20,17 @@ func NewFactory() extension.Factory {
 }
 
 // createDefaultConfig() creates a Config struct with default values.
-// We only set the ID here.
 func createDefaultConfig() component.Config {
 	return &Config{}
 }
 
-// createExtension() calls newSigv4Extension() in extension.go to create the extension.
-func createExtension(_ context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
+// createExtension() resolves the credentials provider and creates the extension.
+func createExtension(ctx context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
+	c := cfg.(*Config)
+	credsProvider, err := resolveCredentialsProvider(ctx, set.Logger, c)
+	if err != nil {
+		return nil, err
+	}
 	awsSDKInfo := fmt.Sprintf("%s/%s", aws.SDKName, aws.SDKVersion)
-	return newSigv4Extension(cfg.(*Config), awsSDKInfo, set.Logger), nil
+	return newSigv4Extension(c, credsProvider, awsSDKInfo, set.Logger), nil
 }

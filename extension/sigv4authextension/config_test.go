@@ -17,12 +17,6 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	awsCredsProvider := mockCredentials()
-	awsCreds, _ := (*awsCredsProvider).Retrieve(t.Context())
-
-	t.Setenv("AWS_ACCESS_KEY_ID", awsCreds.AccessKeyID)
-	t.Setenv("AWS_SECRET_ACCESS_KEY", awsCreds.SecretAccessKey)
-
 	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 	require.NoError(t, err)
 	factory := NewFactory()
@@ -37,10 +31,7 @@ func TestLoadConfig(t *testing.T) {
 		Service: "service",
 		AssumeRole: AssumeRole{
 			SessionName: "role_session_name",
-			STSRegion:   "region",
 		},
-		// Ensure creds are the same for load config test; tested in extension_test.go
-		credsProvider: cfg.(*Config).credsProvider,
 	}, cfg)
 }
 
@@ -60,9 +51,8 @@ func TestLoadWebIdentityConfig(t *testing.T) {
 		AssumeRole: AssumeRole{
 			ARN:                  "arn:aws:iam::12345678910:role/my_role",
 			WebIdentityTokenFile: "testdata/token_file",
-			STSRegion:            "region",
+			ExternalID:           "my-external-id",
 		},
-		credsProvider: cfg.(*Config).credsProvider,
 	}, cfg)
 }
 
@@ -71,8 +61,11 @@ func TestLoadConfigError(t *testing.T) {
 	require.NoError(t, err)
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
-	sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "missing_credentials").String())
+	sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "web_identity_no_arn").String())
 	require.NoError(t, err)
 	require.NoError(t, sub.Unmarshal(cfg))
-	assert.Error(t, xconfmap.Validate(cfg))
+
+	err = xconfmap.Validate(cfg)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "must specify ARN")
 }
