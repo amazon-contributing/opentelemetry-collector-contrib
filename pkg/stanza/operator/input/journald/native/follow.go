@@ -237,6 +237,14 @@ func (r *Reader) refreshTail() error {
 	if arenaEnd > r.arenaEnd {
 		r.arenaEnd = arenaEnd
 	}
+	// Extend the tail-object bound so the linear scan in ReadEntry will
+	// advance into the region the writer just filled. Without this the
+	// scan stays parked at the original TailObjectOffset and Follow never
+	// emits newly-appended entries. Only ever extended, never shrunk, for
+	// the same reason arenaEnd is monotonic.
+	if hdr.TailObjectOffset > r.tailObjectOffset {
+		r.tailObjectOffset = hdr.TailObjectOffset
+	}
 	r.hdr = hdr
 	return nil
 }

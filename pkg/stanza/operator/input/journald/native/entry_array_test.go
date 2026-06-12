@@ -117,7 +117,13 @@ func buildSyntheticHeaderBytes(arenaSize, nEntries, headSeq, tailSeq, entryArray
 	le.PutUint64(buf[112:120], 0)                  // DataHashTableSize
 	le.PutUint64(buf[120:128], 0)                  // FieldHashTableOffset
 	le.PutUint64(buf[128:136], 0)                  // FieldHashTableSize
-	le.PutUint64(buf[136:144], MinHeaderSize)      // TailObjectOffset (informational)
+	// TailObjectOffset: offset of the last real object. These synthetic
+	// arenas are tightly packed (no preallocated zero tail), so any value
+	// at/after the final object works; using the arena end guarantees the
+	// linear scan in ReadEntry covers every object. Must NOT be set to the
+	// FIRST object (MinHeaderSize) — that makes the tail-object EOF guard
+	// stop the scan after one object. See reader.go ReadEntry.
+	le.PutUint64(buf[136:144], MinHeaderSize+arenaSize-1) // TailObjectOffset (last object)
 	le.PutUint64(buf[144:152], nEntries+1)         // NObjects (entries + 1 EA)
 	le.PutUint64(buf[152:160], nEntries)           // NEntries
 	le.PutUint64(buf[160:168], tailSeq)            // TailEntrySeqnum
