@@ -4,5 +4,6 @@ status:
   class: processor
   stability:
     alpha: [logs]
+  distributions: []
   codeowners:
-    active: []
+    active: [jj22ee, jefchien, sky333999]

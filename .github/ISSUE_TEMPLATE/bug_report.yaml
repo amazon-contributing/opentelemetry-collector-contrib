@@ -203,6 +203,7 @@ body:
       - pkg/xk8stest
       - pkg/xstreamencoding
       - processor/attributes
+      - processor/attributestocontext
       - processor/awsattributelimit
       - processor/awscwotlpbatchsplit
       - processor/awsdevicepodcorrelation

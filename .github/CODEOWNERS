@@ -202,6 +202,7 @@ pkg/winperfcounters/                                             @open-telemetry
 pkg/xk8stest/                                                    @open-telemetry/collector-contrib-approvers @crobert-1
 pkg/xstreamencoding/                                             @open-telemetry/collector-contrib-approvers @Kavindu-Dodan @axw
 processor/attributesprocessor/                                   @open-telemetry/collector-contrib-approvers @boostchicken
+processor/attributestocontextprocessor/                          @open-telemetry/collector-contrib-approvers @jj22ee @jefchien @sky333999
 processor/awsattributelimitprocessor/                            @open-telemetry/collector-contrib-approvers @sky333999 @movence
 processor/awscwotlpbatchsplitprocessor/                          @open-telemetry/collector-contrib-approvers @liustve @jefchien @sky333999
 processor/awsdevicepodcorrelationprocessor/                      @open-telemetry/collector-contrib-approvers @sky333999 @movence

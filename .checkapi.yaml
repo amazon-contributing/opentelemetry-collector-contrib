@@ -55,6 +55,7 @@ ignored_paths:
   - override/aws
   - connector/genaiadapterconnector
   - processor/awscwotlpbatchsplitprocessor
+  - processor/attributestocontextprocessor # exports ActionKeyValue for external config construction
   - receiver/awscontainerinsightreceiver
 allowed_functions:
   - name: NewFactory
