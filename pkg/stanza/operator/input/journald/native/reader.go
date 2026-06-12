@@ -60,6 +60,16 @@ type Reader struct {
 	// arenaEnd is the highest valid file offset for an object header read.
 	// Once cursor >= arenaEnd, ReadEntry returns io.EOF.
 	arenaEnd uint64
+	// tailObjectOffset is Header.TailObjectOffset: the offset of the most
+	// recently written object. On an ACTIVE (online) journal the arena is
+	// preallocated and zero-filled past the write head, so the region
+	// between the last real object and arenaEnd is zeros (type=0, size=0
+	// objects). The linear scan must stop once it advances past the tail
+	// object; otherwise it walks into the zero region and ParseObjectHeader
+	// fails with ErrObjectTooSmall. Zero means "not advertised" — fall back
+	// to scanning to arenaEnd (archived files set it; some online files may
+	// not have flushed it). See ReadEntry.
+	tailObjectOffset uint64
 	// cursor is the next file offset to attempt ParseObjectHeader from.
 	// Always 8-byte aligned (ObjectAlignment) after the first read.
 	cursor uint64
@@ -187,11 +197,12 @@ func Open(path string, opts ...Option) (*Reader, error) {
 	}
 
 	r := &Reader{
-		f:        f,
-		hdr:      hdr,
-		compact:  hdr.IsCompact(),
-		arenaEnd: arenaEnd,
-		cursor:   hdr.HeaderSize,
+		f:                f,
+		hdr:              hdr,
+		compact:          hdr.IsCompact(),
+		arenaEnd:         arenaEnd,
+		tailObjectOffset: hdr.TailObjectOffset,
+		cursor:           hdr.HeaderSize,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -263,6 +274,27 @@ func (r *Reader) ReadEntry() (*Entry, error) {
 			return nil, io.EOF
 		}
 
+		// On an active journal the arena is preallocated and zero-filled
+		// past the most-recently-written object (TailObjectOffset). Once
+		// the cursor has advanced beyond the tail object there are no more
+		// real objects — only zeros — so stop cleanly rather than walking
+		// into the zero region (which ParseObjectHeader rejects as
+		// ErrObjectTooSmall). Guarded on tailObjectOffset > 0 because some
+		// files (freshly created, or crashed writers) leave it unset, in
+		// which case we fall back to scanning to arenaEnd.
+		//
+		// IMPORTANT for follow mode: do NOT advance the cursor to arenaEnd
+		// here. The writer appends new objects in this same region (below
+		// arenaEnd) and bumps TailObjectOffset; Follow's refreshTail picks
+		// up the higher tail offset, and the next drain must resume from
+		// THIS parked cursor to read the newly-written object. Jumping to
+		// arenaEnd would skip every future append. The EOF is idempotent:
+		// while cursor stays > tailObjectOffset, repeated calls return EOF
+		// without reading anything new.
+		if r.tailObjectOffset > 0 && r.cursor > r.tailObjectOffset {
+			return nil, io.EOF
+		}
+
 		// All journal objects sit on 8-byte boundaries. The header
 		// guarantees the first cursor value (HeaderSize) is aligned,
 		// and we keep it aligned via NextOffset below; this guard is
@@ -283,6 +315,20 @@ func (r *Reader) ReadEntry() (*Entry, error) {
 			// callers can use the canonical sentinel.
 			if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 				r.cursor = r.arenaEnd
+				return nil, io.EOF
+			}
+			// A zero/sub-minimum object (type=0, size=0) is the
+			// signature of the preallocated, zero-filled tail of an
+			// active journal — not corruption. Treat it as clean EOF
+			// rather than a fatal parse error. This backstops the
+			// TailObjectOffset guard above for files that leave the
+			// tail offset unset but still preallocate the arena.
+			//
+			// Leave the cursor parked at this offset (do NOT jump to
+			// arenaEnd) so follow mode resumes here and reads the real
+			// object once the writer fills this slot. See the
+			// TailObjectOffset guard above for the same rationale.
+			if errors.Is(err, ErrObjectTooSmall) {
 				return nil, io.EOF
 			}
 			return nil, fmt.Errorf("read object at %d: %w", r.cursor, err)

@@ -85,6 +85,15 @@ func main() {
 	// Build entries first so we know arena_size.
 	var entryBytes []byte
 	var firstSeq, lastSeq, firstRT, lastRT uint64
+	// lastObjectOffset tracks the absolute file offset (header-relative) of
+	// the most-recently-appended ENTRY object. systemd records this in the
+	// header's tail_object_offset field; the Reader's linear scan uses it
+	// to know where real objects end (everything past it on an active
+	// journal is preallocated zeros). Earlier revisions of this generator
+	// incorrectly set tail_object_offset = headerSize (the FIRST object),
+	// which both misrepresented real journals and masked the active-journal
+	// zero-tail bug found on real AL2023 hosts.
+	var lastObjectOffset uint64
 	for i := 0; i < smallJournalEntries; i++ {
 		seq := uint64(seqnumStart + i)
 		rt := uint64(realtimeStartUS + i*intervalUS)
@@ -96,6 +105,8 @@ func main() {
 			{0x4000 + uint64(i)*64, 0xAA00 + uint64(i)},
 			{0x8000 + uint64(i)*64, 0xBB00 + uint64(i)},
 		}
+		// Offset of THIS entry = headerSize + bytes emitted so far.
+		lastObjectOffset = headerSize + uint64(len(entryBytes))
 		entryBytes = append(entryBytes, makeEntryObject(seq, rt, mt, 0xDEADBEEF+uint64(i), items)...)
 		if i == 0 {
 			firstSeq = seq
@@ -124,7 +135,7 @@ func main() {
 	le.PutUint64(buf[112:120], 0)                   // DataHashTableSize
 	le.PutUint64(buf[120:128], 0)                   // FieldHashTableOffset
 	le.PutUint64(buf[128:136], 0)                   // FieldHashTableSize
-	le.PutUint64(buf[136:144], headerSize)          // TailObjectOffset
+	le.PutUint64(buf[136:144], lastObjectOffset)    // TailObjectOffset (last ENTRY)
 	le.PutUint64(buf[144:152], smallJournalEntries) // NObjects
 	le.PutUint64(buf[152:160], smallJournalEntries) // NEntries
 	le.PutUint64(buf[160:168], lastSeq)             // TailEntrySeqnum
