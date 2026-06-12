@@ -182,13 +182,29 @@ func TestParseHeader_HeaderSizeMismatch(t *testing.T) {
 		}
 	})
 
-	t.Run("too_large", func(t *testing.T) {
+	// Regression for the systemd 252 / AL2023 header: header_size=264 (8 bytes
+	// past the layout we decode). The parser MUST accept it, decode the known
+	// 256-byte prefix, and ignore the trailing bytes. Found on real-host
+	// testing (jourd-al23) where the native reader previously rejected the
+	// host's own system.journal with "header larger than maximum supported".
+	t.Run("larger_than_known_layout_is_accepted", func(t *testing.T) {
+		const onDiskHeaderSize = 264 // systemd 252
+		// Build a file: 264-byte header region + arena so reads past the
+		// header succeed. Known fields live in the first 256 bytes.
 		buf := append(makeValidHeaderBytes(),
-			make([]byte, MaxHeaderSize-MinHeaderSize)...)
-		binary.LittleEndian.PutUint64(buf[88:96], MaxHeaderSize+8)
-		_, err := ParseHeader(bytes.NewReader(buf))
-		if !errors.Is(err, ErrHeaderTooLarge) {
-			t.Errorf("err = %v, want ErrHeaderTooLarge", err)
+			make([]byte, onDiskHeaderSize-MinHeaderSize)...)
+		buf = append(buf, make([]byte, 4096)...) // arena
+		binary.LittleEndian.PutUint64(buf[88:96], onDiskHeaderSize) // HeaderSize
+		h, err := ParseHeader(bytes.NewReader(buf))
+		if err != nil {
+			t.Fatalf("ParseHeader rejected systemd-252 header_size=%d: %v", onDiskHeaderSize, err)
+		}
+		if h.HeaderSize != onDiskHeaderSize {
+			t.Errorf("HeaderSize = %d, want %d", h.HeaderSize, onDiskHeaderSize)
+		}
+		// Known fields from the 256-byte prefix must still decode correctly.
+		if h.NData != 5 || h.NFields != 3 {
+			t.Errorf("known prefix fields wrong: NData=%d NFields=%d, want 5/3", h.NData, h.NFields)
 		}
 	})
 
