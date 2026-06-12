@@ -12,11 +12,14 @@ require (
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/json-iterator/go v1.1.12
+	github.com/klauspost/compress v1.18.0
 	github.com/leodido/go-syslog/v4 v4.2.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage v0.124.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.124.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.124.1
+	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/stretchr/testify v1.11.1
+	github.com/ulikunitz/xz v0.5.15
 	github.com/valyala/fastjson v1.6.4
 	go.opentelemetry.io/collector/component v1.30.0
 	go.opentelemetry.io/collector/component/componenttest v0.124.0
