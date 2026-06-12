@@ -48,6 +48,16 @@ const (
 // because earlier files lack the n_data / n_fields counters that downstream
 // parsing relies on. Callers that need broader compatibility should relax
 // this gate explicitly.
+//
+// MaxHeaderSize is the size of the largest header layout this parser decodes
+// field-by-field (256 bytes, the systemd 246 layout). The on-disk header_size
+// MAY legitimately EXCEED this: systemd appends new trailing fields in later
+// versions (e.g. systemd 252 on AL2023 writes a 264-byte header). The parser
+// reads the first MaxHeaderSize bytes, decodes the fields it understands, and
+// IGNORES any trailing bytes. The arena scan begins at the true on-disk
+// header.HeaderSize (see reader.go), so a larger header is forward-compatible
+// and MUST NOT be rejected. The name is retained (rather than renamed to
+// e.g. knownHeaderLayoutSize) for API stability with existing callers/tests.
 const (
 	MinHeaderSize uint64 = 224
 	MaxHeaderSize uint64 = 256
@@ -153,8 +163,12 @@ var (
 	// ErrHeaderTooSmall indicates the file's declared header_size is below
 	// the minimum supported layout (systemd 187, 224 bytes).
 	ErrHeaderTooSmall = errors.New("journal header smaller than minimum supported size")
-	// ErrHeaderTooLarge indicates the file's declared header_size exceeds
-	// what this parser knows how to read (256 bytes for systemd 246+).
+	// ErrHeaderTooLarge is retained for API/errors.Is compatibility but is no
+	// longer returned by ParseHeader: a header_size larger than the layout we
+	// decode (e.g. 264 bytes on systemd 252 / AL2023) is now accepted as
+	// forward-compatible. See ParseHeader and MaxHeaderSize.
+	//
+	// Deprecated: ParseHeader never returns this; oversized headers are valid.
 	ErrHeaderTooLarge = errors.New("journal header larger than maximum supported size")
 	// ErrUnknownIncompatibleFlag indicates the file requires a feature that
 	// this parser does not implement; per the systemd format spec the file
@@ -176,17 +190,19 @@ const supportedIncompatibleFlags = HeaderIncompatibleCompressedXZ |
 // Validation performed:
 //
 //   - Signature equals "LPKSHHRH".
-//   - HeaderSize is within [MinHeaderSize, MaxHeaderSize].
-//   - HeaderSize matches one of the known systemd layouts; trailing bytes
-//     past the layout are ignored.
+//   - HeaderSize is >= MinHeaderSize. There is no upper bound: a header_size
+//     larger than MaxHeaderSize (newer systemd) is accepted; only the known
+//     MaxHeaderSize-byte prefix is decoded and trailing bytes are ignored.
 //   - IncompatibleFlags only sets bits the parser understands.
 //
 // The function performs a single ReadAt(buf[:MaxHeaderSize], 0). It returns
 // io.ErrUnexpectedEOF if the file is shorter than MinHeaderSize.
 func ParseHeader(r io.ReaderAt) (*Header, error) {
-	// Read the largest header layout we know about. If the file is smaller
-	// than that, ReadAt may return a short read with io.EOF; we fall back
-	// to the declared header_size after sanity-checking the signature.
+	// Read the largest header layout we know how to decode. If the file is
+	// smaller than that, ReadAt may return a short read with io.EOF; we fall
+	// back to the declared header_size after sanity-checking the signature.
+	// A larger on-disk header_size (newer systemd) is fine: we only need the
+	// known-layout prefix here, and the arena scan starts at header_size.
 	buf := make([]byte, MaxHeaderSize)
 	n, err := r.ReadAt(buf, 0)
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -244,13 +260,18 @@ func ParseHeader(r io.ReaderAt) (*Header, error) {
 		return nil, fmt.Errorf("%w: header_size=%d, minimum=%d",
 			ErrHeaderTooSmall, h.HeaderSize, MinHeaderSize)
 	}
-	if h.HeaderSize > MaxHeaderSize {
-		return nil, fmt.Errorf("%w: header_size=%d, maximum=%d",
-			ErrHeaderTooLarge, h.HeaderSize, MaxHeaderSize)
+	// A header_size larger than the layout we decode is expected on newer
+	// systemd (e.g. 264 bytes on systemd 252 / AL2023). We deliberately do
+	// NOT reject it: the extra trailing fields are unknown to us but harmless,
+	// and the arena scan begins at h.HeaderSize. We only require that the
+	// known-layout prefix we actually decode was fully read.
+	mustRead := h.HeaderSize
+	if mustRead > MaxHeaderSize {
+		mustRead = MaxHeaderSize
 	}
-	if uint64(n) < h.HeaderSize {
+	if uint64(n) < mustRead {
 		return nil, fmt.Errorf("read journal header: only %d of %d declared bytes available: %w",
-			n, h.HeaderSize, io.ErrUnexpectedEOF)
+			n, mustRead, io.ErrUnexpectedEOF)
 	}
 
 	if unsupported := h.IncompatibleFlags &^ supportedIncompatibleFlags; unsupported != 0 {
