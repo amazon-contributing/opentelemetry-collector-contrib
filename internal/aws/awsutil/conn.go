@@ -31,14 +31,7 @@ func GetAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 }
 
 func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionSettings) (aws.Config, error) {
-	httpClient, err := newHTTPClient(
-		logger,
-		settings.NumberOfWorkers,
-		settings.RequestTimeoutSeconds,
-		settings.NoVerifySSL,
-		settings.ProxyAddress,
-		settings.CertificateFilePath,
-	)
+	httpClient, err := getHTTPClient(logger, settings)
 	if err != nil {
 		logger.Error("unable to obtain proxy URL", zap.Error(err))
 		return aws.Config{}, err
