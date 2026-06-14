@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//go:generate mdatagen metadata.yaml
+//go:generate make mdatagen
 
 // Package awscloudwatchlogsprovisionerextension implements extensionauth.HTTPClient
 // to dynamically set x-aws-log-group headers and create CloudWatch log groups and

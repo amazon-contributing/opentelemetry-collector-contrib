@@ -96,6 +96,7 @@ body:
       - exporter/zipkin
       - extension/ack
       - extension/asapauth
+      - extension/awscloudwatchlogsprovisioner
       - extension/awsmiddleware
       - extension/awsproxy
       - extension/azureauth
