@@ -28,14 +28,18 @@ The configuration fields are as follows:
   * `sts_region`: The AWS region where STS is used to assumed the configured role
     * Note that if a role is intended to be assumed, and `sts_region` is not provided, then `sts_region` will default to the value for `region` if `region` is provided
   * `external_id`: **Optional**. A unique identifier used when assuming a role in cross-account scenarios to prevent the confused deputy problem
-* `region`: **Optional**. The AWS region for the service you are exporting to for AWS Sigv4. This is differentiated from `sts_region` to handle cross region authentication
-    * Note that an attempt will be made to obtain a valid region from the endpoint of the service you are exporting to
-    * [List of AWS regions](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html)
 * `service`: **Optional**. The AWS service for AWS Sigv4
     * Note for supported services an attempt will be made to obtain a valid service from the endpoint of the service you are exporting to. Supported services include - workspaces, es, logs and traces.
-* `profile`: **Optional**. The named profile to use from the shared credentials file(s).
-* `shared_credentials_file`: **Optional**. List of paths to shared credentials files to read credentials from.
-* `local_mode`: **Optional**. Skip EC2 IMDS region detection. Use when running outside EC2 (`region` must be set).
+
+The extension also accepts the standard AWS session settings — `region`, `profile`,
+`shared_credentials_file`, `local_mode`, `role_arn`, `external_id`, `endpoint`,
+`proxy_address`, `certificate_file_path`, `no_verify_ssl`, `request_timeout_seconds`,
+`imds_retries`. See [`AWSSessionSettings`](../../internal/aws/awsutil/awsconfig.go)
+for the full list.
+
+> Note that an attempt will be made to obtain a valid `region` from the endpoint of the service you are exporting to. `region` is differentiated from `assume_role.sts_region` to handle cross region authentication. See the [list of AWS regions](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html).
+
+> The role ARN can be set via either `role_arn` (inherited from session settings) or `assume_role.arn`, but not both.
 
 
 ## Assume Role

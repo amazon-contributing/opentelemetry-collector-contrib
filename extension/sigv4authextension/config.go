@@ -7,16 +7,16 @@ import (
 	"errors"
 
 	"go.opentelemetry.io/collector/component"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // Config stores the configuration for the Sigv4 Authenticator
 type Config struct {
-	Region                string     `mapstructure:"region,omitempty"`
-	Service               string     `mapstructure:"service,omitempty"`
-	Profile               string     `mapstructure:"profile,omitempty"`
-	SharedCredentialsFile []string   `mapstructure:"shared_credentials_file,omitempty"`
-	LocalMode             bool       `mapstructure:"local_mode,omitempty"`
-	AssumeRole            AssumeRole `mapstructure:"assume_role"`
+	awsutil.AWSSessionSettings `mapstructure:",squash"`
+
+	Service    string     `mapstructure:"service,omitempty"`
+	AssumeRole AssumeRole `mapstructure:"assume_role"`
 }
 
 // AssumeRole holds the configuration needed to assume a role
@@ -34,10 +34,31 @@ var _ component.Config = (*Config)(nil)
 // Validate checks that the configuration is well-formed. Credential resolution is deferred to
 // extension creation so that configuration validation does not perform AWS calls.
 func (cfg *Config) Validate() error {
-	if cfg.AssumeRole.WebIdentityTokenFile != "" && cfg.AssumeRole.ARN == "" {
-		return errors.New("must specify ARN when using WebIdentityTokenFile")
+	if cfg.AssumeRole.ARN != "" && cfg.RoleARN != "" {
+		return errors.New("role_arn and assume_role.arn cannot both be set")
+	}
+	if cfg.AssumeRole.WebIdentityTokenFile != "" && cfg.resolvedRoleARN() == "" {
+		return errors.New("must specify role_arn or assume_role.arn when using WebIdentityTokenFile")
 	}
 	return nil
+}
+
+// resolvedRoleARN returns whichever of cfg.AssumeRole.ARN or cfg.RoleARN (top-level) is set.
+// Validate guarantees they are not both set; returns "" when neither is set.
+func (cfg *Config) resolvedRoleARN() string {
+	if cfg.AssumeRole.ARN != "" {
+		return cfg.AssumeRole.ARN
+	}
+	return cfg.RoleARN
+}
+
+// resolvedExternalID pairs the external ID with the role source: assume_role.external_id when the
+// role is given via assume_role.arn, otherwise the top-level external_id.
+func (cfg *Config) resolvedExternalID() string {
+	if cfg.AssumeRole.ARN != "" {
+		return cfg.AssumeRole.ExternalID
+	}
+	return cfg.ExternalID
 }
 
 // resolvedSTSRegion returns AssumeRole.STSRegion if set, otherwise falls back to Region.
