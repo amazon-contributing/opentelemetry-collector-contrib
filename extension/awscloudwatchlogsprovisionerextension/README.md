@@ -21,7 +21,7 @@ This extension is designed for use with the `otlphttp` exporter to send logs to 
 The extension also accepts the standard AWS session settings — `profile`, `shared_credentials_file`,
 `local_mode`, `role_arn`, `external_id`, `endpoint`, `proxy_address`, `certificate_file_path`,
 `no_verify_ssl`, `request_timeout_seconds`, `imds_retries`. See
-[`AWSSessionSettings`](../../internal/aws/awsutilv2/awsconfig.go) for the full list.
+[`AWSSessionSettings`](../../internal/aws/awsutil/awsconfig.go) for the full list.
 
 ## Examples
 
