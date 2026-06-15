@@ -24,5 +24,6 @@ FROM
 WHERE
   query != '<insufficient privilege>'
   AND query NOT LIKE '/* otel-collector-ignore */%'
+  AND rolname != current_user
 ORDER BY calls DESC
 LIMIT 31;
