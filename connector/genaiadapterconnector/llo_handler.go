@@ -89,7 +89,7 @@ var lloPatterns = map[string]patternConfig{
 	"llm.prompts":                   {pType: patternDirect, role: roleUser, source: "prompt"},
 	// OTel GenAI Semantic Convention used by the latest Strands SDK
 	// References:
-	// - OTel GenAI SemConv: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
+	// - OTel GenAI SemConv: https://github.com/open-telemetry/semantic-conventions-genai
 	// - Strands SDK PR(introduced in v0.1.9): https://github.com/strands-agents/sdk-python/pull/319
 	"gen_ai.user.message":        {pType: patternDirect, role: roleUser, source: "prompt"},
 	"gen_ai.assistant.message":   {pType: patternDirect, role: roleAssistant, source: "output"},

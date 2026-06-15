@@ -15,7 +15,9 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 )
 
-const otelSchemaBase = "https://opentelemetry.io/docs/specs/semconv/gen-ai"
+// Pinned OTel GenAI message schemas (open-telemetry/semantic-conventions-genai @ 9013599)
+// used to validate adapter output against the canonical input/output message schemas.
+const otelSchemaBase = "https://raw.githubusercontent.com/open-telemetry/semantic-conventions-genai/9013599da17e0dd5acb66438506093facf8b60bc/docs/gen-ai"
 
 func fetchOTelSchema(t *testing.T, name string) map[string]any {
 	t.Helper()

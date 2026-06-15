@@ -4,7 +4,7 @@
 // Transforms OpenInference spans to OTel GenAI semantic conventions for CloudWatch.
 //
 // OpenInference spec: https://arize-ai.github.io/openinference/spec/semantic_conventions.html
-// OTel GenAI semconv:  https://opentelemetry.io/docs/specs/semconv/gen-ai/
+// OTel GenAI semconv:  https://github.com/open-telemetry/semantic-conventions-genai
 package adapters // import "github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector/adapters"
 
 import (
@@ -483,8 +483,8 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 // (from gen_ai.response.finish_reasons on the span), it is used directly. Otherwise
 // falls back to "tool_call" if tool call parts are present, or "stop".
 //
-// see: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-input-messages.json
-// see: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-output-messages.json
+// see: https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-input-messages.json
+// see: https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-output-messages.json
 func convertMessages(messages map[int]map[string]any, isOutput bool, finishReason string) []map[string]any {
 	keys := make([]int, 0, len(messages))
 	for k := range messages {
