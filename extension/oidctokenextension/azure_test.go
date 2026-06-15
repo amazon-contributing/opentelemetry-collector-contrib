@@ -57,6 +57,52 @@ func TestAzureProviderGetTokenError(t *testing.T) {
 	require.Contains(t, err.Error(), "401")
 }
 
+func TestAzureProviderIsAvailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The probe must hit the instance-metadata path derived from the
+		// configured endpoint, carry the Metadata header, and use the instance
+		// API version.
+		if r.URL.Path != azureIMDSInstancePath ||
+			r.Header.Get("Metadata") != "true" ||
+			r.URL.Query().Get("api-version") != azureIMDSInstanceAPIVersion {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	provider := &azureProvider{
+		client:   &http.Client{Timeout: 5 * time.Second},
+		endpoint: server.URL,
+		resource: defaultAzureResource,
+	}
+
+	require.True(t, provider.IsAvailable(t.Context()))
+}
+
+func TestAzureProviderIsAvailableNotOK(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &azureProvider{
+		client:   &http.Client{Timeout: 5 * time.Second},
+		endpoint: server.URL,
+		resource: defaultAzureResource,
+	}
+
+	require.False(t, provider.IsAvailable(t.Context()))
+}
+
+func TestAzureProviderInstanceMetadataURL(t *testing.T) {
+	provider := &azureProvider{endpoint: "http://169.254.169.254/metadata/identity/oauth2/token"}
+	require.Equal(t,
+		"http://169.254.169.254/metadata/instance?api-version="+azureIMDSInstanceAPIVersion,
+		provider.instanceMetadataURL())
+}
+
 func TestAzureProviderName(t *testing.T) {
 	provider := newAzureProvider("")
 	require.Equal(t, "azure", provider.Name())

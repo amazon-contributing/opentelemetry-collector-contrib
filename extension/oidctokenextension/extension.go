@@ -23,14 +23,25 @@ const (
 )
 
 type oidcTokenExtension struct {
-	logger             *zap.Logger
-	config             *Config
-	providers          []TokenProvider
-	tokenProvider      TokenProvider
-	done               chan struct{}
+	logger        *zap.Logger
+	config        *Config
+	providers     []TokenProvider
+	tokenProvider TokenProvider
+	done          chan struct{}
+	// refreshCtx is the long-lived parent context for the background refresh
+	// loop. It is derived from context.Background() (not Start's ctx, which may
+	// be cancelled once Start returns) so the loop can outlive Start. Each
+	// per-refresh timeout is derived from it, so cancelling it via cancel on
+	// Shutdown interrupts any in-flight token refresh.
+	refreshCtx         context.Context
+	cancel             context.CancelFunc
 	wg                 sync.WaitGroup
 	shutdownOnce       sync.Once
 	minRefreshInterval time.Duration
+	// wroteToken records whether this extension actually wrote the output token
+	// file. It guards Shutdown so a no-op run (no provider detected) does not
+	// delete a file at config.OutputTokenFile that this extension never wrote.
+	wroteToken bool
 }
 
 var _ extension.Extension = (*oidcTokenExtension)(nil)
@@ -48,8 +59,10 @@ func (e *oidcTokenExtension) Start(ctx context.Context, _ component.Host) error 
 	}
 	e.logger.Info("OIDC provider detected", zap.String("provider", e.tokenProvider.Name()))
 
-	// Remove stale token from previous run/crash
-	e.removeTokenFile()
+	// Truncate any stale token from a previous run/crash. Truncating (rather
+	// than deleting) keeps a zero-byte file in place so sigv4auth's lazy token
+	// read does not fail before the fresh token is written.
+	e.truncateTokenFile()
 
 	expiry, err := e.refreshToken(ctx)
 	if err != nil {
@@ -57,48 +70,103 @@ func (e *oidcTokenExtension) Start(ctx context.Context, _ component.Host) error 
 	}
 
 	e.done = make(chan struct{})
-	e.wg.Go(func() {
+	// Derive the refresh loop's parent context from context.Background() rather
+	// than Start's ctx: the loop outlives Start, but cancel lets Shutdown
+	// interrupt an in-flight refresh.
+	e.refreshCtx, e.cancel = context.WithCancel(context.Background())
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
 		e.refreshLoop(expiry)
-	})
+	}()
 	return nil
 }
 
-func (e *oidcTokenExtension) Shutdown(_ context.Context) error {
+func (e *oidcTokenExtension) Shutdown(ctx context.Context) error {
 	e.shutdownOnce.Do(func() {
 		if e.done != nil {
 			close(e.done)
 		}
+		// Cancel the refresh loop's parent context so any in-flight token
+		// refresh is interrupted instead of blocking on its own 30s timeout.
+		if e.cancel != nil {
+			e.cancel()
+		}
 	})
-	e.wg.Wait()
-	e.removeTokenFile()
+	// Bound the wait on the shutdown context so a refresh that does not honour
+	// cancellation cannot block shutdown past its deadline.
+	waited := make(chan struct{})
+	go func() {
+		e.wg.Wait()
+		close(waited)
+	}()
+	select {
+	case <-waited:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	// Only clear the token file if this extension actually wrote it. A no-op
+	// run (no provider detected) must not touch a pre-existing file at
+	// config.OutputTokenFile that it never owned. The file is truncated (not
+	// deleted) so sigv4auth validation does not fail on the next startup.
+	if e.wroteToken {
+		e.truncateTokenFile()
+	}
 	return nil
 }
 
-func (e *oidcTokenExtension) removeTokenFile() {
-	if err := os.Remove(e.config.OutputTokenFile); err != nil && !os.IsNotExist(err) {
-		e.logger.Warn("Failed to remove token file", zap.Error(err))
+func (e *oidcTokenExtension) truncateTokenFile() {
+	if err := os.Truncate(e.config.OutputTokenFile, 0); err != nil && !os.IsNotExist(err) {
+		e.logger.Warn("Failed to truncate token file", zap.Error(err))
 	}
 }
 
+// nextRefreshInterval computes how long to wait before the next token refresh.
+// It guarantees the refresh is never scheduled after the token expires: the
+// minRefreshInterval floor is only applied as an error/expiry retry backoff, not
+// as a floor that could outlast a short TTL.
+func (e *oidcTokenExtension) nextRefreshInterval(expiry time.Time) time.Duration {
+	remaining := time.Until(expiry)
+	if remaining <= 0 {
+		// Token already expired (e.g. after a failed refresh): back off by the
+		// minimum interval before retrying so we don't hammer the metadata endpoint.
+		return e.minRefreshInterval
+	}
+	interval := remaining - refreshBuffer
+	if interval >= e.minRefreshInterval {
+		return interval
+	}
+	// TTL is too short to apply the normal refresh buffer / minimum interval
+	// without scheduling the refresh after expiry. Refresh after a bounded delay
+	// strictly shorter than the remaining TTL instead.
+	e.logger.Warn("OIDC token TTL shorter than refresh buffer; scheduling an early refresh",
+		zap.Duration("ttl_remaining", remaining),
+		zap.Duration("refresh_buffer", refreshBuffer),
+		zap.Duration("min_refresh_interval", e.minRefreshInterval))
+	return remaining / 2
+}
+
 func (e *oidcTokenExtension) refreshLoop(expiry time.Time) {
+	interval := e.nextRefreshInterval(expiry)
 	for {
-		interval := time.Until(expiry) - refreshBuffer
-		interval = max(interval, e.minRefreshInterval)
 		timer := time.NewTimer(interval)
 		select {
 		case <-timer.C:
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(e.refreshCtx, 30*time.Second)
 			newExpiry, err := e.refreshToken(ctx)
 			cancel()
 			if err != nil {
+				// Back off by the minimum interval before retrying so a failing
+				// metadata endpoint is not hammered.
+				interval = e.minRefreshInterval
 				e.logger.Error("Token refresh failed, will retry",
 					zap.Error(err),
-					zap.Duration("retry_in", e.minRefreshInterval))
+					zap.Duration("retry_in", interval))
 			} else {
-				expiry = newExpiry
+				interval = e.nextRefreshInterval(newExpiry)
 				e.logger.Debug("Token refreshed successfully",
 					zap.String("provider", e.tokenProvider.Name()),
-					zap.Time("next_expiry", expiry))
+					zap.Time("next_expiry", newExpiry))
 			}
 		case <-e.done:
 			timer.Stop()
@@ -115,6 +183,7 @@ func (e *oidcTokenExtension) refreshToken(ctx context.Context) (time.Time, error
 	if err = writeFileAtomic(e.config.OutputTokenFile, []byte(token)); err != nil {
 		return time.Time{}, fmt.Errorf("write token file: %w", err)
 	}
+	e.wroteToken = true
 	return time.Now().Add(ttl), nil
 }
 

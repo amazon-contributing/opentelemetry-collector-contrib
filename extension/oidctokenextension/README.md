@@ -74,4 +74,4 @@ service:
 
 * The extension currently supports Azure IMDS as the only auto-detected provider. Support for additional providers may be added in the future.
 * The `oidctoken` extension should be listed before `sigv4auth` in the `extensions` list to ensure the token file is available before SigV4 authentication is configured.
-* On shutdown, the token file is truncated (not deleted) so that `sigv4auth` validation does not fail on the next startup.
+* On shutdown, the token file the extension wrote is truncated (not deleted) so that `sigv4auth` validation does not fail on the next startup. On startup the extension also truncates any stale token before writing a fresh one.

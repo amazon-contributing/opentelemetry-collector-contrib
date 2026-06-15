@@ -10,15 +10,22 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
 
 const (
-	defaultAzureIMDSEndpoint   = "http://169.254.169.254/metadata/identity/oauth2/token"
-	defaultAzureIMDSAPIVersion = "2018-02-01"
-	defaultAzureResource       = "https://management.azure.com/"
-	defaultAzureTokenExpiry    = 3600
+	defaultAzureIMDSEndpoint    = "http://169.254.169.254/metadata/identity/oauth2/token"
+	azureIMDSInstancePath       = "/metadata/instance"
+	defaultAzureIMDSAPIVersion  = "2018-02-01"
+	azureIMDSInstanceAPIVersion = "2021-02-01"
+	defaultAzureResource        = "https://management.azure.com/"
+	defaultAzureTokenExpiry     = 3600
+	// azureIMDSProbeTimeout bounds the availability probe so a blackholed
+	// link-local address cannot stall extension startup for the full
+	// token-fetch timeout.
+	azureIMDSProbeTimeout = 3 * time.Second
 )
 
 type azureProvider struct {
@@ -33,8 +40,13 @@ func newAzureProvider(resource string) *azureProvider {
 	if resource == "" {
 		resource = defaultAzureResource
 	}
+	// IMDS lives at a fixed link-local address; never route metadata requests
+	// through an HTTP(S) proxy. Clone the default transport for sane dial/TLS
+	// defaults, then disable proxy resolution.
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
 	return &azureProvider{
-		client:   &http.Client{Timeout: 30 * time.Second},
+		client:   &http.Client{Timeout: 30 * time.Second, Transport: transport},
 		endpoint: defaultAzureIMDSEndpoint,
 		resource: resource,
 	}
@@ -42,8 +54,25 @@ func newAzureProvider(resource string) *azureProvider {
 
 func (*azureProvider) Name() string { return "azure" }
 
+// instanceMetadataURL derives the availability-probe URL from the same base
+// (scheme + host) as the token endpoint, so endpoint overrides apply to both.
+func (p *azureProvider) instanceMetadataURL() string {
+	u, err := url.Parse(p.endpoint)
+	if err != nil {
+		return ""
+	}
+	u.Path = azureIMDSInstancePath
+	u.RawQuery = url.Values{"api-version": {azureIMDSInstanceAPIVersion}}.Encode()
+	return u.String()
+}
+
 func (p *azureProvider) IsAvailable(ctx context.Context) bool {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://169.254.169.254/metadata/instance?api-version=2021-02-01", http.NoBody)
+	// Use a short, independent timeout for the probe so a non-Azure host with a
+	// blackholed IMDS address does not block startup for the token-fetch timeout.
+	ctx, cancel := context.WithTimeout(ctx, azureIMDSProbeTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.instanceMetadataURL(), http.NoBody)
 	if err != nil {
 		return false
 	}
