@@ -19,19 +19,16 @@ type KeyValue struct {
 // Actions copies resource attributes to client metadata.
 type Actions struct {
 	actions []KeyValue
-	keys    []string
 }
 
 // NewActions creates Actions with keys pre-normalized to lowercase to match client.NewMetadata behavior.
 // - https://github.com/open-telemetry/opentelemetry-collector/blob/client/v1.30.0/client/client.go#L146
 func NewActions(keyValues []KeyValue) Actions {
-	keys := make([]string, len(keyValues))
 	normalized := make([]KeyValue, len(keyValues))
 	for i, kv := range keyValues {
-		keys[i] = strings.ToLower(kv.Key)
-		normalized[i] = KeyValue{Key: keys[i], FromResourceAttribute: kv.FromResourceAttribute}
+		normalized[i] = KeyValue{Key: strings.ToLower(kv.Key), FromResourceAttribute: kv.FromResourceAttribute}
 	}
-	return Actions{actions: normalized, keys: keys}
+	return Actions{actions: normalized}
 }
 
 // ProcessResource copies configured resource attributes into the metadata map.
@@ -49,13 +46,13 @@ const groupKeySeparator = '|'
 // Values are %q-quoted so the separator cannot cause collisions.
 func (a *Actions) GroupKey(metadata map[string][]string) string {
 	var b strings.Builder
-	for i, k := range a.keys {
+	for i, action := range a.actions {
 		if i > 0 {
 			b.WriteByte(groupKeySeparator)
 		}
-		b.WriteString(k)
+		b.WriteString(action.Key)
 		b.WriteByte('=')
-		_, _ = fmt.Fprintf(&b, "%q", metadata[k])
+		_, _ = fmt.Fprintf(&b, "%q", metadata[action.Key])
 	}
 	return b.String()
 }

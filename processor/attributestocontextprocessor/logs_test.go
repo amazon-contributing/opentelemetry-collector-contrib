@@ -129,7 +129,7 @@ func TestLogsProcessor_GroupsByMetadata(t *testing.T) {
 	assert.Equal(t, 1, counts[1]) // /platform group
 }
 
-func TestLogsProcessor_PreservesUpstreamMetadata(t *testing.T) {
+func TestLogsProcessor_PreservesExistingMetadata(t *testing.T) {
 	var capturedCtx context.Context
 	next := &mockLogsConsumer{
 		consumeFunc: func(ctx context.Context, _ plog.Logs) error {
@@ -143,16 +143,45 @@ func TestLogsProcessor_PreservesUpstreamMetadata(t *testing.T) {
 	rl := logs.ResourceLogs().AppendEmpty()
 	rl.Resource().Attributes().PutStr("cwlogs.log_group", "/my/group")
 
-	upstream := client.NewMetadata(map[string][]string{
+	existing := client.NewMetadata(map[string][]string{
 		"existing-key": {"existing-value"},
 	})
-	ctx := client.NewContext(t.Context(), client.Info{Metadata: upstream})
+	ctx := client.NewContext(t.Context(), client.Info{Metadata: existing})
 	err := processor.ConsumeLogs(ctx, logs)
 
 	assert.NoError(t, err)
 	clientInfo := client.FromContext(capturedCtx)
 	assert.Equal(t, []string{"/my/group"}, clientInfo.Metadata.Get("cwlogs.log_group"))
 	assert.Equal(t, []string{"existing-value"}, clientInfo.Metadata.Get("existing-key"))
+}
+
+func TestLogsProcessor_PreservesExistingMetadata_MultiGroup(t *testing.T) {
+	var calls []context.Context
+	next := &mockLogsConsumer{
+		consumeFunc: func(ctx context.Context, _ plog.Logs) error {
+			calls = append(calls, ctx)
+			return nil
+		},
+	}
+	processor := newLogsProcessor(singleKeyCfg, next)
+
+	logs := plog.NewLogs()
+	rl1 := logs.ResourceLogs().AppendEmpty()
+	rl1.Resource().Attributes().PutStr("cwlogs.log_group", "/first")
+	rl2 := logs.ResourceLogs().AppendEmpty()
+	rl2.Resource().Attributes().PutStr("cwlogs.log_group", "/second")
+
+	existing := client.NewMetadata(map[string][]string{
+		"x-forwarded-for": {"10.0.0.1"},
+	})
+	ctx := client.NewContext(t.Context(), client.Info{Metadata: existing})
+	err := processor.ConsumeLogs(ctx, logs)
+
+	assert.NoError(t, err)
+	assert.Len(t, calls, 2)
+	for _, c := range calls {
+		assert.Equal(t, []string{"10.0.0.1"}, client.FromContext(c).Metadata.Get("x-forwarded-for"))
+	}
 }
 
 func TestLogsProcessor_MissingAttribute_SkipsSilently(t *testing.T) {
