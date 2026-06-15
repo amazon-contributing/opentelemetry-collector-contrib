@@ -4,6 +4,7 @@
 package actions // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributestocontextprocessor/internal/actions"
 
 import (
+	"fmt"
 	"strings"
 
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -18,19 +19,43 @@ type KeyValue struct {
 // Actions copies resource attributes to client metadata.
 type Actions struct {
 	actions []KeyValue
+	keys    []string
 }
 
+// NewActions creates Actions with keys pre-normalized to lowercase to match client.NewMetadata behavior.
+// - https://github.com/open-telemetry/opentelemetry-collector/blob/client/v1.30.0/client/client.go#L146
 func NewActions(keyValues []KeyValue) Actions {
-	return Actions{actions: keyValues}
+	keys := make([]string, len(keyValues))
+	normalized := make([]KeyValue, len(keyValues))
+	for i, kv := range keyValues {
+		keys[i] = strings.ToLower(kv.Key)
+		normalized[i] = KeyValue{Key: keys[i], FromResourceAttribute: kv.FromResourceAttribute}
+	}
+	return Actions{actions: normalized, keys: keys}
 }
 
 // ProcessResource copies configured resource attributes into the metadata map.
-// Keys are lowercased to match client.NewMetadata behavior.
-// - https://github.com/open-telemetry/opentelemetry-collector/blob/client/v1.30.0/client/client.go#L146
 func (a *Actions) ProcessResource(metadata map[string][]string, attrs pcommon.Map) {
 	for _, action := range a.actions {
 		if val, found := attrs.Get(action.FromResourceAttribute); found {
-			metadata[strings.ToLower(action.Key)] = []string{val.AsString()}
+			metadata[action.Key] = []string{val.AsString()}
 		}
 	}
+}
+
+const groupKeySeparator = '|'
+
+// GroupKey returns a deterministic string key for the metadata values in config order.
+// Values are %q-quoted so the separator cannot cause collisions.
+func (a *Actions) GroupKey(metadata map[string][]string) string {
+	var b strings.Builder
+	for i, k := range a.keys {
+		if i > 0 {
+			b.WriteByte(groupKeySeparator)
+		}
+		b.WriteString(k)
+		b.WriteByte('=')
+		_, _ = fmt.Fprintf(&b, "%q", metadata[k])
+	}
+	return b.String()
 }
