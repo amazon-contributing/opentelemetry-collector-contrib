@@ -206,7 +206,7 @@ func (k *K8sAPIServer) getNamespaceMetrics(clusterName, timestampNs string) []pm
 			attributes["NodeName"] = k.nodeName
 		}
 		attributes[ci.SourcesKey] = "[\"apiserver\"]"
-		attributes[ci.Kubernetes] = fmt.Sprintf("{\"namespace_name\":\"%s\"}", namespace)
+		attributes[ci.Kubernetes] = fmt.Sprintf("{\"namespace_name\":%q}", namespace)
 		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
 		metrics = append(metrics, md)
 	}
@@ -291,7 +291,7 @@ func (k *K8sAPIServer) getServiceMetrics(clusterName, timestampNs string) []pmet
 			attributes[ci.NodeNameKey] = k.nodeName
 		}
 		attributes[ci.SourcesKey] = "[\"apiserver\"]"
-		attributes[ci.Kubernetes] = fmt.Sprintf("{\"namespace_name\":\"%s\",\"service_name\":\"%s\"}",
+		attributes[ci.Kubernetes] = fmt.Sprintf("{\"namespace_name\":%q,\"service_name\":%q}",
 			service.Namespace, service.ServiceName)
 		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
 		metrics = append(metrics, md)
@@ -360,50 +360,51 @@ func (k *K8sAPIServer) getPendingPodStatusMetrics(clusterName, timestampNs strin
 	podKeyToServiceNamesMap := k.leaderElection.epClient.PodKeyToServiceNames()
 
 	for _, podInfo := range podsList {
-		if podInfo.Phase == v1.PodPending {
-			fields := map[string]any{}
-
-			if k.includeEnhancedMetrics {
-				addPodStatusMetrics(fields, podInfo)
-				addPodConditionMetrics(fields, podInfo)
-			}
-
-			attributes := map[string]string{
-				ci.ClusterNameKey: clusterName,
-				ci.MetricType:     ci.TypePod,
-				ci.Timestamp:      timestampNs,
-				ci.PodNameKey:     podInfo.Name,
-				ci.K8sNamespace:   podInfo.Namespace,
-				ci.Version:        "0",
-			}
-
-			podKey := k8sutil.CreatePodKey(podInfo.Namespace, podInfo.Name)
-			if serviceList, ok := podKeyToServiceNamesMap[podKey]; ok {
-				if len(serviceList) > 0 {
-					attributes[ci.TypeService] = serviceList[0]
-				}
-			}
-
-			attributes[ci.PodStatus] = string(v1.PodPending)
-			attributes["k8s.node.name"] = "pending"
-
-			kubernetesBlob := map[string]any{}
-			k.getKubernetesBlob(podInfo, kubernetesBlob, attributes)
-			if k.nodeName != "" {
-				kubernetesBlob["host"] = k.nodeName
-			}
-			if len(kubernetesBlob) > 0 {
-				kubernetesInfo, err := json.Marshal(kubernetesBlob)
-				if err != nil {
-					k.logger.Warn("Error parsing kubernetes blob for pod metrics")
-				} else {
-					attributes[ci.Kubernetes] = string(kubernetesInfo)
-				}
-			}
-			attributes[ci.SourcesKey] = "[\"apiserver\"]"
-			md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
-			metrics = append(metrics, md)
+		if podInfo.Phase != v1.PodPending {
+			continue
 		}
+		fields := map[string]any{}
+
+		if k.includeEnhancedMetrics {
+			addPodStatusMetrics(fields, podInfo)
+			addPodConditionMetrics(fields, podInfo)
+		}
+
+		attributes := map[string]string{
+			ci.ClusterNameKey: clusterName,
+			ci.MetricType:     ci.TypePod,
+			ci.Timestamp:      timestampNs,
+			ci.PodNameKey:     podInfo.Name,
+			ci.K8sNamespace:   podInfo.Namespace,
+			ci.Version:        "0",
+		}
+
+		podKey := k8sutil.CreatePodKey(podInfo.Namespace, podInfo.Name)
+		if serviceList, ok := podKeyToServiceNamesMap[podKey]; ok {
+			if len(serviceList) > 0 {
+				attributes[ci.TypeService] = serviceList[0]
+			}
+		}
+
+		attributes[ci.PodStatus] = string(v1.PodPending)
+		attributes["k8s.node.name"] = "pending"
+
+		kubernetesBlob := map[string]any{}
+		k.getKubernetesBlob(podInfo, kubernetesBlob, attributes)
+		if k.nodeName != "" {
+			kubernetesBlob["host"] = k.nodeName
+		}
+		if len(kubernetesBlob) > 0 {
+			kubernetesInfo, err := json.Marshal(kubernetesBlob)
+			if err != nil {
+				k.logger.Warn("Error parsing kubernetes blob for pod metrics")
+			} else {
+				attributes[ci.Kubernetes] = string(kubernetesInfo)
+			}
+		}
+		attributes[ci.SourcesKey] = "[\"apiserver\"]"
+		md := ci.ConvertToOTLPMetrics(fields, attributes, k.logger)
+		metrics = append(metrics, md)
 	}
 	return metrics
 }
@@ -413,37 +414,38 @@ func (k *K8sAPIServer) getKubernetesBlob(pod *k8sclient.PodInfo, kubernetesBlob 
 	var owners []any
 	podName := ""
 	for _, owner := range pod.OwnerReferences {
-		if owner.Kind != "" && owner.Name != "" {
-			kind := owner.Kind
-			name := owner.Name
-			switch owner.Kind {
-			case ci.ReplicaSet:
-				rsToDeployment := k.leaderElection.replicaSetClient.ReplicaSetToDeployment()
-				if parent := rsToDeployment[owner.Name]; parent != "" {
-					kind = ci.Deployment
-					name = parent
-				} else if parent := parseDeploymentFromReplicaSet(owner.Name); parent != "" {
-					kind = ci.Deployment
-					name = parent
-				}
-			case ci.Job:
-				if parent := parseCronJobFromJob(owner.Name); parent != "" {
-					kind = ci.CronJob
-					name = parent
-				} else if !k.addFullPodNameMetricLabel {
-					name = getJobNamePrefix(name)
-				}
+		if owner.Kind == "" || owner.Name == "" {
+			continue
+		}
+		kind := owner.Kind
+		name := owner.Name
+		switch owner.Kind {
+		case ci.ReplicaSet:
+			rsToDeployment := k.leaderElection.replicaSetClient.ReplicaSetToDeployment()
+			if parent := rsToDeployment[owner.Name]; parent != "" {
+				kind = ci.Deployment
+				name = parent
+			} else if parent := parseDeploymentFromReplicaSet(owner.Name); parent != "" {
+				kind = ci.Deployment
+				name = parent
 			}
+		case ci.Job:
+			if parent := parseCronJobFromJob(owner.Name); parent != "" {
+				kind = ci.CronJob
+				name = parent
+			} else if !k.addFullPodNameMetricLabel {
+				name = getJobNamePrefix(name)
+			}
+		}
 
-			owners = append(owners, map[string]string{"owner_kind": kind, "owner_name": name})
+		owners = append(owners, map[string]string{"owner_kind": kind, "owner_name": name})
 
-			if podName == "" {
-				switch owner.Kind {
-				case ci.StatefulSet:
-					podName = pod.Name
-				case ci.DaemonSet, ci.Job, ci.ReplicaSet, ci.ReplicationController:
-					podName = name
-				}
+		if podName == "" {
+			switch owner.Kind {
+			case ci.StatefulSet:
+				podName = pod.Name
+			case ci.DaemonSet, ci.Job, ci.ReplicaSet, ci.ReplicationController:
+				podName = name
 			}
 		}
 	}

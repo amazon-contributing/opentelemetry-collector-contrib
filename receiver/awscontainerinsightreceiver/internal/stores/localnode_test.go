@@ -67,12 +67,12 @@ func TestEbsVolumeInfo(t *testing.T) {
 
 type mockK8sDecorator struct{}
 
-func (d mockK8sDecorator) Decorate(m CIMetric) CIMetric {
+func (mockK8sDecorator) Decorate(m CIMetric) CIMetric {
 	m.AddTag("k8s-decorated", "true")
 	return m
 }
 
-func (d mockK8sDecorator) Shutdown() error {
+func (mockK8sDecorator) Shutdown() error {
 	return nil
 }
 

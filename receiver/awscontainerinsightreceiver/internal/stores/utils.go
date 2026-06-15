@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -286,9 +287,7 @@ func (c *CIMetricImpl) GetMetricType() string {
 }
 
 func (c *CIMetricImpl) AddTags(tags map[string]string) {
-	for k, v := range tags {
-		c.Tags[k] = v
-	}
+	maps.Copy(c.Tags, tags)
 }
 
 func (c *CIMetricImpl) HasField(key string) bool {

@@ -52,12 +52,12 @@ func newProcessor(cfg *Config, logger *zap.Logger) *attributeLimitProcessor {
 }
 
 // Start is a no-op for this processor (no external resources to initialize).
-func (p *attributeLimitProcessor) Start(_ context.Context, _ component.Host) error {
+func (*attributeLimitProcessor) Start(_ context.Context, _ component.Host) error {
 	return nil
 }
 
 // Shutdown is a no-op for this processor (no external resources to release).
-func (p *attributeLimitProcessor) Shutdown(_ context.Context) error {
+func (*attributeLimitProcessor) Shutdown(_ context.Context) error {
 	return nil
 }
 

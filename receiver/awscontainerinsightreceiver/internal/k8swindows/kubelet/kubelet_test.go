@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //go:build windows
-// +build windows
 
 package kubelet
 
@@ -30,7 +29,7 @@ func (m *MockKubeletProvider) GetSummary() (*stats.Summary, error) {
 	return testutils.LoadKubeletSummary(m.t, "./../extractors/testdata/CurSingleKubeletSummary.json"), nil
 }
 
-func (m *MockKubeletProvider) GetPods() ([]corev1.Pod, error) {
+func (*MockKubeletProvider) GetPods() ([]corev1.Pod, error) {
 	return []corev1.Pod{}, nil
 }
 
@@ -46,9 +45,10 @@ func mockInfoProvider() cTestUtils.MockHostInfo {
 }
 
 func mockMetricExtractors() []extractors.MetricExtractor {
-	metricsExtractors := []extractors.MetricExtractor{}
-	metricsExtractors = append(metricsExtractors, extractors.NewCPUMetricExtractor(&zap.Logger{}))
-	metricsExtractors = append(metricsExtractors, extractors.NewMemMetricExtractor(&zap.Logger{}))
+	metricsExtractors := []extractors.MetricExtractor{
+		extractors.NewCPUMetricExtractor(&zap.Logger{}),
+		extractors.NewMemMetricExtractor(&zap.Logger{}),
+	}
 	return metricsExtractors
 }
 

@@ -22,15 +22,15 @@ const (
 
 type mockHostInfoProvider struct{}
 
-func (m mockHostInfoProvider) GetClusterName() string {
+func (mockHostInfoProvider) GetClusterName() string {
 	return dummyClusterName
 }
 
-func (m mockHostInfoProvider) GetInstanceID() string {
+func (mockHostInfoProvider) GetInstanceID() string {
 	return dummyHostName
 }
 
-func (m mockHostInfoProvider) GetInstanceType() string {
+func (mockHostInfoProvider) GetInstanceType() string {
 	return dummyInstanceType
 }
 

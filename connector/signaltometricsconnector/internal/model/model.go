@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 
 	"go.opentelemetry.io/collector/component"
@@ -356,14 +357,14 @@ func filterByResolved(attrs pcommon.Map, resolved []AttributeKeyValue, extraCapa
 func resolveEntries[K any](ctx context.Context, tCtx K, entries []attributeEntry[K]) ([]AttributeKeyValue, error) {
 	seen := make(map[string]struct{}, len(entries))
 	resolved := make([]AttributeKeyValue, 0, len(entries))
-	for i := len(entries) - 1; i >= 0; i-- {
+	for i := range slices.Backward(entries) {
 		entry := entries[i]
 		if entry.Expression != nil {
 			keys, err := evalKeysExpression(ctx, tCtx, entry)
 			if err != nil {
 				return nil, err
 			}
-			for j := len(keys) - 1; j >= 0; j-- {
+			for j := range slices.Backward(keys) {
 				if _, ok := seen[keys[j]]; ok {
 					continue
 				}

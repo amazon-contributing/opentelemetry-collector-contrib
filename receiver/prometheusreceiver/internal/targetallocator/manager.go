@@ -70,8 +70,7 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 	m.discoveryManager = dm
 	m.host = host
 
-	err := m.applyCfg()
-	if err != nil {
+	if err := m.applyCfg(); err != nil {
 		m.settings.Logger.Error("Failed to apply new scrape configuration", zap.Error(err))
 		return err
 	}
@@ -79,7 +78,7 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 		// the target allocator is disabled
 		return nil
 	}
-	if err = m.setHTTPClient(ctx); err != nil {
+	if err := m.setHTTPClient(ctx); err != nil {
 		return err
 	}
 	m.settings.Logger.Info("Starting target allocator discovery")

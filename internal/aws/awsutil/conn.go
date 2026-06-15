@@ -37,10 +37,7 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 		return aws.Config{}, err
 	}
 
-	region, err := resolveRegion(ctx, logger, settings, httpClient)
-	if err != nil {
-		return aws.Config{}, err
-	}
+	region := resolveRegion(ctx, logger, settings, httpClient)
 	if region == "" {
 		msg := "Cannot fetch region variable from config file, environment variables and ec2 metadata."
 		logger.Error(msg)
@@ -78,26 +75,26 @@ func resolveRegion(
 	logger *zap.Logger,
 	settings *AWSSessionSettings,
 	httpClient aws.HTTPClient,
-) (string, error) {
+) string {
 	if settings.Region != "" {
 		logger.Debug("Fetch region from commandline/config file", zap.String("region", settings.Region))
-		return settings.Region, nil
+		return settings.Region
 	}
 	if envRegion := os.Getenv("AWS_REGION"); envRegion != "" {
 		logger.Debug("Fetch region from environment variables", zap.String("region", envRegion))
-		return envRegion, nil
+		return envRegion
 	}
 	if settings.LocalMode {
-		return "", nil
+		return ""
 	}
 
 	region, err := resolveRegionFromIMDS(ctx, logger, settings.IMDSRetries, httpClient)
 	if err != nil {
 		logger.Error("Unable to retrieve the region from the EC2 instance", zap.Error(err))
-		return "", nil
+		return ""
 	}
 	logger.Debug("Fetch region from ec2 metadata", zap.String("region", region))
-	return region, nil
+	return region
 }
 
 // resolveRegionFromIMDS resolves the region via EC2 IMDS using the shared

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sync"
 	"testing"
 
@@ -167,10 +168,8 @@ func ValidateType(t *testing.T, value any, expectedType, context string) {
 func ValidateEnum(t *testing.T, value any, enum []any, context string) {
 	// see: https://json-schema.org/draft/2020-12/json-schema-validation#section-6.1.2
 	t.Helper()
-	for _, e := range enum {
-		if value == e {
-			return
-		}
+	if slices.Contains(enum, value) {
+		return
 	}
 	assert.Fail(t, fmt.Sprintf("%s: value %q not in enum %v", context, value, enum))
 }

@@ -85,6 +85,7 @@ components:
     - extension/asapclient
     - extension/avro_log_encoding
     - extension/aws_logs_encoding
+    - extension/awscloudwatchlogsprovisioner
     - extension/awscloudwatchmetricstreams_encoding
     - extension/awsmiddleware
     - extension/awsproxy
@@ -191,6 +192,7 @@ components:
     - processor/akamaidetector
     - processor/alibabaecsdetector
     - processor/attributes
+    - processor/attributestocontext
     - processor/awsattributelimit
     - processor/awscwotlpbatchsplit
     - processor/awsdevicepodcorrelation

@@ -18,15 +18,15 @@ import (
 // stubListerClient returns an empty ListPodResourcesResponse.
 type stubListerClient struct{}
 
-func (s *stubListerClient) List(_ context.Context, _ *podresourcesapi.ListPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.ListPodResourcesResponse, error) {
+func (*stubListerClient) List(_ context.Context, _ *podresourcesapi.ListPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.ListPodResourcesResponse, error) {
 	return &podresourcesapi.ListPodResourcesResponse{}, nil
 }
 
-func (s *stubListerClient) GetAllocatableResources(_ context.Context, _ *podresourcesapi.AllocatableResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.AllocatableResourcesResponse, error) {
+func (*stubListerClient) GetAllocatableResources(_ context.Context, _ *podresourcesapi.AllocatableResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.AllocatableResourcesResponse, error) {
 	return nil, nil
 }
 
-func (s *stubListerClient) Get(_ context.Context, _ *podresourcesapi.GetPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
+func (*stubListerClient) Get(_ context.Context, _ *podresourcesapi.GetPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
 	return nil, nil
 }
 

@@ -45,7 +45,7 @@ func getFallbackSharedConfigFiles(userHomeDirProvider func() string) (credential
 
 func setFromEnvVal(dst *string, keys ...string) {
 	for _, k := range keys {
-		if v := os.Getenv(k); len(v) != 0 {
+		if v := os.Getenv(k); v != "" {
 			*dst = v
 			break
 		}
@@ -77,7 +77,7 @@ func currentUserHomeDir() string {
 	var home string
 
 	home = backwardsCompatibleUserHomeDir()
-	if len(home) > 0 {
+	if home != "" {
 		return home
 	}
 

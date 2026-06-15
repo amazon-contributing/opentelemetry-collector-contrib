@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //go:build windows
-// +build windows
 
 package extractors // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
 
@@ -22,7 +21,7 @@ type NetMetricExtractor struct {
 	rateCalculator awsmetrics.MetricCalculator
 }
 
-func (n *NetMetricExtractor) HasValue(rawMetric RawMetric) bool {
+func (*NetMetricExtractor) HasValue(rawMetric RawMetric) bool {
 	return !rawMetric.Time.IsZero()
 }
 

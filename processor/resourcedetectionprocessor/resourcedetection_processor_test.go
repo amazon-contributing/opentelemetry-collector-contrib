@@ -900,16 +900,16 @@ func TestStart_IgnoreDetectorErrors(t *testing.T) {
 				ignoreDetectorErrors: tt.ignoreDetectorErrors,
 			}
 
-			err := rdp.Start(context.Background(), componenttest.NewNopHost())
+			err := rdp.Start(t.Context(), componenttest.NewNopHost())
 			if tt.expectErr {
 				assert.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				res, _, _ := rdp.provider.Get(context.Background(), nil)
+				res, _, _ := rdp.provider.Get(t.Context(), nil)
 				assert.Equal(t, 0, res.Attributes().Len())
 			}
 
-			require.NoError(t, rdp.Shutdown(context.Background()))
+			require.NoError(t, rdp.Shutdown(t.Context()))
 		})
 	}
 }

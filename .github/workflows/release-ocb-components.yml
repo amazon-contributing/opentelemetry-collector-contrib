@@ -57,8 +57,11 @@ jobs:
 
       - name: Update versions used in OCB testing
         run: |
+          # shellcheck disable=SC2016
           sed -i -e 's#${TEST_COMPONENT_GITHASH}#${{ github.sha }}#g' ./ocb-utils/builder-config-appsignals.yaml
+          # shellcheck disable=SC2016
           sed -i -e 's#${OCB_VERSION}#${{ env.OCB_MODULE_VERSION }}#g' ./ocb-utils/builder-config-appsignals.yaml
+          # shellcheck disable=SC2016
           sed -i -e 's#${OCB_VERSION}#${{ env.OCB_MODULE_VERSION }}#g' ./ocb-utils/Dockerfile
 
       - name: Build and push image with latest git hash as tag

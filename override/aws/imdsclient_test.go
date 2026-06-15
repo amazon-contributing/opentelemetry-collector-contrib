@@ -107,7 +107,7 @@ func TestIMDSClient_StrictSucceeds(t *testing.T) {
 	srv, tokenRequests := imdsTestServer(t, false, "us-west-2", nil)
 
 	c := NewIMDSClient(nil, 0, fastTestOptions(srv.URL))
-	out, err := c.GetRegion(context.Background(), &imds.GetRegionInput{})
+	out, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "us-west-2", out.Region)
@@ -121,7 +121,7 @@ func TestIMDSClient_FallsBackToPermissive(t *testing.T) {
 	srv, _ := imdsTestServer(t, true, "eu-central-1", nil)
 
 	c := NewIMDSClient(nil, 0, fastTestOptions(srv.URL))
-	out, err := c.GetRegion(context.Background(), &imds.GetRegionInput{})
+	out, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "eu-central-1", out.Region)
@@ -132,7 +132,7 @@ func TestIMDSClient_GetInstanceIdentityDocumentFallback(t *testing.T) {
 	srv, _ := imdsTestServer(t, true, "ap-south-1", nil)
 
 	c := NewIMDSClientFromConfig(aws.Config{}, nil, 0, fastTestOptions(srv.URL))
-	out, err := c.GetInstanceIdentityDocument(context.Background(), &imds.GetInstanceIdentityDocumentInput{})
+	out, err := c.GetInstanceIdentityDocument(t.Context(), &imds.GetInstanceIdentityDocumentInput{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "ap-south-1", out.Region)
@@ -144,7 +144,7 @@ func TestIMDSClient_GetMetadataFallback(t *testing.T) {
 	srv, _ := imdsTestServer(t, true, "us-west-2", map[string]string{"instance-id": "i-0123456789abcdef0"})
 
 	c := NewIMDSClientFromConfig(aws.Config{}, nil, 0, fastTestOptions(srv.URL))
-	out, err := c.GetMetadata(context.Background(), &imds.GetMetadataInput{Path: "instance-id"})
+	out, err := c.GetMetadata(t.Context(), &imds.GetMetadataInput{Path: "instance-id"})
 
 	require.NoError(t, err)
 	defer out.Content.Close()
@@ -162,7 +162,7 @@ func TestIMDSClient_BothFail(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := NewIMDSClient(nil, 0, fastTestOptions(srv.URL))
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	_, err := c.GetRegion(ctx, &imds.GetRegionInput{})
 	assert.Error(t, err)

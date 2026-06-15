@@ -26,7 +26,7 @@ func TestGetProxyFunc(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, fn)
 
-		req, _ := http.NewRequest("GET", "https://anything.example.com/", nil)
+		req, _ := http.NewRequest(http.MethodGet, "https://anything.example.com/", http.NoBody)
 		u, err := fn(req)
 		require.NoError(t, err)
 		assert.Equal(t, "http://explicit:9999", u.String())
@@ -40,7 +40,7 @@ func TestGetProxyFunc(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, fn)
 
-		req, _ := http.NewRequest("GET", "https://anything.example.com/", nil)
+		req, _ := http.NewRequest(http.MethodGet, "https://anything.example.com/", http.NoBody)
 		u, err := fn(req)
 		require.NoError(t, err)
 		require.NotNil(t, u)

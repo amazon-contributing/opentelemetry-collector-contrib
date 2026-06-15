@@ -4,7 +4,6 @@
 package awsutil
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -20,31 +19,28 @@ func TestResolveRegion_PriorityOrder(t *testing.T) {
 	t.Run("ConfigRegionWinsOverEnv", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "env-region")
 		s := &AWSSessionSettings{Region: "config-region"}
-		got, err := resolveRegion(context.Background(), logger, s, nil)
-		require.NoError(t, err)
+		got := resolveRegion(t.Context(), logger, s, nil)
 		assert.Equal(t, "config-region", got)
 	})
 
 	t.Run("EnvWinsWhenConfigEmpty", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "env-region")
 		s := &AWSSessionSettings{}
-		got, err := resolveRegion(context.Background(), logger, s, nil)
-		require.NoError(t, err)
+		got := resolveRegion(t.Context(), logger, s, nil)
 		assert.Equal(t, "env-region", got)
 	})
 
 	t.Run("LocalModeSkipsIMDS", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "")
 		s := &AWSSessionSettings{LocalMode: true}
-		got, err := resolveRegion(context.Background(), logger, s, nil)
-		require.NoError(t, err)
+		got := resolveRegion(t.Context(), logger, s, nil)
 		assert.Empty(t, got)
 	})
 }
 
 func TestGetAWSConfig_NoRegionResolvable(t *testing.T) {
 	t.Setenv("AWS_REGION", "")
-	cfg, err := GetAWSConfig(context.Background(), zap.NewNop(), &AWSSessionSettings{
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
 		LocalMode:             true,
 		NumberOfWorkers:       8,
 		RequestTimeoutSeconds: 30,
@@ -71,7 +67,7 @@ func staticCredsEnv(t *testing.T) {
 func TestGetAWSConfig_ExplicitRegion(t *testing.T) {
 	staticCredsEnv(t)
 
-	cfg, err := GetAWSConfig(context.Background(), zap.NewNop(), &AWSSessionSettings{
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
 		Region:                "us-east-1",
 		NumberOfWorkers:       8,
 		RequestTimeoutSeconds: 30,
@@ -86,7 +82,7 @@ func TestGetAWSConfig_ExplicitRegion(t *testing.T) {
 func TestGetAWSConfig_EndpointThreaded(t *testing.T) {
 	staticCredsEnv(t)
 
-	cfg, err := GetAWSConfig(context.Background(), zap.NewNop(), &AWSSessionSettings{
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
 		Region:                "us-east-1",
 		Endpoint:              "https://example-endpoint.local",
 		NumberOfWorkers:       8,
@@ -112,7 +108,7 @@ func TestGetAWSConfig_RetryMaxAttempts(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("MaxRetries=%d", tc.maxRetries), func(t *testing.T) {
-			cfg, err := GetAWSConfig(context.Background(), zap.NewNop(), &AWSSessionSettings{
+			cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
 				Region:                "us-east-1",
 				NumberOfWorkers:       8,
 				RequestTimeoutSeconds: 30,
@@ -142,7 +138,7 @@ func TestGetAWSConfig_DoesNotMutateSettings(t *testing.T) {
 	}
 	before := *settings
 
-	_, err := GetAWSConfig(context.Background(), zap.NewNop(), settings)
+	_, err := GetAWSConfig(t.Context(), zap.NewNop(), settings)
 	require.NoError(t, err)
 
 	assert.Equal(t, before, *settings)

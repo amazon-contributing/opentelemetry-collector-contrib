@@ -35,16 +35,16 @@ type mockNodeClient struct {
 	nodeToLabelsMap map[string]map[k8sclient.Label]int8
 }
 
-func (m *mockNodeClient) NodeInfos() map[string]*k8sclient.NodeInfo {
+func (*mockNodeClient) NodeInfos() map[string]*k8sclient.NodeInfo {
 	return nil
 }
 
-func (m *mockNodeClient) ClusterFailedNodeCount() int { return 0 }
-func (m *mockNodeClient) ClusterNodeCount() int       { return 0 }
+func (*mockNodeClient) ClusterFailedNodeCount() int { return 0 }
+func (*mockNodeClient) ClusterNodeCount() int       { return 0 }
 
-func (m *mockNodeClient) NodeToCapacityMap() map[string]v1.ResourceList    { return nil }
-func (m *mockNodeClient) NodeToAllocatableMap() map[string]v1.ResourceList { return nil }
-func (m *mockNodeClient) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus {
+func (*mockNodeClient) NodeToCapacityMap() map[string]v1.ResourceList    { return nil }
+func (*mockNodeClient) NodeToAllocatableMap() map[string]v1.ResourceList { return nil }
+func (*mockNodeClient) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus {
 	return nil
 }
 
@@ -474,7 +474,7 @@ func TestProperty_MetricEmissionCorrectness(t *testing.T) {
 		nodeToLabelsMap := make(map[string]map[k8sclient.Label]int8)
 		nodeStatuses := make(map[string]int8)
 
-		for i := 0; i < nodeCount; i++ {
+		for range nodeCount {
 			name := genNodeName().Draw(t, "node_name")
 			// Ensure unique node names by appending index.
 			name = name + "-" + rapid.StringMatching(`[0-9]{4}`).Draw(t, "suffix")

@@ -175,15 +175,15 @@ type MockConfigurer struct {
 	mock.Mock
 }
 
-func (m *MockConfigurer) Start(context.Context, component.Host) error {
+func (*MockConfigurer) Start(context.Context, component.Host) error {
 	return nil
 }
 
-func (m *MockConfigurer) Shutdown(context.Context) error {
+func (*MockConfigurer) Shutdown(context.Context) error {
 	return nil
 }
 
-func (m *MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
+func (*MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
 	return nil
 }
 

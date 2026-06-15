@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -140,10 +141,10 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 				acir.start(ctx)
 			}()
 		} else {
-			if err = checkKubelet(client); err != nil {
+			if err := checkKubelet(client); err != nil {
 				return err
 			}
-			if err = acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
+			if err := acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
 				return err
 			}
 			acir.cancelWg.Add(1)
@@ -496,8 +497,8 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 		acir.efaSysfsScraper.Shutdown()
 	}
 	if acir.decorators != nil {
-		for i := len(acir.decorators) - 1; i >= 0; i-- {
-			errs = errors.Join(errs, acir.decorators[i].Shutdown())
+		for _, d := range slices.Backward(acir.decorators) {
+			errs = errors.Join(errs, d.Shutdown())
 		}
 	}
 

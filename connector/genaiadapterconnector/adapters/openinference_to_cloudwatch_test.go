@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 )
 
 // Pinned OTel GenAI message schemas (open-telemetry/semantic-conventions-genai @ 9013599)
@@ -34,20 +33,20 @@ func TestLangchain_SimpleChat(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, string(semconv.GenAIRequestModelKey)))
-	assert.Equal(t, "chat", getAttr[string](attrs, string(semconv.GenAIOperationNameKey)))
-	assert.Equal(t, semconv.GenAIProviderNameAWSBedrock.Value.AsString(), getAttr[string](attrs, string(semconv.GenAIProviderNameKey)))
-	assert.Equal(t, int64(12), getAttr[int64](attrs, string(semconv.GenAIUsageInputTokensKey)))
-	assert.Equal(t, int64(5), getAttr[int64](attrs, string(semconv.GenAIUsageOutputTokensKey)))
-	assert.True(t, hasAttr(attrs, string(semconv.GenAIInputMessagesKey)))
-	assert.True(t, hasAttr(attrs, string(semconv.GenAIOutputMessagesKey)))
+	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, "gen_ai.request.model"))
+	assert.Equal(t, "chat", getAttr[string](attrs, "gen_ai.operation.name"))
+	assert.Equal(t, "aws.bedrock", getAttr[string](attrs, "gen_ai.provider.name"))
+	assert.Equal(t, int64(12), getAttr[int64](attrs, "gen_ai.usage.input_tokens"))
+	assert.Equal(t, int64(5), getAttr[int64](attrs, "gen_ai.usage.output_tokens"))
+	assert.True(t, hasAttr(attrs, "gen_ai.input.messages"))
+	assert.True(t, hasAttr(attrs, "gen_ai.output.messages"))
 
 	var inputMsgs []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs))
+	require.NoError(t, json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs))
 	validateOtelSchemaMessages(t, inputMsgs, "gen-ai-input-messages")
 
 	var outputMsgs []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIOutputMessagesKey))), &outputMsgs))
+	require.NoError(t, json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.output.messages")), &outputMsgs))
 	validateOtelSchemaMessages(t, outputMsgs, "gen-ai-output-messages")
 
 	assert.False(t, hasAttr(attrs, "openinference.span.kind"))
@@ -68,7 +67,7 @@ func TestLangchain_SystemMessage(t *testing.T) {
 	attrs := span.Attributes()
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 2)
 	assert.Equal(t, "system", inputMsgs[0]["role"])
@@ -84,7 +83,7 @@ func TestLangchain_ToolCallOutput(t *testing.T) {
 	attrs := span.Attributes()
 
 	var outputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIOutputMessagesKey))), &outputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.output.messages")), &outputMsgs)
 	require.NoError(t, err)
 	require.Len(t, outputMsgs, 1)
 	assert.Equal(t, "assistant", outputMsgs[0]["role"])
@@ -93,7 +92,7 @@ func TestLangchain_ToolCallOutput(t *testing.T) {
 	require.Len(t, toolCalls, 1)
 	assert.Equal(t, "get_weather", toolCalls[0]["name"])
 	assert.Equal(t, "toolu_bdrk_01GdVCiXNUBY9jGNhN45bFrU", toolCalls[0]["id"])
-	assert.True(t, hasAttr(attrs, string(semconv.GenAIToolDefinitionsKey)))
+	assert.True(t, hasAttr(attrs, "gen_ai.tool.definitions"))
 	validateOtelSchemaMessages(t, outputMsgs, "gen-ai-output-messages")
 }
 
@@ -103,7 +102,7 @@ func TestLangchain_LLMWithToolResult(t *testing.T) {
 	attrs := span.Attributes()
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 3)
 
@@ -124,10 +123,10 @@ func TestLangchain_ToolExecution(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "execute_tool", getAttr[string](attrs, string(semconv.GenAIOperationNameKey)))
-	assert.Equal(t, "get_weather", getAttr[string](attrs, string(semconv.GenAIToolNameKey)))
-	assert.Equal(t, "Get the weather for a city.", getAttr[string](attrs, string(semconv.GenAIToolDescriptionKey)))
-	assert.Equal(t, "{'city': 'Seattle'}", getAttr[string](attrs, string(semconv.GenAIToolCallArgumentsKey)))
+	assert.Equal(t, "execute_tool", getAttr[string](attrs, "gen_ai.operation.name"))
+	assert.Equal(t, "get_weather", getAttr[string](attrs, "gen_ai.tool.name"))
+	assert.Equal(t, "Get the weather for a city.", getAttr[string](attrs, "gen_ai.tool.description"))
+	assert.Equal(t, "{'city': 'Seattle'}", getAttr[string](attrs, "gen_ai.tool.call.arguments"))
 
 	assert.False(t, hasAttr(attrs, "tool.name"))
 	assert.False(t, hasAttr(attrs, "tool.description"))
@@ -140,7 +139,7 @@ func TestLangchain_AgentSpan(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "invoke_agent", getAttr[string](attrs, string(semconv.GenAIOperationNameKey)))
+	assert.Equal(t, "invoke_agent", getAttr[string](attrs, "gen_ai.operation.name"))
 	assert.False(t, hasAttr(attrs, "input.value"))
 	assert.False(t, hasAttr(attrs, "output.value"))
 }
@@ -150,13 +149,13 @@ func TestLangchain_ChainOutputWithMetadata(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, int64(403), getAttr[int64](attrs, string(semconv.GenAIUsageInputTokensKey)))
-	assert.Equal(t, int64(15), getAttr[int64](attrs, string(semconv.GenAIUsageOutputTokensKey)))
-	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, string(semconv.GenAIRequestModelKey)))
-	assert.Equal(t, "end_turn", getAttr[string](attrs, string(semconv.GenAIResponseFinishReasonsKey)))
+	assert.Equal(t, int64(403), getAttr[int64](attrs, "gen_ai.usage.input_tokens"))
+	assert.Equal(t, int64(15), getAttr[int64](attrs, "gen_ai.usage.output_tokens"))
+	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, "gen_ai.request.model"))
+	assert.Equal(t, "end_turn", getAttr[string](attrs, "gen_ai.response.finish_reasons"))
 
 	var outputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIOutputMessagesKey))), &outputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.output.messages")), &outputMsgs)
 	require.NoError(t, err)
 	require.Len(t, outputMsgs, 1)
 	assert.Equal(t, "assistant", outputMsgs[0]["role"])
@@ -169,10 +168,10 @@ func TestLangchain_ChainOutputWithToolCall(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "tool_use", getAttr[string](attrs, string(semconv.GenAIResponseFinishReasonsKey)))
+	assert.Equal(t, "tool_use", getAttr[string](attrs, "gen_ai.response.finish_reasons"))
 
 	var outputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIOutputMessagesKey))), &outputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.output.messages")), &outputMsgs)
 	require.NoError(t, err)
 	require.Len(t, outputMsgs, 1)
 
@@ -187,9 +186,9 @@ func TestLangchain_ChainToolsNode(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "get_clinic_hours", getAttr[string](attrs, string(semconv.GenAIToolNameKey)))
-	assert.Equal(t, "toolu_bdrk_01McWSdPrfhjsHiutBbjmgDK", getAttr[string](attrs, string(semconv.GenAIToolCallIDKey)))
-	assert.Equal(t, "Monday-Friday: 8AM-6PM, Saturday: 9AM-4PM, Sunday: Closed.", getAttr[string](attrs, string(semconv.GenAIToolCallResultKey)))
+	assert.Equal(t, "get_clinic_hours", getAttr[string](attrs, "gen_ai.tool.name"))
+	assert.Equal(t, "toolu_bdrk_01McWSdPrfhjsHiutBbjmgDK", getAttr[string](attrs, "gen_ai.tool.call.id"))
+	assert.Equal(t, "Monday-Friday: 8AM-6PM, Saturday: 9AM-4PM, Sunday: Closed.", getAttr[string](attrs, "gen_ai.tool.call.result"))
 	assert.False(t, hasAttr(attrs, "input.value"))
 	assert.False(t, hasAttr(attrs, "output.value"))
 }
@@ -199,13 +198,13 @@ func TestLangchain_ChainOutputWrappedFormat(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, int64(403), getAttr[int64](attrs, string(semconv.GenAIUsageInputTokensKey)))
-	assert.Equal(t, int64(15), getAttr[int64](attrs, string(semconv.GenAIUsageOutputTokensKey)))
-	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, string(semconv.GenAIRequestModelKey)))
-	assert.Equal(t, "end_turn", getAttr[string](attrs, string(semconv.GenAIResponseFinishReasonsKey)))
+	assert.Equal(t, int64(403), getAttr[int64](attrs, "gen_ai.usage.input_tokens"))
+	assert.Equal(t, int64(15), getAttr[int64](attrs, "gen_ai.usage.output_tokens"))
+	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, "gen_ai.request.model"))
+	assert.Equal(t, "end_turn", getAttr[string](attrs, "gen_ai.response.finish_reasons"))
 
 	var outputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIOutputMessagesKey))), &outputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.output.messages")), &outputMsgs)
 	require.NoError(t, err)
 	require.Len(t, outputMsgs, 1)
 	assert.Equal(t, "assistant", outputMsgs[0]["role"])
@@ -217,10 +216,10 @@ func TestLangchain_ChainOutputWrappedToolCall(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "tool_use", getAttr[string](attrs, string(semconv.GenAIResponseFinishReasonsKey)))
+	assert.Equal(t, "tool_use", getAttr[string](attrs, "gen_ai.response.finish_reasons"))
 
 	var outputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIOutputMessagesKey))), &outputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.output.messages")), &outputMsgs)
 	require.NoError(t, err)
 	require.Len(t, outputMsgs, 1)
 
@@ -235,7 +234,7 @@ func TestLangchain_ChainOutputArrayFormat(t *testing.T) {
 	attrs := span.Attributes()
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 2)
 	assert.Equal(t, "user", inputMsgs[0]["role"])
@@ -248,7 +247,7 @@ func TestLangchain_PromptSpan(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.False(t, hasAttr(attrs, string(semconv.GenAIOperationNameKey)))
+	assert.False(t, hasAttr(attrs, "gen_ai.operation.name"))
 	assert.False(t, hasAttr(attrs, "openinference.span.kind"))
 	assert.True(t, hasAttr(attrs, "llm.prompt_template.template"))
 	assert.True(t, hasAttr(attrs, "llm.prompt_template.variables"))
@@ -269,15 +268,15 @@ func TestBedrock_ConverseLLM(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "chat", getAttr[string](attrs, string(semconv.GenAIOperationNameKey)))
-	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, string(semconv.GenAIRequestModelKey)))
-	assert.Equal(t, int64(12), getAttr[int64](attrs, string(semconv.GenAIUsageInputTokensKey)))
-	assert.Equal(t, int64(5), getAttr[int64](attrs, string(semconv.GenAIUsageOutputTokensKey)))
-	assert.Equal(t, 100.0, getAttr[float64](attrs, string(semconv.GenAIRequestMaxTokensKey)))
-	assert.Equal(t, 0.7, getAttr[float64](attrs, string(semconv.GenAIRequestTemperatureKey)))
+	assert.Equal(t, "chat", getAttr[string](attrs, "gen_ai.operation.name"))
+	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, "gen_ai.request.model"))
+	assert.Equal(t, int64(12), getAttr[int64](attrs, "gen_ai.usage.input_tokens"))
+	assert.Equal(t, int64(5), getAttr[int64](attrs, "gen_ai.usage.output_tokens"))
+	assert.Equal(t, 100.0, getAttr[float64](attrs, "gen_ai.request.max_tokens"))
+	assert.Equal(t, 0.7, getAttr[float64](attrs, "gen_ai.request.temperature"))
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 1)
 	assert.Equal(t, "user", inputMsgs[0]["role"])
@@ -294,7 +293,7 @@ func TestBedrock_ConverseWithSystem(t *testing.T) {
 	attrs := span.Attributes()
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 2)
 	assert.Equal(t, "system", inputMsgs[0]["role"])
@@ -309,10 +308,10 @@ func TestLlamaindex_LLM(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "chat", getAttr[string](attrs, string(semconv.GenAIOperationNameKey)))
-	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, string(semconv.GenAIRequestModelKey)))
-	assert.Equal(t, int64(12), getAttr[int64](attrs, string(semconv.GenAIUsageInputTokensKey)))
-	assert.Equal(t, int64(5), getAttr[int64](attrs, string(semconv.GenAIUsageOutputTokensKey)))
+	assert.Equal(t, "chat", getAttr[string](attrs, "gen_ai.operation.name"))
+	assert.Equal(t, "anthropic.claude-3-haiku-20240307-v1:0", getAttr[string](attrs, "gen_ai.request.model"))
+	assert.Equal(t, int64(12), getAttr[int64](attrs, "gen_ai.usage.input_tokens"))
+	assert.Equal(t, int64(5), getAttr[int64](attrs, "gen_ai.usage.output_tokens"))
 
 	assert.Equal(t, int64(0), getAttr[int64](attrs, "gen_ai.usage.cache_read.input_tokens"))
 	assert.Equal(t, int64(0), getAttr[int64](attrs, "gen_ai.usage.cache_creation.input_tokens"))
@@ -321,7 +320,7 @@ func TestLlamaindex_LLM(t *testing.T) {
 	assert.False(t, hasAttr(attrs, "llm.token_count.total"))
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 1)
 	assert.Equal(t, "user", inputMsgs[0]["role"])
@@ -333,7 +332,7 @@ func TestLlamaindex_SystemMessage(t *testing.T) {
 	attrs := span.Attributes()
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 2)
 	assert.Equal(t, "system", inputMsgs[0]["role"])
@@ -354,7 +353,7 @@ func TestLangchain_LangGraphTopLevel(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.True(t, hasAttr(attrs, string(semconv.GenAIInputMessagesKey)))
+	assert.True(t, hasAttr(attrs, "gen_ai.input.messages"))
 	assert.False(t, hasAttr(attrs, "input.value"))
 	assert.False(t, hasAttr(attrs, "input.mime_type"))
 }
@@ -364,13 +363,13 @@ func TestBedrock_ConverseToolUse(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "chat", getAttr[string](attrs, string(semconv.GenAIOperationNameKey)))
-	assert.Equal(t, int64(331), getAttr[int64](attrs, string(semconv.GenAIUsageInputTokensKey)))
-	assert.Equal(t, int64(53), getAttr[int64](attrs, string(semconv.GenAIUsageOutputTokensKey)))
-	assert.Equal(t, 200.0, getAttr[float64](attrs, string(semconv.GenAIRequestMaxTokensKey)))
+	assert.Equal(t, "chat", getAttr[string](attrs, "gen_ai.operation.name"))
+	assert.Equal(t, int64(331), getAttr[int64](attrs, "gen_ai.usage.input_tokens"))
+	assert.Equal(t, int64(53), getAttr[int64](attrs, "gen_ai.usage.output_tokens"))
+	assert.Equal(t, 200.0, getAttr[float64](attrs, "gen_ai.request.max_tokens"))
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 1)
 	assert.Equal(t, "user", inputMsgs[0]["role"])
@@ -415,10 +414,10 @@ func TestTransform_ToolWithParameters(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "get_weather", getAttr[string](attrs, string(semconv.GenAIToolNameKey)))
-	assert.Equal(t, "Get weather for a city", getAttr[string](attrs, string(semconv.GenAIToolDescriptionKey)))
-	assert.Equal(t, `{"city": "Seattle"}`, getAttr[string](attrs, string(semconv.GenAIToolCallArgumentsKey)))
-	assert.Equal(t, "72F and sunny in Seattle", getAttr[string](attrs, string(semconv.GenAIToolCallResultKey)))
+	assert.Equal(t, "get_weather", getAttr[string](attrs, "gen_ai.tool.name"))
+	assert.Equal(t, "Get weather for a city", getAttr[string](attrs, "gen_ai.tool.description"))
+	assert.Equal(t, `{"city": "Seattle"}`, getAttr[string](attrs, "gen_ai.tool.call.arguments"))
+	assert.Equal(t, "72F and sunny in Seattle", getAttr[string](attrs, "gen_ai.tool.call.result"))
 	assert.False(t, hasAttr(attrs, "tool.parameters"))
 	assert.False(t, hasAttr(attrs, "input.value"))
 	assert.False(t, hasAttr(attrs, "output.value"))
@@ -429,11 +428,11 @@ func TestLangchain_ToolSpan(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "execute_tool", getAttr[string](attrs, string(semconv.GenAIOperationNameKey)))
-	assert.Equal(t, "get_weather", getAttr[string](attrs, string(semconv.GenAIToolNameKey)))
-	assert.Equal(t, "Get the weather for a city.", getAttr[string](attrs, string(semconv.GenAIToolDescriptionKey)))
-	assert.Equal(t, "{'city': 'Seattle'}", getAttr[string](attrs, string(semconv.GenAIToolCallArgumentsKey)))
-	assert.Contains(t, getAttr[string](attrs, string(semconv.GenAIToolCallResultKey)), "72F and sunny in Seattle")
+	assert.Equal(t, "execute_tool", getAttr[string](attrs, "gen_ai.operation.name"))
+	assert.Equal(t, "get_weather", getAttr[string](attrs, "gen_ai.tool.name"))
+	assert.Equal(t, "Get the weather for a city.", getAttr[string](attrs, "gen_ai.tool.description"))
+	assert.Equal(t, "{'city': 'Seattle'}", getAttr[string](attrs, "gen_ai.tool.call.arguments"))
+	assert.Contains(t, getAttr[string](attrs, "gen_ai.tool.call.result"), "72F and sunny in Seattle")
 	assert.False(t, hasAttr(attrs, "input.value"))
 	assert.False(t, hasAttr(attrs, "output.value"))
 	assert.False(t, hasAttr(attrs, "input.mime_type"))
@@ -446,7 +445,7 @@ func TestTransform_AttributesRemoved(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, "gpt-4", getAttr[string](attrs, string(semconv.GenAIRequestModelKey)))
+	assert.Equal(t, "gpt-4", getAttr[string](attrs, "gen_ai.request.model"))
 
 	removedKeys := []string{
 		"input.mime_type", "output.mime_type",
@@ -477,14 +476,14 @@ func TestTransform_MultimodalContent(t *testing.T) {
 	attrs := span.Attributes()
 
 	var inputMsgs []map[string]any
-	err := json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIInputMessagesKey))), &inputMsgs)
+	err := json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.input.messages")), &inputMsgs)
 	require.NoError(t, err)
 	require.Len(t, inputMsgs, 1)
 	assert.Equal(t, "user", inputMsgs[0]["role"])
 	assert.Equal(t, "What's in this image?", getTextContent(t, inputMsgs[0]))
 
 	var outputMsgs []map[string]any
-	err = json.Unmarshal([]byte(getAttr[string](attrs, string(semconv.GenAIOutputMessagesKey))), &outputMsgs)
+	err = json.Unmarshal([]byte(getAttr[string](attrs, "gen_ai.output.messages")), &outputMsgs)
 	require.NoError(t, err)
 	require.Len(t, outputMsgs, 1)
 	assert.Equal(t, "I see a cat.", getTextContent(t, outputMsgs[0]))
@@ -498,29 +497,29 @@ func TestTransform_ProviderMapping(t *testing.T) {
 		provider string
 		expected string
 	}{
-		{"amazon_bedrock", "amazon_bedrock", semconv.GenAIProviderNameAWSBedrock.Value.AsString()},
-		{"bedrock_converse", "bedrock_converse", semconv.GenAIProviderNameAWSBedrock.Value.AsString()},
-		{"aws", "aws", semconv.GenAIProviderNameAWSBedrock.Value.AsString()},
-		{"bedrock", "bedrock", semconv.GenAIProviderNameAWSBedrock.Value.AsString()},
-		{"openai", "openai", semconv.GenAIProviderNameOpenAI.Value.AsString()},
-		{"anthropic", "anthropic", semconv.GenAIProviderNameAnthropic.Value.AsString()},
-		{"azure_openai", "azure_openai", semconv.GenAIProviderNameAzureAIOpenAI.Value.AsString()},
-		{"azure", "azure", semconv.GenAIProviderNameAzureAIOpenAI.Value.AsString()},
-		{"azure_ai", "azure_ai", semconv.GenAIProviderNameAzureAIOpenAI.Value.AsString()},
-		{"mistral", "mistral", semconv.GenAIProviderNameMistralAI.Value.AsString()},
-		{"mistralai", "mistralai", semconv.GenAIProviderNameMistralAI.Value.AsString()},
-		{"google", "google", semconv.GenAIProviderNameGCPGenAI.Value.AsString()},
-		{"google_genai", "google_genai", semconv.GenAIProviderNameGCPGenAI.Value.AsString()},
-		{"google_vertexai", "google_vertexai", semconv.GenAIProviderNameGCPVertexAI.Value.AsString()},
-		{"vertex", "vertex", semconv.GenAIProviderNameGCPVertexAI.Value.AsString()},
-		{"vertexai", "vertexai", semconv.GenAIProviderNameGCPVertexAI.Value.AsString()},
-		{"cohere", "cohere", semconv.GenAIProviderNameCohere.Value.AsString()},
-		{"deepseek", "deepseek", semconv.GenAIProviderNameDeepseek.Value.AsString()},
-		{"gemini", "gemini", semconv.GenAIProviderNameGCPGemini.Value.AsString()},
-		{"groq", "groq", semconv.GenAIProviderNameGroq.Value.AsString()},
-		{"perplexity", "perplexity", semconv.GenAIProviderNamePerplexity.Value.AsString()},
-		{"xai", "xai", semconv.GenAIProviderNameXAI.Value.AsString()},
-		{"x_ai", "x_ai", semconv.GenAIProviderNameXAI.Value.AsString()},
+		{"amazon_bedrock", "amazon_bedrock", "aws.bedrock"},
+		{"bedrock_converse", "bedrock_converse", "aws.bedrock"},
+		{"aws", "aws", "aws.bedrock"},
+		{"bedrock", "bedrock", "aws.bedrock"},
+		{"openai", "openai", "openai"},
+		{"anthropic", "anthropic", "anthropic"},
+		{"azure_openai", "azure_openai", "azure.ai.openai"},
+		{"azure", "azure", "azure.ai.openai"},
+		{"azure_ai", "azure_ai", "azure.ai.openai"},
+		{"mistral", "mistral", "mistral_ai"},
+		{"mistralai", "mistralai", "mistral_ai"},
+		{"google", "google", "gcp.gen_ai"},
+		{"google_genai", "google_genai", "gcp.gen_ai"},
+		{"google_vertexai", "google_vertexai", "gcp.vertex_ai"},
+		{"vertex", "vertex", "gcp.vertex_ai"},
+		{"vertexai", "vertexai", "gcp.vertex_ai"},
+		{"cohere", "cohere", "cohere"},
+		{"deepseek", "deepseek", "deepseek"},
+		{"gemini", "gemini", "gcp.gemini"},
+		{"groq", "groq", "groq"},
+		{"perplexity", "perplexity", "perplexity"},
+		{"xai", "xai", "x_ai"},
+		{"x_ai", "x_ai", "x_ai"},
 		{"unknown_provider", "some_unknown", "some_unknown"},
 	}
 	for _, tt := range tests {
@@ -530,7 +529,7 @@ func TestTransform_ProviderMapping(t *testing.T) {
 				"llm.provider":            tt.provider,
 			})
 			TransformOpenInferenceSpan(span)
-			assert.Equal(t, tt.expected, getAttr[string](span.Attributes(), string(semconv.GenAIProviderNameKey)))
+			assert.Equal(t, tt.expected, getAttr[string](span.Attributes(), "gen_ai.provider.name"))
 		})
 	}
 }
@@ -543,7 +542,7 @@ func TestTransform_LLMSystemFallback(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, semconv.GenAIProviderNameOpenAI.Value.AsString(), getAttr[string](attrs, string(semconv.GenAIProviderNameKey)))
+	assert.Equal(t, "openai", getAttr[string](attrs, "gen_ai.provider.name"))
 	assert.False(t, hasAttr(attrs, "llm.system"))
 }
 
@@ -556,7 +555,7 @@ func TestTransform_LLMSystemDoesNotOverrideProvider(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, semconv.GenAIProviderNameAWSBedrock.Value.AsString(), getAttr[string](attrs, string(semconv.GenAIProviderNameKey)))
+	assert.Equal(t, "aws.bedrock", getAttr[string](attrs, "gen_ai.provider.name"))
 	assert.False(t, hasAttr(attrs, "llm.system"))
 }
 
@@ -574,7 +573,7 @@ func TestTransform_OperationMapping(t *testing.T) {
 		t.Run(tt.oiKind, func(t *testing.T) {
 			span := newSpan(map[string]any{"openinference.span.kind": tt.oiKind})
 			TransformOpenInferenceSpan(span)
-			assert.Equal(t, tt.expected, getAttr[string](span.Attributes(), string(semconv.GenAIOperationNameKey)))
+			assert.Equal(t, tt.expected, getAttr[string](span.Attributes(), "gen_ai.operation.name"))
 		})
 	}
 }
@@ -595,8 +594,8 @@ func TestTransform_SetIfAbsentPreventsOverwrite(t *testing.T) {
 	TransformOpenInferenceSpan(span)
 	attrs := span.Attributes()
 
-	assert.Equal(t, int64(100), getAttr[int64](attrs, string(semconv.GenAIUsageInputTokensKey)))
-	assert.Equal(t, int64(50), getAttr[int64](attrs, string(semconv.GenAIUsageOutputTokensKey)))
+	assert.Equal(t, int64(100), getAttr[int64](attrs, "gen_ai.usage.input_tokens"))
+	assert.Equal(t, int64(50), getAttr[int64](attrs, "gen_ai.usage.output_tokens"))
 }
 
 // getTextContent extracts the text content from a semconv message's parts array.

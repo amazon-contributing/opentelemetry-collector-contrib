@@ -70,7 +70,7 @@ type mockHost struct {
 	component.Host
 }
 
-func (m *mockHost) GetExtensions() map[component.ID]component.Component {
+func (*mockHost) GetExtensions() map[component.ID]component.Component {
 	return nil
 }
 

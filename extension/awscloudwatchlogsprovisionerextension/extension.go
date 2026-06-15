@@ -73,7 +73,7 @@ func (e *provisionerExtension) Start(ctx context.Context, host component.Host) e
 	return nil
 }
 
-func (e *provisionerExtension) Shutdown(_ context.Context) error {
+func (*provisionerExtension) Shutdown(_ context.Context) error {
 	return nil
 }
 

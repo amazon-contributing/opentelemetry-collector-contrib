@@ -6,6 +6,7 @@ package kubelet // import "github.com/open-telemetry/opentelemetry-collector-con
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"sync"
 	"time"
@@ -148,9 +149,7 @@ func (c *Client) refresh(ctx context.Context) {
 	// Snapshot resourceNames under read lock to avoid racing with AddResourceName.
 	c.mu.RLock()
 	trackedResources := make(map[string]struct{}, len(c.resourceNames))
-	for k, v := range c.resourceNames {
-		trackedResources[k] = v
-	}
+	maps.Copy(trackedResources, c.resourceNames)
 	c.mu.RUnlock()
 
 	if len(trackedResources) == 0 {

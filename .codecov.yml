@@ -305,6 +305,10 @@ component_management:
     name: extension_asapauth
     paths:
     - extension/asapauthextension/**
+  - component_id: extension_awscloudwatchlogsprovisioner
+    name: extension_awscloudwatchlogsprovisioner
+    paths:
+    - extension/awscloudwatchlogsprovisionerextension/**
   - component_id: extension_awsproxy
     name: extension_awsproxy
     paths:
@@ -445,6 +449,10 @@ component_management:
     name: processor_attributes
     paths:
     - processor/attributesprocessor/**
+  - component_id: processor_attributestocontext
+    name: processor_attributestocontext
+    paths:
+    - processor/attributestocontextprocessor/**
   - component_id: processor_awsattributelimit
     name: processor_awsattributelimit
     paths:

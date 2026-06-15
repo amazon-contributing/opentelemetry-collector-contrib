@@ -443,7 +443,7 @@ func TestPodStore_previousCleanupLocking(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		// status metrics push things to the previous list
 		podStore.addStatus(metric, pod)
 	}
@@ -1031,7 +1031,7 @@ func TestPodStore_addPodOwnersAndPodName(t *testing.T) {
 
 type mockPodClient struct{}
 
-func (m *mockPodClient) ListPods() ([]corev1.Pod, error) {
+func (*mockPodClient) ListPods() ([]corev1.Pod, error) {
 	pod := getBaseTestPodInfo()
 	podList := []corev1.Pod{*pod}
 	return podList, nil

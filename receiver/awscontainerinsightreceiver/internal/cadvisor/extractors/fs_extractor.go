@@ -33,7 +33,8 @@ func (f *FileSystemMetricExtractor) GetValue(info *cinfo.ContainerInfo, _ CPUMem
 	stats := GetStats(info)
 	metrics := make([]*stores.CIMetricImpl, 0, len(stats.Filesystem))
 
-	for _, v := range stats.Filesystem {
+	for i := range stats.Filesystem {
+		v := &stats.Filesystem[i]
 		metric := stores.NewCIMetric(containerType, f.logger)
 		if v.Device == "" {
 			continue

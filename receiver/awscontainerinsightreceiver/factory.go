@@ -93,7 +93,7 @@ func createMetricsReceiver(
 	baseCfg component.Config,
 	consumer consumer.Metrics,
 ) (receiver.Metrics, error) {
-	//if !useNewTypeNameGate.IsEnabled() {
+	// if !useNewTypeNameGate.IsEnabled() {
 	//	params.Logger.Warn(
 	//		"The component type name 'awscontainerinsightreceiver' is deprecated and will be changed to 'awscontainerinsight' in a future release. " +
 	//			"Please enable the feature gate 'receiver.awscontainerinsightreceiver.useNewTypeName' to use the new component type name. " +

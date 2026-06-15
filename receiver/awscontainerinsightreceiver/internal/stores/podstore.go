@@ -350,8 +350,8 @@ func (p *PodStore) refreshInternal(now time.Time, podList []corev1.Pod) {
 			podCount++
 		}
 
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.State.Running != nil {
+		for i := range pod.Status.ContainerStatuses {
+			if pod.Status.ContainerStatuses[i].State.Running != nil {
 				containerCount++
 			}
 		}
@@ -587,15 +587,15 @@ func (p *PodStore) decorateCPU(metric CIMetric, pod *corev1.Pod) {
 		if metric.HasField(ci.MetricName(ci.TypeContainer, ci.CPUTotal)) {
 			containerCPUTotal := metric.GetField(ci.MetricName(ci.TypeContainer, ci.CPUTotal))
 			if containerName := metric.GetTag(ci.ContainerNamekey); containerName != "" {
-				for _, containerSpec := range pod.Spec.Containers {
-					if containerSpec.Name == containerName {
-						if containerCPULimit, ok := getLimitForContainer(cpuKey, containerSpec); ok {
+				for i := range pod.Spec.Containers {
+					if pod.Spec.Containers[i].Name == containerName {
+						if containerCPULimit, ok := getLimitForContainer(cpuKey, pod.Spec.Containers[i]); ok {
 							metric.AddField(ci.MetricName(ci.TypeContainer, ci.CPULimit), containerCPULimit)
 							if p.includeEnhancedMetrics {
 								metric.AddField(ci.MetricName(ci.TypeContainer, ci.CPUUtilizationOverContainerLimit), containerCPUTotal.(float64)/float64(containerCPULimit)*100)
 							}
 						}
-						if containerCPUReq, ok := getRequestForContainer(cpuKey, containerSpec); ok {
+						if containerCPUReq, ok := getRequestForContainer(cpuKey, pod.Spec.Containers[i]); ok {
 							metric.AddField(ci.MetricName(ci.TypeContainer, ci.CPURequest), containerCPUReq)
 						}
 					}
@@ -636,15 +636,15 @@ func (p *PodStore) decorateMem(metric CIMetric, pod *corev1.Pod) {
 		if metric.HasField(memWorkingsetMetric) {
 			containerMemWorkingset := metric.GetField(memWorkingsetMetric)
 			if containerName := metric.GetTag(ci.ContainerNamekey); containerName != "" {
-				for _, containerSpec := range pod.Spec.Containers {
-					if containerSpec.Name == containerName {
-						if containerMemLimit, ok := getLimitForContainer(memoryKey, containerSpec); ok {
+				for i := range pod.Spec.Containers {
+					if pod.Spec.Containers[i].Name == containerName {
+						if containerMemLimit, ok := getLimitForContainer(memoryKey, pod.Spec.Containers[i]); ok {
 							metric.AddField(ci.MetricName(ci.TypeContainer, ci.MemLimit), containerMemLimit)
 							if p.includeEnhancedMetrics {
 								metric.AddField(ci.MetricName(ci.TypeContainer, ci.MemUtilizationOverContainerLimit), float64(containerMemWorkingset.(uint64))/float64(containerMemLimit)*100)
 							}
 						}
-						if containerMemReq, ok := getRequestForContainer(memoryKey, containerSpec); ok {
+						if containerMemReq, ok := getRequestForContainer(memoryKey, pod.Spec.Containers[i]); ok {
 							metric.AddField(ci.MetricName(ci.TypeContainer, ci.MemRequest), containerMemReq)
 						}
 					}
@@ -665,8 +665,8 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 		}
 
 		var curContainerRestarts int
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			curContainerRestarts += int(containerStatus.RestartCount)
+		for i := range pod.Status.ContainerStatuses {
+			curContainerRestarts += int(pod.Status.ContainerStatuses[i].RestartCount)
 		}
 
 		podKey := createPodKeyFromMetric(metric)
@@ -684,7 +684,8 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 		}
 	} else if metric.GetTag(ci.MetricType) == ci.TypeContainer {
 		if containerName := metric.GetTag(ci.ContainerNamekey); containerName != "" {
-			for _, containerStatus := range pod.Status.ContainerStatuses {
+			for i := range pod.Status.ContainerStatuses {
+				containerStatus := &pod.Status.ContainerStatuses[i]
 				if containerStatus.Name == containerName {
 					switch {
 					case containerStatus.State.Running != nil:
@@ -723,7 +724,7 @@ func (p *PodStore) addStatus(metric CIMetric, pod *corev1.Pod) {
 	}
 }
 
-func (p *PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
+func (*PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
 	for _, metricName := range PodPhaseMetricNames {
 		metric.AddField(metricName, 0)
 	}
@@ -734,7 +735,7 @@ func (p *PodStore) addPodStatusMetrics(metric CIMetric, pod *corev1.Pod) {
 	}
 }
 
-func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
+func (*PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
 	for _, metricName := range PodConditionMetricNames {
 		metric.AddField(metricName, 0)
 	}
@@ -755,13 +756,14 @@ func (p *PodStore) addPodConditionMetrics(metric CIMetric, pod *corev1.Pod) {
 	}
 }
 
-func (p *PodStore) addPodContainerStatusMetrics(metric CIMetric, pod *corev1.Pod) {
+func (*PodStore) addPodContainerStatusMetrics(metric CIMetric, pod *corev1.Pod) {
 	possibleStatuses := map[string]int{
 		ci.StatusContainerRunning:    0,
 		ci.StatusContainerWaiting:    0,
 		ci.StatusContainerTerminated: 0,
 	}
-	for _, containerStatus := range pod.Status.ContainerStatuses {
+	for i := range pod.Status.ContainerStatuses {
+		containerStatus := &pod.Status.ContainerStatuses[i]
 		switch {
 		case containerStatus.State.Running != nil:
 			possibleStatuses[ci.StatusContainerRunning]++
@@ -798,8 +800,8 @@ func (p *PodStore) addPodContainerStatusMetrics(metric CIMetric, pod *corev1.Pod
 func getResourceSettingForPod(pod *corev1.Pod, bound uint64, resource corev1.ResourceName, fn func(resource corev1.ResourceName, spec corev1.Container) (uint64, bool)) (uint64, bool) {
 	var result uint64
 	allSet := true
-	for _, containerSpec := range pod.Spec.Containers {
-		val, ok := fn(resource, containerSpec)
+	for i := range pod.Spec.Containers {
+		val, ok := fn(resource, pod.Spec.Containers[i])
 		if ok {
 			result += val
 		} else {
@@ -849,15 +851,15 @@ func getRequestForContainer(resource corev1.ResourceName, spec corev1.Container)
 func addContainerID(pod *corev1.Pod, metric CIMetric, kubernetesBlob map[string]any, logger *zap.Logger) {
 	if containerName := metric.GetTag(ci.ContainerNamekey); containerName != "" {
 		rawID := ""
-		for _, container := range pod.Status.ContainerStatuses {
-			if metric.GetTag(ci.ContainerNamekey) == container.Name {
-				rawID = container.ContainerID
+		for i := range pod.Status.ContainerStatuses {
+			if metric.GetTag(ci.ContainerNamekey) == pod.Status.ContainerStatuses[i].Name {
+				rawID = pod.Status.ContainerStatuses[i].ContainerID
 				if rawID != "" {
 					ids := strings.Split(rawID, "://")
 					if len(ids) == 2 {
 						kubernetesBlob[ids[0]] = map[string]string{"container_id": ids[1]}
 					} else {
-						logger.Warn(fmt.Sprintf("W! Cannot parse container id from %s for container %s", rawID, container.Name))
+						logger.Warn(fmt.Sprintf("W! Cannot parse container id from %s for container %s", rawID, pod.Status.ContainerStatuses[i].Name))
 						kubernetesBlob["container_id"] = rawID
 					}
 				}
@@ -947,8 +949,8 @@ func (p *PodStore) addPodOwnersAndPodName(metric CIMetric, pod *corev1.Pod, kube
 
 func addContainerCount(metric CIMetric, pod *corev1.Pod) {
 	runningContainerCount := 0
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.State.Running != nil {
+	for i := range pod.Status.ContainerStatuses {
+		if pod.Status.ContainerStatuses[i].State.Running != nil {
 			runningContainerCount++
 		}
 	}

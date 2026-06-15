@@ -69,7 +69,7 @@ func newUserAgent(ttl time.Duration) *UserAgent {
 }
 
 // ID implements middleware.BuildMiddleware.
-func (ua *UserAgent) ID() string { return middlewareID }
+func (*UserAgent) ID() string { return middlewareID }
 
 // HandleBuild implements middleware.BuildMiddleware. Appends the dynamic
 // user-agent string to the outgoing request's User-Agent header.

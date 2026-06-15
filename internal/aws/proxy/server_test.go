@@ -617,7 +617,7 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestBuildRoutingMapsEmpty(t *testing.T) {
-	apiMap, credsByRole := buildRoutingMaps(context.Background(), nil, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
+	apiMap, credsByRole := buildRoutingMaps(t.Context(), nil, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Empty(t, apiMap)
 	assert.Empty(t, credsByRole)
 }
@@ -638,7 +638,7 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 		},
 	}
 
-	apiMap, credsByRole := buildRoutingMaps(context.Background(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, credsByRole := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 3)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -663,7 +663,7 @@ func TestBuildRoutingMapsInvalidRules(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(context.Background(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 
 	// Invalid rule (missing service_name) is mapped to nil
 	assert.Nil(t, apiMap["MissingServiceName"], "missing service_name should map to nil")
@@ -713,7 +713,7 @@ func TestBuildRoutingMapsMissingEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(context.Background(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 }
 
@@ -726,7 +726,7 @@ func TestBuildRoutingMapsResolvesEndpointAtStartup(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(context.Background(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should be resolved at startup")
 }
 
@@ -739,7 +739,7 @@ func TestBuildRoutingMapsFallsBackToDefaultRegion(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(context.Background(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, zap.NewNop())
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.NotNil(t, apiMap["PutLogEvents"])
 	assert.Equal(t, "us-west-2", apiMap["PutLogEvents"].Region, "should fall back to default region")
 }
@@ -753,7 +753,7 @@ func TestBuildRoutingMapsAutoResolvesEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(context.Background(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "should auto-resolve endpoint from service_name and region")
 }
 
@@ -789,7 +789,7 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(context.Background(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 2)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -811,7 +811,7 @@ func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(context.Background(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName, "first route should win")
 }
 

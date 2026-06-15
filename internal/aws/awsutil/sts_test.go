@@ -65,7 +65,7 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 			partitional: partitional,
 		}
 
-		got, err := provider.Retrieve(context.Background())
+		got, err := provider.Retrieve(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, testCredentials, got)
 		regional.AssertExpectations(t)
@@ -83,7 +83,7 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 			partitional: partitional,
 		}
 
-		_, err := provider.Retrieve(context.Background())
+		_, err := provider.Retrieve(t.Context())
 		assert.ErrorIs(t, err, assert.AnError)
 		regional.AssertExpectations(t)
 		partitional.AssertNotCalled(t, "Retrieve", mock.Anything)
@@ -101,14 +101,14 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 		}
 		assert.Nil(t, provider.fallback)
 
-		got, err := provider.Retrieve(context.Background())
+		got, err := provider.Retrieve(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, testCredentials, got)
 		assert.NotNil(t, provider.fallback)
 
 		// Second call goes directly through fallback; regional must not be
 		// consulted (Once() above would fail if it were).
-		got, err = provider.Retrieve(context.Background())
+		got, err = provider.Retrieve(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, testCredentials, got)
 
@@ -124,7 +124,7 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 
 		provider := &stsCredentialsProvider{regional: regional}
 
-		_, err := provider.Retrieve(context.Background())
+		_, err := provider.Retrieve(t.Context())
 		var rde *ststypes.RegionDisabledException
 		assert.ErrorAs(t, err, &rde)
 		assert.Nil(t, provider.fallback)
@@ -192,7 +192,7 @@ func TestConfusedDeputyHeaders(t *testing.T) {
 			// sent. By Finalize/After, signing has run, so the captured
 			// request is the fully-signed wire form.
 			var capturedHeaders http.Header
-			_, err := client.AssumeRole(context.Background(), input, func(o *sts.Options) {
+			_, err := client.AssumeRole(t.Context(), input, func(o *sts.Options) {
 				o.APIOptions = append(o.APIOptions, func(s *smithymiddleware.Stack) error {
 					return s.Finalize.Add(smithymiddleware.FinalizeMiddlewareFunc("CaptureHeaders",
 						func(_ context.Context, in smithymiddleware.FinalizeInput, _ smithymiddleware.FinalizeHandler) (smithymiddleware.FinalizeOutput, smithymiddleware.Metadata, error) {

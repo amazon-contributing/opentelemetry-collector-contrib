@@ -6,6 +6,7 @@ package pipeline // import "github.com/open-telemetry/opentelemetry-collector-co
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -52,7 +53,7 @@ func (p *DirectedPipeline) Stop() error {
 
 func (p *DirectedPipeline) start(persister operator.Persister) error {
 	sortedNodes, _ := topo.Sort(p.Graph)
-	for i := len(sortedNodes) - 1; i >= 0; i-- {
+	for i := range slices.Backward(sortedNodes) {
 		op := sortedNodes[i].(OperatorNode).Operator()
 
 		scopedPersister := operator.NewScopedPersister(op.ID(), persister)

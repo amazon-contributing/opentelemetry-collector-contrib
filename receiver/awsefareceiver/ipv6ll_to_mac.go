@@ -22,25 +22,27 @@ func ipv6LinkLocalToMAC(ipv6Addr string) (string, error) {
 		return "", errors.New("ipv6 to mac: not a link-local address")
 	}
 
-	// Extract interface identifier (last 64 bits)
-	interfaceID := ip.To16()[8:]
-	if len(interfaceID) != 8 {
+	// Extract interface identifier (last 64 bits).
+	// net.IP.To16() always returns exactly 16 bytes (or nil, handled above).
+	full := ip.To16()
+	if len(full) < 16 {
 		return "", errors.New("ipv6 to mac: invalid interface identifier")
 	}
 
-	// Verify EUI-64 format (check for ff:fe in bytes 3-4)
-	if interfaceID[3] != 0xff || interfaceID[4] != 0xfe {
+	// Verify EUI-64 format (check for ff:fe in interface ID bytes 3-4)
+	if full[11] != 0xff || full[12] != 0xfe {
 		return "", errors.New("ipv6 to mac: address does not use EUI-64 format")
 	}
 
-	// Reconstruct MAC address
-	mac := make(net.HardwareAddr, 6)
-	mac[0] = interfaceID[0] ^ 0x02 // XOR with 0b00000010 to invert Universal/Local bit
-	mac[1] = interfaceID[1]
-	mac[2] = interfaceID[2]
-	mac[3] = interfaceID[5]
-	mac[4] = interfaceID[6]
-	mac[5] = interfaceID[7]
+	// Reconstruct MAC address from EUI-64 interface identifier (bytes 8-15)
+	mac := net.HardwareAddr{
+		full[8] ^ 0x02, // XOR with 0b00000010 to invert Universal/Local bit
+		full[9],
+		full[10],
+		full[13],
+		full[14],
+		full[15],
+	}
 
 	return mac.String(), nil
 }

@@ -59,7 +59,7 @@ func TestAppendCredentialsChain_SingleRegistrant(t *testing.T) {
 	got := c.GetCredentialsChain()
 	require.Len(t, got, 1)
 
-	v, err := got[0]("/tmp/creds").Retrieve(context.Background())
+	v, err := got[0]("/tmp/creds").Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "odin", v.AccessKeyID)
 	assert.Equal(t, "/tmp/creds", v.SessionToken)
@@ -77,7 +77,7 @@ func TestAppendCredentialsChain_MultipleRegistrantsAppendInOrder(t *testing.T) {
 	got := c.GetCredentialsChain()
 	require.Len(t, got, 2)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	first, err := got[0]("file-a").Retrieve(ctx)
 	require.NoError(t, err)

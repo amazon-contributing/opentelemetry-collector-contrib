@@ -12,7 +12,6 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pmetric"
-	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
 // runUserAgent invokes ua.HandleBuild with a fresh smithy stack request and
@@ -23,7 +22,7 @@ func runUserAgent(t *testing.T, ua *UserAgent) string {
 	next := middleware.BuildHandlerFunc(func(_ context.Context, _ middleware.BuildInput) (middleware.BuildOutput, middleware.Metadata, error) {
 		return middleware.BuildOutput{}, middleware.Metadata{}, nil
 	})
-	_, _, err := ua.HandleBuild(context.Background(), middleware.BuildInput{Request: req}, next)
+	_, _, err := ua.HandleBuild(t.Context(), middleware.BuildInput{Request: req}, next)
 	assert.NoError(t, err)
 	return req.Header.Get("User-Agent")
 }
@@ -38,7 +37,7 @@ func TestUserAgent(t *testing.T) {
 		"WithPartialAttributes": {
 			labelSets: []map[string]string{
 				{
-					string(semconv.TelemetrySDKLanguageKey): "foo",
+					"telemetry.sdk.language": "foo",
 				},
 				{
 					attributeTelemetryAutoVersion: "1.0",
@@ -48,17 +47,17 @@ func TestUserAgent(t *testing.T) {
 		"WithMultipleLanguages": {
 			labelSets: []map[string]string{
 				{
-					string(semconv.TelemetrySDKLanguageKey):   "foo",
-					string(semconv.TelemetryDistroVersionKey): "1.1",
+					"telemetry.sdk.language":   "foo",
+					"telemetry.distro.version": "1.1",
 				},
 				{
-					string(semconv.TelemetrySDKLanguageKey):   "bar",
-					attributeTelemetryAutoVersion:             "2.0",
-					string(semconv.TelemetryDistroVersionKey): "1.0",
+					"telemetry.sdk.language":      "bar",
+					attributeTelemetryAutoVersion: "2.0",
+					"telemetry.distro.version":    "1.0",
 				},
 				{
-					string(semconv.TelemetrySDKLanguageKey): "baz",
-					attributeTelemetryAutoVersion:           "2.0",
+					"telemetry.sdk.language":      "baz",
+					attributeTelemetryAutoVersion: "2.0",
 				},
 			},
 			want: "telemetry-sdk (bar/1.0;baz/2.0;foo/1.1)",
@@ -66,12 +65,12 @@ func TestUserAgent(t *testing.T) {
 		"WithMultipleVersions": {
 			labelSets: []map[string]string{
 				{
-					string(semconv.TelemetrySDKLanguageKey): "test",
-					attributeTelemetryAutoVersion:           "1.1",
+					"telemetry.sdk.language":      "test",
+					attributeTelemetryAutoVersion: "1.1",
 				},
 				{
-					string(semconv.TelemetrySDKLanguageKey):   "test",
-					string(semconv.TelemetryDistroVersionKey): "1.0",
+					"telemetry.sdk.language":   "test",
+					"telemetry.distro.version": "1.0",
 				},
 			},
 			want: "telemetry-sdk (test/1.0)",
@@ -79,8 +78,8 @@ func TestUserAgent(t *testing.T) {
 		"WithTruncatedAttributes": {
 			labelSets: []map[string]string{
 				{
-					string(semconv.TelemetrySDKLanguageKey): " incrediblyverboselanguagename",
-					attributeTelemetryAutoVersion:           "notsemanticversioningversion",
+					"telemetry.sdk.language":      " incrediblyverboselanguagename",
+					attributeTelemetryAutoVersion: "notsemanticversioningversion",
 				},
 			},
 			want: "telemetry-sdk (incrediblyverboselan/notsemanticversionin)",
@@ -96,8 +95,8 @@ func TestUserAgent(t *testing.T) {
 		"WithBothTelemetryAndEBS": {
 			labelSets: []map[string]string{
 				{
-					string(semconv.TelemetrySDKLanguageKey):   "test",
-					string(semconv.TelemetryDistroVersionKey): "1.0",
+					"telemetry.sdk.language":   "test",
+					"telemetry.distro.version": "1.0",
 				},
 			},
 			metrics: []string{"node_diskio_ebs_something"},
@@ -106,8 +105,8 @@ func TestUserAgent(t *testing.T) {
 		"WithBothTelemetryAndLocalInstanceStore": {
 			labelSets: []map[string]string{
 				{
-					string(semconv.TelemetrySDKLanguageKey):   "test",
-					string(semconv.TelemetryDistroVersionKey): "1.0",
+					"telemetry.sdk.language":   "test",
+					"telemetry.distro.version": "1.0",
 				},
 			},
 			metrics: []string{"node_diskio_instance_store_something"},
@@ -150,8 +149,8 @@ func TestUserAgent(t *testing.T) {
 func TestUserAgentExpiration(t *testing.T) {
 	userAgent := newUserAgent(50 * time.Millisecond)
 	labels := map[string]string{
-		string(semconv.TelemetrySDKLanguageKey): "test",
-		attributeTelemetryAutoVersion:           "1.0",
+		"telemetry.sdk.language":      "test",
+		attributeTelemetryAutoVersion: "1.0",
 	}
 	userAgent.Process(labels)
 	assert.Equal(t, "telemetry-sdk (test/1.0)", runUserAgent(t, userAgent))

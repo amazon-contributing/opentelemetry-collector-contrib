@@ -51,7 +51,7 @@ type mockHTTPClient struct {
 	component.ShutdownFunc
 }
 
-func (m *mockHTTPClient) RoundTripper(base http.RoundTripper) (http.RoundTripper, error) {
+func (*mockHTTPClient) RoundTripper(base http.RoundTripper) (http.RoundTripper, error) {
 	return base, nil
 }
 
@@ -115,7 +115,7 @@ func TestRoundTripper_StaticHeaders(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/static/my-group")
 	req.Header.Set("x-aws-log-stream", "my-stream")
 
@@ -142,7 +142,7 @@ func TestRoundTripper_NoLogGroup_PassesThrough(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	// No x-aws-log-group header
 
 	_, err = rt.RoundTrip(req)
@@ -164,7 +164,7 @@ func TestRoundTripper_MissingStream_SkipsProvisioning(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/my/group")
 	// No x-aws-log-stream header — both required for provisioning
 
@@ -190,7 +190,7 @@ func TestRoundTripper_400DoesNotExist_EvictsAndReturnsError(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/test/group")
 	req.Header.Set("x-aws-log-stream", "default")
 
@@ -218,7 +218,7 @@ func TestRoundTripper_400OtherError_NoEviction(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/test/group")
 	req.Header.Set("x-aws-log-stream", "default")
 
@@ -251,7 +251,7 @@ func TestRoundTripper_400DoesNotExist_FailedEntry_NoEviction(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/test/group")
 	req.Header.Set("x-aws-log-stream", "default")
 
@@ -335,12 +335,10 @@ func TestEnsureProvisioned_Singleflight(t *testing.T) {
 	ext := newTestExtension(t, &Config{}, mockClient)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			ext.ensure(t.Context(), "/test/singleflight", "default")
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -417,7 +415,7 @@ func TestChainingWithAdditionalAuth(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/test/my-service")
 	req.Header.Set("x-aws-log-stream", "default")
 

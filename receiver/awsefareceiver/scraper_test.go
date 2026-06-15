@@ -6,6 +6,7 @@ package awsefareceiver
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"testing"
 
@@ -104,12 +105,8 @@ func zeroCounters() map[string]uint64 {
 // withValues returns a copy of base with the given overrides applied.
 func withValues(base, overrides map[string]uint64) map[string]uint64 {
 	m := make(map[string]uint64, len(base))
-	for k, v := range base {
-		m[k] = v
-	}
-	for k, v := range overrides {
-		m[k] = v
-	}
+	maps.Copy(m, base)
+	maps.Copy(m, overrides)
 	return m
 }
 

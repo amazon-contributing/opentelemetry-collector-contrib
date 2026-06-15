@@ -4,7 +4,6 @@
 package awsutil
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +25,7 @@ func TestSharedCredentialsProvider_MissingFile(t *testing.T) {
 	t.Setenv(envAwsSharedConfigFile, "")
 	tmp := filepath.Join(t.TempDir(), "missing")
 	p := SharedCredentialsProvider{Filename: tmp, Profile: testProfile}
-	_, err := p.Retrieve(context.Background())
+	_, err := p.Retrieve(t.Context())
 	require.Error(t, err)
 }
 
@@ -36,7 +35,7 @@ func TestRefreshableSharedCredentialsProvider_DefaultsExpiryWindow(t *testing.T)
 		Provider: SharedCredentialsProvider{Filename: tmpFile, Profile: testProfile},
 		// ExpiryWindow zero → defaultExpiryWindow.
 	}
-	got, err := p.Retrieve(context.Background())
+	got, err := p.Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.True(t, got.CanExpire)
 	expectedMin := time.Now().Add(defaultExpiryWindow - time.Minute)
@@ -62,7 +61,7 @@ func TestRefreshableSharedCredentialsProvider_FileRotation(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(tmpFile.Name(), originalContent, 0o600))
 
-	creds, err := cache.Retrieve(context.Background())
+	creds, err := cache.Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "o1rLD3ykKN09originalSECRETxxxxxxxxxxxxxxxx", creds.SecretAccessKey)
 	assert.False(t, creds.Expired())
@@ -77,7 +76,7 @@ func TestRefreshableSharedCredentialsProvider_FileRotation(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	assert.True(t, creds.Expired())
 
-	creds, err = cache.Retrieve(context.Background())
+	creds, err = cache.Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "o1rLDaaacccROTATEDsecretxxxxxxxxxxxxxxxxxx", creds.SecretAccessKey)
 	assert.False(t, creds.Expired())
@@ -104,7 +103,7 @@ func TestSharedCredentialsProvider_EmptyProfileDefaultsToDefault(t *testing.T) {
 	tmpFile := writeTempCredentials(t, "credential_original")
 
 	p := SharedCredentialsProvider{Filename: tmpFile, Profile: ""}
-	creds, err := p.Retrieve(context.Background())
+	creds, err := p.Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "o1rLD3ykKN09originalSECRETxxxxxxxxxxxxxxxx", creds.SecretAccessKey)
 }
@@ -119,7 +118,7 @@ func TestSharedCredentialsProvider_EmptyProfileHonorsAwsProfileEnv(t *testing.T)
 	t.Setenv(envAwsProfile, "custom")
 
 	p := SharedCredentialsProvider{Filename: tmp, Profile: ""}
-	creds, err := p.Retrieve(context.Background())
+	creds, err := p.Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "customSecretValue", creds.SecretAccessKey)
 }
