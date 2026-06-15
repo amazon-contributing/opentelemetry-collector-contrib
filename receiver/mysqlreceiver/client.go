@@ -34,6 +34,7 @@ type client interface {
 	getQuerySamples(uint64) ([]querySample, error)
 	getTopQueries(uint64, uint64) ([]topQuery, error)
 	explainQuery(digestText, sampleStatement, schema, digest string, logger *zap.Logger) string
+	getSessionStates() (map[string]int64, error)
 	Close() error
 }
 
@@ -718,6 +719,24 @@ func (c *mySQLClient) getReplicaStatusStats() ([]replicaStatusStats, error) {
 	}
 
 	return stats, nil
+}
+
+func (c *mySQLClient) getSessionStates() (map[string]int64, error) {
+	rows, err := c.client.Query("SELECT COMMAND, COUNT(*) AS count FROM information_schema.PROCESSLIST WHERE COMMAND IS NOT NULL GROUP BY COMMAND;")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	states := map[string]int64{}
+	for rows.Next() {
+		var state string
+		var count int64
+		if err := rows.Scan(&state, &count); err != nil {
+			return nil, err
+		}
+		states[state] = count
+	}
+	return states, nil
 }
 
 //go:embed templates/topQuery.tmpl

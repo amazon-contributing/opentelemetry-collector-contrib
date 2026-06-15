@@ -87,6 +87,8 @@ all_set:
     mysql.row_operations:
       enabled: true
       attributes: ["operation"]
+    mysql.sessions:
+      enabled: true
     mysql.sorts:
       enabled: true
       attributes: ["kind"]
@@ -230,6 +232,8 @@ reaggregate_set:
     mysql.row_operations:
       enabled: true
       attributes: []
+    mysql.sessions:
+      enabled: true
     mysql.sorts:
       enabled: true
       attributes: []
@@ -373,6 +377,8 @@ none_set:
     mysql.row_operations:
       enabled: false
       attributes: ["operation"]
+    mysql.sessions:
+      enabled: false
     mysql.sorts:
       enabled: false
       attributes: ["kind"]

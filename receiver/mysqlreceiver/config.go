@@ -49,7 +49,8 @@ type TopQueryCollection struct {
 	_ struct{} // prevents unkeyed struct literal initialization
 }
 type QuerySampleCollection struct {
-	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
+	MaxRowsPerQuery    uint64        `mapstructure:"max_rows_per_query"`
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
 
 	_ struct{} // prevents unkeyed struct literal initialization
 }
@@ -77,13 +78,10 @@ func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
 }
 
 func (cfg *Config) Validate() error {
-	if cfg.Password != "" && cfg.Passfile != "" {
-		return errors.New("invalid config: only one of 'password' or 'passfile' may be set")
-	}
 	if cfg.Password == "" && cfg.Passfile == "" {
 		return errors.New("invalid config: missing password or passfile")
 	}
-	if cfg.Passfile != "" {
+	if cfg.Password == "" && cfg.Passfile != "" {
 		return cfg.validatePassfilePermissions()
 	}
 	return nil

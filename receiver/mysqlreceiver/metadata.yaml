@@ -311,6 +311,7 @@ events:
       This provides insights into query performance and resource usage, helping users identify and optimize high-impact queries as part of their observability pipeline.
     attributes:
       - db.system.name
+      - db.namespace
       - db.query.text
       - mysql.query_plan
       - mysql.query_plan.hash

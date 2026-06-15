@@ -122,6 +122,9 @@ func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 	// collect replicas status metrics.
 	m.scrapeReplicaStatusStats(now)
 
+	// collect session states metrics.
+	m.scrapeSessionStates(now, errs)
+
 	rb := m.mb.NewResourceBuilder()
 	rb.SetMysqlInstanceEndpoint(m.config.Endpoint)
 	m.mb.EmitForResource(metadata.WithResource(rb.Emit()))
@@ -648,6 +651,20 @@ func (m *mySQLScraper) scrapeReplicaStatusStats(now pcommon.Timestamp) {
 	}
 }
 
+func (m *mySQLScraper) scrapeSessionStates(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	states, err := m.sqlclient.getSessionStates()
+	if err != nil {
+		m.logger.Error("Failed to fetch session states", zap.Error(err))
+		errs.AddPartial(1, err)
+		return
+	}
+	for state, count := range states {
+		if ss, ok := metadata.MapAttributeSessionState[state]; ok {
+			m.mb.RecordMysqlSessionsDataPoint(now, count, ss)
+		}
+	}
+}
+
 func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
 	queries, err := m.sqlclient.getTopQueries(m.config.TopQueryCollection.MaxQuerySampleCount, m.config.TopQueryCollection.LookbackTime)
 	if err != nil {
@@ -714,6 +731,7 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			context.Background(),
 			now,
 			metadata.AttributeDbSystemNameMysql,
+			q.schemaName,
 			obfuscatedQuery,
 			queryPlan,
 			q.digest,

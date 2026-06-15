@@ -1271,6 +1271,26 @@ func (ms *MysqlRowOperationsMetricConfig) Validate() error {
 	return nil
 }
 
+// MysqlSessionsMetricConfig provides config for the mysql.sessions metric.
+type MysqlSessionsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *MysqlSessionsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // MysqlSortsMetricAttributeKey specifies the key of an attribute for the mysql.sorts metric.
 type MysqlSortsMetricAttributeKey string
 
@@ -2066,6 +2086,7 @@ type MetricsConfig struct {
 	MysqlReplicaTimeBehindSource MysqlReplicaTimeBehindSourceMetricConfig `mapstructure:"mysql.replica.time_behind_source"`
 	MysqlRowLocks                MysqlRowLocksMetricConfig                `mapstructure:"mysql.row_locks"`
 	MysqlRowOperations           MysqlRowOperationsMetricConfig           `mapstructure:"mysql.row_operations"`
+	MysqlSessions                MysqlSessionsMetricConfig                `mapstructure:"mysql.sessions"`
 	MysqlSorts                   MysqlSortsMetricConfig                   `mapstructure:"mysql.sorts"`
 	MysqlStatementEventCount     MysqlStatementEventCountMetricConfig     `mapstructure:"mysql.statement_event.count"`
 	MysqlStatementEventWaitTime  MysqlStatementEventWaitTimeMetricConfig  `mapstructure:"mysql.statement_event.wait.time"`
@@ -2225,6 +2246,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled:             true,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []MysqlRowOperationsMetricAttributeKey{MysqlRowOperationsMetricAttributeKeyRowOperations},
+		},
+		MysqlSessions: MysqlSessionsMetricConfig{
+			Enabled: false,
 		},
 		MysqlSorts: MysqlSortsMetricConfig{
 			Enabled:             true,
