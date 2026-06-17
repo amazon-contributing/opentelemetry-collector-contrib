@@ -86,3 +86,21 @@ func TestCreateLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, logsReceiver)
 }
+
+func TestCreateLogsWithCollectionInterval(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+	cfg.QuerySampleCollection.CollectionInterval = 30 * time.Second
+
+	logsReceiver, err := factory.CreateLogs(
+		t.Context(),
+		receivertest.NewNopSettings(metadata.Type),
+		cfg,
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, logsReceiver)
+}

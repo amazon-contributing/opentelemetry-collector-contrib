@@ -894,6 +894,64 @@ var MapAttributeRowOperations = map[string]AttributeRowOperations{
 	"updated":  AttributeRowOperationsUpdated,
 }
 
+// AttributeSessionState specifies the value session_state attribute.
+type AttributeSessionState int
+
+const (
+	_ AttributeSessionState = iota
+	AttributeSessionStateQuery
+	AttributeSessionStateSleep
+	AttributeSessionStateConnect
+	AttributeSessionStateBinlogDump
+	AttributeSessionStateCommand
+	AttributeSessionStateDaemon
+	AttributeSessionStateExecute
+	AttributeSessionStateFetch
+	AttributeSessionStatePrepare
+	AttributeSessionStateQuit
+)
+
+// String returns the string representation of the AttributeSessionState.
+func (av AttributeSessionState) String() string {
+	switch av {
+	case AttributeSessionStateQuery:
+		return "Query"
+	case AttributeSessionStateSleep:
+		return "Sleep"
+	case AttributeSessionStateConnect:
+		return "Connect"
+	case AttributeSessionStateBinlogDump:
+		return "Binlog Dump"
+	case AttributeSessionStateCommand:
+		return "Command"
+	case AttributeSessionStateDaemon:
+		return "Daemon"
+	case AttributeSessionStateExecute:
+		return "Execute"
+	case AttributeSessionStateFetch:
+		return "Fetch"
+	case AttributeSessionStatePrepare:
+		return "Prepare"
+	case AttributeSessionStateQuit:
+		return "Quit"
+	}
+	return ""
+}
+
+// MapAttributeSessionState is a helper map of string to AttributeSessionState attribute value.
+var MapAttributeSessionState = map[string]AttributeSessionState{
+	"Query":      AttributeSessionStateQuery,
+	"Sleep":      AttributeSessionStateSleep,
+	"Connect":    AttributeSessionStateConnect,
+	"Binlog Dump": AttributeSessionStateBinlogDump,
+	"Command":    AttributeSessionStateCommand,
+	"Daemon":     AttributeSessionStateDaemon,
+	"Execute":    AttributeSessionStateExecute,
+	"Fetch":      AttributeSessionStateFetch,
+	"Prepare":    AttributeSessionStatePrepare,
+	"Quit":       AttributeSessionStateQuit,
+}
+
 // AttributeSorts specifies the value sorts attribute.
 type AttributeSorts int
 
@@ -3798,6 +3856,57 @@ func newMetricMysqlRowOperations(cfg MysqlRowOperationsMetricConfig) metricMysql
 	return m
 }
 
+type metricMysqlSessions struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MysqlSessionsMetricConfig
+	capacity int // max observed number of data points added to the metric.
+}
+
+// init fills mysql.sessions metric with initial data.
+func (m *metricMysqlSessions) init() {
+	m.data.SetName("mysql.sessions")
+	m.data.SetDescription("The number of sessions by command type.")
+	m.data.SetUnit("{sessions}")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricMysqlSessions) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, sessionStateAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("session_state", sessionStateAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricMysqlSessions) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricMysqlSessions) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricMysqlSessions(cfg MysqlSessionsMetricConfig) metricMysqlSessions {
+	m := metricMysqlSessions{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricMysqlSorts struct {
 	data          pmetric.Metric         // data buffer for generated metric.
 	config        MysqlSortsMetricConfig // metric config provided by user.
@@ -5320,6 +5429,7 @@ type MetricsBuilder struct {
 	metricMysqlReplicaTimeBehindSource metricMysqlReplicaTimeBehindSource
 	metricMysqlRowLocks                metricMysqlRowLocks
 	metricMysqlRowOperations           metricMysqlRowOperations
+	metricMysqlSessions                metricMysqlSessions
 	metricMysqlSorts                   metricMysqlSorts
 	metricMysqlStatementEventCount     metricMysqlStatementEventCount
 	metricMysqlStatementEventWaitTime  metricMysqlStatementEventWaitTime
@@ -5393,6 +5503,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMysqlReplicaTimeBehindSource: newMetricMysqlReplicaTimeBehindSource(mbc.Metrics.MysqlReplicaTimeBehindSource),
 		metricMysqlRowLocks:                newMetricMysqlRowLocks(mbc.Metrics.MysqlRowLocks),
 		metricMysqlRowOperations:           newMetricMysqlRowOperations(mbc.Metrics.MysqlRowOperations),
+		metricMysqlSessions:                newMetricMysqlSessions(mbc.Metrics.MysqlSessions),
 		metricMysqlSorts:                   newMetricMysqlSorts(mbc.Metrics.MysqlSorts),
 		metricMysqlStatementEventCount:     newMetricMysqlStatementEventCount(mbc.Metrics.MysqlStatementEventCount),
 		metricMysqlStatementEventWaitTime:  newMetricMysqlStatementEventWaitTime(mbc.Metrics.MysqlStatementEventWaitTime),
@@ -5519,6 +5630,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricMysqlReplicaTimeBehindSource.emit(ils.Metrics())
 	mb.metricMysqlRowLocks.emit(ils.Metrics())
 	mb.metricMysqlRowOperations.emit(ils.Metrics())
+	mb.metricMysqlSessions.emit(ils.Metrics())
 	mb.metricMysqlSorts.emit(ils.Metrics())
 	mb.metricMysqlStatementEventCount.emit(ils.Metrics())
 	mb.metricMysqlStatementEventWaitTime.emit(ils.Metrics())
@@ -5854,6 +5966,11 @@ func (mb *MetricsBuilder) RecordMysqlRowOperationsDataPoint(ts pcommon.Timestamp
 	}
 	mb.metricMysqlRowOperations.recordDataPoint(mb.startTime, ts, val, rowOperationsAttributeValue.String())
 	return nil
+}
+
+// RecordMysqlSessionsDataPoint adds a data point to mysql.sessions metric.
+func (mb *MetricsBuilder) RecordMysqlSessionsDataPoint(ts pcommon.Timestamp, val int64, sessionStateAttributeValue AttributeSessionState) {
+	mb.metricMysqlSessions.recordDataPoint(mb.startTime, ts, val, sessionStateAttributeValue.String())
 }
 
 // RecordMysqlSortsDataPoint adds a data point to mysql.sorts metric.

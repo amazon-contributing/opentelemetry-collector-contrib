@@ -71,7 +71,7 @@ type eventDbServerTopQuery struct {
 	config EventConfig         // event config provided by user.
 }
 
-func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64) {
+func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64, mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumErrorsAttributeValue int64) {
 	if !e.config.Enabled {
 		return
 	}
@@ -84,12 +84,16 @@ func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcomm
 		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
 	}
 	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
 	dp.Attributes().PutStr("db.query.text", dbQueryTextAttributeValue)
 	dp.Attributes().PutStr("mysql.query_plan", mysqlQueryPlanAttributeValue)
 	dp.Attributes().PutStr("mysql.query_plan.hash", mysqlQueryPlanHashAttributeValue)
 	dp.Attributes().PutStr("mysql.events_statements_summary_by_digest.digest", mysqlEventsStatementsSummaryByDigestDigestAttributeValue)
 	dp.Attributes().PutInt("mysql.events_statements_summary_by_digest.count_star", mysqlEventsStatementsSummaryByDigestCountStarAttributeValue)
 	dp.Attributes().PutDouble("mysql.events_statements_summary_by_digest.sum_timer_wait", mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue)
+	dp.Attributes().PutInt("mysql.events_statements_summary_by_digest.sum_rows_sent", mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue)
+	dp.Attributes().PutInt("mysql.events_statements_summary_by_digest.sum_rows_examined", mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue)
+	dp.Attributes().PutInt("mysql.events_statements_summary_by_digest.sum_errors", mysqlEventsStatementsSummaryByDigestSumErrorsAttributeValue)
 
 }
 
@@ -230,6 +234,6 @@ func (lb *LogsBuilder) RecordDbServerQuerySampleEvent(ctx context.Context, times
 }
 
 // RecordDbServerTopQueryEvent adds a log record of db.server.top_query event.
-func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64) {
-	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbQueryTextAttributeValue, mysqlQueryPlanAttributeValue, mysqlQueryPlanHashAttributeValue, mysqlEventsStatementsSummaryByDigestDigestAttributeValue, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue)
+func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64, mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumErrorsAttributeValue int64) {
+	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbQueryTextAttributeValue, mysqlQueryPlanAttributeValue, mysqlQueryPlanHashAttributeValue, mysqlEventsStatementsSummaryByDigestDigestAttributeValue, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue, mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue, mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue, mysqlEventsStatementsSummaryByDigestSumErrorsAttributeValue)
 }

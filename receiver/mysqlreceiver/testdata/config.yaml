@@ -12,3 +12,36 @@ mysql/default_tls:
   collection_interval: 10s
   tls: # specified, but use default values
     server_name_override: localhost
+mysql/passfile:
+  endpoint: localhost:3306
+  username: otel
+  passfile: /etc/otel/.my_passfile
+  database: otel
+  collection_interval: 10s
+mysql/all:
+  endpoint: localhost:3306
+  username: otel
+  password: ${env:MYSQL_PASSWORD}
+  database: otel
+  allow_native_passwords: true
+  collection_interval: 10s
+  tls:
+    insecure: false
+    insecure_skip_verify: false
+    ca_file: /home/otel/authorities.crt
+    cert_file: /home/otel/mymysqlcert.crt
+    key_file: /home/otel/mymysqlkey.key
+  statement_events:
+    digest_text_limit: 200
+    limit: 500
+    time_limit: 48h
+  top_query_collection:
+    lookback_time: 600
+    max_query_sample_count: 100
+    top_query_count: 100
+    collection_interval: 30s
+    query_plan_cache_size: 500
+    query_plan_cache_ttl: 600s
+  query_sample_collection:
+    max_rows_per_query: 100
+    collection_interval: 15s

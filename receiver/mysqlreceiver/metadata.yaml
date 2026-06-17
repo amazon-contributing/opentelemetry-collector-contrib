@@ -19,6 +19,10 @@ resource_attributes:
     description: Endpoint of the MySQL instance.
     enabled: true
     type: string
+  service.instance.id:
+    description: The unique identifier of the service instance, constructed from the resolved hostname and port.
+    enabled: true
+    type: string
 
 attributes:
   buffer_pool_data:
@@ -154,6 +158,15 @@ attributes:
   mysql.events_statements_summary_by_digest.sum_timer_wait:
     description: The total time spent executing the statement, report in delta seconds.
     type: double
+  mysql.events_statements_summary_by_digest.sum_rows_sent:
+    description: The total number of rows returned by the statement.
+    type: int
+  mysql.events_statements_summary_by_digest.sum_rows_examined:
+    description: The total number of rows examined by the statement.
+    type: int
+  mysql.events_statements_summary_by_digest.sum_errors:
+    description: The total number of errors produced by the statement.
+    type: int
 
   mysql.events_waits_current.timer_wait:
     description: Timing information for the event, indicating elapsed time the event waited in seconds.
@@ -311,12 +324,16 @@ events:
       This provides insights into query performance and resource usage, helping users identify and optimize high-impact queries as part of their observability pipeline.
     attributes:
       - db.system.name
+      - db.namespace
       - db.query.text
       - mysql.query_plan
       - mysql.query_plan.hash
       - mysql.events_statements_summary_by_digest.digest
       - mysql.events_statements_summary_by_digest.count_star
       - mysql.events_statements_summary_by_digest.sum_timer_wait
+      - mysql.events_statements_summary_by_digest.sum_rows_sent
+      - mysql.events_statements_summary_by_digest.sum_rows_examined
+      - mysql.events_statements_summary_by_digest.sum_errors
 
 metrics:
   mysql.buffer_pool.data_pages:

@@ -34,6 +34,7 @@ type client interface {
 	getQuerySamples(uint64) ([]querySample, error)
 	getTopQueries(uint64, uint64) ([]topQuery, error)
 	explainQuery(digestText, sampleStatement, schema, digest string, logger *zap.Logger) string
+	getSessionStates() (map[string]int64, error)
 	Close() error
 }
 
@@ -222,6 +223,9 @@ type topQuery struct {
 	countStar                 int64
 	sumTimerWaitInPicoSeconds int64
 	querySampleText           string
+	sumRowsSent               int64
+	sumRowsExamined           int64
+	sumErrors                 int64
 }
 
 var _ client = (*mySQLClient)(nil)
@@ -720,6 +724,24 @@ func (c *mySQLClient) getReplicaStatusStats() ([]replicaStatusStats, error) {
 	return stats, nil
 }
 
+func (c *mySQLClient) getSessionStates() (map[string]int64, error) {
+	rows, err := c.client.Query("SELECT COMMAND, COUNT(*) AS count FROM information_schema.PROCESSLIST WHERE COMMAND IS NOT NULL GROUP BY COMMAND;")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	states := map[string]int64{}
+	for rows.Next() {
+		var state string
+		var count int64
+		if err := rows.Scan(&state, &count); err != nil {
+			return nil, err
+		}
+		states[state] = count
+	}
+	return states, nil
+}
+
 //go:embed templates/topQuery.tmpl
 var topQueryTemplate string
 
@@ -756,6 +778,9 @@ func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64) ([]topQuery,
 			&tq.countStar,
 			&tq.sumTimerWaitInPicoSeconds,
 			&tq.querySampleText,
+			&tq.sumRowsSent,
+			&tq.sumRowsExamined,
+			&tq.sumErrors,
 		)
 		if err != nil {
 			return nil, err
@@ -832,8 +857,8 @@ func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest s
 	defer conn.Close()
 
 	if schema != "" {
-		if _, err := conn.ExecContext(context.Background(), fmt.Sprintf("/* otel-collector-ignore */ USE `%s`;", strings.ReplaceAll(schema, "`", "``"))); err != nil {
-			logger.Warn(fmt.Sprintf("unable to use schema: %s", schema), zap.String("digest", digest), zap.Error(err))
+		if _, execErr := conn.ExecContext(context.Background(), fmt.Sprintf("/* otel-collector-ignore */ USE `%s`;", strings.ReplaceAll(schema, "`", "``"))); execErr != nil {
+			logger.Warn(fmt.Sprintf("unable to use schema: %s", schema), zap.String("digest", digest), zap.Error(execErr))
 			return ""
 		}
 	}

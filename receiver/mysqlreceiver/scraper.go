@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -36,6 +38,7 @@ type mySQLScraper struct {
 	queryPlanCache         *expirable.LRU[string, string]
 	obfuscator             *obfuscator
 	lastExecutionTimestamp time.Time
+	serviceInstanceID      string
 }
 
 func newMySQLScraper(
@@ -53,6 +56,7 @@ func newMySQLScraper(
 		queryPlanCache:         queryPlanCache,
 		obfuscator:             newObfuscator(),
 		lastExecutionTimestamp: time.Unix(0, 0),
+		serviceInstanceID:      getInstanceID(config.Endpoint, settings.Logger),
 	}
 }
 
@@ -79,6 +83,27 @@ func (m *mySQLScraper) shutdown(context.Context) error {
 		return nil
 	}
 	return m.sqlclient.Close()
+}
+
+// getInstanceID resolves the service.instance.id from the endpoint string.
+// If the host is localhost or a loopback address, it resolves to the machine hostname.
+func getInstanceID(endpoint string, logger *zap.Logger) string {
+	const fallback = "unknown:3306"
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		logger.Warn("Unable to determine actual instance ID for constructing service.instance.id", zap.Error(err))
+		return fallback
+	}
+
+	if strings.EqualFold(host, "localhost") || net.ParseIP(host).IsLoopback() {
+		localhost, hostNameErr := os.Hostname()
+		if hostNameErr != nil {
+			logger.Warn("Failed getting localhost machine name to construct service.instance.id.")
+		} else {
+			host = localhost
+		}
+	}
+	return host + ":" + port
 }
 
 // scrape scrapes the mysql db metric stats, transforms them and labels them into a metric slices.
@@ -122,8 +147,12 @@ func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 	// collect replicas status metrics.
 	m.scrapeReplicaStatusStats(now)
 
+	// collect session states metrics.
+	m.scrapeSessionStates(now, errs)
+
 	rb := m.mb.NewResourceBuilder()
 	rb.SetMysqlInstanceEndpoint(m.config.Endpoint)
+	rb.SetServiceInstanceID(m.serviceInstanceID)
 	m.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 
 	return m.mb.Emit(), errs.Combine()
@@ -145,6 +174,7 @@ func (m *mySQLScraper) scrapeTopQueryFunc(_ context.Context) (plog.Logs, error) 
 	m.scrapeTopQueries(now, errs)
 	rb := m.lb.NewResourceBuilder()
 	rb.SetMysqlInstanceEndpoint(m.config.Endpoint)
+	rb.SetServiceInstanceID(m.serviceInstanceID)
 	return m.lb.Emit(metadata.WithLogsResource(rb.Emit())), errs.Combine()
 }
 
@@ -161,6 +191,7 @@ func (m *mySQLScraper) scrapeQuerySampleFunc(ctx context.Context) (plog.Logs, er
 
 	rb := m.lb.NewResourceBuilder()
 	rb.SetMysqlInstanceEndpoint(m.config.Endpoint)
+	rb.SetServiceInstanceID(m.serviceInstanceID)
 	return m.lb.Emit(metadata.WithLogsResource(rb.Emit())), errs.Combine()
 }
 
@@ -648,6 +679,20 @@ func (m *mySQLScraper) scrapeReplicaStatusStats(now pcommon.Timestamp) {
 	}
 }
 
+func (m *mySQLScraper) scrapeSessionStates(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	states, err := m.sqlclient.getSessionStates()
+	if err != nil {
+		m.logger.Error("Failed to fetch session states", zap.Error(err))
+		errs.AddPartial(1, err)
+		return
+	}
+	for state, count := range states {
+		if ss, ok := metadata.MapAttributeSessionState[state]; ok {
+			m.mb.RecordMysqlSessionsDataPoint(now, count, ss)
+		}
+	}
+}
+
 func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
 	queries, err := m.sqlclient.getTopQueries(m.config.TopQueryCollection.MaxQuerySampleCount, m.config.TopQueryCollection.LookbackTime)
 	if err != nil {
@@ -687,6 +732,10 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			countStarVal = 0
 		}
 
+		_, sumRowsSentVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_rows_sent", q.sumRowsSent)
+		_, sumRowsExaminedVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_rows_examined", q.sumRowsExamined)
+		_, sumErrorsVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_errors", q.sumErrors)
+
 		obfuscatedQuery, err := m.obfuscator.obfuscateSQLString(q.digestText)
 		if err != nil {
 			m.logger.Error("failed to obfuscate query, skipping event", zap.Error(err))
@@ -714,12 +763,16 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			context.Background(),
 			now,
 			metadata.AttributeDbSystemNameMysql,
+			q.schemaName,
 			obfuscatedQuery,
 			queryPlan,
 			q.digest,
 			q.digest,
 			countStarVal,
 			sumTimerWaitVal,
+			sumRowsSentVal,
+			sumRowsExaminedVal,
+			sumErrorsVal,
 		)
 	}
 }
@@ -740,15 +793,20 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 		networkPeerPort := int64(0)
 
 		if sample.processlistHost != "" {
-			addr, port, err := net.SplitHostPort(sample.processlistHost)
-			if err != nil {
-				m.logger.Error("Failed to parse processlistHost value", zap.Error(err))
-				errs.AddPartial(1, err)
+			if strings.Contains(sample.processlistHost, ":") {
+				addr, port, err := net.SplitHostPort(sample.processlistHost)
+				if err != nil {
+					m.logger.Error("Failed to parse processlistHost value", zap.Error(err))
+					errs.AddPartial(1, err)
+				} else {
+					clientAddress = addr
+					clientPort, _ = parseInt(port)
+					networkPeerAddress = addr
+					networkPeerPort, _ = parseInt(port)
+				}
 			} else {
-				clientAddress = addr
-				clientPort, _ = parseInt(port)
-				networkPeerAddress = addr
-				networkPeerPort, _ = parseInt(port)
+				clientAddress = sample.processlistHost
+				networkPeerAddress = sample.processlistHost
 			}
 		}
 
@@ -877,4 +935,3 @@ func (m *mySQLScraper) cacheAndDiff(schemaName, digest, column string, val int64
 
 	return true, 0
 }
-

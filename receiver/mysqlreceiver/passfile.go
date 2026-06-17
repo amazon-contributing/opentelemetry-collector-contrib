@@ -57,13 +57,14 @@ func splitPassfileLine(line string) []string {
 	var current strings.Builder
 
 	for i := 0; i < len(line); i++ {
-		if line[i] == '\\' && i+1 < len(line) {
+		switch {
+		case line[i] == '\\' && i+1 < len(line):
 			current.WriteByte(line[i+1])
 			i++
-		} else if line[i] == ':' {
+		case line[i] == ':':
 			parts = append(parts, current.String())
 			current.Reset()
-		} else {
+		default:
 			current.WriteByte(line[i])
 		}
 	}

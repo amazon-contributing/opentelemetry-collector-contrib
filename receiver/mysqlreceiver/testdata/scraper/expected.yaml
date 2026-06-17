@@ -4,6 +4,9 @@ resourceMetrics:
         - key: mysql.instance.endpoint
           value:
             stringValue: localhost:3306
+        - key: service.instance.id
+          value:
+            stringValue: dev-dsk-larkirs-1a-59fc0273.us-east-1.amazon.com:3306
     scopeMetrics:
       - metrics:
           - description: The number of data pages in the InnoDB buffer pool.
@@ -669,6 +672,13 @@ resourceMetrics:
             sum:
               aggregationTemporality: 2
               dataPoints:
+                - asInt: "256"
+                  attributes:
+                    - key: operation
+                      value:
+                        stringValue: fsyncs
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
                 - asInt: "253"
                   attributes:
                     - key: operation
@@ -688,13 +698,6 @@ resourceMetrics:
                     - key: operation
                       value:
                         stringValue: writes
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-                - asInt: "256"
-                  attributes:
-                    - key: operation
-                      value:
-                        stringValue: fsyncs
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
               isMonotonic: true
@@ -1228,7 +1231,7 @@ resourceMetrics:
                         stringValue: a_table
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
-            unit: "By"
+            unit: By
           - description: The total count of I/O wait events for a table.
             name: mysql.table.io.wait.count
             sum:
@@ -1654,31 +1657,31 @@ resourceMetrics:
               dataPoints:
                 - asInt: "734976"
                   attributes:
+                    - key: kind
+                      value:
+                        stringValue: data
                     - key: schema
                       value:
                         stringValue: a_schema
                     - key: table
                       value:
                         stringValue: a_table
-                    - key: kind
-                      value:
-                        stringValue: data
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
                 - asInt: "0"
                   attributes:
+                    - key: kind
+                      value:
+                        stringValue: index
                     - key: schema
                       value:
                         stringValue: a_schema
                     - key: table
                       value:
                         stringValue: a_table
-                    - key: kind
-                      value:
-                        stringValue: index
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
-            unit: "By"
+            unit: By
           - description: The number of hits, misses or overflows for open tables cache lookups.
             name: mysql.table_open_cache
             sum:
@@ -1782,4 +1785,3 @@ resourceMetrics:
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver
           version: latest
-        

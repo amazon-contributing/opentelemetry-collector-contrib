@@ -55,7 +55,8 @@ func createDefaultConfig() component.Config {
 			QueryPlanCacheTTL:   time.Hour,
 		},
 		QuerySampleCollection: QuerySampleCollection{
-			MaxRowsPerQuery: 100,
+			MaxRowsPerQuery:    100,
+			CollectionInterval: time.Minute,
 		},
 	}
 }
@@ -90,6 +91,11 @@ func createLogsReceiver(
 	cfg := rConf.(*Config)
 
 	opts := make([]scraperhelper.ControllerOption, 0)
+
+	logsControllerConfig := cfg.ControllerConfig
+	if cfg.QuerySampleCollection.CollectionInterval > 0 {
+		logsControllerConfig.CollectionInterval = cfg.QuerySampleCollection.CollectionInterval
+	}
 
 	if cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled {
 		// we have 2 updated only attributes. so we set the cache size accordingly.
@@ -132,7 +138,7 @@ func createLogsReceiver(
 	}
 
 	return scraperhelper.NewLogsController(
-		&cfg.ControllerConfig, params, consumer,
+		&logsControllerConfig, params, consumer,
 		opts...,
 	)
 }
