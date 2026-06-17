@@ -4,6 +4,9 @@ resourceLogs:
         - key: mysql.instance.endpoint
           value:
             stringValue: localhost:3306
+        - key: service.instance.id
+          value:
+            stringValue: dev-dsk-larkirs-1a-59fc0273.us-east-1.amazon.com:3306
     scopeLogs:
       - logRecords:
           - attributes:
@@ -64,7 +67,7 @@ resourceLogs:
             body: {}
             eventName: db.server.query_sample
             spanId: "2222222222222222"
-            timeUnixNano: "1774540151557334000"
+            timeUnixNano: "1781713240370818564"
             traceId: "11111111111111111111111111111111"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver

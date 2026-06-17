@@ -92,6 +92,7 @@ func TestScrape(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics,
+			pmetrictest.IgnoreResourceAttributeValue("service.instance.id"),
 			pmetrictest.IgnoreMetricDataPointsOrder(), pmetrictest.IgnoreStartTimestamp(), pmetrictest.IgnoreTimestamp()))
 
 		actualQuerySamples, err := scraper.scrapeQuerySampleFunc(t.Context())
@@ -103,7 +104,8 @@ func TestScrape(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, plogtest.CompareLogs(expectedQuerySample, actualQuerySamples,
-			plogtest.IgnoreTimestamp()))
+			plogtest.IgnoreTimestamp(),
+			plogtest.IgnoreResourceAttributeValue("service.instance.id")))
 		assertLogsHaveInstanceEndpoint(t, actualQuerySamples, cfg.Endpoint)
 
 		// Scrape top queries
@@ -118,7 +120,8 @@ func TestScrape(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, plogtest.CompareLogs(expectedTopQueries, actualTopQueries,
-			plogtest.IgnoreTimestamp()))
+			plogtest.IgnoreTimestamp(),
+			plogtest.IgnoreResourceAttributeValue("service.instance.id")))
 		assertLogsHaveInstanceEndpoint(t, actualTopQueries, cfg.Endpoint)
 	})
 
@@ -154,6 +157,7 @@ func TestScrape(t *testing.T) {
 		expectedMetrics, err := golden.ReadMetrics(expectedFile)
 		require.NoError(t, err)
 		assert.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics,
+			pmetrictest.IgnoreResourceAttributeValue("service.instance.id"),
 			pmetrictest.IgnoreMetricDataPointsOrder(), pmetrictest.IgnoreStartTimestamp(),
 			pmetrictest.IgnoreTimestamp()))
 
@@ -190,6 +194,7 @@ func TestScrapeBufferPoolPagesMiscOutOfBounds(t *testing.T) {
 	actualMetrics, err := scraper.scrape(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics,
+		pmetrictest.IgnoreResourceAttributeValue("service.instance.id"),
 		pmetrictest.IgnoreMetricDataPointsOrder(), pmetrictest.IgnoreStartTimestamp(), pmetrictest.IgnoreTimestamp()))
 }
 
@@ -638,6 +643,52 @@ func (*mockClient) explainQuery(_, _, _, _ string, _ *zap.Logger) string {
 	return string(file)
 }
 
+func (*mockClient) getSessionStates() (map[string]int64, error) {
+	return map[string]int64{
+		"Query":   3,
+		"Sleep":   5,
+		"Connect": 1,
+	}, nil
+}
+
 func (*mockClient) Close() error {
 	return nil
+}
+
+func TestCollectSessionStates(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.MetricsBuilderConfig.Metrics.MysqlSessions.Enabled = true
+
+	scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](1), newTTLCache[string](0, time.Hour*24*365*10))
+	scraper.sqlclient = &mockClient{
+		globalStatsFile:             "global_stats",
+		innodbStatsFile:             "innodb_stats",
+		tableIoWaitsFile:            "table_io_waits_stats",
+		indexIoWaitsFile:            "index_io_waits_stats",
+		tableStatsFile:              "table_stats",
+		statementEventsFile:         "statement_events",
+		tableLockWaitEventStatsFile: "table_lock_wait_event_stats",
+		replicaStatusFile:           "replica_stats",
+		querySamplesFile:            "query_samples",
+		topQueriesFile:              "top_queries",
+	}
+
+	actualMetrics, err := scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	found := false
+	for i := 0; i < actualMetrics.ResourceMetrics().Len(); i++ {
+		rm := actualMetrics.ResourceMetrics().At(i)
+		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
+			sm := rm.ScopeMetrics().At(j)
+			for k := 0; k < sm.Metrics().Len(); k++ {
+				if sm.Metrics().At(k).Name() == "mysql.sessions" {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "mysql.sessions metric should be present when enabled")
 }

@@ -55,7 +55,8 @@ func createDefaultConfig() component.Config {
 			QueryPlanCacheTTL:   time.Hour,
 		},
 		QuerySampleCollection: QuerySampleCollection{
-			MaxRowsPerQuery: 100,
+			MaxRowsPerQuery:    100,
+			CollectionInterval: time.Minute,
 		},
 	}
 }
@@ -91,10 +92,15 @@ func createLogsReceiver(
 
 	opts := make([]scraperhelper.ControllerOption, 0)
 
+	logsControllerConfig := cfg.ControllerConfig
+	if cfg.QuerySampleCollection.CollectionInterval > 0 {
+		logsControllerConfig.CollectionInterval = cfg.QuerySampleCollection.CollectionInterval
+	}
+
 	if cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled {
-		// we have 2 updated only attributes. so we set the cache size accordingly.
+		// we have 14 delta-tracked columns. so we set the cache size accordingly.
 		// TODO: parameterize this cache size.
-		ns := newMySQLScraper(params, cfg, newCache[int64](int(cfg.TopQueryCollection.MaxQuerySampleCount*2*2)), newTTLCache[string](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.QueryPlanCacheTTL))
+		ns := newMySQLScraper(params, cfg, newCache[int64](int(cfg.TopQueryCollection.MaxQuerySampleCount*14*2)), newTTLCache[string](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.QueryPlanCacheTTL))
 		s, err := scraper.NewLogs(
 			ns.scrapeTopQueryFunc,
 			scraper.WithStart(ns.start),
@@ -107,7 +113,8 @@ func createLogsReceiver(
 			scraper.NewFactory(metadata.Type, nil,
 				scraper.WithLogs(func(context.Context, scraper.Settings, component.Config) (scraper.Logs, error) {
 					return s, nil
-				}, component.StabilityLevelDevelopment)), nil)
+				}, component.StabilityLevelDevelopment)), nil,
+		)
 		opts = append(opts, opt)
 	}
 
@@ -127,12 +134,13 @@ func createLogsReceiver(
 			scraper.NewFactory(metadata.Type, nil,
 				scraper.WithLogs(func(context.Context, scraper.Settings, component.Config) (scraper.Logs, error) {
 					return s, nil
-				}, component.StabilityLevelDevelopment)), nil)
+				}, component.StabilityLevelDevelopment)), nil,
+		)
 		opts = append(opts, opt)
 	}
 
 	return scraperhelper.NewLogsController(
-		&cfg.ControllerConfig, params, consumer,
+		&logsControllerConfig, params, consumer,
 		opts...,
 	)
 }

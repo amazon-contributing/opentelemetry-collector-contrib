@@ -176,7 +176,7 @@ func TestNewMySQLClient_PassfileNoMatch(t *testing.T) {
 	assert.ErrorContains(t, err, "unable to resolve password from passfile")
 }
 
-func TestNewMySQLClient_InlinePasswordTakesPrecedence(t *testing.T) {
+func TestNewMySQLClient_PasswordTakesPrecedenceOverPassfile(t *testing.T) {
 	content := "localhost:3306:*:cw_monitor:file_password\n"
 	dir := t.TempDir()
 	passfilePath := filepath.Join(dir, ".mysql_credentials")
