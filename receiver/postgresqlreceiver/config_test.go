@@ -6,7 +6,9 @@ package postgresqlreceiver
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -113,6 +115,105 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestPassfileValidation(t *testing.T) {
+	validFile := filepath.Join(t.TempDir(), "pgpass")
+	require.NoError(t, os.WriteFile(validFile, []byte("localhost:5432:testdb:otel:secret\n"), 0o600))
+
+	validFileReadOnly := filepath.Join(t.TempDir(), "pgpass_ro")
+	require.NoError(t, os.WriteFile(validFileReadOnly, []byte("localhost:5432:testdb:otel:secret\n"), 0o400))
+
+	badPermsFile := filepath.Join(t.TempDir(), "pgpass_bad")
+	require.NoError(t, os.WriteFile(badPermsFile, []byte("localhost:5432:*:otel:secret\n"), 0o644)) //nolint:gosec
+
+	factory := NewFactory()
+
+	testCases := []struct {
+		desc        string
+		modifier    func(cfg *Config)
+		expectError string
+	}{
+		{
+			desc: "username + passfile with valid pgpass content - valid",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Passfile = validFile
+			},
+		},
+		{
+			desc: "username + passfile with 0400 permissions - valid",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Passfile = validFileReadOnly
+			},
+		},
+		{
+			desc: "username + inline password (no file) - valid",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "inline"
+			},
+		},
+		{
+			desc: "username + password + passfile - valid (password takes priority)",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "inline"
+				cfg.Passfile = "/nonexistent" // doesn't matter when inline password set
+			},
+		},
+		{
+			desc: "no username - error",
+			modifier: func(cfg *Config) {
+				cfg.Password = "otel"
+			},
+			expectError: ErrNoUsername,
+		},
+		{
+			desc: "no password and no passfile - error",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+			},
+			expectError: ErrNoPassword,
+		},
+		{
+			desc: "passfile nonexistent - error",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Passfile = "/nonexistent/path/pgpass"
+			},
+			expectError: "`passfile` is inaccessible",
+		},
+		{
+			desc: "passfile wrong permissions - error (linux only)",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Passfile = badPermsFile
+			},
+			expectError: func() string {
+				if runtime.GOOS == "linux" {
+					return "permissions must be 0600 or 0400"
+				}
+				return ""
+			}(),
+		},
+	}
+
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			cfg := factory.CreateDefaultConfig().(*Config)
+			tC.modifier(cfg)
+			actual := xconfmap.Validate(cfg)
+			if tC.expectError != "" {
+				require.ErrorContains(t, actual, tC.expectError)
+			} else if actual != nil {
+				// May still have unrelated errors (e.g. endpoint), just ensure no password/username errors
+				require.NotContains(t, actual.Error(), "password")
+				require.NotContains(t, actual.Error(), "username")
+			}
+		})
+	}
+}
+
 func TestLoadConfig(t *testing.T) {
 	cm, confErr := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 	require.NoError(t, confErr)
@@ -168,7 +269,7 @@ func TestLoadConfig(t *testing.T) {
 		expected.Password = "${env:POSTGRESQL_PASSWORD}"
 		expected.Databases = []string{"otel"}
 		expected.ExcludeDatabases = []string{"template0"}
-		expected.CollectionInterval = 10 * time.Second
+		expected.ControllerConfig.CollectionInterval = 10 * time.Second
 		expected.ClientConfig = configtls.ClientConfig{
 			Insecure:           false,
 			InsecureSkipVerify: false,

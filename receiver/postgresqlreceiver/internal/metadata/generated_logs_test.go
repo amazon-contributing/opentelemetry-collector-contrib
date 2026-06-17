@@ -19,7 +19,7 @@ func TestLogsBuilderAppendLogRecord(t *testing.T) {
 	observedZapCore, _ := observer.New(zap.WarnLevel)
 	settings := receivertest.NewNopSettings(receivertest.NopType)
 	settings.Logger = zap.New(observedZapCore)
-	lb := NewLogsBuilder(settings)
+	lb := NewLogsBuilder(DefaultLogsBuilderConfig(), settings)
 
 	rb := lb.NewResourceBuilder()
 	rb.SetPostgresqlDatabaseName("postgresql.database.name-val")
