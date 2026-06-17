@@ -39,6 +39,7 @@ ignored_paths:
   - testbed/mockdatasenders/mockdatadogagentexporter
   - extension/awsmiddleware
   - override/aws
+  - override/awsv2
 allowed_functions:
   - name: NewFactory
     classes:
