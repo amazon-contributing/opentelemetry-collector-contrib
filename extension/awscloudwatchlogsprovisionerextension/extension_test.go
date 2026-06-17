@@ -21,6 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap/zaptest"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 // --- Mock CW Logs client ---
@@ -347,7 +349,10 @@ func TestEnsureProvisioned_Singleflight(t *testing.T) {
 
 func TestStart_StoresHost(t *testing.T) {
 	authID := component.MustNewID("sigv4auth")
-	cfg := &Config{AdditionalAuth: &authID}
+	cfg := &Config{
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
+		AdditionalAuth:     &authID,
+	}
 	ext := newExtension(zaptest.NewLogger(t), cfg)
 
 	host := &mockHost{
@@ -363,7 +368,10 @@ func TestStart_StoresHost(t *testing.T) {
 
 func TestRoundTripper_MissingAdditionalAuth(t *testing.T) {
 	authID := component.MustNewID("sigv4auth")
-	cfg := &Config{AdditionalAuth: &authID}
+	cfg := &Config{
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
+		AdditionalAuth:     &authID,
+	}
 	ext := newExtension(zaptest.NewLogger(t), cfg)
 
 	host := &mockHost{extensions: map[component.ID]component.Component{}}

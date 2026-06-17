@@ -69,3 +69,59 @@ func TestProcessResource_MissingAttribute(t *testing.T) {
 
 	assert.Empty(t, metadata)
 }
+
+func TestGroupKey(t *testing.T) {
+	a := NewActions([]KeyValue{
+		{Key: "cwlogs.log_group", FromResourceAttribute: "aws.log.group.name"},
+		{Key: "cwlogs.log_stream", FromResourceAttribute: "aws.log.stream.name"},
+	})
+
+	metadata := map[string][]string{
+		"cwlogs.log_group":  {"/aws/cwagent/cluster/app"},
+		"cwlogs.log_stream": {"prod/checkout"},
+	}
+
+	key := a.GroupKey(metadata)
+	assert.Equal(t, `cwlogs.log_group=["/aws/cwagent/cluster/app"]|cwlogs.log_stream=["prod/checkout"]`, key)
+}
+
+func TestGroupKey_MissingKey(t *testing.T) {
+	a := NewActions([]KeyValue{
+		{Key: "cwlogs.log_group", FromResourceAttribute: "aws.log.group.name"},
+		{Key: "cwlogs.log_stream", FromResourceAttribute: "aws.log.stream.name"},
+	})
+
+	metadata := map[string][]string{
+		"cwlogs.log_group": {"/app"},
+	}
+
+	key := a.GroupKey(metadata)
+	assert.Equal(t, `cwlogs.log_group=["/app"]|cwlogs.log_stream=[]`, key)
+}
+
+func TestGroupKey_SameValuesDifferentKeys(t *testing.T) {
+	a := NewActions([]KeyValue{
+		{Key: "group", FromResourceAttribute: "g"},
+		{Key: "stream", FromResourceAttribute: "s"},
+	})
+
+	// Values swapped between keys should produce different group keys
+	meta1 := map[string][]string{"group": {"a"}, "stream": {"b"}}
+	meta2 := map[string][]string{"group": {"b"}, "stream": {"a"}}
+
+	assert.NotEqual(t, a.GroupKey(meta1), a.GroupKey(meta2))
+}
+
+func TestGroupKey_CaseNormalized(t *testing.T) {
+	a := NewActions([]KeyValue{
+		{Key: "CWLogs.Log_Group", FromResourceAttribute: "aws.log.group.name"},
+	})
+
+	metadata := map[string][]string{
+		"cwlogs.log_group": {"/app"},
+	}
+
+	key := a.GroupKey(metadata)
+	assert.Contains(t, key, "cwlogs.log_group=")
+	assert.NotContains(t, key, "CWLogs")
+}
