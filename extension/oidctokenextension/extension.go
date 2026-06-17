@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -41,7 +42,9 @@ type oidcTokenExtension struct {
 	// wroteToken records whether this extension actually wrote the output token
 	// file. It guards Shutdown so a no-op run (no provider detected) does not
 	// delete a file at config.OutputTokenFile that this extension never wrote.
-	wroteToken bool
+	// It is atomic because it is written from the background refresh goroutine
+	// and read in Shutdown.
+	wroteToken atomic.Bool
 }
 
 var _ extension.Extension = (*oidcTokenExtension)(nil)
@@ -109,7 +112,7 @@ func (e *oidcTokenExtension) Shutdown(ctx context.Context) error {
 	// run (no provider detected) must not touch a pre-existing file at
 	// config.OutputTokenFile that it never owned. The file is truncated (not
 	// deleted) so sigv4auth validation does not fail on the next startup.
-	if e.wroteToken {
+	if e.wroteToken.Load() {
 		e.truncateTokenFile()
 	}
 	return nil
@@ -183,7 +186,7 @@ func (e *oidcTokenExtension) refreshToken(ctx context.Context) (time.Time, error
 	if err = writeFileAtomic(e.config.OutputTokenFile, []byte(token)); err != nil {
 		return time.Time{}, fmt.Errorf("write token file: %w", err)
 	}
-	e.wroteToken = true
+	e.wroteToken.Store(true)
 	return time.Now().Add(ttl), nil
 }
 

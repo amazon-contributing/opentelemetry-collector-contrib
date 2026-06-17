@@ -68,7 +68,7 @@ func TestShutdownNoProviderPreservesExistingFile(t *testing.T) {
 
 	// No provider is available, so Start is a no-op and never writes the file.
 	require.NoError(t, ext.Start(t.Context(), nil))
-	require.False(t, ext.wroteToken)
+	require.False(t, ext.wroteToken.Load())
 
 	require.NoError(t, ext.Shutdown(t.Context()))
 
@@ -87,10 +87,10 @@ func TestShutdown(t *testing.T) {
 		logger: zap.NewNop(),
 		config: &Config{OutputTokenFile: tokenFile},
 		done:   make(chan struct{}),
-		// Simulate a run where the extension actually wrote the token file, so
-		// Shutdown is responsible for cleaning it up.
-		wroteToken: true,
 	}
+	// Simulate a run where the extension actually wrote the token file, so
+	// Shutdown is responsible for cleaning it up.
+	ext.wroteToken.Store(true)
 
 	err := ext.Shutdown(t.Context())
 	require.NoError(t, err)
@@ -173,11 +173,11 @@ func TestShutdownBoundedByContext(t *testing.T) {
 		require.NoError(t, os.WriteFile(tokenFile, []byte("written"), 0o600))
 
 		ext := &oidcTokenExtension{
-			logger:     zap.NewNop(),
-			config:     &Config{OutputTokenFile: tokenFile},
-			done:       make(chan struct{}),
-			wroteToken: true,
+			logger: zap.NewNop(),
+			config: &Config{OutputTokenFile: tokenFile},
+			done:   make(chan struct{}),
 		}
+		ext.wroteToken.Store(true)
 		ext.refreshCtx, ext.cancel = context.WithCancel(context.Background())
 
 		// No refresh is in flight, so the bounded wait completes immediately and
