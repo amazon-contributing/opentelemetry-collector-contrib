@@ -53,9 +53,9 @@ type postgreSQLScraper struct {
 	excludes      map[string]struct{}
 	cache         *lru.Cache[string, float64]
 	// if enabled, uses a separated attribute for the schema
-	separateSchemaAttr   bool
-	queryPlanCache       *expirable.LRU[string, string]
-	newestQueryTimestamp    float64
+	separateSchemaAttr     bool
+	queryPlanCache         *expirable.LRU[string, string]
+	newestQueryTimestamp   float64
 	serviceInstanceID      string
 	lastExecutionTimestamp time.Time
 }
