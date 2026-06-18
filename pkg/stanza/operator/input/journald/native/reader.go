@@ -216,6 +216,63 @@ func (r *Reader) Header() *Header {
 	return r.hdr
 }
 
+// reopenSamePath closes the Reader's current *os.File and re-opens the
+// SAME path, re-parsing the header and resetting the cursor to the new
+// file's head. It is used by Follow to transparently continue across a
+// journal rotation: systemd renames the active system.journal to an
+// archived name and creates a fresh system.journal at the original path,
+// so re-opening the path lands on the new file. The Reader's options
+// (e.g. indexed traversal) are preserved; iteration state is reset so the
+// next ReadEntry walks the new file from its first object.
+//
+// The caller (Follow) is responsible for draining the old file BEFORE
+// calling this — once we close the old fd we can no longer read whatever
+// trailing entries it held. reopenSamePath itself only swaps to the new
+// file; it does not emit anything.
+func (r *Reader) reopenSamePath() error {
+	if r.closed {
+		return ErrReaderClosed
+	}
+	path := r.f.Name()
+	f, err := os.Open(path) //#nosec G304 -- same trusted path the Reader was opened with.
+	if err != nil {
+		return fmt.Errorf("reopen journal file %q after rotation: %w", path, err)
+	}
+	hdr, err := ParseHeader(f)
+	if err != nil {
+		_ = f.Close()
+		return fmt.Errorf("parse journal header in %q after rotation: %w", path, err)
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return fmt.Errorf("stat journal file %q after rotation: %w", path, err)
+	}
+	fileSize := uint64(fi.Size())
+	arenaEnd := fileSize
+	if hdr.ArenaSize > 0 {
+		if declared := hdr.HeaderSize + hdr.ArenaSize; declared < arenaEnd {
+			arenaEnd = declared
+		}
+	}
+
+	// Swap in the new file and reset all iteration state to its head.
+	_ = r.f.Close()
+	r.f = f
+	r.hdr = hdr
+	r.compact = hdr.IsCompact()
+	r.arenaEnd = arenaEnd
+	r.tailObjectOffset = hdr.TailObjectOffset
+	r.cursor = hdr.HeaderSize
+	r.lastEntry = nil
+	// Reset indexed-traversal state so a re-armed chain walk starts clean.
+	r.currentArray = nil
+	r.arrayItemIdx = 0
+	r.arrayInited = false
+	r.arrayVisited = nil
+	return nil
+}
+
 // Compact reports whether the underlying file uses
 // HEADER_INCOMPATIBLE_COMPACT semantics. Cached at Open time so callers
 // (and ReadEntry's per-call ParseEntry invocation) avoid re-checking the

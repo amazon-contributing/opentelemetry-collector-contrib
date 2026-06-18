@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -135,10 +136,12 @@ func WithFollowPollInterval(d time.Duration) Option {
 //
 //   - ErrReaderClosed if Close has already been called on this Reader.
 //   - "nil callback" if fn is nil.
-//   - File-rotation events (Rename / Remove) are surfaced as errors so
-//     the caller can re-Open the rotated file. Follow does NOT attempt
-//     to follow rotation transparently because the new file's header
-//     and cursor would diverge from the closed one.
+//   - File rotation (Rename / Remove of the active journal, e.g. when a
+//     volatile /run journal fills and systemd archives it) is handled
+//     transparently and losslessly: Follow drains the archived file's
+//     tail, re-opens the fresh file at the same path, re-arms the watch,
+//     and continues. See handleRotation. (Both the inotify and poll
+//     strategies handle this.)
 //   - Any error returned by ReadEntry, ParseHeader, or fn is propagated
 //     unchanged after wrapping with the offset where it occurred.
 func (r *Reader) Follow(ctx context.Context, fn func(*Entry) error) error {
@@ -273,12 +276,18 @@ func (r *Reader) followWatch(ctx context.Context, w *fsnotify.Watcher, fn func(*
 			if !ok {
 				return errors.New("native: Follow: watcher events channel closed")
 			}
-			// Rename / Remove invalidate our open file descriptor —
-			// the journal has been rotated. Surface this so the
-			// caller can re-Open the new file; transparent rotation
-			// handling is intentionally out of scope for Phase 3.
+			// Rename / Remove mean the journal rotated: systemd renamed
+			// the active system.journal to an archived name and created a
+			// fresh system.journal at the same path. Handle this
+			// transparently and losslessly rather than aborting (the
+			// previous behaviour stopped the follower and, under
+			// start_at:end re-open, silently dropped the post-rotation
+			// backlog). See handleRotation.
 			if ev.Op&(fsnotify.Rename|fsnotify.Remove) != 0 {
-				return fmt.Errorf("native: Follow: file rotated (%s) at %s", ev.Op, ev.Name)
+				if rotErr := r.handleRotation(w, fn); rotErr != nil {
+					return rotErr
+				}
+				continue
 			}
 			// Only Write / Create events advance the journal. Chmod
 			// is ignored.
@@ -293,6 +302,75 @@ func (r *Reader) followWatch(ctx context.Context, w *fsnotify.Watcher, fn func(*
 			}
 		}
 	}
+}
+
+// rotationReopenAttempts bounds how many times handleRotation retries the
+// re-open of the journal path after a rename. systemd creates the fresh
+// system.journal immediately after archiving the old one, but the Create
+// event for the new file can arrive a few milliseconds after the Rename of
+// the old. A short bounded retry covers that window without blocking.
+const rotationReopenAttempts = 50
+
+// rotationReopenDelay is the per-attempt sleep between re-open retries.
+// 50 attempts x 20ms = up to 1s, generous for the rename->create gap.
+const rotationReopenDelay = 20 * time.Millisecond
+
+// handleRotation continues following across a journal rotation without
+// losing entries. The sequence is:
+//
+//  1. Drain the OLD (now-renamed/archived) file to EOF, emitting any
+//     trailing entries the writer flushed before rotating. We still hold a
+//     valid fd to it — on Linux a rename does not invalidate an open
+//     descriptor — so refreshTail+drainOnce reads whatever remains.
+//  2. Re-open the original PATH, which now resolves to the fresh
+//     system.journal systemd just created. Retried briefly because the new
+//     file may not be visible the instant the Rename event fires.
+//  3. Re-arm the fsnotify watch on the new fd (the watch followed the old
+//     inode away on rename, so future writes to the new file would
+//     otherwise go unnoticed).
+//  4. Drain the new file from its head so entries already written to it
+//     before the watch was re-armed are emitted immediately.
+//
+// Ordering (drain-old before swap) guarantees no entry is skipped across
+// the boundary; the cursor checkpoint in the operator layer additionally
+// dedupes on restart.
+func (r *Reader) handleRotation(w *fsnotify.Watcher, fn func(*Entry) error) error {
+	oldPath := r.f.Name()
+
+	// 1. Drain trailing entries from the archived file.
+	if err := r.refreshTail(); err != nil {
+		// A refresh failure here is non-fatal: the old file may already
+		// be gone (Remove rather than Rename). Fall through to reopen.
+		_ = err
+	} else if err := r.drainOnce(fn); err != nil {
+		return fmt.Errorf("native: Follow: drain pre-rotation tail of %q: %w", oldPath, err)
+	}
+
+	// 2. Re-open the path (now the fresh file), with a short retry for the
+	// rename->create gap.
+	var reopenErr error
+	for attempt := 0; attempt < rotationReopenAttempts; attempt++ {
+		if reopenErr = r.reopenSamePath(); reopenErr == nil {
+			break
+		}
+		time.Sleep(rotationReopenDelay)
+	}
+	if reopenErr != nil {
+		return fmt.Errorf("native: Follow: reopen after rotation: %w", reopenErr)
+	}
+
+	// 3. Re-arm the watch on the new fd. Remove the stale watch first
+	// (best-effort; it may already be gone with the old inode).
+	_ = w.Remove(oldPath)
+	if err := w.Add(r.f.Name()); err != nil {
+		return fmt.Errorf("native: Follow: re-arm watch on %q after rotation: %w", r.f.Name(), err)
+	}
+
+	// 4. Drain the new file from its head.
+	if err := r.drainOnce(fn); err != nil {
+		return fmt.Errorf("native: Follow: drain new file %q after rotation: %w", r.f.Name(), err)
+	}
+	return nil
 }
 
 // followPoll implements the time.Ticker fallback. It re-stats the open
@@ -326,6 +404,23 @@ func (r *Reader) followPoll(ctx context.Context, fn func(*Entry) error, interval
 			if err != nil {
 				return fmt.Errorf("native: Follow: stat: %w", err)
 			}
+			// Rotation detection for the poll path: if the file now at our
+			// path is a DIFFERENT inode than the fd we hold, the journal
+			// rotated (systemd archived our file and created a fresh one).
+			// The held fd would otherwise keep returning the frozen
+			// archived size and the loop would silently stall. os.Stat on
+			// the path follows the new inode; os.SameFile compares dev+ino.
+			if pathFI, statErr := os.Stat(r.f.Name()); statErr == nil && !os.SameFile(fi, pathFI) {
+				if rotErr := r.handlePollRotation(fn); rotErr != nil {
+					return rotErr
+				}
+				// Reset the change baseline to the new file and continue.
+				if nfi, e := r.f.Stat(); e == nil {
+					lastSize = nfi.Size()
+					lastMTime = nfi.ModTime()
+				}
+				continue
+			}
 			size := fi.Size()
 			mtime := fi.ModTime()
 			if size == lastSize && mtime.Equal(lastMTime) {
@@ -341,4 +436,32 @@ func (r *Reader) followPoll(ctx context.Context, fn func(*Entry) error, interval
 			}
 		}
 	}
+}
+
+// handlePollRotation is the poll-strategy counterpart to handleRotation:
+// it drains the archived file's tail, then re-opens the fresh file at the
+// same path. There is no fsnotify watch to re-arm in the poll path, so it
+// is a strict subset of handleRotation. Draining the old file first keeps
+// the boundary lossless.
+func (r *Reader) handlePollRotation(fn func(*Entry) error) error {
+	oldPath := r.f.Name()
+	if err := r.refreshTail(); err == nil {
+		if err := r.drainOnce(fn); err != nil {
+			return fmt.Errorf("native: Follow: drain pre-rotation tail of %q: %w", oldPath, err)
+		}
+	}
+	var reopenErr error
+	for attempt := 0; attempt < rotationReopenAttempts; attempt++ {
+		if reopenErr = r.reopenSamePath(); reopenErr == nil {
+			break
+		}
+		time.Sleep(rotationReopenDelay)
+	}
+	if reopenErr != nil {
+		return fmt.Errorf("native: Follow: reopen after rotation: %w", reopenErr)
+	}
+	if err := r.drainOnce(fn); err != nil {
+		return fmt.Errorf("native: Follow: drain new file %q after rotation: %w", r.f.Name(), err)
+	}
+	return nil
 }
