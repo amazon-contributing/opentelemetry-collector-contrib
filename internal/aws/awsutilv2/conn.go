@@ -13,7 +13,6 @@ import (
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/override/awsv2"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -56,7 +55,7 @@ func GetAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 // getAWSConfig is the orchestration with retryDelay and the LoadDefaultConfig function as injectable
 // parameters so tests can shorten the retry wait and simulate load failures.
 func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionSettings, retryDelay time.Duration, load loadConfigFn) (aws.Config, error) {
-	httpClient, err := buildHTTPClient(logger, settings)
+	httpClient, err := getHTTPClient(logger, settings)
 	if err != nil {
 		logger.Error("Failed to build HTTP client", zap.Error(err))
 		return aws.Config{}, err
@@ -197,7 +196,7 @@ func warnIfUnusedSharedConfigFiles(logger *zap.Logger) {
 }
 
 // buildLoadOptions assembles the SDK LoadOptions used by getAWSConfig.
-func buildLoadOptions(settings *AWSSessionSettings, region string, credentialsFiles, configFiles []string, httpClient *awshttp.BuildableClient, provider aws.CredentialsProvider) []func(*config.LoadOptions) error {
+func buildLoadOptions(settings *AWSSessionSettings, region string, credentialsFiles, configFiles []string, httpClient aws.HTTPClient, provider aws.CredentialsProvider) []func(*config.LoadOptions) error {
 	// v2 SDK's RetryMaxAttempts counts the initial attempt. The +1 keeps the v1 contract
 	// where MaxRetries=N means N retries beyond the initial. Negative values clamp to 0.
 	retries := max(settings.MaxRetries, 0)

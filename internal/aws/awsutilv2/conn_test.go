@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -51,12 +52,12 @@ func TestResolveRegion(t *testing.T) {
 	t.Run("IMDSDisabledError", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "")
 		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-		client, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{})
-		require.NoError(t, err)
+		client := &mockHTTPClient{}
 		got, err := resolveRegion(t.Context(), zap.NewNop(), &AWSSessionSettings{}, client)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "failed to resolve region from EC2 metadata")
 		assert.Empty(t, got)
+		client.AssertNotCalled(t, "Do")
 	})
 }
 
@@ -468,14 +469,18 @@ func TestGetAWSConfig_Proxy(t *testing.T) {
 
 	t.Run("FromEnv", func(t *testing.T) {
 		isolateAWSEnv(t)
-		t.Setenv("HTTPS_PROXY", proxy)
 
 		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
 			Region:    testRegion,
 			LocalMode: true,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, proxy, resolvedProxyAddr(t, cfg.HTTPClient))
+		bc, ok := cfg.HTTPClient.(*awshttp.BuildableClient)
+		require.True(t, ok)
+		assert.Equal(t,
+			reflect.ValueOf(http.ProxyFromEnvironment).Pointer(),
+			reflect.ValueOf(bc.GetTransport().Proxy).Pointer(),
+			"expected http.ProxyFromEnvironment when no explicit proxy is set")
 	})
 
 	t.Run("FromSettings", func(t *testing.T) {

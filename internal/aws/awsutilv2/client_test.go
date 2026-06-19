@@ -16,9 +16,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +30,7 @@ import (
 )
 
 func TestBuildHTTPClient_Defaults(t *testing.T) {
-	client, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{})
+	client, err := buildHTTPClient(zap.NewNop(), httpClientSettings{})
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -51,7 +53,7 @@ func TestBuildHTTPClient_Defaults(t *testing.T) {
 }
 
 func TestBuildHTTPClient_TimeoutAndWorkers(t *testing.T) {
-	client, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{
+	client, err := buildHTTPClient(zap.NewNop(), httpClientSettings{
 		RequestTimeoutSeconds: 5,
 		NumberOfWorkers:       42,
 	})
@@ -62,14 +64,14 @@ func TestBuildHTTPClient_TimeoutAndWorkers(t *testing.T) {
 }
 
 func TestBuildHTTPClient_NoVerifySSL(t *testing.T) {
-	client, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{NoVerifySSL: true})
+	client, err := buildHTTPClient(zap.NewNop(), httpClientSettings{NoVerifySSL: true})
 	require.NoError(t, err)
 	assert.True(t, client.GetTransport().TLSClientConfig.InsecureSkipVerify)
 }
 
 func TestBuildHTTPClient_ExplicitProxy(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "")
-	client, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{ProxyAddress: "http://proxy.example.com:3128"})
+	client, err := buildHTTPClient(zap.NewNop(), httpClientSettings{ProxyAddress: "http://proxy.example.com:3128"})
 	require.NoError(t, err)
 
 	got := resolvedProxy(t, client.GetTransport())
@@ -78,7 +80,7 @@ func TestBuildHTTPClient_ExplicitProxy(t *testing.T) {
 }
 
 func TestBuildHTTPClient_InvalidProxyURL(t *testing.T) {
-	_, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{ProxyAddress: "://invalid"})
+	_, err := buildHTTPClient(zap.NewNop(), httpClientSettings{ProxyAddress: "://invalid"})
 	require.Error(t, err)
 }
 
@@ -87,7 +89,7 @@ func TestBuildHTTPClient_CertificateFilePath(t *testing.T) {
 		certPath := writeSelfSignedCert(t)
 
 		core, observed := observer.New(zap.WarnLevel)
-		client, err := buildHTTPClient(zap.New(core), &AWSSessionSettings{CertificateFilePath: certPath})
+		client, err := buildHTTPClient(zap.New(core), httpClientSettings{CertificateFilePath: certPath})
 		require.NoError(t, err)
 
 		assert.NotNil(t, client.GetTransport().TLSClientConfig.RootCAs)
@@ -96,7 +98,7 @@ func TestBuildHTTPClient_CertificateFilePath(t *testing.T) {
 
 	t.Run("MissingFile", func(t *testing.T) {
 		core, observed := observer.New(zap.WarnLevel)
-		client, err := buildHTTPClient(zap.New(core), &AWSSessionSettings{CertificateFilePath: "/nonexistent/ca.pem"})
+		client, err := buildHTTPClient(zap.New(core), httpClientSettings{CertificateFilePath: "/nonexistent/ca.pem"})
 		require.NoError(t, err, "missing CA file is non-fatal")
 
 		assert.Nil(t, client.GetTransport().TLSClientConfig.RootCAs)
@@ -109,7 +111,7 @@ func TestBuildHTTPClient_CertificateFilePath(t *testing.T) {
 		require.NoError(t, os.WriteFile(path, []byte("not a real PEM"), 0o600))
 
 		core, observed := observer.New(zap.WarnLevel)
-		client, err := buildHTTPClient(zap.New(core), &AWSSessionSettings{CertificateFilePath: path})
+		client, err := buildHTTPClient(zap.New(core), httpClientSettings{CertificateFilePath: path})
 		require.NoError(t, err, "malformed PEM is non-fatal")
 
 		assert.Nil(t, client.GetTransport().TLSClientConfig.RootCAs)
@@ -126,7 +128,7 @@ func TestBuildHTTPClient_AWSCABundleCompatibility(t *testing.T) {
 	t.Setenv("AWS_CA_BUNDLE", certPath)
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true") // avoid IMDS attempts on EC2 hosts
 
-	client, err := buildHTTPClient(zap.NewNop(), &AWSSessionSettings{})
+	client, err := buildHTTPClient(zap.NewNop(), httpClientSettings{})
 	require.NoError(t, err)
 
 	cfg, err := config.LoadDefaultConfig(t.Context(),
@@ -174,4 +176,65 @@ func writeSelfSignedCert(t *testing.T) string {
 	path := filepath.Join(t.TempDir(), "ca.pem")
 	require.NoError(t, os.WriteFile(path, pemBytes, 0o600))
 	return path
+}
+
+func TestGetOrBuildHTTPClient_CachesByConfig(t *testing.T) {
+	// Reset the cache for test isolation.
+	httpClientsMu.Lock()
+	httpClients = map[httpClientSettings]aws.HTTPClient{}
+	httpClientsMu.Unlock()
+	t.Cleanup(func() {
+		httpClientsMu.Lock()
+		httpClients = map[httpClientSettings]aws.HTTPClient{}
+		httpClientsMu.Unlock()
+	})
+
+	settingsA := &AWSSessionSettings{RequestTimeoutSeconds: 30, NumberOfWorkers: 8}
+	settingsB := &AWSSessionSettings{RequestTimeoutSeconds: 30, NumberOfWorkers: 8}
+	settingsC := &AWSSessionSettings{RequestTimeoutSeconds: 60, NumberOfWorkers: 8}
+
+	clientA, err := getHTTPClient(zap.NewNop(), settingsA)
+	require.NoError(t, err)
+
+	clientB, err := getHTTPClient(zap.NewNop(), settingsB)
+	require.NoError(t, err)
+
+	clientC, err := getHTTPClient(zap.NewNop(), settingsC)
+	require.NoError(t, err)
+
+	assert.Same(t, clientA, clientB, "identical settings should return the same client")
+	assert.NotSame(t, clientA, clientC, "different settings should return different clients")
+}
+
+func TestGetHTTPClient_Concurrent(t *testing.T) {
+	httpClientsMu.Lock()
+	httpClients = map[httpClientSettings]aws.HTTPClient{}
+	httpClientsMu.Unlock()
+	t.Cleanup(func() {
+		httpClientsMu.Lock()
+		httpClients = map[httpClientSettings]aws.HTTPClient{}
+		httpClientsMu.Unlock()
+	})
+
+	settings := &AWSSessionSettings{RequestTimeoutSeconds: 30, NumberOfWorkers: 8}
+	const count = 50
+	clients := make([]aws.HTTPClient, count)
+	var wg sync.WaitGroup
+
+	for i := range count {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			c, err := getHTTPClient(zap.NewNop(), settings)
+			assert.NoError(t, err)
+			clients[index] = c
+		}(i)
+	}
+	wg.Wait()
+
+	first := clients[0]
+	assert.NotNil(t, first)
+	for i := 1; i < count; i++ {
+		assert.Same(t, first, clients[i])
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/confmap/xconfmap"
 	"go.opentelemetry.io/collector/consumer/consumertest"
@@ -47,4 +48,33 @@ func TestCreateMetrics(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, metricsReceiver)
+}
+
+func TestCreateDefaultConfig(t *testing.T) {
+	defaultCfg := createDefaultConfig().(*Config)
+	assert.Equal(t, int64(1000), defaultCfg.TopQueryCollection.MaxRowsPerQuery)
+	assert.Equal(t, int64(200), defaultCfg.TopNQuery)
+	assert.Equal(t, int64(1000), defaultCfg.MaxExplainEachInterval)
+	assert.Equal(t, 1000, defaultCfg.QueryPlanCacheSize)
+	assert.Equal(t, time.Hour, defaultCfg.QueryPlanCacheTTL)
+
+	assert.Equal(t, int64(1000), defaultCfg.QuerySampleCollection.MaxRowsPerQuery)
+}
+
+func TestCreateLogs(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.Events.DbServerQuerySample.Enabled = true
+	cfg.QuerySampleCollection.CollectionInterval = 30 * time.Second
+
+	logsReceiver, err := factory.CreateLogs(
+		t.Context(),
+		receivertest.NewNopSettings(metadata.Type),
+		cfg,
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, logsReceiver)
 }
