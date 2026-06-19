@@ -55,13 +55,11 @@
 //                                              hermetic across hosts and
 //                                              CI.
 //
-//   "Mode=native with feature gate on"     -> runParityNative below sets
-//                                              cfg.Mode = ModeNative. The
-//                                              feature-gate enforcement is
-//                                              owned by the receiver-side
-//                                              Validate path (see
-//                                              receiver/journaldreceiver/
-//                                              feature_gate.go +
+//   "Mode=native"                          -> runParityNative below sets
+//                                              cfg.Mode = ModeNative. Mode
+//                                              validation is owned by the
+//                                              receiver-side Validate path
+//                                              (see receiver/journaldreceiver/
 //                                              config_test.go); inside the
 //                                              operator-level test we
 //                                              build the operator
@@ -71,10 +69,10 @@
 //                                              correct for this layer:
 //                                              the parity contract is
 //                                              about emit-pipeline shape,
-//                                              not gate enforcement.
-//                                              Gate-on behaviour is pinned
-//                                              in
-//                                              TestConfigValidate_NativeRequiresFeatureGate.
+//                                              not mode validation.
+//                                              Mode=native behaviour is
+//                                              pinned in
+//                                              TestConfigValidate_AcceptsNative.
 //
 //   "asserts zero diff in the produced log -> TestBackendParity's Phase 4
 //    records (timestamp, severity, body,       loop asserts pairwise on

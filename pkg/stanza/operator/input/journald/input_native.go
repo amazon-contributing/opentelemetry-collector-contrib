@@ -7,20 +7,16 @@
 //
 //   - "Edit pkg/stanza/operator/input/journald/input.go (or a new
 //     input_native.go alongside it) to dispatch to the native package
-//     when Mode=='native' and the feature gate is enabled" -> this file
-//     IS the new input_native.go. The dispatch decision lives in
-//     input.go's Start method (a one-liner branch on operator.mode ==
-//     ModeNative that calls runNative below); the runtime lives here
-//     so input.go's diff stays minimal and the journalctl path is
-//     untouched. The feature-gate check itself is enforced at
-//     receiver-config Validate time via
-//     receiver/journaldreceiver/feature_gate.go (validateNativeBackend +
-//     errNativeRequiresFeatureGate sentinel), which runs once during
+//     when Mode=='native'" -> this file IS the new input_native.go. The
+//     dispatch decision lives in input.go's Start method (a one-liner
+//     branch on operator.mode == ModeNative that calls runNative below);
+//     the runtime lives here so input.go's diff stays minimal and the
+//     journalctl path is untouched. Backend selection is enforced at
+//     receiver-config Validate time (mode: native is accepted directly
+//     and unrecognized values are rejected), which runs once during
 //     component creation; the operator-level dispatch trusts that
 //     contract because the Mode value reaches it only after Validate
-//     has approved it. Defence-in-depth at the operator boundary would
-//     re-import the receiver-package gate symbol and create an import
-//     cycle, so we deliberately keep this file gate-symbol-free.
+//     has approved it.
 //   - "Adapt the operator's Output entry shape so native-emitted entries
 //     match journalctl-emitted entries field-for-field (timestamps,
 //     severity, body, attributes)" -> emitNativeEntry below carries

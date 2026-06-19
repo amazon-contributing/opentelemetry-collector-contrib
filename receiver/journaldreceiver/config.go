@@ -12,11 +12,11 @@
 //     line, which keeps existing operator YAML diffs unchanged.
 //   - "Valid values 'journalctl' (default) and 'native'" -> the
 //     ModeJournalctl and ModeNative untyped string constants below pin
-//     the wire-level values exactly. They are exported so factory.go,
-//     feature_gate.go, and the input operator can dispatch off the same
-//     symbols rather than re-typing the literals (which would silently
-//     accept typos). TestConfigModeConstants in config_test.go is a
-//     freeze test that prevents accidental edits to either string.
+//     the wire-level values exactly. They are exported so factory.go and
+//     the input operator can dispatch off the same symbols rather than
+//     re-typing the literals (which would silently accept typos).
+//     TestConfigModeConstants in config_test.go is a freeze test that
+//     prevents accidental edits to either string.
 //   - "Default 'journalctl' must preserve current behavior exactly" ->
 //     createDefaultConfig() below sets Mode: ModeJournalctl explicitly,
 //     so component.Config produced via the factory always selects the
@@ -77,11 +77,9 @@ import (
 // preserves the receiver's historical behavior exactly.
 //
 // ModeNative uses the in-process pure-Go binary journal reader implemented
-// in pkg/stanza/operator/input/journald/native. It is gated additionally by
-// the alpha feature gate "journaldreceiver.useNativeReader" registered in
-// the factory; setting Mode=native without the feature gate enabled is
-// treated as a configuration error so operators don't silently switch
-// backends.
+// in pkg/stanza/operator/input/journald/native. It is selected by config
+// alone; any unrecognized mode is rejected by Validate so operators don't
+// silently switch backends.
 const (
 	// ModeJournalctl is the default: invoke journalctl(1) as a subprocess.
 	ModeJournalctl = "journalctl"
@@ -137,24 +135,18 @@ type JournaldConfig struct {
 // not silently fall back to a different backend than the operator
 // requested.
 //
-// When Mode is ModeNative, Validate additionally requires the alpha
-// feature gate journaldreceiver.useNativeReader (see feature_gate.go) to
-// be enabled. This is the fail-closed contract documented in DoD-5: a
-// config that asks for the native backend without the gate enabled MUST
-// fail receiver creation rather than silently fall back to the
-// journalctl subprocess. The check lives here (the receiver-config
-// Validate) so it runs once during component creation regardless of the
-// downstream dispatch path in the input operator.
+// Mode is the sole control for backend selection: ModeJournalctl (the
+// default) shells out to journalctl(1); ModeNative uses the in-process
+// pure-Go reader. There is no separate feature gate — a config that asks
+// for the native backend gets it, and an unrecognized mode is rejected
+// rather than silently substituted, so the selection is never quietly
+// changed out from under the operator.
 func (cfg *JournaldConfig) Validate() error {
 	switch cfg.Mode {
 	case "":
 		cfg.Mode = ModeJournalctl
-	case ModeJournalctl:
+	case ModeJournalctl, ModeNative:
 		// ok
-	case ModeNative:
-		if err := validateNativeBackend(); err != nil {
-			return err
-		}
 	default:
 		return fmt.Errorf(
 			"journaldreceiver: invalid mode %q (must be %q or %q)",
@@ -167,9 +159,9 @@ func (cfg *JournaldConfig) Validate() error {
 // InputConfig unmarshals the input operator. We additionally propagate
 // JournaldConfig.Mode into the embedded operator-level Config so the
 // operator's Build() can dispatch between backends without re-parsing
-// the YAML "mode" key. Validate has already approved the Mode value
-// (and verified the alpha feature gate when Mode == ModeNative) by the
-// time the adapter calls this hook, so the propagation is unconditional.
+// the YAML "mode" key. Validate has already approved the Mode value by
+// the time the adapter calls this hook, so the propagation is
+// unconditional.
 func (f ReceiverType) InputConfig(cfg component.Config) operator.Config {
 	jcfg := cfg.(*JournaldConfig)
 	jcfg.InputConfig.Mode = jcfg.Mode
