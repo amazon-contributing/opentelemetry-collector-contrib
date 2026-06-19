@@ -10,15 +10,15 @@
 //   Requirement                            -> Test(s)
 //   ──────────────────────────────────────────────────────────────────
 //   "dispatch to the native package when   -> TestNativeDispatch_EmitsEntries
-//    Mode=='native' [and the feature gate     (happy path: Mode=ModeNative
-//    is enabled]"                             with a real .journal fixture
+//    Mode=='native'"                          (happy path: Mode=ModeNative
+//                                             with a real .journal fixture
 //                                             produces stanza entries
 //                                             through the native code
-//                                             path). Gate-enforcement is
+//                                             path). Mode validation is
 //                                             pinned in
 //                                             receiver/journaldreceiver/
 //                                             config_test.go:
-//                                             TestConfigValidate_NativeRequiresFeatureGate
+//                                             TestConfigValidate_AcceptsNative
 //                                             so the operator-side trusts
 //                                             the receiver contract.
 //

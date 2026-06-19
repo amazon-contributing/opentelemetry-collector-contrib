@@ -25,13 +25,9 @@ const (
 
 	// ModeNative selects the in-process pure-Go binary journal reader
 	// implemented in pkg/stanza/operator/input/journald/native. The
-	// receiver additionally requires the alpha feature gate
-	// "journaldreceiver.useNativeReader" (registered in
-	// receiver/journaldreceiver/feature_gate.go) to be enabled before
-	// it will dispatch to this backend; setting Mode = ModeNative
-	// without the gate is a configuration error caught by the
-	// receiver's Validate(). The operator-level dispatch in input.go
-	// trusts that contract and does not re-check the gate.
+	// backend is selected by config alone (the receiver's Validate()
+	// accepts mode: native directly and rejects unrecognized values);
+	// the operator-level dispatch in input.go branches on this value.
 	ModeNative = "native"
 )
 
