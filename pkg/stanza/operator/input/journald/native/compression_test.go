@@ -202,6 +202,47 @@ func TestDecompressPayload_XZGarbage(t *testing.T) {
 	}
 }
 
+// TestDecompressPayload_ZSTDOverLimit proves the ZSTD DoS guard fires
+// DURING decode rather than after fully materialising the output. We
+// build a single zstd frame whose decompressed size exceeds
+// MaxDecompressedSize (highly compressible zero bytes keep the compressed
+// input tiny) and assert decompressZSTD rejects it with our
+// ErrDecompressedTooLarge sentinel. Before the WithDecoderMaxMemory fix
+// this input would allocate the full oversized buffer first.
+func TestDecompressPayload_ZSTDOverLimit(t *testing.T) {
+	// MaxDecompressedSize + 1 byte of zeros compresses to a few bytes but
+	// would decode to just over the cap.
+	plaintext := make([]byte, MaxDecompressedSize+1)
+	compressed := encodeZSTD(t, plaintext)
+
+	_, err := DecompressPayload(compressed, ObjectCompressedZSTD)
+	if err == nil {
+		t.Fatalf("err = nil, want ErrDecompressedTooLarge for an over-cap zstd frame")
+	}
+	if !errors.Is(err, ErrDecompressedTooLarge) {
+		t.Fatalf("err = %v, want errors.Is(err, ErrDecompressedTooLarge)", err)
+	}
+}
+
+// TestDecompressPayload_ZSTDAtLimit confirms the guard does not reject a
+// legitimate payload that decodes to exactly MaxDecompressedSize — the
+// boundary value must still round-trip.
+func TestDecompressPayload_ZSTDAtLimit(t *testing.T) {
+	plaintext := make([]byte, MaxDecompressedSize)
+	for i := range plaintext {
+		plaintext[i] = byte(i) // defeat trivial RLE so the frame is realistic
+	}
+	compressed := encodeZSTD(t, plaintext)
+
+	out, err := DecompressPayload(compressed, ObjectCompressedZSTD)
+	if err != nil {
+		t.Fatalf("DecompressPayload at exactly MaxDecompressedSize: %v", err)
+	}
+	if uint64(len(out)) != MaxDecompressedSize {
+		t.Fatalf("len(out) = %d, want %d", len(out), MaxDecompressedSize)
+	}
+}
+
 func errOrEmpty(err error) string {
 	if err == nil {
 		return ""

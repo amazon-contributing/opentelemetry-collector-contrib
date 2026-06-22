@@ -116,6 +116,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 
@@ -128,57 +129,61 @@ import (
 // backend so both paths back off at the same cadence under load.
 const nativeBackoff = 2 * time.Second
 
-// nativeReadyTimeout caps how long Open is given before runNative
-// declares "did not become ready" and surfaces the error on errChan so
-// Start returns. Picked large enough to absorb cold-disk page faults on
-// the user-journal fixture path (Stat + 256-byte header read) but
-// small enough that a misconfigured Files= entry surfaces quickly.
-const nativeReadyTimeout = 5 * time.Second
-
 // runNative is the native-backend equivalent of run(). It resolves the
 // configured journal files (already done at Build time and cached in
-// operator.nativePaths), spawns one follower goroutine per file, and
-// blocks until the context is canceled. Errors from individual
-// followers are logged; Start failures (no-paths-resolved, all initial
-// Opens fail) are surfaced on operator.errChan with the same
-// errChan/waitDuration handshake the journalctl path uses, so Start's
-// timeout-vs-error semantics are identical regardless of backend.
+// operator.nativePaths), probes each path, and spawns one follower
+// goroutine per file. Unlike the journalctl path's run(), runNative is
+// invoked SYNCHRONOUSLY from Start and returns an error instead of
+// communicating over errChan + waitDuration.
+//
+// Why synchronous (two races the old goroutine form had):
+//
+//   - Start success-before-probe-failure: the probe can take up to
+//     nativeReadyTimeout (5s) to fail, but Start only waited
+//     waitDuration (1s) on errChan before returning nil. A slow probe
+//     failure therefore reported success to the caller while the
+//     errChan send in the goroutine blocked with no reader. Returning
+//     the probe error directly removes the timeout race entirely.
+//   - wg.Add/wg.Wait race: when followers were spawned from the
+//     background goroutine, a Stop() arriving immediately after Start
+//     returned could call wg.Wait() concurrently with a follower's
+//     wg.Add(1) — undefined behaviour for sync.WaitGroup. Doing every
+//     wg.Add here, before Start returns, establishes a happens-before
+//     edge so the first possible wg.Wait() always observes the final
+//     counter.
+//
+// On any error return, NO follower goroutines have been spawned (the
+// error paths precede the spawn loop), so the caller can simply cancel
+// the context without waiting on the wait group.
 //
 // runNative MUST NOT alter the journalctl code path; callers reach
 // here only when operator.mode == ModeNative.
-func (operator *Input) runNative(ctx context.Context) {
+func (operator *Input) runNative(ctx context.Context) error {
 	if len(operator.nativePaths) == 0 {
 		// Defence in depth: Build resolves paths up front so this
 		// branch should be unreachable, but a programmatic caller
 		// that constructs Input by hand could skip Build and end up
-		// here. Send a clear error rather than silently doing
+		// here. Return a clear error rather than silently doing
 		// nothing.
-		select {
-		case operator.errChan <- errors.New("no journal files resolved"):
-		case <-time.After(waitDuration):
-			operator.Logger().Error("native journald reader: no journal files resolved")
-		}
-		return
+		return errors.New("no journal files resolved")
 	}
 
 	// Probe each path before starting follower goroutines so a typo
-	// in Files= surfaces synchronously through errChan rather than as
-	// a flapping goroutine after Start has already returned. We open,
+	// in Files= surfaces synchronously to the caller rather than as a
+	// flapping goroutine after Start has already returned. We open,
 	// read the header (ParseHeader inside native.Open does this) and
 	// close immediately; the follower goroutine re-opens its own
 	// handle below.
 	if err := operator.probeNativePaths(); err != nil {
-		select {
-		case operator.errChan <- err:
-		case <-time.After(nativeReadyTimeout):
-			operator.Logger().Error("native journald reader: probe failed",
-				zap.Error(err))
-		}
-		return
+		return err
 	}
 
+	// Register every follower with the wait group BEFORE spawning any
+	// of them, and before returning to Start. This guarantees all
+	// wg.Add calls happen-before any Stop()->wg.Wait() the caller can
+	// issue once Start has returned.
+	operator.wg.Add(len(operator.nativePaths))
 	for _, path := range operator.nativePaths {
-		operator.wg.Add(1)
 		go operator.followNativeFile(ctx, path)
 	}
 
@@ -203,7 +208,7 @@ func (operator *Input) runNative(ctx context.Context) {
 		zap.Int("followers", len(operator.nativePaths)),
 	)
 
-	operator.wg.Wait()
+	return nil
 }
 
 // probeNativePaths opens every configured journal file with
@@ -274,6 +279,10 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 	}
 	defer func() { _ = r.Close() }()
 
+	// Per-file cursor key so concurrent followers never overwrite each
+	// other's checkpoints (see nativeCursorKey).
+	cursorKey := nativeCursorKey(path)
+
 	// Best-effort cursor resume: if we have a stored cursor and it
 	// belongs to this file, seek to it; otherwise honour StartAt.
 	// SeekToCursor returns ErrCursorSeqnumMismatch when the cursor
@@ -281,7 +290,7 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 	// configs); we ignore those and start from the configured
 	// position. ErrCursorNotFound means the entry was already
 	// archived by the time we got here — same handling.
-	if cursor, getErr := operator.persister.Get(ctx, lastReadCursorKey); getErr == nil && len(cursor) > 0 {
+	if cursor, getErr := operator.persister.Get(ctx, cursorKey); getErr == nil && len(cursor) > 0 {
 		if seekErr := r.SeekToCursor(string(cursor)); seekErr != nil {
 			if errors.Is(seekErr, native.ErrCursorSeqnumMismatch) ||
 				errors.Is(seekErr, native.ErrCursorNotFound) ||
@@ -299,7 +308,10 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 		// way is to drain entries already on disk and discard them;
 		// Reader.Follow will then begin emitting only newly appended
 		// entries.
-		if drainErr := drainAndDiscard(r); drainErr != nil {
+		if drainErr := drainAndDiscard(ctx, r); drainErr != nil {
+			if errors.Is(drainErr, context.Canceled) {
+				return drainErr
+			}
 			return fmt.Errorf("seek %q to tail: %w", path, drainErr)
 		}
 	}
@@ -308,7 +320,7 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 	// entry before entering the watch loop.
 
 	emit := func(e *native.Entry) error {
-		return operator.emitNativeEntry(ctx, r, e)
+		return operator.emitNativeEntry(ctx, r, cursorKey, e)
 	}
 
 	if err := r.Follow(ctx, emit); err != nil {
@@ -328,8 +340,19 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 // any callback. Used to honour StartAt=end semantics without having to
 // expose the Reader's cursor offsetting plumbing through the
 // operator-side wiring. Returns nil on a clean EOF or io.EOF error.
-func drainAndDiscard(r *native.Reader) error {
+//
+// ctx is checked on every iteration so a Stop() during the drain of a
+// large StartAt=end journal returns promptly (with ctx.Err()) instead of
+// blocking shutdown until the whole backlog has been walked to EOF. The
+// returned ctx.Err() wraps context.Canceled, which followNativeFile
+// recognises and treats as a clean follower exit.
+func drainAndDiscard(ctx context.Context, r *native.Reader) error {
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		_, err := r.ReadEntry()
 		if errors.Is(err, io.EOF) {
 			return nil
@@ -371,7 +394,7 @@ func drainAndDiscard(r *native.Reader) error {
 // malformed payload) are logged at warn level and excluded from the
 // body. This mirrors the journalctl path's stanza behaviour: a single
 // malformed entry is degraded, not fatal.
-func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, e *native.Entry) error {
+func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, cursorKey string, e *native.Entry) error {
 	body := make(map[string]any, len(e.Items)+2)
 
 	for _, item := range e.Items {
@@ -385,7 +408,7 @@ func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, e 
 		// Last write wins on duplicate fields. systemd's writer never
 		// emits duplicates inside a single ENTRY, so this is purely
 		// defensive against torn writes.
-		body[field] = value
+		body[field] = nativeFieldValue(field, value, operator.convertMessageBytes)
 	}
 
 	// Cursor: use the Reader's serialised cursor so the value is
@@ -412,29 +435,97 @@ func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, e 
 		return fmt.Errorf("create entry: %w", err)
 	}
 
-	// Timestamp: convert microseconds since epoch to nanoseconds for
-	// time.Unix. Match parseJournalEntry exactly: time.Unix(0, us*1000).
+	// Timestamp: convert microseconds since epoch via the bounds-checked
+	// helper rather than an inline uint64->int64 cast. RealtimeAsTime
+	// rejects values whose seconds component would overflow int64 (e.g.
+	// systemd's USEC_INFINITY sentinel or a crafted/corrupt journal),
+	// returning an error instead of silently wrapping to a negative,
+	// pre-1970 instant. On error we leave Timestamp zero-valued and log;
+	// the entry is still emitted with its body intact. For in-range values
+	// this yields the identical instant to parseJournalEntry's
+	// time.Unix(0, us*1000) (time.Time.Equal compares instants, so the
+	// backend-parity assertion holds despite the helper's .UTC()).
 	if e.Realtime > 0 {
-		stanzaEntry.Timestamp = time.Unix(0, int64(e.Realtime)*1000) //nolint:gosec // realtime us fits int64 well past year 9999
+		ts, terr := e.RealtimeAsTime()
+		if terr != nil {
+			operator.Logger().Warn("native journald: realtime timestamp out of range, leaving unset",
+				zap.Uint64("seqnum", e.SeqNum),
+				zap.Uint64("realtime_us", e.Realtime),
+				zap.Error(terr))
+		} else {
+			stanzaEntry.Timestamp = ts
+		}
 	}
 
-	// Persist cursor BEFORE Write so a crash between persist and
-	// Write replays the entry rather than skipping it. Symmetric with
-	// runJournalctl which also persists before Write.
+	// Write FIRST, then persist the cursor only on success. Advancing the
+	// checkpoint before the entry is durably handed to the pipeline would
+	// silently drop the entry if Write failed (the cursor would already
+	// point past it on the next start).
+	//
+	// On Write failure we RETURN the error so Reader.Follow aborts the
+	// current follow loop; followNativeFile then backs off and reopens,
+	// and followNativeFileOnce re-seeks to the last *persisted* cursor
+	// (the previous successfully-written entry) via SeekToCursor, whose
+	// resume point is the entry AFTER that cursor — i.e. exactly this
+	// failed entry. That gives genuine at-least-once delivery: without the
+	// return, Follow would advance to the next entry and its successful
+	// Write would persist a cursor past the failed one, permanently
+	// skipping it. (The journalctl path only logs Write failures because
+	// its journalctl subprocess cannot be rewound to an arbitrary entry;
+	// the native Reader can, so it does the stronger thing.)
+	if err := operator.Write(ctx, stanzaEntry); err != nil {
+		operator.Logger().Error("native journald: failed to write entry, aborting follow to retry from last cursor",
+			zap.Uint64("seqnum", e.SeqNum),
+			zap.Error(err))
+		return fmt.Errorf("write entry seqnum=%d: %w", e.SeqNum, err)
+	}
+
 	if cursor != "" {
-		if err := operator.persister.Set(ctx, lastReadCursorKey, []byte(cursor)); err != nil {
+		if err := operator.persister.Set(ctx, cursorKey, []byte(cursor)); err != nil {
 			operator.Logger().Warn("native journald: failed to persist cursor",
 				zap.Error(err))
 		}
 	}
-
-	if err := operator.Write(ctx, stanzaEntry); err != nil {
-		operator.Logger().Error("native journald: failed to write entry",
-			zap.Error(err))
-		// Do not return the Write error; the journalctl path also
-		// only logs Write failures (see runJournalctl) and continues.
-	}
 	return nil
+}
+
+// nativeFieldValue shapes a single FIELD=value pair so the native body
+// matches what the journalctl JSON backend (parseJournalEntry) would put
+// in entry.Body for the same record, honouring convert_message_bytes.
+//
+// The journalctl path derives field values from `journalctl --output=json`:
+//   - A value that is valid UTF-8 is emitted as a JSON string and
+//     unmarshals to a Go string — identical to what the native reader
+//     produces from the raw payload, so we pass it through unchanged.
+//   - A non-UTF-8 value (binary field) is emitted by journalctl as a JSON
+//     array of byte values, which unmarshals to []any{float64...}. The
+//     native reader instead produced a Go string from the same raw bytes,
+//     so we convert it to the same []any shape to keep the bodies equal.
+//   - parseJournalEntry additionally re-stringifies ONLY the MESSAGE field
+//     when convert_message_bytes is set (string(bytes)). The native string
+//     already IS string(rawBytes), so for MESSAGE+convert we return it
+//     as-is rather than expanding it to a byte array.
+func nativeFieldValue(field, value string, convertMessageBytes bool) any {
+	if utf8.ValidString(value) {
+		return value
+	}
+	if field == "MESSAGE" && convertMessageBytes {
+		return value
+	}
+	return bytesToAnySlice([]byte(value))
+}
+
+// bytesToAnySlice expands raw bytes into a []any of float64 values,
+// mirroring how encoding/json unmarshals the byte-array form that
+// `journalctl --output=json` writes for non-UTF-8 fields (JSON numbers
+// decode to float64). Converting back to []byte from the native value
+// string is lossless: a Go string preserves arbitrary bytes verbatim.
+func bytesToAnySlice(b []byte) []any {
+	out := make([]any, len(b))
+	for i, by := range b {
+		out[i] = float64(by)
+	}
+	return out
 }
 
 // resolveNativeJournalPaths produces the ordered, deduplicated list of

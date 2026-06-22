@@ -4,12 +4,12 @@
 package native // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/operator/input/journald/native"
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"math"
-	"strings"
 	"time"
 )
 
@@ -258,20 +258,31 @@ func (e *Entry) RealtimeAsTime() (time.Time, error) {
 // this wraps the cast and produces a negative time.Time pointing at a
 // pre-1970 instant — silently corrupting downstream timestamp comparisons.
 //
-// We bound-check before the cast: if usec/1_000_000 would overflow int64,
-// we return an error rather than wrap. The Realtime field on Entry stays a
-// raw uint64 so callers can decide policy (drop, clamp, propagate).
+// We bound-check before the cast. The binding limit is the NANOSECOND
+// argument to time.Unix, not the seconds: emitNativeEntry and
+// parseJournalEntry both compute time.Unix(0, usec*1000), so the whole
+// timestamp is carried in the nanos slot as usec*1000. That product
+// overflows int64 once usec exceeds math.MaxInt64/1000 — far below
+// math.MaxInt64 itself, so a naive secs-only guard (usec/1_000_000 >
+// MaxInt64) never fires for USEC_INFINITY (its seconds component, ~1.8e13,
+// is ~500,000x under the int64 ceiling) and a sentinel/crafted value would
+// silently produce a year ~586,524 timestamp. Guarding on usec >
+// MaxInt64/1000 rejects exactly the values that cannot round-trip through
+// the us*1000 nanos form while still accepting every real journal
+// timestamp (the cap corresponds to year 2262). The Realtime field on
+// Entry stays a raw uint64 so callers can decide policy (drop, clamp,
+// propagate).
 func usecToTime(usec uint64) (time.Time, error) {
 	if usec == 0 {
 		return time.Time{}, nil
 	}
-	const maxSec = uint64(math.MaxInt64) // seconds component must fit int64
-	secs := usec / 1_000_000
-	if secs > maxSec {
-		return time.Time{}, fmt.Errorf("usec=%d overflows int64 seconds", usec)
+	// usec*1000 (the nanoseconds passed to time.Unix) must fit int64.
+	const maxUsec = uint64(math.MaxInt64) / 1_000
+	if usec > maxUsec {
+		return time.Time{}, fmt.Errorf("usec=%d exceeds max representable %d", usec, maxUsec)
 	}
+	secs := usec / 1_000_000
 	nsecs := (usec % 1_000_000) * 1_000
-	// nsecs <= 999_999_000 fits int64 trivially; no overflow check needed.
 	return time.Unix(int64(secs), int64(nsecs)).UTC(), nil
 }
 
@@ -341,7 +352,11 @@ func ReadDataField(r io.ReaderAt, offset uint64, compact bool) (field, value str
 		payload = decompressed
 	}
 
-	idx := strings.IndexByte(string(payload), '=')
+	// Locate the FIELD=value separator on the raw byte slice. Using
+	// bytes.IndexByte avoids the string(payload) copy that strings.IndexByte
+	// would force on every field of every entry (payloads run up to 64 KiB);
+	// only the two returned substrings are converted to strings.
+	idx := bytes.IndexByte(payload, '=')
 	if idx < 0 {
 		return "", "", fmt.Errorf("%w: offset=%d", ErrDataPayloadMalformed, offset)
 	}

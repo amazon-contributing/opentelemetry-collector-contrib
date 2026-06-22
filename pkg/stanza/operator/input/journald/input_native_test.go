@@ -664,3 +664,79 @@ func TestNativeStart_DoesNotLogBackendStartOnProbeFailure(t *testing.T) {
 		logs.FilterMessage("native journald reader started").Len(),
 		"backend-start log must NOT fire when probe fails")
 }
+
+// TestNativeFieldValue pins the convert_message_bytes parity shaping done
+// by nativeFieldValue, mirroring parseJournalEntry's behaviour for the
+// journalctl backend:
+//
+//   - A valid-UTF-8 value is passed through as a string regardless of the
+//     field name or the convert flag (both backends agree: journalctl
+//     emits it as a JSON string).
+//   - A non-UTF-8 value becomes a []any of float64 byte values, matching
+//     how encoding/json unmarshals the byte-array form journalctl writes
+//     for binary fields.
+//   - The sole exception is MESSAGE when convert_message_bytes is set:
+//     parseJournalEntry re-stringifies it, so nativeFieldValue keeps it a
+//     string instead of expanding to a byte array.
+func TestNativeFieldValue(t *testing.T) {
+	binary := string([]byte{0x41, 0xff, 0x42}) // "A", invalid byte, "B"
+
+	cases := []struct {
+		name    string
+		field   string
+		value   string
+		convert bool
+		want    any
+	}{
+		{
+			name:  "utf8_passthrough_message",
+			field: "MESSAGE", value: "hello world", convert: false,
+			want: "hello world",
+		},
+		{
+			name:  "utf8_passthrough_with_convert",
+			field: "MESSAGE", value: "hello world", convert: true,
+			want: "hello world",
+		},
+		{
+			name:  "binary_non_message_becomes_byte_array",
+			field: "SOME_BINARY", value: binary, convert: true,
+			want: []any{float64(0x41), float64(0xff), float64(0x42)},
+		},
+		{
+			name:  "binary_message_without_convert_becomes_byte_array",
+			field: "MESSAGE", value: binary, convert: false,
+			want: []any{float64(0x41), float64(0xff), float64(0x42)},
+		},
+		{
+			name:  "binary_message_with_convert_stays_string",
+			field: "MESSAGE", value: binary, convert: true,
+			want: binary,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := nativeFieldValue(tc.field, tc.value, tc.convert)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+// TestNativeCursorKey pins the per-file cursor-key namespacing that
+// prevents concurrent followers from overwriting each other's checkpoints.
+// Distinct paths MUST map to distinct keys, the same path MUST be stable
+// across calls (so a restart resumes the right file), and the native key
+// MUST NOT collide with the journalctl backend's lastReadCursorKey.
+func TestNativeCursorKey(t *testing.T) {
+	a := nativeCursorKey("/var/log/journal/a/system.journal")
+	b := nativeCursorKey("/var/log/journal/b/system.journal")
+
+	assert.NotEqual(t, a, b, "distinct paths must yield distinct cursor keys")
+	assert.Equal(t, a, nativeCursorKey("/var/log/journal/a/system.journal"),
+		"same path must yield a stable key across calls")
+	assert.NotEqual(t, lastReadCursorKey, a,
+		"native per-file key must not collide with the journalctl single-stream key")
+	assert.Contains(t, a, "/var/log/journal/a/system.journal",
+		"key should incorporate the path for debuggability")
+}

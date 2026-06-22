@@ -135,7 +135,7 @@ func TestParseEntry_NonCompactSynthetic(t *testing.T) {
 		/*realtime*/ 1_700_000_000_000_000,
 		/*monotonic*/ 5_555_555,
 		/*xorHash*/ 0xABCDEF0123456789,
-		bootID, items, /*compact*/ false,
+		bootID, items /*compact*/, false,
 	)
 
 	e, err := ParseEntry(bytes.NewReader(objBytes), 0, false)
@@ -189,7 +189,7 @@ func TestParseEntry_CompactSynthetic(t *testing.T) {
 		/*realtime*/ 1_700_000_000_111_111,
 		/*monotonic*/ 1_111_111,
 		/*xorHash*/ 0,
-		bootID, items, /*compact*/ true,
+		bootID, items /*compact*/, true,
 	)
 
 	e, err := ParseEntry(bytes.NewReader(objBytes), 0, true)
@@ -508,6 +508,38 @@ func TestEntryParser_M3(t *testing.T) {
 	if tm, err := e.RealtimeAsTime(); err == nil && tm.Unix() < 0 {
 		t.Errorf("Entry.RealtimeAsTime(MaxUint64) = %s, want non-negative or error",
 			tm)
+	}
+}
+
+// TestUsecToTime_NanosOverflowBound pins the corrected bound: the binding
+// limit is the us*1000 nanosecond product passed to time.Unix, NOT the
+// seconds component. A seconds-only guard (usec/1_000_000 > MaxInt64) never
+// fires for any uint64 (max seconds ≈ 1.84e13 ≪ MaxInt64 ≈ 9.2e18), so
+// USEC_INFINITY would have silently produced a year ~586,524 timestamp.
+// The fix rejects any usec > MaxInt64/1000 and accepts everything up to it.
+func TestUsecToTime_NanosOverflowBound(t *testing.T) {
+	const maxUsec = uint64(math.MaxInt64) / 1_000 // year ~2262 boundary
+
+	// USEC_INFINITY and any value past the boundary must error, NOT return
+	// a far-future timestamp.
+	for _, usec := range []uint64{math.MaxUint64, maxUsec + 1} {
+		if _, err := usecToTime(usec); err == nil {
+			t.Errorf("usecToTime(%d) = nil error, want overflow rejection", usec)
+		}
+	}
+
+	// The exact boundary value must still convert (no off-by-one rejection
+	// of a legal timestamp).
+	if tm, err := usecToTime(maxUsec); err != nil {
+		t.Errorf("usecToTime(%d) at boundary = %v, want success", maxUsec, err)
+	} else if tm.Unix() < 0 {
+		t.Errorf("usecToTime(%d) at boundary = %s, want non-negative", maxUsec, tm)
+	}
+
+	// A realistic 2026-era timestamp is well within range.
+	const realUsec = uint64(1_780_000_000_000_000)
+	if _, err := usecToTime(realUsec); err != nil {
+		t.Errorf("usecToTime(%d) realistic = %v, want success", realUsec, err)
 	}
 }
 
