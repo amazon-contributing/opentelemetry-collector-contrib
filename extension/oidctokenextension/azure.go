@@ -77,7 +77,7 @@ func (p *azureProvider) IsAvailable(ctx context.Context) bool {
 		return false
 	}
 	req.Header.Set("Metadata", "true")
-	resp, err := p.client.Do(req) //nolint:gosec // IMDS is a fixed local endpoint
+	resp, err := p.client.Do(req)
 	if err != nil {
 		return false
 	}
@@ -86,7 +86,7 @@ func (p *azureProvider) IsAvailable(ctx context.Context) bool {
 }
 
 type azureTokenResponse struct {
-	AccessToken string `json:"access_token"` //nolint:gosec // JSON field name, not a secret
+	AccessToken string `json:"access_token"`
 	ExpiresIn   string `json:"expires_in"`
 }
 
@@ -101,7 +101,7 @@ func (p *azureProvider) GetToken(ctx context.Context) (string, time.Duration, er
 	q.Set("resource", p.resource)
 	req.URL.RawQuery = q.Encode()
 
-	resp, err := p.client.Do(req) //nolint:gosec // endpoint is IMDS, not user-controlled
+	resp, err := p.client.Do(req)
 	if err != nil {
 		return "", 0, fmt.Errorf("azure: IMDS request failed: %w", err)
 	}

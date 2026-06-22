@@ -32,7 +32,7 @@ type oidcTokenExtension struct {
 	// refreshCtx is the long-lived parent context for the background refresh
 	// loop. It is derived from context.Background() (not Start's ctx, which may
 	// be cancelled once Start returns) so the loop can outlive Start. Each
-	// per-refresh timeout is derived from it, so cancelling it via cancel on
+	// per-refresh timeout is derived from it, so canceling it via cancel on
 	// Shutdown interrupts any in-flight token refresh.
 	refreshCtx         context.Context
 	cancel             context.CancelFunc
@@ -96,7 +96,7 @@ func (e *oidcTokenExtension) Shutdown(ctx context.Context) error {
 			e.cancel()
 		}
 	})
-	// Bound the wait on the shutdown context so a refresh that does not honour
+	// Bound the wait on the shutdown context so a refresh that does not honor
 	// cancellation cannot block shutdown past its deadline.
 	waited := make(chan struct{})
 	go func() {

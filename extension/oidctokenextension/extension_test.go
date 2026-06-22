@@ -103,7 +103,7 @@ func TestShutdown(t *testing.T) {
 
 // blockingProvider.GetToken blocks until release is closed and deliberately
 // ignores its context, simulating a token refresh in flight that does not
-// honour cancellation. It lets the context-bounded wait in Shutdown be
+// honor cancellation. It lets the context-bounded wait in Shutdown be
 // exercised deterministically without any real 30s timeout.
 type blockingProvider struct {
 	started chan struct{}
@@ -133,7 +133,7 @@ func TestShutdownBoundedByContext(t *testing.T) {
 			done:               make(chan struct{}),
 			minRefreshInterval: time.Millisecond,
 		}
-		ext.refreshCtx, ext.cancel = context.WithCancel(context.Background())
+		ext.refreshCtx, ext.cancel = context.WithCancel(t.Context())
 
 		// Start the refresh loop with an already-expired token so it attempts a
 		// refresh immediately; GetToken then blocks, leaving a refresh in flight.
@@ -149,9 +149,9 @@ func TestShutdownBoundedByContext(t *testing.T) {
 			t.Fatal("refresh never started")
 		}
 
-		// With a refresh stuck in GetToken, Shutdown must honour its short
+		// With a refresh stuck in GetToken, Shutdown must honor its short
 		// deadline instead of blocking up to the 30s per-refresh timeout.
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 		defer cancel()
 
 		start := time.Now()
@@ -178,11 +178,11 @@ func TestShutdownBoundedByContext(t *testing.T) {
 			done:   make(chan struct{}),
 		}
 		ext.wroteToken.Store(true)
-		ext.refreshCtx, ext.cancel = context.WithCancel(context.Background())
+		ext.refreshCtx, ext.cancel = context.WithCancel(t.Context())
 
 		// No refresh is in flight, so the bounded wait completes immediately and
 		// Shutdown still clears the token file it wrote (truncated to zero bytes).
-		require.NoError(t, ext.Shutdown(context.Background()))
+		require.NoError(t, ext.Shutdown(t.Context()))
 		info, err := os.Stat(tokenFile)
 		require.NoError(t, err)
 		require.Zero(t, info.Size())
@@ -227,7 +227,7 @@ func TestRefreshLoop(t *testing.T) {
 		done:               make(chan struct{}),
 		minRefreshInterval: 10 * time.Millisecond,
 	}
-	refreshCtx, cancel := context.WithCancel(context.Background())
+	refreshCtx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ext.refreshCtx, ext.cancel = refreshCtx, cancel
 
@@ -278,7 +278,7 @@ func TestWriteFileAtomicPermissions(t *testing.T) {
 	tmpDir := t.TempDir()
 	tokenFile := filepath.Join(tmpDir, "token")
 
-	require.NoError(t, os.WriteFile(tokenFile, []byte("old"), 0o666))
+	require.NoError(t, os.WriteFile(tokenFile, []byte("old"), 0o600))
 
 	require.NoError(t, writeFileAtomic(tokenFile, []byte("new-token")))
 
@@ -303,7 +303,7 @@ func TestRefreshLoopError(t *testing.T) {
 		done:               make(chan struct{}),
 		minRefreshInterval: 10 * time.Millisecond,
 	}
-	refreshCtx, cancel := context.WithCancel(context.Background())
+	refreshCtx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ext.refreshCtx, ext.cancel = refreshCtx, cancel
 
