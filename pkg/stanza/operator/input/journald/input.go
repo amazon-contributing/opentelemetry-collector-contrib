@@ -100,16 +100,36 @@ type journalctl struct {
 	stderr io.ReadCloser
 }
 
+// lastReadCursorKey is the persister key the journalctl backend uses for
+// its single-stream cursor. The journalctl path follows exactly one merged
+// stream, so one key is correct there.
 var lastReadCursorKey = "lastReadCursor"
+
+// nativeCursorKey returns the per-file persister key the native backend
+// uses to checkpoint a single follower. The native backend can run one
+// follower per resolved journal file (multiple Files= entries or a
+// Directory= glob), and each file has an independent cursor. Sharing a
+// single key across followers would let them overwrite each other's
+// checkpoints and, on restart, seek every follower with a cursor that may
+// belong to a different file — falling back to StartAt and replaying.
+// Namespacing by the file path gives each follower a stable, collision-free
+// key across restarts (resolveNativeJournalPaths sorts+dedups the paths, so
+// the path is a stable per-follower identity).
+func nativeCursorKey(path string) string {
+	return "nativeCursor:" + path
+}
 
 // Start will start generating log entries.
 //
 // The default ModeJournalctl path spawns the journalctl(1) subprocess via
-// run() unchanged. ModeNative dispatches to runNative (input_native.go),
-// which opens the journal files resolved at Build time and uses the
-// pure-Go reader in pkg/stanza/operator/input/journald/native to follow
-// them. Both paths share the same errChan + waitDuration handshake so
-// caller behavior on Start failure is identical regardless of backend.
+// run() unchanged and uses the errChan + waitDuration handshake.
+//
+// ModeNative dispatches to runNative (input_native.go), which runs its
+// setup — path probe and follower registration — SYNCHRONOUSLY before
+// Start returns. A native probe failure is returned to the caller
+// directly rather than racing an unread errChan against waitDuration, and
+// every operator.wg.Add happens-before Start returns (and therefore
+// before any Stop()->wg.Wait()). See runNative for the race rationale.
 func (operator *Input) Start(persister operator.Persister) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	operator.cancel = cancel
@@ -118,14 +138,13 @@ func (operator *Input) Start(persister operator.Persister) error {
 	operator.errChan = make(chan error)
 
 	if operator.mode == ModeNative {
-		go operator.runNative(ctx)
-
-		select {
-		case err := <-operator.errChan:
+		if err := operator.runNative(ctx); err != nil {
+			// Cancel the context we just created so we don't leak it;
+			// no followers were spawned on the error paths.
+			cancel()
 			return fmt.Errorf("native journald reader failed: %w", err)
-		case <-time.After(waitDuration):
-			return nil
 		}
+		return nil
 	}
 
 	go operator.run(ctx)

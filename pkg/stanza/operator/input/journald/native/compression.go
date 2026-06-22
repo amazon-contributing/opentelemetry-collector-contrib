@@ -19,8 +19,10 @@ import (
 // systemd splits payloads larger than 64 KiB across multiple DATA objects, so
 // real journals never produce a single payload that approaches this cap.
 // Treat it as a denial-of-service guard against crafted journals that claim
-// huge uncompressed sizes; the LZ4 path enforces this before allocating, the
-// ZSTD/XZ paths via a LimitReader / post-decode size check.
+// huge uncompressed sizes. All three paths enforce the cap DURING decode
+// before fully materialising an oversized payload: LZ4 checks its declared
+// size prefix before allocating, XZ reads through an io.LimitReader, and
+// ZSTD configures the decoder with WithDecoderMaxMemory.
 const MaxDecompressedSize uint64 = 64 * 1024 * 1024 // 64 MiB
 
 // LZ4SizePrefixBytes is the on-disk size of the leading uncompressed-size
@@ -123,8 +125,16 @@ func decompressLZ4Block(payload []byte) ([]byte, error) {
 // it to klauspost/compress/zstd's DecodeAll one-shot API. The decoder is
 // constructed with concurrency=0 to keep the call synchronous and
 // goroutine-free, matching the rest of the package's I/O model.
+//
+// WithDecoderMaxMemory bounds the in-memory decoded size so DecodeAll refuses
+// to materialise more than MaxDecompressedSize bytes for a crafted frame,
+// rather than allocating the full output first and rejecting it only after
+// the fact. This mirrors the LZ4 pre-allocation check and the XZ
+// io.LimitReader: the DoS guard fires DURING decode, not after.
 func decompressZSTD(payload []byte) ([]byte, error) {
-	dec, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(0))
+	dec, err := zstd.NewReader(nil,
+		zstd.WithDecoderConcurrency(0),
+		zstd.WithDecoderMaxMemory(MaxDecompressedSize))
 	if err != nil {
 		return nil, fmt.Errorf("zstd reader init: %w", err)
 	}
@@ -132,8 +142,18 @@ func decompressZSTD(payload []byte) ([]byte, error) {
 
 	out, err := dec.DecodeAll(payload, nil)
 	if err != nil {
+		// A frame that decodes to more than MaxDecompressedSize is rejected
+		// by the decoder as zstd.ErrDecoderSizeExceeded; surface it as our
+		// own size-cap sentinel so callers branch uniformly across codecs.
+		if errors.Is(err, zstd.ErrDecoderSizeExceeded) {
+			return nil, fmt.Errorf("%w: zstd frame exceeds max=%d",
+				ErrDecompressedTooLarge, MaxDecompressedSize)
+		}
 		return nil, fmt.Errorf("zstd decode: %w", err)
 	}
+	// Defensive: WithDecoderMaxMemory already caps the decode, but keep the
+	// explicit length check so the invariant holds even if the decoder's
+	// accounting ever diverges from a single DecodeAll call.
 	if uint64(len(out)) > MaxDecompressedSize {
 		return nil, fmt.Errorf("%w: size=%d max=%d",
 			ErrDecompressedTooLarge, len(out), MaxDecompressedSize)
