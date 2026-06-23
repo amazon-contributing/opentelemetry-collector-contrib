@@ -20,6 +20,7 @@ fetches OIDC tokens, and writes them to a file for sigv4auth to consume.
 ## Configuration
 
 * `output_token_file`: **Required**. The path where the extension writes the fetched OIDC token. Point `sigv4auth`'s `web_identity_token_file` to the same path.
+* `provider`: **Optional**. The OIDC token provider. One of `auto` (default; detects the provider from the environment, currently resolving to Azure), `azure`, or `none` (disables token fetching).
 * `audience`: **Optional**. The audience/resource claim requested in the OIDC token. Each provider has its own default if not set.
 
 ### Supported Providers

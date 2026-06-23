@@ -91,18 +91,24 @@ func TestConfig_LoadFromYAML(t *testing.T) {
 
 func TestConfig_BuildProviders(t *testing.T) {
 	tests := []struct {
-		name     string
-		provider ProviderType
-		wantLen  int
+		name      string
+		provider  ProviderType
+		wantNames []string
 	}{
-		{"none", ProviderNone, 0},
-		{"azure", ProviderAzure, 1},
-		{"auto", ProviderAuto, 1},
+		{"none", ProviderNone, []string{}},
+		{"azure", ProviderAzure, []string{"azure"}},
+		{"auto", ProviderAuto, []string{"azure"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Config{Provider: tt.provider}
-			assert.Len(t, c.buildProviders(), tt.wantLen)
+			providers := c.buildProviders()
+			require.Len(t, providers, len(tt.wantNames))
+			names := []string{}
+			for _, p := range providers {
+				names = append(names, p.Name())
+			}
+			assert.Equal(t, tt.wantNames, names)
 		})
 	}
 }

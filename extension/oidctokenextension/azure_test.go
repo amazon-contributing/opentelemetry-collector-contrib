@@ -15,7 +15,7 @@ import (
 
 func TestAzureProviderGetToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Metadata") != "true" || r.URL.Query().Get("api-version") != "2018-02-01" {
+		if r.Header.Get("Metadata") != "true" || r.URL.Query().Get("api-version") != azureIMDSAPIVersion {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -64,7 +64,7 @@ func TestAzureProviderIsAvailable(t *testing.T) {
 		// API version.
 		if r.URL.Path != azureIMDSInstancePath ||
 			r.Header.Get("Metadata") != "true" ||
-			r.URL.Query().Get("api-version") != azureIMDSInstanceAPIVersion {
+			r.URL.Query().Get("api-version") != azureIMDSAPIVersion {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -99,21 +99,18 @@ func TestAzureProviderIsAvailableNotOK(t *testing.T) {
 func TestAzureProviderInstanceMetadataURL(t *testing.T) {
 	provider := &azureProvider{endpoint: "http://169.254.169.254/metadata/identity/oauth2/token"}
 	require.Equal(t,
-		"http://169.254.169.254/metadata/instance?api-version="+azureIMDSInstanceAPIVersion,
+		"http://169.254.169.254/metadata/instance?api-version="+azureIMDSAPIVersion,
 		provider.instanceMetadataURL())
 }
 
-func TestAzureProviderName(t *testing.T) {
+func TestNewAzureProviderDefault(t *testing.T) {
 	provider := newAzureProvider("")
 	require.Equal(t, "azure", provider.Name())
+	require.Equal(t, defaultAzureResource, provider.resource)
+	require.Equal(t, defaultAzureIMDSEndpoint, provider.endpoint)
 }
 
-func TestNewazureProviderWithResource(t *testing.T) {
+func TestNewAzureProviderWithResource(t *testing.T) {
 	provider := newAzureProvider("https://custom.resource/")
 	require.Equal(t, "https://custom.resource/", provider.resource)
-}
-
-func TestNewazureProviderDefaultResource(t *testing.T) {
-	provider := newAzureProvider("")
-	require.Equal(t, defaultAzureResource, provider.resource)
 }

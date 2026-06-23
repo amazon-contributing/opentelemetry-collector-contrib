@@ -16,12 +16,16 @@ import (
 )
 
 const (
-	defaultAzureIMDSEndpoint    = "http://169.254.169.254/metadata/identity/oauth2/token"
-	azureIMDSInstancePath       = "/metadata/instance"
-	defaultAzureIMDSAPIVersion  = "2018-02-01"
-	azureIMDSInstanceAPIVersion = "2021-02-01"
-	defaultAzureResource        = "https://management.azure.com/"
-	defaultAzureTokenExpiry     = 3600
+	defaultAzureIMDSEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
+	azureIMDSInstancePath    = "/metadata/instance"
+	// azureIMDSAPIVersion is shared by both the token and instance-probe
+	// requests. IMDS versions its whole supported-versions list service-wide
+	// (not per-endpoint): 2020-09-01 satisfies the token endpoint's documented
+	// "2018-02-01 or greater" floor and is a supported instance version. It also
+	// matches internal/metadataproviders/azure.
+	azureIMDSAPIVersion     = "2020-09-01"
+	defaultAzureResource    = "https://management.azure.com/"
+	defaultAzureTokenExpiry = 3600
 	// azureIMDSProbeTimeout bounds the availability probe so a blackholed
 	// link-local address cannot stall extension startup for the full
 	// token-fetch timeout.
@@ -62,7 +66,7 @@ func (p *azureProvider) instanceMetadataURL() string {
 		return ""
 	}
 	u.Path = azureIMDSInstancePath
-	u.RawQuery = url.Values{"api-version": {azureIMDSInstanceAPIVersion}}.Encode()
+	u.RawQuery = url.Values{"api-version": {azureIMDSAPIVersion}}.Encode()
 	return u.String()
 }
 
@@ -97,7 +101,7 @@ func (p *azureProvider) GetToken(ctx context.Context) (string, time.Duration, er
 	}
 	req.Header.Set("Metadata", "true")
 	q := req.URL.Query()
-	q.Set("api-version", defaultAzureIMDSAPIVersion)
+	q.Set("api-version", azureIMDSAPIVersion)
 	q.Set("resource", p.resource)
 	req.URL.RawQuery = q.Encode()
 
