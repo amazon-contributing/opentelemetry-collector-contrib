@@ -4,6 +4,7 @@
 package mysqlreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver"
 
 import (
+	"errors"
 	"time"
 
 	"go.opentelemetry.io/collector/config/confignet"
@@ -25,12 +26,33 @@ type Config struct {
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
 	Username                       string              `mapstructure:"username,omitempty"`
 	Password                       configopaque.String `mapstructure:"password,omitempty"`
+	Passfile                       string              `mapstructure:"passfile,omitempty"`
 	Database                       string              `mapstructure:"database,omitempty"`
 	AllowNativePasswords           bool                `mapstructure:"allow_native_passwords,omitempty"`
 	confignet.AddrConfig           `mapstructure:",squash"`
 	TLS                            configtls.ClientConfig        `mapstructure:"tls,omitempty"`
 	MetricsBuilderConfig           metadata.MetricsBuilderConfig `mapstructure:",squash"`
+	LogsBuilderConfig              metadata.LogsBuilderConfig    `mapstructure:",squash"`
 	StatementEvents                StatementEventsConfig         `mapstructure:"statement_events"`
+	TopQueryCollection             TopQueryCollection            `mapstructure:"top_query_collection"`
+	QuerySampleCollection          QuerySampleCollection         `mapstructure:"query_sample_collection"`
+}
+
+type TopQueryCollection struct {
+	LookbackTime        uint64        `mapstructure:"lookback_time"`
+	MaxQuerySampleCount uint64        `mapstructure:"max_query_sample_count"`
+	TopQueryCount       uint64        `mapstructure:"top_query_count"`
+	CollectionInterval  time.Duration `mapstructure:"collection_interval"`
+	QueryPlanCacheSize  int           `mapstructure:"query_plan_cache_size"`
+	QueryPlanCacheTTL   time.Duration `mapstructure:"query_plan_cache_ttl"`
+
+	_ struct{} // prevents unkeyed struct literal initialization
+}
+type QuerySampleCollection struct {
+	MaxRowsPerQuery    uint64        `mapstructure:"max_rows_per_query"`
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+
+	_ struct{} // prevents unkeyed struct literal initialization
 }
 
 type StatementEventsConfig struct {
@@ -53,4 +75,14 @@ func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {
 	}
 
 	return componentParser.Unmarshal(cfg)
+}
+
+func (cfg *Config) Validate() error {
+	if cfg.Password == "" && cfg.Passfile == "" {
+		return errors.New("invalid config: missing password or passfile")
+	}
+	if cfg.Password == "" && cfg.Passfile != "" {
+		return cfg.validatePassfilePermissions()
+	}
+	return nil
 }

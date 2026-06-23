@@ -1,0 +1,25 @@
+SELECT
+    COALESCE(`schema_name`, ''),
+    COALESCE(`digest`, ''),
+    COALESCE(`digest_text`, ''),
+    `count_star`,
+    `sum_timer_wait`,
+    `query_sample_text`,
+    `sum_rows_sent`,
+    `sum_rows_examined`,
+    `sum_errors`,
+    `sum_lock_time`,
+    `sum_sort_rows`,
+    `sum_created_tmp_tables`,
+    `sum_created_tmp_disk_tables`,
+    `sum_no_index_used`,
+    `sum_select_full_join`,
+    `sum_sort_scan`,
+    `sum_no_good_index_used`,
+    `sum_select_scan`
+FROM performance_schema.events_statements_summary_by_digest
+WHERE `last_seen` >= NOW() - INTERVAL {{ .lookbackTime }} second
+    AND ((`digest_text` NOT LIKE 'EXPLAIN %' AND `digest_text` NOT LIKE '/* otel-collector-ignore */%')
+        OR `digest_text` IS NULL)
+ORDER BY `count_star` DESC
+LIMIT {{ .topNValue }}

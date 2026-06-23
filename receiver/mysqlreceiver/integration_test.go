@@ -21,7 +21,7 @@ import (
 
 const mysqlPort = "3306"
 
-type MySQLTestConfig struct {
+type mySQLTestConfig struct {
 	name         string
 	containerCmd []string
 	tlsEnabled   bool
@@ -31,7 +31,7 @@ type MySQLTestConfig struct {
 }
 
 func TestIntegration(t *testing.T) {
-	testCases := []MySQLTestConfig{
+	testCases := []mySQLTestConfig{
 		{
 			name:         "MySql-8.0.33-WithoutTLS",
 			containerCmd: nil,
@@ -90,7 +90,8 @@ func TestIntegration(t *testing.T) {
 								FileMode:          700,
 							},
 						},
-					}),
+					},
+				),
 				scraperinttest.WithCustomConfig(
 					func(t *testing.T, cfg component.Config, ci *scraperinttest.ContainerInfo) {
 						rCfg := cfg.(*Config)
@@ -103,7 +104,8 @@ func TestIntegration(t *testing.T) {
 						} else {
 							rCfg.TLS.Insecure = true
 						}
-					}),
+					},
+				),
 				scraperinttest.WithExpectedFile(
 					filepath.Join("testdata", "integration", tc.expectedFile),
 				),

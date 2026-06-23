@@ -4,15 +4,20 @@
 package mysqlreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver"
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	_ "embed"
 	"fmt"
+	"net"
 	"strings"
+	"text/template"
 	"time"
 
 	// registers the mysql driver
 	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-version"
+	"go.uber.org/zap"
 )
 
 type client interface {
@@ -20,12 +25,16 @@ type client interface {
 	getVersion() (*version.Version, error)
 	getGlobalStats() (map[string]string, error)
 	getInnodbStats() (map[string]string, error)
-	getTableStats() ([]TableStats, error)
-	getTableIoWaitsStats() ([]TableIoWaitsStats, error)
-	getIndexIoWaitsStats() ([]IndexIoWaitsStats, error)
-	getStatementEventsStats() ([]StatementEventStats, error)
+	getTableStats() ([]tableStats, error)
+	getTableIoWaitsStats() ([]tableIoWaitsStats, error)
+	getIndexIoWaitsStats() ([]indexIoWaitsStats, error)
+	getStatementEventsStats() ([]statementEventStats, error)
 	getTableLockWaitEventStats() ([]tableLockWaitEventStats, error)
-	getReplicaStatusStats() ([]ReplicaStatusStats, error)
+	getReplicaStatusStats() ([]replicaStatusStats, error)
+	getQuerySamples(uint64) ([]querySample, error)
+	getTopQueries(uint64, uint64) ([]topQuery, error)
+	explainQuery(digestText, sampleStatement, schema, digest string, logger *zap.Logger) string
+	getSessionStates() (map[string]int64, error)
 	Close() error
 }
 
@@ -37,7 +46,7 @@ type mySQLClient struct {
 	statementEventsTimeLimit       time.Duration
 }
 
-type IoWaitsStats struct {
+type ioWaitsStats struct {
 	schema      string
 	name        string
 	countDelete int64
@@ -50,16 +59,16 @@ type IoWaitsStats struct {
 	timeUpdate  int64
 }
 
-type TableIoWaitsStats struct {
-	IoWaitsStats
+type tableIoWaitsStats struct {
+	ioWaitsStats
 }
 
-type IndexIoWaitsStats struct {
-	IoWaitsStats
+type indexIoWaitsStats struct {
+	ioWaitsStats
 	index string
 }
 
-type TableStats struct {
+type tableStats struct {
 	schema           string
 	name             string
 	rows             int64
@@ -68,7 +77,7 @@ type TableStats struct {
 	indexLength      int64
 }
 
-type StatementEventStats struct {
+type statementEventStats struct {
 	schema                    string
 	digest                    string
 	digestText                string
@@ -110,7 +119,7 @@ type tableLockWaitEventStats struct {
 	sumTimerWriteExternal         int64
 }
 
-type ReplicaStatusStats struct {
+type replicaStatusStats struct {
 	replicaIOState              string
 	sourceHost                  string
 	sourceUser                  string
@@ -190,6 +199,44 @@ type ReplicaStatusStats struct {
 	replicateIgnoreDomainIDs    string
 }
 
+type querySample struct {
+	sessionID          int64
+	threadID           int64
+	processlistUser    string
+	processlistHost    string
+	processlistDB      string
+	processlistCommand string
+	processlistState   string
+	sqlText            string
+	digest             string
+	eventID            int64
+	sessionStatus      string
+	waitEvent          string
+	waitTime           float64
+	traceparent        string
+}
+
+type topQuery struct {
+	schemaName                string
+	digest                    string
+	digestText                string
+	countStar                 int64
+	sumTimerWaitInPicoSeconds int64
+	querySampleText           string
+	sumRowsSent               int64
+	sumRowsExamined           int64
+	sumErrors                 int64
+	sumLockTime               int64
+	sumSortRows               int64
+	sumCreatedTmpTables       int64
+	sumCreatedTmpDiskTables   int64
+	sumNoIndexUsed            int64
+	sumSelectFullJoin         int64
+	sumSortScan               int64
+	sumNoGoodIndexUsed        int64
+	sumSelectScan             int64
+}
+
 var _ client = (*mySQLClient)(nil)
 
 func newMySQLClient(conf *Config) (client, error) {
@@ -199,16 +246,29 @@ func newMySQLClient(conf *Config) (client, error) {
 	}
 	tlsConfig := ""
 	if tls != nil {
-		err := mysql.RegisterTLSConfig("custom", tls)
+		tlsKey := fmt.Sprintf("mysql-receiver-%p", tls)
+		if err := mysql.RegisterTLSConfig(tlsKey, tls); err != nil {
+			return nil, err
+		}
+		tlsConfig = tlsKey
+	}
+
+	password := string(conf.Password)
+	if password == "" && conf.Passfile != "" {
+		host, port, err := splitHostPort(conf.Endpoint)
 		if err != nil {
 			return nil, err
 		}
-		tlsConfig = "custom"
+		resolved, err := resolvePasswordFromPassfile(conf.Passfile, host, port, conf.Database, conf.Username)
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve password from passfile: %w", err)
+		}
+		password = resolved
 	}
 
 	driverConf := mysql.Config{
 		User:                 conf.Username,
-		Passwd:               string(conf.Password),
+		Passwd:               password,
 		Net:                  string(conf.Transport),
 		Addr:                 conf.Endpoint,
 		DBName:               conf.Database,
@@ -260,7 +320,7 @@ func (c *mySQLClient) getInnodbStats() (map[string]string, error) {
 }
 
 // getTableStats queries the db for information_schema table size metrics.
-func (c *mySQLClient) getTableStats() ([]TableStats, error) {
+func (c *mySQLClient) getTableStats() ([]tableStats, error) {
 	query := "SELECT TABLE_SCHEMA, TABLE_NAME, " +
 		"COALESCE(TABLE_ROWS, 0) as TABLE_ROWS, " +
 		"COALESCE(AVG_ROW_LENGTH, 0) as AVG_ROW_LENGTH, " +
@@ -273,9 +333,9 @@ func (c *mySQLClient) getTableStats() ([]TableStats, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var stats []TableStats
+	var stats []tableStats
 	for rows.Next() {
-		var s TableStats
+		var s tableStats
 		err := rows.Scan(&s.schema, &s.name,
 			&s.rows, &s.averageRowLength,
 			&s.dataLength, &s.indexLength)
@@ -289,7 +349,7 @@ func (c *mySQLClient) getTableStats() ([]TableStats, error) {
 }
 
 // getTableIoWaitsStats queries the db for table_io_waits metrics.
-func (c *mySQLClient) getTableIoWaitsStats() ([]TableIoWaitsStats, error) {
+func (c *mySQLClient) getTableIoWaitsStats() ([]tableIoWaitsStats, error) {
 	query := "SELECT OBJECT_SCHEMA, OBJECT_NAME, " +
 		"COUNT_DELETE, COUNT_FETCH, COUNT_INSERT, COUNT_UPDATE," +
 		"FLOOR(SUM_TIMER_DELETE/1000), FLOOR(SUM_TIMER_FETCH/1000), FLOOR(SUM_TIMER_INSERT/1000), FLOOR(SUM_TIMER_UPDATE/1000) " +
@@ -300,9 +360,9 @@ func (c *mySQLClient) getTableIoWaitsStats() ([]TableIoWaitsStats, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var stats []TableIoWaitsStats
+	var stats []tableIoWaitsStats
 	for rows.Next() {
-		var s TableIoWaitsStats
+		var s tableIoWaitsStats
 		err := rows.Scan(&s.schema, &s.name,
 			&s.countDelete, &s.countFetch, &s.countInsert, &s.countUpdate,
 			&s.timeDelete, &s.timeFetch, &s.timeInsert, &s.timeUpdate)
@@ -316,7 +376,7 @@ func (c *mySQLClient) getTableIoWaitsStats() ([]TableIoWaitsStats, error) {
 }
 
 // getIndexIoWaitsStats queries the db for index_io_waits metrics.
-func (c *mySQLClient) getIndexIoWaitsStats() ([]IndexIoWaitsStats, error) {
+func (c *mySQLClient) getIndexIoWaitsStats() ([]indexIoWaitsStats, error) {
 	query := "SELECT OBJECT_SCHEMA, OBJECT_NAME, ifnull(INDEX_NAME, 'NONE') as INDEX_NAME," +
 		"COUNT_FETCH, COUNT_INSERT, COUNT_UPDATE, COUNT_DELETE," +
 		"FLOOR(SUM_TIMER_FETCH/1000), FLOOR(SUM_TIMER_INSERT/1000), FLOOR(SUM_TIMER_UPDATE/1000), FLOOR(SUM_TIMER_DELETE/1000) " +
@@ -328,12 +388,12 @@ func (c *mySQLClient) getIndexIoWaitsStats() ([]IndexIoWaitsStats, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var stats []IndexIoWaitsStats
+	var stats []indexIoWaitsStats
 	for rows.Next() {
-		var s IndexIoWaitsStats
+		var s indexIoWaitsStats
 		err := rows.Scan(&s.schema, &s.name, &s.index,
-			&s.countDelete, &s.countFetch, &s.countInsert, &s.countUpdate,
-			&s.timeDelete, &s.timeFetch, &s.timeInsert, &s.timeUpdate)
+			&s.countFetch, &s.countInsert, &s.countUpdate, &s.countDelete,
+			&s.timeFetch, &s.timeInsert, &s.timeUpdate, &s.timeDelete)
 		if err != nil {
 			return nil, err
 		}
@@ -343,7 +403,7 @@ func (c *mySQLClient) getIndexIoWaitsStats() ([]IndexIoWaitsStats, error) {
 	return stats, nil
 }
 
-func (c *mySQLClient) getStatementEventsStats() ([]StatementEventStats, error) {
+func (c *mySQLClient) getStatementEventsStats() ([]statementEventStats, error) {
 	query := fmt.Sprintf("SELECT ifnull(SCHEMA_NAME, 'NONE') as SCHEMA_NAME, DIGEST,"+
 		"LEFT(DIGEST_TEXT, %d) as DIGEST_TEXT, FLOOR(SUM_TIMER_WAIT/1000), SUM_ERRORS,"+
 		"SUM_WARNINGS, SUM_ROWS_AFFECTED, SUM_ROWS_SENT, SUM_ROWS_EXAMINED,"+
@@ -364,9 +424,9 @@ func (c *mySQLClient) getStatementEventsStats() ([]StatementEventStats, error) {
 	}
 	defer rows.Close()
 
-	var stats []StatementEventStats
+	var stats []statementEventStats
 	for rows.Next() {
-		var s StatementEventStats
+		var s statementEventStats
 		err := rows.Scan(&s.schema, &s.digest, &s.digestText,
 			&s.sumTimerWait, &s.countErrors, &s.countWarnings,
 			&s.countRowsAffected, &s.countRowsSent, &s.countRowsExamined, &s.countCreatedTmpDiskTables,
@@ -414,7 +474,7 @@ func (c *mySQLClient) getTableLockWaitEventStats() ([]tableLockWaitEventStats, e
 	return stats, nil
 }
 
-func (c *mySQLClient) getReplicaStatusStats() ([]ReplicaStatusStats, error) {
+func (c *mySQLClient) getReplicaStatusStats() ([]replicaStatusStats, error) {
 	mysqlVersion, err := c.getVersion()
 	if err != nil {
 		return nil, err
@@ -439,9 +499,9 @@ func (c *mySQLClient) getReplicaStatusStats() ([]ReplicaStatusStats, error) {
 		return nil, err
 	}
 
-	var stats []ReplicaStatusStats
+	var stats []replicaStatusStats
 	for rows.Next() {
-		var s ReplicaStatusStats
+		var s replicaStatusStats
 		dest := []any{}
 		for _, col := range cols {
 			switch strings.ToLower(col) {
@@ -658,7 +718,9 @@ func (c *mySQLClient) getReplicaStatusStats() ([]ReplicaStatusStats, error) {
 			case "replicate_ignore_domain_ids":
 				dest = append(dest, &s.replicateIgnoreDomainIDs)
 			default:
-				return nil, fmt.Errorf("unknown column name %s for replica status", col)
+				// ignore unrecognized columns for forward compatibility
+				var discard any
+				dest = append(dest, &discard)
 			}
 		}
 		err := rows.Scan(dest...)
@@ -669,6 +731,188 @@ func (c *mySQLClient) getReplicaStatusStats() ([]ReplicaStatusStats, error) {
 	}
 
 	return stats, nil
+}
+
+func (c *mySQLClient) getSessionStates() (map[string]int64, error) {
+	rows, err := c.client.Query("SELECT COMMAND, COUNT(*) AS count FROM information_schema.PROCESSLIST WHERE COMMAND IS NOT NULL GROUP BY COMMAND;")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	states := map[string]int64{}
+	for rows.Next() {
+		var state string
+		var count int64
+		if err := rows.Scan(&state, &count); err != nil {
+			return nil, err
+		}
+		states[state] = count
+	}
+	return states, nil
+}
+
+//go:embed templates/topQuery.tmpl
+var topQueryTemplate string
+
+var (
+	querySampleTmpl = template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
+	topQueryTmpl    = template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
+)
+
+func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64) ([]topQuery, error) {
+	tmpl := topQueryTmpl
+	buf := bytes.Buffer{}
+
+	if err := tmpl.Execute(&buf, map[string]any{
+		"topNValue":    topNValue,
+		"lookbackTime": lookbackTime,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	rows, err := c.client.Query(buf.String())
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var topQueries []topQuery
+	for rows.Next() {
+		var tq topQuery
+		err := rows.Scan(
+			&tq.schemaName,
+			&tq.digest,
+			&tq.digestText,
+			&tq.countStar,
+			&tq.sumTimerWaitInPicoSeconds,
+			&tq.querySampleText,
+			&tq.sumRowsSent,
+			&tq.sumRowsExamined,
+			&tq.sumErrors,
+			&tq.sumLockTime,
+			&tq.sumSortRows,
+			&tq.sumCreatedTmpTables,
+			&tq.sumCreatedTmpDiskTables,
+			&tq.sumNoIndexUsed,
+			&tq.sumSelectFullJoin,
+			&tq.sumSortScan,
+			&tq.sumNoGoodIndexUsed,
+			&tq.sumSelectScan,
+		)
+		if err != nil {
+			return nil, err
+		}
+		topQueries = append(topQueries, tq)
+	}
+	return topQueries, nil
+}
+
+//go:embed templates/querySample.tmpl
+var querySampleTemplate string
+
+func (c *mySQLClient) getQuerySamples(limit uint64) ([]querySample, error) {
+	tmpl := querySampleTmpl
+	buf := bytes.Buffer{}
+
+	if err := tmpl.Execute(&buf, map[string]any{
+		"limit": limit,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	rows, err := c.client.Query(buf.String())
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var samples []querySample
+	for rows.Next() {
+		var s querySample
+		err := rows.Scan(
+			&s.sessionID,
+			&s.threadID,
+			&s.processlistUser,
+			&s.processlistHost,
+			&s.processlistDB,
+			&s.processlistCommand,
+			&s.processlistState,
+			&s.sqlText,
+			&s.digest,
+			&s.eventID,
+			&s.sessionStatus,
+			&s.waitEvent,
+			&s.waitTime,
+			&s.traceparent,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		samples = append(samples, s)
+	}
+
+	return samples, nil
+}
+
+func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest string, logger *zap.Logger) string {
+	if strings.HasSuffix(sampleStatement, "...") {
+		logger.Debug("statement is truncated, skipping explain", zap.String("digest_text", digestText))
+		return ""
+	}
+	if !isQueryExplainable(digestText) {
+		logger.Debug("statement is not explainable, skipping explain query", zap.String("digest", digest))
+		return ""
+	}
+
+	conn, err := c.client.Conn(context.Background())
+	if err != nil {
+		logger.Warn("unable to acquire connection for explain", zap.String("digest", digest), zap.Error(err))
+		return ""
+	}
+	defer conn.Close()
+
+	if schema != "" {
+		if _, execErr := conn.ExecContext(context.Background(), fmt.Sprintf("/* otel-collector-ignore */ USE `%s`;", strings.ReplaceAll(schema, "`", "``"))); execErr != nil {
+			logger.Warn(fmt.Sprintf("unable to use schema: %s", schema), zap.String("digest", digest), zap.Error(execErr))
+			return ""
+		}
+	}
+
+	var plan string
+	err = conn.QueryRowContext(context.Background(), "EXPLAIN FORMAT=json "+strings.TrimSpace(sampleStatement)).Scan(&plan)
+	if err != nil {
+		logger.Warn("unable to execute explain statement", zap.String("digest", digest), zap.Error(err))
+		return ""
+	}
+	if plan == "" {
+		logger.Warn("explain query returned empty plan", zap.String("digest", digest))
+	}
+	return plan
+}
+
+// This function filters out queries that are unsupported by 'EXPLAIN'
+// ref: https://dev.mysql.com/doc/refman/8.4/en/using-explain.html
+func isQueryExplainable(query string) bool {
+	sqlStartingKeywords := []string{
+		"select",
+		"delete",
+		"insert",
+		"replace",
+		"update",
+	}
+
+	trimmedQuery := strings.TrimSpace(query)
+	lowerQuery := strings.ToLower(trimmedQuery)
+
+	for _, keyword := range sqlStartingKeywords {
+		if strings.HasPrefix(lowerQuery, keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 func query(c mySQLClient, query string) (map[string]string, error) {
@@ -694,4 +938,12 @@ func (c *mySQLClient) Close() error {
 		return c.client.Close()
 	}
 	return nil
+}
+
+func splitHostPort(endpoint string) (host, port string, err error) {
+	host, port, err = net.SplitHostPort(endpoint)
+	if err != nil {
+		return endpoint, "3306", fmt.Errorf("malformed endpoint %q: %w", endpoint, err)
+	}
+	return host, port, nil
 }

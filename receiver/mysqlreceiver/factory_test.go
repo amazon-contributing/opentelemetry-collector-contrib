@@ -53,3 +53,54 @@ func TestCreateMetrics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, metricsReceiver)
 }
+
+func TestCreateLogs(t *testing.T) {
+	factory := NewFactory()
+	logsReceiver, err := factory.CreateLogs(
+		t.Context(),
+		receivertest.NewNopSettings(metadata.Type),
+		&Config{
+			ControllerConfig: scraperhelper.ControllerConfig{
+				CollectionInterval: 10 * time.Second,
+				InitialDelay:       time.Second,
+			},
+			Username: "otel",
+			Password: "otel",
+			AddrConfig: confignet.AddrConfig{
+				Endpoint: "localhost:3306",
+			},
+			LogsBuilderConfig: metadata.LogsBuilderConfig{
+				Events: metadata.EventsConfig{
+					DbServerQuerySample: metadata.EventConfig{
+						Enabled: true,
+					},
+					DbServerTopQuery: metadata.EventConfig{
+						Enabled: true,
+					},
+				},
+				ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
+			},
+		},
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, logsReceiver)
+}
+
+func TestCreateLogsWithCollectionInterval(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+	cfg.QuerySampleCollection.CollectionInterval = 30 * time.Second
+
+	logsReceiver, err := factory.CreateLogs(
+		t.Context(),
+		receivertest.NewNopSettings(metadata.Type),
+		cfg,
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, logsReceiver)
+}
