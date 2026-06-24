@@ -22,7 +22,7 @@ SELECT
         'other',
         COALESCE(
             IF(thread.processlist_state = 'User sleep', 'User sleep',
-            IF(wait.event_id = wait.end_event_id, 'CPU', wait.event_name)), 'CPU'
+            IF(wait.end_event_id IS NULL, wait.event_name, 'CPU')), 'CPU'
         )
     ) AS wait_event,
     COALESCE(wait.timer_wait/1e12, 0) AS wait_time_seconds,
@@ -43,6 +43,7 @@ WHERE
     AND thread.processlist_command NOT IN ('Sleep', 'Daemon')
     AND thread.processlist_id != CONNECTION_ID()
     AND (wait.EVENT_NAME != 'idle' OR wait.EVENT_NAME IS NULL)
+    AND (wait.event_name != 'synch/cond/sql/Item_func_sleep::cond' OR wait.event_name IS NULL)
     AND (wait.operation != 'idle' OR wait.operation IS NULL)
     -- events_waits_current can have multiple rows per thread, thus we use EVENT_ID to identify the row we want to use.
     -- Additionally, we want the row with the highest EVENT_ID which reflects the most recent and current wait.
