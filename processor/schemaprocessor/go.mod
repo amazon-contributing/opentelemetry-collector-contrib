@@ -19,14 +19,14 @@ require (
 	go.opentelemetry.io/collector/processor v1.56.0
 	go.opentelemetry.io/collector/processor/processorhelper v0.150.0
 	go.opentelemetry.io/collector/processor/processortest v0.150.0
-	go.opentelemetry.io/otel/schema v0.0.16
+	go.opentelemetry.io/otel/schema v0.0.17
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.1
 )
 
 require (
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
+	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
