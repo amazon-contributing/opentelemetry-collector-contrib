@@ -69,6 +69,7 @@ type client interface {
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	getSessionStates(ctx context.Context) (map[string]int64, error)
 }
 
 type postgreSQLClient struct {
@@ -184,6 +185,7 @@ var _ client = (*postgreSQLClient)(nil)
 type postgreSQLConfig struct {
 	username string
 	password string
+	passfile string
 	database string
 	address  confignet.AddrConfig
 	tls      configtls.ClientConfig
@@ -235,7 +237,13 @@ func (c postgreSQLConfig) ConnectionString() (string, error) {
 		host = "/" + host
 	}
 
-	return fmt.Sprintf("port=%s host=%s user=%s password=%s dbname=%s %s", port, host, c.username, c.password, database, sslConnectionString(c.tls)), nil
+	connStr := fmt.Sprintf("port=%s host=%s user=%s dbname=%s %s", port, host, c.username, database, sslConnectionString(c.tls))
+	if c.passfile != "" && c.password == "" {
+		connStr += fmt.Sprintf(" passfile='%s'", c.passfile)
+	} else {
+		connStr += fmt.Sprintf(" password=%s", c.password)
+	}
+	return connStr, nil
 }
 
 func (c *postgreSQLClient) Close() error {
@@ -908,6 +916,26 @@ func indexKey(database, schema, table, index string) indexIdentifer {
 
 func functionKey(database, schema, function string) functionIdentifer {
 	return functionIdentifer(fmt.Sprintf("%s|%s|%s", database, schema, function))
+}
+
+func (c *postgreSQLClient) getSessionStates(ctx context.Context) (map[string]int64, error) {
+	rows, err := c.client.QueryContext(ctx, `SELECT state, count(*) AS count FROM pg_stat_activity WHERE state IS NOT NULL GROUP BY state;`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	states := map[string]int64{}
+	var errs error
+	for rows.Next() {
+		var state string
+		var count int64
+		if err := rows.Scan(&state, &count); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		states[state] = count
+	}
+	return states, errs
 }
 
 //go:embed templates/querySampleTemplate.tmpl

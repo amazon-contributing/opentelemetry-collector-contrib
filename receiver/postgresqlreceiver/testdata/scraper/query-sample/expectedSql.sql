@@ -32,6 +32,6 @@ WHERE
 
       query_start < TO_TIMESTAMP(123440.111)
       AND state = 'idle'
-    )   
+    )
+    AND pid <> pg_backend_pid()
 LIMIT 30;
-

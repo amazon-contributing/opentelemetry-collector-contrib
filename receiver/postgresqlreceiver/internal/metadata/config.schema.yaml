@@ -313,6 +313,29 @@ $defs:
           enabled:
             type: boolean
             default: false
+      postgresql.sessions:
+        description: "PostgresqlSessionsMetricConfig provides config for the postgresql.sessions metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+          aggregation_strategy:
+            type: string
+            enum:
+              - "sum"
+              - "avg"
+              - "min"
+              - "max"
+            default: "avg"
+          attributes:
+            type: array
+            items:
+              type: string
+              enum:
+                - "session_state"
+            default:
+              - "session_state"
       postgresql.table.count:
         description: "PostgresqlTableCountMetricConfig provides config for the postgresql.table.count metric."
         type: object

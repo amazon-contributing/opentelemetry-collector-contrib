@@ -170,6 +170,7 @@ func (p *postgreSQLScraper) scrape(ctx context.Context) (pmetric.Metrics, error)
 	p.collectReplicationStats(ctx, now, listClient, &errs)
 	p.collectMaxConnections(ctx, now, listClient, &errs)
 	p.collectDatabaseLocks(ctx, now, listClient, &errs)
+	p.collectSessionStates(ctx, now, listClient, &errs)
 
 	rb := p.setupResourceBuilder(p.mb.NewResourceBuilder(), "", "", "", "")
 	return p.mb.Emit(metadata.WithResource(rb.Emit())), errs.combine()
@@ -598,6 +599,36 @@ func (p *postgreSQLScraper) collectDatabaseLocks(
 	}
 	for _, dbLock := range dbLocks {
 		p.mb.RecordPostgresqlDatabaseLocksDataPoint(now, dbLock.locks, dbLock.relation, dbLock.mode, dbLock.lockType)
+	}
+}
+
+// allowedSessionStates is the set of pg_stat_activity.state values that the
+// postgresql.sessions metric reports. Other values are dropped.
+var allowedSessionStates = map[string]struct{}{
+	"active":                        {},
+	"idle":                          {},
+	"idle in transaction":           {},
+	"idle in transaction (aborted)": {},
+	"fastpath function call":        {},
+	"disabled":                      {},
+}
+
+func (p *postgreSQLScraper) collectSessionStates(
+	ctx context.Context,
+	now pcommon.Timestamp,
+	client client,
+	errs *errsMux,
+) {
+	states, err := client.getSessionStates(ctx)
+	if err != nil {
+		errs.addPartial(err)
+		return
+	}
+	for state, count := range states {
+		if _, ok := allowedSessionStates[state]; !ok {
+			continue
+		}
+		p.mb.RecordPostgresqlSessionsDataPoint(now, count, state)
 	}
 }
 

@@ -26,6 +26,7 @@ func newDefaultClientFactory(cfg *Config) *defaultClientFactory {
 		baseConfig: postgreSQLConfig{
 			username: cfg.Username,
 			password: string(cfg.Password),
+			passfile: cfg.Passfile,
 			address:  cfg.AddrConfig,
 			tls:      cfg.ClientConfig,
 		},
@@ -59,6 +60,7 @@ func newPoolClientFactory(cfg *Config) *poolClientFactory {
 		baseConfig: postgreSQLConfig{
 			username: cfg.Username,
 			password: string(cfg.Password),
+			passfile: cfg.Passfile,
 			address:  cfg.AddrConfig,
 			tls:      cfg.ClientConfig,
 		},
@@ -75,10 +77,10 @@ func (p *poolClientFactory) getClient(database string) (client, error) {
 	if !ok {
 		var err error
 		db, err = getDB(p.baseConfig, database)
-		p.setPoolSettings(db)
 		if err != nil {
 			return nil, err
 		}
+		p.setPoolSettings(db)
 		p.pool[database] = db
 	}
 	return &postgreSQLClient{client: db, closeFn: nil}, nil

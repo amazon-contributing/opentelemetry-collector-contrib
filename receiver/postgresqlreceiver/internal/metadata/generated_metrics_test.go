@@ -76,6 +76,7 @@ func TestMetricsBuilder(t *testing.T) {
 			aggMap["PostgresqlOperations"] = mb.metricPostgresqlOperations.config.AggregationStrategy
 			aggMap["PostgresqlReplicationDataDelay"] = mb.metricPostgresqlReplicationDataDelay.config.AggregationStrategy
 			aggMap["PostgresqlRows"] = mb.metricPostgresqlRows.config.AggregationStrategy
+			aggMap["PostgresqlSessions"] = mb.metricPostgresqlSessions.config.AggregationStrategy
 			aggMap["PostgresqlWalDelay"] = mb.metricPostgresqlWalDelay.config.AggregationStrategy
 			aggMap["PostgresqlWalLag"] = mb.metricPostgresqlWalLag.config.AggregationStrategy
 
@@ -200,6 +201,12 @@ func TestMetricsBuilder(t *testing.T) {
 			allMetricsCount++
 			mb.RecordPostgresqlSequentialScansDataPoint(ts, 1)
 
+			allMetricsCount++
+			mb.RecordPostgresqlSessionsDataPoint(ts, 1, "session_state-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordPostgresqlSessionsDataPoint(ts, 3, "session_state-val-2")
+			}
+
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordPostgresqlTableCountDataPoint(ts, 1)
@@ -268,6 +275,7 @@ func TestMetricsBuilder(t *testing.T) {
 				assert.Empty(t, mb.metricPostgresqlOperations.aggDataPoints)
 				assert.Empty(t, mb.metricPostgresqlReplicationDataDelay.aggDataPoints)
 				assert.Empty(t, mb.metricPostgresqlRows.aggDataPoints)
+				assert.Empty(t, mb.metricPostgresqlSessions.aggDataPoints)
 				assert.Empty(t, mb.metricPostgresqlWalDelay.aggDataPoints)
 				assert.Empty(t, mb.metricPostgresqlWalLag.aggDataPoints)
 			}
@@ -887,6 +895,46 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+				case "postgresql.sessions":
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["postgresql.sessions"], "Found a duplicate in the metrics slice: postgresql.sessions")
+						validatedMetrics["postgresql.sessions"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "The number of sessions by state.", mi.Description())
+						assert.Equal(t, "{sessions}", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						sessionStateAttrVal, ok := dp.Attributes().Get("session_state")
+						assert.True(t, ok)
+						assert.Equal(t, "session_state-val", sessionStateAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["postgresql.sessions"], "Found a duplicate in the metrics slice: postgresql.sessions")
+						validatedMetrics["postgresql.sessions"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "The number of sessions by state.", mi.Description())
+						assert.Equal(t, "{sessions}", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["postgresql.sessions"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("session_state")
+						assert.False(t, ok)
+					}
 				case "postgresql.table.count":
 					assert.False(t, validatedMetrics["postgresql.table.count"], "Found a duplicate in the metrics slice: postgresql.table.count")
 					validatedMetrics["postgresql.table.count"] = true

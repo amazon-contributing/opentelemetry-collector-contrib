@@ -819,6 +819,34 @@ func TestExplainQuery(t *testing.T) {
 	}
 }
 
+func TestCollectSessionStates(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Metrics.PostgresqlSessions.Enabled = true
+
+	factory := new(mockClientFactory)
+	factory.initMocks([]string{"otel"})
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	scraper := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+
+	actualMetrics, err := scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	found := false
+	for i := 0; i < actualMetrics.ResourceMetrics().Len(); i++ {
+		rm := actualMetrics.ResourceMetrics().At(i)
+		for j := 0; j < rm.ScopeMetrics().Len(); j++ {
+			sm := rm.ScopeMetrics().At(j)
+			for k := 0; k < sm.Metrics().Len(); k++ {
+				if sm.Metrics().At(k).Name() == "postgresql.sessions" {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "postgresql.sessions metric should be present when enabled")
+}
+
 type (
 	mockClientFactory       struct{ mock.Mock }
 	mockClient              struct{ mock.Mock }
@@ -930,6 +958,11 @@ func (m *mockClient) listDatabases(_ context.Context) ([]string, error) {
 func (m *mockClient) getVersion(_ context.Context) (string, error) {
 	args := m.Called()
 	return args.String(0), args.Error(1)
+}
+
+func (m *mockClient) getSessionStates(ctx context.Context) (map[string]int64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(map[string]int64), args.Error(1)
 }
 
 func (m *mockClientFactory) getClient(database string) (client, error) {
@@ -1049,6 +1082,12 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 				replayLag:    -1,
 				writeLag:     -1,
 			},
+		}, nil)
+		m.On("getSessionStates", mock.Anything).Return(map[string]int64{
+			"active":                        3,
+			"idle":                          5,
+			"idle in transaction":           1,
+			"idle in transaction (aborted)": 0,
 		}, nil)
 	} else {
 		table1 := "table1"

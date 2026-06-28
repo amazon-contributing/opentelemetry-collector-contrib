@@ -723,6 +723,54 @@ func (ms *PostgresqlSequentialScansMetricConfig) Unmarshal(parser *confmap.Conf)
 	return nil
 }
 
+// PostgresqlSessionsMetricAttributeKey specifies the key of an attribute for the postgresql.sessions metric.
+type PostgresqlSessionsMetricAttributeKey string
+
+const (
+	PostgresqlSessionsMetricAttributeKeySessionState PostgresqlSessionsMetricAttributeKey = "session_state"
+)
+
+// PostgresqlSessionsMetricConfig provides config for the postgresql.sessions metric.
+type PostgresqlSessionsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                 `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []PostgresqlSessionsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *PostgresqlSessionsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *PostgresqlSessionsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case PostgresqlSessionsMetricAttributeKeySessionState:
+		default:
+			return fmt.Errorf("metric postgresql.sessions doesn't have an attribute %v, valid attributes: [session_state]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // PostgresqlTableCountMetricConfig provides config for the postgresql.table.count metric.
 type PostgresqlTableCountMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -1066,6 +1114,7 @@ type MetricsConfig struct {
 	PostgresqlRollbacks                PostgresqlRollbacksMetricConfig                `mapstructure:"postgresql.rollbacks"`
 	PostgresqlRows                     PostgresqlRowsMetricConfig                     `mapstructure:"postgresql.rows"`
 	PostgresqlSequentialScans          PostgresqlSequentialScansMetricConfig          `mapstructure:"postgresql.sequential_scans"`
+	PostgresqlSessions                 PostgresqlSessionsMetricConfig                 `mapstructure:"postgresql.sessions"`
 	PostgresqlTableCount               PostgresqlTableCountMetricConfig               `mapstructure:"postgresql.table.count"`
 	PostgresqlTableSize                PostgresqlTableSizeMetricConfig                `mapstructure:"postgresql.table.size"`
 	PostgresqlTableVacuumCount         PostgresqlTableVacuumCountMetricConfig         `mapstructure:"postgresql.table.vacuum.count"`
@@ -1169,6 +1218,11 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		PostgresqlSequentialScans: PostgresqlSequentialScansMetricConfig{
 			Enabled: false,
+		},
+		PostgresqlSessions: PostgresqlSessionsMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []PostgresqlSessionsMetricAttributeKey{PostgresqlSessionsMetricAttributeKeySessionState},
 		},
 		PostgresqlTableCount: PostgresqlTableCountMetricConfig{
 			Enabled: true,

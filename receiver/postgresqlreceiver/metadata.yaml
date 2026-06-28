@@ -190,6 +190,9 @@ attributes:
     description: The IP address of the client connected to this backend. If this field is "unix", it indicates either that the client is connected via a Unix socket.
     type: string
     requirement_level: recommended
+  session_state:
+    description: The state of the PostgreSQL session.
+    type: string
   source:
     description: The block read source type.
     type: string
@@ -470,6 +473,14 @@ metrics:
       value_type: int
       monotonic: true
       aggregation_temporality: cumulative
+  postgresql.sessions:
+    enabled: false
+    description: The number of sessions by state.
+    stability: development
+    unit: "{sessions}"
+    gauge:
+      value_type: int
+    attributes: [session_state]
   postgresql.table.count:
     description: Number of user tables in a database.
     stability: development

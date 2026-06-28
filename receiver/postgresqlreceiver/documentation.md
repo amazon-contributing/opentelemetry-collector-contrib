@@ -315,6 +315,20 @@ The number of sequential scans.
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {sequential_scan} | Sum | Int | Cumulative | true | Development |
 
+### postgresql.sessions
+
+The number of sessions by state.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {sessions} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| session_state | The state of the PostgreSQL session. | Any Str | Recommended | - |
+
 ### postgresql.temp.io
 
 Total amount of data written to temporary files by queries.

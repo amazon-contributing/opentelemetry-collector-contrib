@@ -56,6 +56,9 @@ all_set:
       attributes: ["state"]
     postgresql.sequential_scans:
       enabled: true
+    postgresql.sessions:
+      enabled: true
+      attributes: ["session_state"]
     postgresql.table.count:
       enabled: true
     postgresql.table.size:
@@ -157,6 +160,9 @@ reaggregate_set:
       attributes: []
     postgresql.sequential_scans:
       enabled: true
+    postgresql.sessions:
+      enabled: true
+      attributes: []
     postgresql.table.count:
       enabled: true
     postgresql.table.size:
@@ -258,6 +264,9 @@ none_set:
       attributes: ["state"]
     postgresql.sequential_scans:
       enabled: false
+    postgresql.sessions:
+      enabled: false
+      attributes: ["session_state"]
     postgresql.table.count:
       enabled: false
     postgresql.table.size:
