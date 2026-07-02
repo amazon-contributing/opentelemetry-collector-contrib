@@ -124,7 +124,7 @@ func TestExplainQueryEarlyExits(t *testing.T) {
 }
 
 func TestNewMySQLClient_PassfileResolvesPassword(t *testing.T) {
-	content := "localhost:3306:testdb:cw_monitor:secret_from_file\n"
+	content := "[client]\nhost=localhost\nport=3306\nuser=cw_monitor\npassword=secret_from_file\n"
 	dir := t.TempDir()
 	passfilePath := filepath.Join(dir, ".mysql_credentials")
 	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))

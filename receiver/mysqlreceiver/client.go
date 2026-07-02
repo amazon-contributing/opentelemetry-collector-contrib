@@ -259,7 +259,7 @@ func newMySQLClient(conf *Config) (client, error) {
 		if err != nil {
 			return nil, err
 		}
-		resolved, err := resolvePasswordFromPassfile(conf.Passfile, host, port, conf.Database, conf.Username)
+		resolved, err := resolvePasswordFromPassfile(conf.Passfile, host, port, conf.Username)
 		if err != nil {
 			return nil, fmt.Errorf("unable to resolve password from passfile: %w", err)
 		}
