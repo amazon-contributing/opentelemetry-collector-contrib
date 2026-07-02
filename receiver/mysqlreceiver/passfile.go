@@ -10,68 +10,112 @@ import (
 	"strings"
 )
 
-// resolvePasswordFromPassfile reads a pgpass-inspired credential file and resolves
-// the password for the given connection parameters. The file format is:
+// resolvePasswordFromPassfile reads a MySQL option file (.my.cnf format) and
+// resolves the password for the given connection parameters.
 //
-//	hostname:port:database:username:password
+// Lookup strategy:
+//  1. Iterate all sections, match by host+port+user fields.
+//  2. If no section has match fields, fall back to the [client] section.
 //
-// An asterisk (*) matches any value in that field.
+// File format (standard MySQL INI):
+//
+//	[client]
+//	host=localhost
+//	port=3306
+//	user=cw_monitor
+//	password=secret
 func resolvePasswordFromPassfile(path, hostname, port, database, username string) (string, error) {
+	sections, err := parseMyCnfFile(path)
+	if err != nil {
+		return "", err
+	}
+	return lookupByMatching(sections, hostname, port, username, path)
+}
+
+type myCnfSection struct {
+	name   string
+	fields map[string]string
+}
+
+func parseMyCnfFile(path string) ([]myCnfSection, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", fmt.Errorf("unable to open passfile: %w", err)
+		return nil, fmt.Errorf("unable to open password file: %w", err)
 	}
 	defer f.Close()
+
+	var sections []myCnfSection
+	var current *myCnfSection
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
 			continue
 		}
-
-		parts := splitPassfileLine(line)
-		if len(parts) != 5 {
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			sectionName := strings.TrimSpace(line[1 : len(line)-1])
+			sections = append(sections, myCnfSection{name: sectionName, fields: make(map[string]string)})
+			current = &sections[len(sections)-1]
 			continue
 		}
-
-		if matchField(parts[0], hostname) &&
-			matchField(parts[1], port) &&
-			matchField(parts[2], database) &&
-			matchField(parts[3], username) {
-			return parts[4], nil
+		if current == nil {
+			continue
+		}
+		key, value, found := parseINILine(line)
+		if found {
+			current.fields[strings.ToLower(key)] = value
 		}
 	}
-
 	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("error reading passfile: %w", err)
+		return nil, fmt.Errorf("error reading password file: %w", err)
 	}
-
-	return "", fmt.Errorf("no matching entry found in passfile %q", path)
+	return sections, nil
 }
 
-// splitPassfileLine splits a passfile line on unescaped colons.
-// Backslash-escaped colons (\:) are treated as literal colons.
-func splitPassfileLine(line string) []string {
-	var parts []string
-	var current strings.Builder
-
-	for i := 0; i < len(line); i++ {
-		switch {
-		case line[i] == '\\' && i+1 < len(line):
-			current.WriteByte(line[i+1])
-			i++
-		case line[i] == ':':
-			parts = append(parts, current.String())
-			current.Reset()
-		default:
-			current.WriteByte(line[i])
+func lookupByMatching(sections []myCnfSection, hostname, port, username, path string) (string, error) {
+	for _, s := range sections {
+		sHost := s.fields["host"]
+		sPort := s.fields["port"]
+		sUser := s.fields["user"]
+		if sHost == "" || sPort == "" || sUser == "" {
+			continue
+		}
+		if matchField(sHost, hostname) && matchField(sPort, port) && matchField(sUser, username) {
+			if pass, ok := s.fields["password"]; ok {
+				return pass, nil
+			}
 		}
 	}
-	parts = append(parts, current.String())
-	return parts
+
+	return "", fmt.Errorf("no matching entry found in password file %q for host=%s port=%s user=%s", path, hostname, port, username)
 }
 
-func matchField(pattern, value string) bool {
-	return pattern == "*" || pattern == value
+// matchField compares a field value against expected.
+// Both fields must be present and match (case-insensitive).
+func matchField(field, expected string) bool {
+	if field == "" || expected == "" {
+		return false
+	}
+	return strings.EqualFold(field, expected)
+}
+
+func parseINILine(line string) (string, string, bool) {
+	idx := strings.IndexByte(line, '=')
+	if idx < 0 {
+		return "", "", false
+	}
+	key := strings.TrimSpace(line[:idx])
+	value := strings.TrimSpace(line[idx+1:])
+	value = stripINIQuotes(value)
+	return key, value, true
+}
+
+func stripINIQuotes(s string) string {
+	if len(s) >= 2 {
+		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == 0x27 && s[len(s)-1] == 0x27) {
+			return s[1 : len(s)-1]
+		}
+	}
+	return s
 }
