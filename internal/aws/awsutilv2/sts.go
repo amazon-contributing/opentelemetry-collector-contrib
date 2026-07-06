@@ -83,12 +83,19 @@ func newStsCredentialsProvider(cfg aws.Config, roleARN, region, externalID strin
 }
 
 // newAssumeRoleClient is overrideable in tests.
-var newAssumeRoleClient = newStsClient
+var newAssumeRoleClient = func(cfg aws.Config) stscreds.AssumeRoleAPIClient {
+	return newStsClient(cfg)
+}
+
+// newWebIdentityClient is overrideable in tests.
+var newWebIdentityClient = func(cfg aws.Config) stscreds.AssumeRoleWithWebIdentityAPIClient {
+	return newStsClient(cfg)
+}
 
 // newStsClient creates an STS client and, when both confused-deputy environment variables are set, appends
 // headers that let resource-based policies limit the service's permissions to a specific resource.
 // See https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
-func newStsClient(cfg aws.Config) stscreds.AssumeRoleAPIClient {
+func newStsClient(cfg aws.Config) *sts.Client {
 	var optFns []func(*sts.Options)
 	sourceAccount := os.Getenv(envSourceAccount)
 	sourceArn := os.Getenv(envSourceArn)
