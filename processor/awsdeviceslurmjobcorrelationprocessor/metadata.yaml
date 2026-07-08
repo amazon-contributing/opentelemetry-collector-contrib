@@ -1,0 +1,19 @@
+type: awsdevicejobcorrelation
+
+status:
+  class: processor
+  stability:
+    alpha: [metrics]
+
+tests:
+  config:
+    cgroup_root: "/sys/fs/cgroup"
+    cgroup_version: "v1"
+    node_exclusive: true
+    device_types:
+      - name: gpu
+        device_id_attribute: gpu
+        device_id_source: datapoint
+      - name: efa
+        device_id_attribute: aws.efa.device
+        device_id_source: resource
