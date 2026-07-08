@@ -47,9 +47,6 @@ type loadConfigFn func(ctx context.Context, optFns ...func(*config.LoadOptions) 
 // endpoint is used (cached for subsequent calls). When AMZ_SOURCE_ARN and AMZ_SOURCE_ACCOUNT
 // are both set in the environment, confused-deputy headers are injected on assume-role calls.
 //
-// When settings.WebIdentityTokenFile is set, a missing or unreadable token file does NOT cause
-// GetAWSConfig to return an error; the failure surfaces on the first Credentials.Retrieve call.
-//
 // Returns an error if the HTTP client cannot be built, the region cannot be resolved, the
 // initial config load fails after a retry, or WebIdentityTokenFile is set without RoleARN.
 func GetAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionSettings) (aws.Config, error) {
@@ -89,13 +86,10 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 		if settings.RoleARN == "" {
 			return aws.Config{}, errors.New("role_arn must be set when web_identity_token_file is configured")
 		}
-		tokenRetriever := stscreds.IdentityTokenFile(settings.WebIdentityTokenFile)
-		if _, err = tokenRetriever.GetIdentityToken(); err != nil {
-			logger.Error("Unable to read web identity token file", zap.String("file", settings.WebIdentityTokenFile), zap.Error(err))
-		}
 		cfg.Credentials = aws.NewCredentialsCache(
-			stscreds.NewWebIdentityRoleProvider(newWebIdentityClient(cfg), settings.RoleARN, tokenRetriever),
+			newWebIdentityCredentialsProvider(cfg, settings.RoleARN, region, stscreds.IdentityTokenFile(settings.WebIdentityTokenFile)),
 		)
+		logger.Debug("Using web identity credentials provider")
 	} else {
 		// Eagerly retrieve credentials so the source can be logged and an IMDS-fallback warning
 		// surfaced when applicable. A successful return does not guarantee credentials are valid.
@@ -103,17 +97,18 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 		cred, err = cfg.Credentials.Retrieve(ctx)
 		if err != nil {
 			logger.Error("Failed to get credential from session", zap.Error(err))
-		} else {
-			logger.Debug("Using credential", zap.String("access-key", cred.AccessKeyID), zap.String("source", cred.Source))
-			if cred.Source == ec2rolecreds.ProviderName {
-				warnIfUnusedSharedConfigFiles(logger)
-			}
 		}
 
 		if settings.RoleARN != "" {
 			cfg.Credentials = aws.NewCredentialsCache(
-				newStsCredentialsProvider(cfg, settings.RoleARN, region, settings.ExternalID),
+				newAssumeRoleCredentialsProvider(cfg, settings.RoleARN, region, settings.ExternalID),
 			)
+			logger.Debug("Using assume role credentials provider")
+		} else if err == nil {
+			logger.Debug("Using credential", zap.String("access-key", cred.AccessKeyID), zap.String("source", cred.Source))
+			if cred.Source == ec2rolecreds.ProviderName {
+				warnIfUnusedSharedConfigFiles(logger)
+			}
 		}
 	}
 

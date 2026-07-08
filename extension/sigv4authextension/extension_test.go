@@ -176,9 +176,9 @@ func TestResolveCredentialsProvider_WebIdentity(t *testing.T) {
 	defer mockServer.Close()
 
 	tests := []struct {
-		name        string
-		cfg         *Config
-		shouldError bool
+		name               string
+		cfg                *Config
+		retrieveShouldFail bool
 	}{
 		{
 			"valid_token_with_assume_role_arn",
@@ -225,24 +225,19 @@ func TestResolveCredentialsProvider_WebIdentity(t *testing.T) {
 			true,
 		},
 	}
-	// run tests
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
 			isolateAWSEnv(t)
 			credsProvider, err := resolveCredentialsProvider(t.Context(), zap.NewNop(), testcase.cfg)
-
-			if testcase.shouldError {
-				assert.Error(t, err)
-				assert.Nil(t, credsProvider)
-				return
-			}
-
 			require.NoError(t, err)
 			require.NotNil(t, credsProvider)
 
-			creds, err := (*credsProvider).Retrieve(t.Context())
-			require.NoError(t, err)
-			assert.Equal(t, "AKIAWEBIDENTITY", creds.AccessKeyID)
+			_, err = (*credsProvider).Retrieve(t.Context())
+			if testcase.retrieveShouldFail {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

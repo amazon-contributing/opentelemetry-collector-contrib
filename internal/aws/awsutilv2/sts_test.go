@@ -84,7 +84,9 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 		t.Cleanup(func() { getPartitionPrimaryRegion = orig })
 		getPartitionPrimaryRegion = func(string) string { return "" }
 
-		provider := newStsCredentialsProvider(aws.Config{}, testRoleARN, testRegion, "")
+		provider := newRegionalFallbackCredentialsProvider(aws.Config{}, testRegion, func(cfg aws.Config) aws.CredentialsProvider {
+			return stscreds.NewAssumeRoleProvider(newAssumeRoleClient(cfg), testRoleARN)
+		})
 		require.NotNil(t, provider)
 		_, wrapped := provider.(*stsCredentialsProvider)
 		assert.False(t, wrapped)
@@ -93,8 +95,10 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 	})
 }
 
-func TestNewStsCredentialsProvider(t *testing.T) {
-	provider := newStsCredentialsProvider(aws.Config{}, testRoleARN, testRegion, "")
+func TestNewRegionalCredentialsProvider(t *testing.T) {
+	provider := newRegionalFallbackCredentialsProvider(aws.Config{}, testRegion, func(cfg aws.Config) aws.CredentialsProvider {
+		return stscreds.NewAssumeRoleProvider(newAssumeRoleClient(cfg), testRoleARN)
+	})
 
 	assert.NotNil(t, provider)
 	stsProvider, ok := provider.(*stsCredentialsProvider)

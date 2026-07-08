@@ -593,22 +593,17 @@ func TestGetAWSConfig_WebIdentityFromSettings(t *testing.T) {
 }
 
 // TestGetAWSConfig_WebIdentityFromSettings_MissingFile confirms that a non-existent token file
-// logs an error but still returns a config (fails lazily on Retrieve).
+// does not fail GetAWSConfig but fails lazily on Retrieve.
 func TestGetAWSConfig_WebIdentityFromSettings_MissingFile(t *testing.T) {
 	isolateAWSEnv(t)
-	stubWebIdentityClient(t)
 
-	core, observed := observer.New(zap.ErrorLevel)
-	cfg, err := GetAWSConfig(t.Context(), zap.New(core), &AWSSessionSettings{
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
 		Region:               testRegion,
 		LocalMode:            true,
 		RoleARN:              testRoleARN,
 		WebIdentityTokenFile: "/nonexistent/token_file",
 	})
 	require.NoError(t, err)
-
-	logs := observed.FilterMessage("Unable to read web identity token file")
-	assert.Equal(t, 1, logs.Len(), "expected a log entry for unreadable token file")
 
 	_, retrieveErr := cfg.Credentials.Retrieve(t.Context())
 	require.Error(t, retrieveErr)

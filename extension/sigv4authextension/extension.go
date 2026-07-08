@@ -74,10 +74,14 @@ func resolveCredentialsProvider(ctx context.Context, logger *zap.Logger, cfg *Co
 	settings.WebIdentityTokenFile = cfg.resolvedWebIdentityTokenFile()
 	awscfg, err := awsutilv2.GetAWSConfig(ctx, logger, &settings)
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve credential provider: %w", err)
+		return nil, fmt.Errorf("could not retrieve credentials provider: %w", err)
 	}
-	if _, err = awscfg.Credentials.Retrieve(ctx); err != nil {
-		return nil, fmt.Errorf("could not retrieve credential: %w", err)
+	// Skip eager Retrieve for web identity: the token may not be available yet at startup
+	// (e.g., projected SA token in Kubernetes) and will be read on first use.
+	if settings.WebIdentityTokenFile == "" {
+		if _, err = awscfg.Credentials.Retrieve(ctx); err != nil {
+			return nil, fmt.Errorf("could not retrieve credentials: %w", err)
+		}
 	}
 	return &awscfg.Credentials, nil
 }
