@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/cadvisor/cache/memory"
 	"github.com/google/cadvisor/container"
+	"github.com/google/cadvisor/fs"
 	info "github.com/google/cadvisor/info/v1"
 	"github.com/google/cadvisor/manager"
 	"github.com/google/cadvisor/utils/sysfs"
@@ -119,4 +120,25 @@ func TestGetMetricsErrorWhenCallingManagerStart(t *testing.T) {
 	c, err := New("eks", hostInfo, zap.NewNop(), cadvisorManagerCreator(mockCreateManager2), decoratorOption)
 	assert.Nil(t, c)
 	assert.Error(t, err)
+}
+
+// TestFilesystemPluginsRegistered guards the cAdvisor filesystem-plugin blank imports in
+// cadvisor_linux.go. Without them the plugin registry is empty, all mounts are dropped, and
+// node_filesystem_* / container_filesystem_* metrics are not emitted. Each fsType maps to the
+// /install import that must register a handler for it; removing an import makes its lookup nil
+// and fails this test.
+func TestFilesystemPluginsRegistered(t *testing.T) {
+	// fsType -> the /install blank import that must register a handler for it.
+	cases := map[string]string{
+		"xfs":     "github.com/google/cadvisor/fs/vfs/install",     // AL2023 root device
+		"ext4":    "github.com/google/cadvisor/fs/vfs/install",     // common block fs
+		"overlay": "github.com/google/cadvisor/fs/overlay/install", // container overlay fs
+		"tmpfs":   "github.com/google/cadvisor/fs/tmpfs/install",   // tmpfs mounts
+	}
+	for fsType, requiredImport := range cases {
+		assert.NotNilf(t, fs.GetPluginForFsType(fsType),
+			"no cAdvisor fs plugin registered for FSType %q; the blank import %q is likely "+
+				"missing from cadvisor_linux.go",
+			fsType, requiredImport)
+	}
 }
