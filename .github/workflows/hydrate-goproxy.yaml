@@ -37,7 +37,10 @@ jobs:
       - name: Hydrate Go module proxy
         shell: bash
         env:
-          GOPROXY: "https://proxy.golang.org"
+          # ,direct fallback is required: proxy.golang.org times out on initial
+          # fetch of this large repo (~1.5GB). The direct fetch still triggers the
+          # proxy's background indexer, warming it for subsequent consumers.
+          GOPROXY: "https://proxy.golang.org,direct"
           GONOSUMDB: "github.com/amazon-contributing/opentelemetry-collector-contrib"
           TARGET_SHA: ${{ inputs.sha || github.sha }}
         run: |
