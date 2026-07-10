@@ -2,7 +2,7 @@ name: hydrate-goproxy
 
 on:
   push:
-    branches: [aws-cwa-dev, add-hydrate-goproxy-workflow]
+    branches: [aws-cwa-dev]
   workflow_dispatch:
     inputs:
       sha:
