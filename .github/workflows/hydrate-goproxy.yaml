@@ -158,7 +158,8 @@ jobs:
 
             pseudo=$(compute_pseudo_version "$prefix" "$upstream_path")
             EDIT_ARGS+=(-require "${upstream_path}@${pseudo}" -replace "${upstream_path}=${amazon_path}@${pseudo}")
-            EXPECTED_PATHS="${EXPECTED_PATHS}${upstream_path}"$'\n'
+            # go mod download -json reports .Path as the replacement target
+            EXPECTED_PATHS="${EXPECTED_PATHS}${amazon_path}"$'\n'
           done
 
           ADDED=$((TOTAL - SKIPPED))
