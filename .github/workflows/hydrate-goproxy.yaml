@@ -14,6 +14,8 @@ permissions:
 
 concurrency:
   group: hydrate-goproxy-${{ github.ref }}
+  # Without cancel-in-progress, intermediate commits in rapid pushes may be
+  # skipped. Use workflow_dispatch to hydrate a specific SHA if needed.
 
 jobs:
   hydrate:
@@ -49,6 +51,16 @@ jobs:
           REPO_BASE="github.com/amazon-contributing/opentelemetry-collector-contrib"
           UPSTREAM_BASE="github.com/open-telemetry/opentelemetry-collector-contrib"
 
+          # Validate workflow_dispatch SHA input format
+          if [[ "${TARGET_SHA}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            : # Full SHA from github.sha or valid user input
+          elif [[ "${TARGET_SHA}" =~ ^[0-9a-fA-F]{7,39}$ ]]; then
+            : # Short SHA from user input, will be expanded below
+          else
+            echo "::error title=hydrate-goproxy::Input must be a hex commit SHA (7-40 chars)"
+            exit 1
+          fi
+
           # Validate and expand SHA (handles short SHAs from workflow_dispatch)
           TARGET_SHA=$(git rev-parse --verify "${TARGET_SHA}^{commit}")
           echo "Resolved TARGET_SHA: ${TARGET_SHA}"
@@ -69,6 +81,10 @@ jobs:
               -not -path '*/vendor/*' \
             | while read -r f; do
                 upstream_path=$(awk '$1 == "module" { print $2; exit }' "$f")
+                if [ -z "$upstream_path" ]; then
+                  echo "::warning title=hydrate-goproxy::No module directive in ${f}" >&2
+                  continue
+                fi
                 dir=$(dirname "$f")
                 rel=${dir#.}
                 rel=${rel#/}
@@ -100,12 +116,14 @@ jobs:
             fi
           }
 
-          # Compute per-module pseudo-version based on nearest ancestor tag
+          # Compute per-module pseudo-version based on highest ancestor semver tag.
+          # Uses git tag --merged + version sort (matching Go's semantics) rather
+          # than git describe (which uses commit distance, not semver ordering).
           compute_pseudo_version() {
             local prefix="$1"
             local module_path="$2"
             local tag
-            tag=$(git describe --tags --abbrev=0 --match="${prefix}v[0-9]*" "${TARGET_SHA}" 2>/dev/null || true)
+            tag=$(git tag --list "${prefix}v[0-9]*" --merged "${TARGET_SHA}" --sort=-v:refname 2>/dev/null | head -1)
             if [ -z "$tag" ]; then
               local major
               major=$(major_from_path "$module_path")
@@ -120,19 +138,30 @@ jobs:
             local ver="${tag#"${prefix}"}"
             # Strip v prefix for parsing
             ver="${ver#v}"
-            # Validate: must be X.Y.Z with no pre-release or build metadata
-            if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "v0.0.0-${DATE}-${SHORT_SHA}"
-              echo "::warning title=hydrate-goproxy::Skipping non-semver tag '${tag}', using v0.0.0 fallback" >&2
-              return 0
-            fi
+            # Strip +build metadata (e.g. +incompatible)
+            ver="${ver%%+*}"
 
-            local major minor patch
-            major=$(echo "$ver" | cut -d. -f1)
-            minor=$(echo "$ver" | cut -d. -f2)
-            patch=$(echo "$ver" | cut -d. -f3)
-            patch=$((patch + 1))
-            echo "v${major}.${minor}.${patch}-0.${DATE}-${SHORT_SHA}"
+            # Parse semver: X.Y.Z with optional pre-release suffix
+            if [[ "$ver" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-(.+))?$ ]]; then
+              local major="${BASH_REMATCH[1]}"
+              local minor="${BASH_REMATCH[2]}"
+              local patch="${BASH_REMATCH[3]}"
+              local pre="${BASH_REMATCH[5]}"
+              if [ -n "$pre" ]; then
+                # Pre-release tag: pseudo-version appends .0.<date>-<sha> to the pre-release
+                echo "v${major}.${minor}.${patch}-${pre}.0.${DATE}-${SHORT_SHA}"
+              else
+                # Clean release tag: bump patch, use -0.<date>-<sha> suffix
+                # Go pseudo-version: base must be > nearest ancestor tag.
+                # vX.Y.(Z+1)-0 satisfies this. Assumes no vX.Y.(Z+1) release
+                # tag will be cut in this fork.
+                echo "v${major}.${minor}.$((patch + 1))-0.${DATE}-${SHORT_SHA}"
+              fi
+            else
+              echo "v0.0.0-${DATE}-${SHORT_SHA}"
+              echo "::warning title=hydrate-goproxy::Malformed tag '${tag}', using v0.0.0 fallback" >&2
+            fi
+            return 0
           }
 
           # Build go mod edit args for all modules at once
@@ -179,11 +208,11 @@ jobs:
           # Download all modules at once
           echo "Running go mod download..."
           DL_EXIT=0
-          go mod download -json > /tmp/download-results.json 2>/tmp/download-errors.log || DL_EXIT=$?
-          if [ -s /tmp/download-errors.log ]; then cat /tmp/download-errors.log >&2; fi
+          go mod download -json > "$d/download-results.json" 2>"$d/download-errors.log" || DL_EXIT=$?
+          if [ -s "$d/download-errors.log" ]; then cat "$d/download-errors.log" >&2; fi
 
-          FAILED=$(jq -r 'select(.Error != null) | "\(.Path): \(.Error)"' /tmp/download-results.json)
-          DOWNLOADED=$(jq -r 'select(.Error == null) | .Path' /tmp/download-results.json | sort -u)
+          FAILED=$(jq -r 'select(.Error != null) | "\(.Path): \(.Error)"' "$d/download-results.json")
+          DOWNLOADED=$(jq -r 'select(.Error == null) | .Path' "$d/download-results.json" | sort -u)
           MISSING=$(comm -23 <(echo "${EXPECTED_PATHS}" | sort -u | grep -v '^$') <(echo "${DOWNLOADED}"))
 
           if [ -n "$FAILED" ] || [ -n "$MISSING" ] || [ "$DL_EXIT" -ne 0 ]; then
