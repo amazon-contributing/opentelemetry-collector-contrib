@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: hydrate-goproxy-${{ github.ref }}
+
 jobs:
   hydrate:
     runs-on: ubuntu-latest
@@ -23,19 +26,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          fetch-tags: true
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ~1.24.13
+          # A warm module cache would bypass the proxy and defeat hydration
           cache: false
 
       - name: Hydrate Go module proxy
         shell: bash
         env:
           GOPROXY: "https://proxy.golang.org"
-          GONOSUMDB: "github.com/amazon-contributing/*"
+          GONOSUMDB: "github.com/amazon-contributing/opentelemetry-collector-contrib"
           TARGET_SHA: ${{ inputs.sha || github.sha }}
         run: |
           set -euo pipefail
@@ -83,46 +86,91 @@ jobs:
           fi
           echo "Found ${TOTAL} modules to hydrate"
 
-          # Compute per-module pseudo-version based on nearest ancestor tag
-          compute_pseudo_version() {
-            local prefix="$1"
-            local tag
-            tag=$(git describe --tags --abbrev=0 --match="${prefix}v[0-9]*" "${TARGET_SHA}" 2>/dev/null || true)
-            if [ -z "$tag" ]; then
-              echo "v0.0.0-${DATE}-${SHORT_SHA}"
+          # Derive major version from module path (for /v2+ modules)
+          major_from_path() {
+            local module="$1"
+            local suffix="${module##*/}"
+            if [[ "$suffix" =~ ^v([2-9][0-9]*)$ ]]; then
+              echo "v${BASH_REMATCH[1]}"
             else
-              local ver="${tag#"${prefix}"}"
-              if [[ "$ver" == *-* ]]; then
-                echo "::error title=hydrate-goproxy::Pre-release tag '${tag}' not supported" >&2
-                exit 1
-              fi
-              local major minor patch
-              major=$(echo "$ver" | cut -d. -f1)
-              minor=$(echo "$ver" | cut -d. -f2)
-              patch=$(echo "$ver" | cut -d. -f3)
-              patch=$((patch + 1))
-              echo "${major}.${minor}.${patch}-0.${DATE}-${SHORT_SHA}"
+              echo "v0"
             fi
           }
 
-          # Create temp module and add require+replace for each module
+          # Compute per-module pseudo-version based on nearest ancestor tag
+          compute_pseudo_version() {
+            local prefix="$1"
+            local module_path="$2"
+            local tag
+            tag=$(git describe --tags --abbrev=0 --match="${prefix}v[0-9]*" "${TARGET_SHA}" 2>/dev/null || true)
+            if [ -z "$tag" ]; then
+              local major
+              major=$(major_from_path "$module_path")
+              if [ "$major" = "v0" ]; then
+                echo "v0.0.0-${DATE}-${SHORT_SHA}"
+              else
+                echo "${major}.0.0-${DATE}-${SHORT_SHA}"
+              fi
+              return 0
+            fi
+
+            local ver="${tag#"${prefix}"}"
+            # Strip v prefix for parsing
+            ver="${ver#v}"
+            # Validate: must be X.Y.Z with no pre-release or build metadata
+            if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "v0.0.0-${DATE}-${SHORT_SHA}"
+              echo "::warning title=hydrate-goproxy::Skipping non-semver tag '${tag}', using v0.0.0 fallback" >&2
+              return 0
+            fi
+
+            local major minor patch
+            major=$(echo "$ver" | cut -d. -f1)
+            minor=$(echo "$ver" | cut -d. -f2)
+            patch=$(echo "$ver" | cut -d. -f3)
+            patch=$((patch + 1))
+            echo "v${major}.${minor}.${patch}-0.${DATE}-${SHORT_SHA}"
+          }
+
+          # Build go mod edit args for all modules at once
+          echo "Adding require and replace directives..."
+          EXPECTED_PATHS=""
+          EDIT_ARGS=()
+          SKIPPED=0
+
+          for entry in "${MODULE_ENTRIES[@]}"; do
+            upstream_path="${entry%%|*}"
+            prefix="${entry##*|}"
+
+            # Validate and derive amazon_path using defined constants
+            if [[ "$upstream_path" == "${UPSTREAM_BASE}"* ]]; then
+              amazon_path="${REPO_BASE}${upstream_path#"${UPSTREAM_BASE}"}"
+            elif [[ "$upstream_path" == "${REPO_BASE}"* ]]; then
+              amazon_path="$upstream_path"
+            else
+              echo "::warning title=hydrate-goproxy::Unexpected module path: ${upstream_path}, skipping"
+              SKIPPED=$((SKIPPED + 1))
+              continue
+            fi
+
+            pseudo=$(compute_pseudo_version "$prefix" "$upstream_path")
+            EDIT_ARGS+=(-require "${upstream_path}@${pseudo}" -replace "${upstream_path}=${amazon_path}@${pseudo}")
+            EXPECTED_PATHS="${EXPECTED_PATHS}${upstream_path}"$'\n'
+          done
+
+          ADDED=$((TOTAL - SKIPPED))
+          if [ "$ADDED" -eq 0 ]; then
+            echo "::error title=hydrate-goproxy::No valid modules to hydrate"
+            exit 1
+          fi
+
+          # Create temp module and apply all edits in one call
           d=$(mktemp -d)
           trap 'rm -rf "$d"' EXIT
           cd "$d"
           go mod init hydrate
-
-          echo "Adding require and replace directives..."
-          EXPECTED_PATHS=""
-          for entry in "${MODULE_ENTRIES[@]}"; do
-            upstream_path="${entry%%|*}"
-            prefix="${entry##*|}"
-            pseudo=$(compute_pseudo_version "$prefix")
-            amazon_path="${upstream_path/open-telemetry/amazon-contributing}"
-            go mod edit -require "${upstream_path}@${pseudo}"
-            go mod edit -replace "${upstream_path}=${amazon_path}@${pseudo}"
-            EXPECTED_PATHS="${EXPECTED_PATHS}${upstream_path}"$'\n'
-          done
-          echo "Added ${TOTAL} modules"
+          go mod edit "${EDIT_ARGS[@]}"
+          echo "Added ${ADDED} modules (skipped ${SKIPPED})"
 
           # Download all modules at once
           echo "Running go mod download..."
@@ -146,5 +194,5 @@ jobs:
             echo "::error title=hydrate-goproxy::Hydration failed (exit=${DL_EXIT}, failed=$(echo "$FAILED" | grep -c . || true), missing=$(echo "$MISSING" | grep -c . || true))"
             exit 1
           fi
-          echo "Success: all ${TOTAL} modules downloaded"
+          echo "Success: all ${ADDED} modules downloaded"
           echo "Hydration complete."
