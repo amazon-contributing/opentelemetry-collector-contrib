@@ -9,6 +9,9 @@ on:
         description: "Commit SHA to hydrate (defaults to HEAD of selected branch)"
         required: false
 
+permissions:
+  contents: read
+
 jobs:
   hydrate:
     runs-on: ubuntu-latest
@@ -20,6 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -28,54 +32,118 @@ jobs:
           cache: false
 
       - name: Hydrate Go module proxy
+        shell: bash
         env:
+          GOPROXY: "https://proxy.golang.org"
           GONOSUMDB: "github.com/amazon-contributing/*"
           TARGET_SHA: ${{ inputs.sha || github.sha }}
         run: |
+          set -euo pipefail
+
           REPO_BASE="github.com/amazon-contributing/opentelemetry-collector-contrib"
+          UPSTREAM_BASE="github.com/open-telemetry/opentelemetry-collector-contrib"
 
-          MODULE_LIST=$(find "${GITHUB_WORKSPACE}" -name 'go.mod' -type f \
-            | while read -r f; do
-                dir=$(dirname "$f")
-                rel=${dir#"${GITHUB_WORKSPACE}"}
-                if [ -z "$rel" ]; then
-                  continue
-                else
-                  echo "${REPO_BASE}${rel}"
-                fi
-              done \
-            | sort)
+          # Validate and expand SHA (handles short SHAs from workflow_dispatch)
+          TARGET_SHA=$(git rev-parse --verify "${TARGET_SHA}^{commit}")
+          echo "Resolved TARGET_SHA: ${TARGET_SHA}"
 
-          TOTAL=$(echo "${MODULE_LIST}" | wc -l | tr -d ' ')
-          echo "Found ${TOTAL} modules to hydrate at ref ${TARGET_SHA}"
+          # Checkout target SHA so module discovery matches the target ref
+          git checkout --detach "${TARGET_SHA}"
 
-          echo "Resolving commit SHA to pseudo-version..."
+          # Derive pseudo-version timestamp and short hash
           COMMIT_TIME=$(git log -1 --format=%ct "${TARGET_SHA}")
           DATE=$(date -u -d "@${COMMIT_TIME}" +%Y%m%d%H%M%S)
           SHORT_SHA=${TARGET_SHA:0:12}
-          PSEUDO_VERSION="v0.0.0-${DATE}-${SHORT_SHA}"
-          echo "Resolved: ${PSEUDO_VERSION}"
 
+          # Discover modules from go.mod files, excluding testdata and vendor
+          echo "Discovering modules..."
+          mapfile -t MODULE_ENTRIES < <(
+            find . -name 'go.mod' -type f \
+              -not -path '*/testdata/*' \
+              -not -path '*/vendor/*' \
+            | while read -r f; do
+                upstream_path=$(awk '$1 == "module" { print $2; exit }' "$f")
+                dir=$(dirname "$f")
+                rel=${dir#.}
+                rel=${rel#/}
+                if [ -z "$rel" ]; then
+                  prefix=""
+                else
+                  prefix="${rel}/"
+                fi
+                echo "${upstream_path}|${prefix}"
+              done \
+            | sort
+          )
+
+          TOTAL=${#MODULE_ENTRIES[@]}
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "::error title=hydrate-goproxy::No modules found"
+            exit 1
+          fi
+          echo "Found ${TOTAL} modules to hydrate"
+
+          # Compute per-module pseudo-version based on nearest ancestor tag
+          compute_pseudo_version() {
+            local prefix="$1"
+            local tag
+            tag=$(git describe --tags --abbrev=0 --match="${prefix}v[0-9]*" "${TARGET_SHA}" 2>/dev/null || true)
+            if [ -z "$tag" ]; then
+              echo "v0.0.0-${DATE}-${SHORT_SHA}"
+            else
+              local ver="${tag#"${prefix}"}"
+              if [[ "$ver" == *-* ]]; then
+                echo "::error title=hydrate-goproxy::Pre-release tag '${tag}' not supported" >&2
+                exit 1
+              fi
+              local major minor patch
+              major=$(echo "$ver" | cut -d. -f1)
+              minor=$(echo "$ver" | cut -d. -f2)
+              patch=$(echo "$ver" | cut -d. -f3)
+              patch=$((patch + 1))
+              echo "${major}.${minor}.${patch}-0.${DATE}-${SHORT_SHA}"
+            fi
+          }
+
+          # Create temp module and add require+replace for each module
           d=$(mktemp -d)
           trap 'rm -rf "$d"' EXIT
           cd "$d"
           go mod init hydrate
 
           echo "Adding require and replace directives..."
-          for mod in ${MODULE_LIST}; do
-            upstream=${mod/amazon-contributing/open-telemetry}
-            go mod edit -require "${upstream}@${PSEUDO_VERSION}"
-            go mod edit -replace "${upstream}=${mod}@${PSEUDO_VERSION}"
+          EXPECTED_PATHS=""
+          for entry in "${MODULE_ENTRIES[@]}"; do
+            upstream_path="${entry%%|*}"
+            prefix="${entry##*|}"
+            pseudo=$(compute_pseudo_version "$prefix")
+            amazon_path="${upstream_path/open-telemetry/amazon-contributing}"
+            go mod edit -require "${upstream_path}@${pseudo}"
+            go mod edit -replace "${upstream_path}=${amazon_path}@${pseudo}"
+            EXPECTED_PATHS="${EXPECTED_PATHS}${upstream_path}"$'\n'
           done
           echo "Added ${TOTAL} modules"
 
+          # Download all modules at once
           echo "Running go mod download..."
-          go mod download -json > /tmp/download-results.json 2>/tmp/download-errors.log || true
-          [ -s /tmp/download-errors.log ] && cat /tmp/download-errors.log >&2
+          DL_EXIT=0
+          go mod download -json > /tmp/download-results.json 2>/tmp/download-errors.log || DL_EXIT=$?
+          if [ -s /tmp/download-errors.log ]; then cat /tmp/download-errors.log >&2; fi
+
           FAILED=$(jq -r 'select(.Error != null) | "\(.Path): \(.Error)"' /tmp/download-results.json)
-          if [ -n "$FAILED" ]; then
-            echo "FAILED modules:"
-            echo "$FAILED"
+          DOWNLOADED=$(jq -r 'select(.Error == null) | .Path' /tmp/download-results.json | sort -u)
+          MISSING=$(comm -23 <(echo "${EXPECTED_PATHS}" | sort -u | grep -v '^$') <(echo "${DOWNLOADED}"))
+
+          if [ -n "$FAILED" ] || [ -n "$MISSING" ] || [ "$DL_EXIT" -ne 0 ]; then
+            if [ -n "$FAILED" ]; then
+              echo "FAILED modules:"
+              echo "$FAILED"
+            fi
+            if [ -n "$MISSING" ]; then
+              echo "MISSING from download results:"
+              echo "$MISSING"
+            fi
+            echo "::error title=hydrate-goproxy::Hydration failed (exit=${DL_EXIT}, failed=$(echo "$FAILED" | grep -c . || true), missing=$(echo "$MISSING" | grep -c . || true))"
             exit 1
           fi
           echo "Success: all ${TOTAL} modules downloaded"
