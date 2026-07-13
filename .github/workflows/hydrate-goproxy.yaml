@@ -155,7 +155,7 @@ jobs:
             EDIT_ARGS+=(-require "${upstream_path}@${pseudo}" -replace "${upstream_path}=${amazon_path}@${pseudo}")
             # go mod download -json reports .Path as the replacement target (verified Go 1.24.x)
             EXPECTED_PATHS="${EXPECTED_PATHS}${amazon_path}"$'\n'
-            HYDRATION_PLAN="${HYDRATION_PLAN}module=${upstream_path} replacement=${amazon_path} version=${pseudo} tag_base=<none>"$'\n'
+            HYDRATION_PLAN="${HYDRATION_PLAN}${upstream_path} => ${amazon_path}@${pseudo}"$'\n'
           done
 
           ADDED=$((TOTAL - SKIPPED))
@@ -163,7 +163,9 @@ jobs:
             echo "::error title=hydrate-goproxy::No valid modules to hydrate"
             exit 1
           fi
-          echo "::group::Hydration plan"
+          echo "::group::Hydration plan (${ADDED} modules)"
+          echo "tag_base=<none> (git tags ignored)"
+          echo "format: module => replacement@version"
           printf '%s' "$HYDRATION_PLAN"
           echo "::endgroup::"
 
