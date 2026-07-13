@@ -75,7 +75,12 @@ jobs:
           # Derive pseudo-version timestamp and short hash
           COMMIT_TIME=$(git log -1 --format=%ct "${TARGET_SHA}")
           DATE=$(date -u -d "@${COMMIT_TIME}" +%Y%m%d%H%M%S)
+          COMMIT_TIME_UTC=$(date -u -d "@${COMMIT_TIME}" +%Y-%m-%dT%H:%M:%SZ)
           SHORT_SHA=${TARGET_SHA:0:12}
+          echo "Target commit time (UTC): ${COMMIT_TIME_UTC}"
+          echo "Pseudo-version timestamp: ${DATE}"
+          echo "Pseudo-version short SHA: ${SHORT_SHA}"
+          echo "Versioning policy: using v0.0.0 pseudo-version base; git tags are ignored for hydration"
 
           # Discover modules from go.mod files, excluding testdata and vendor
           echo "Discovering modules..."
@@ -89,15 +94,7 @@ jobs:
                   echo "::warning title=hydrate-goproxy::No module directive in ${f}" >&2
                   continue
                 fi
-                dir=$(dirname "$f")
-                rel=${dir#.}
-                rel=${rel#/}
-                if [ -z "$rel" ]; then
-                  prefix=""
-                else
-                  prefix="${rel}/"
-                fi
-                echo "${upstream_path}|${prefix}"
+                echo "${upstream_path}"
               done \
             | sort
           )
@@ -120,64 +117,29 @@ jobs:
             fi
           }
 
-          # Compute per-module pseudo-version based on highest ancestor semver tag.
-          # Uses git tag --merged + version sort (matching Go's semantics) rather
-          # than git describe (which uses commit distance, not semver ordering).
+          # Compute per-module pseudo-version from the target commit only. Tags are
+          # intentionally ignored so inherited upstream release tags do not affect
+          # fork hydration versions.
           compute_pseudo_version() {
-            local prefix="$1"
-            local module_path="$2"
-            local tag
-            tag=$(git -c versionsort.suffix=- tag --list "${prefix}v[0-9]*" --merged "${TARGET_SHA}" --sort=-v:refname 2>/dev/null | head -1 || true)
-            if [ -z "$tag" ]; then
-              local major
-              major=$(major_from_path "$module_path")
-              if [ "$major" = "v0" ]; then
-                echo "v0.0.0-${DATE}-${SHORT_SHA}"
-              else
-                echo "${major}.0.0-${DATE}-${SHORT_SHA}"
-              fi
-              return 0
-            fi
-
-            local ver="${tag#"${prefix}"}"
-            # Strip v prefix for parsing
-            ver="${ver#v}"
-            # Strip +build metadata (e.g. +incompatible)
-            ver="${ver%%+*}"
-
-            # Parse semver: X.Y.Z with optional pre-release suffix
-            if [[ "$ver" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-(.+))?$ ]]; then
-              local major="${BASH_REMATCH[1]}"
-              local minor="${BASH_REMATCH[2]}"
-              local patch="${BASH_REMATCH[3]}"
-              local pre="${BASH_REMATCH[5]}"
-              if [ -n "$pre" ]; then
-                # Pre-release tag: pseudo-version appends .0.<date>-<sha> to the pre-release
-                echo "v${major}.${minor}.${patch}-${pre}.0.${DATE}-${SHORT_SHA}"
-              else
-                # Clean release tag: bump patch, use -0.<date>-<sha> suffix
-                # Go pseudo-version: base must be > nearest ancestor tag.
-                # vX.Y.(Z+1)-0 satisfies this. Assumes no vX.Y.(Z+1) release
-                # tag will be cut in this fork.
-                echo "v${major}.${minor}.$((patch + 1))-0.${DATE}-${SHORT_SHA}"
-              fi
-            else
+            local module_path="$1"
+            local major
+            major=$(major_from_path "$module_path")
+            if [ "$major" = "v0" ]; then
               echo "v0.0.0-${DATE}-${SHORT_SHA}"
-              echo "::warning title=hydrate-goproxy::Malformed tag '${tag}', using v0.0.0 fallback" >&2
+            else
+              echo "${major}.0.0-${DATE}-${SHORT_SHA}"
             fi
-            return 0
           }
+
 
           # Build go mod edit args for all modules at once
           echo "Adding require and replace directives..."
           EXPECTED_PATHS=""
           EDIT_ARGS=()
+          HYDRATION_PLAN=""
           SKIPPED=0
 
-          for entry in "${MODULE_ENTRIES[@]}"; do
-            upstream_path="${entry%%|*}"
-            prefix="${entry##*|}"
-
+          for upstream_path in "${MODULE_ENTRIES[@]}"; do
             # Validate and derive amazon_path using defined constants
             if [[ "$upstream_path" == "${UPSTREAM_BASE}"* ]]; then
               amazon_path="${REPO_BASE}${upstream_path#"${UPSTREAM_BASE}"}"
@@ -189,10 +151,11 @@ jobs:
               continue
             fi
 
-            pseudo=$(compute_pseudo_version "$prefix" "$upstream_path")
+            pseudo=$(compute_pseudo_version "$upstream_path")
             EDIT_ARGS+=(-require "${upstream_path}@${pseudo}" -replace "${upstream_path}=${amazon_path}@${pseudo}")
             # go mod download -json reports .Path as the replacement target (verified Go 1.24.x)
             EXPECTED_PATHS="${EXPECTED_PATHS}${amazon_path}"$'\n'
+            HYDRATION_PLAN="${HYDRATION_PLAN}module=${upstream_path} replacement=${amazon_path} version=${pseudo} tag_base=<none>"$'\n'
           done
 
           ADDED=$((TOTAL - SKIPPED))
@@ -200,6 +163,9 @@ jobs:
             echo "::error title=hydrate-goproxy::No valid modules to hydrate"
             exit 1
           fi
+          echo "::group::Hydration plan"
+          printf '%s' "$HYDRATION_PLAN"
+          echo "::endgroup::"
 
           # Create temp module and apply all edits in one call
           d=$(mktemp -d)
