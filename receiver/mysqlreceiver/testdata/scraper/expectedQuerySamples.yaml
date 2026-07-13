@@ -6,7 +6,7 @@ resourceLogs:
             stringValue: localhost:3306
         - key: service.instance.id
           value:
-            stringValue: dev-dsk-larkirs-1a-59fc0273.us-east-1.amazon.com:3306
+            stringValue: localhost:3306
     scopeLogs:
       - logRecords:
           - attributes:
