@@ -78,6 +78,8 @@ all_set:
       enabled: true
     postgresql.table.name:
       enabled: true
+    service.instance.id:
+      enabled: true
 none_set:
   metrics:
     postgresql.backends:
@@ -156,6 +158,8 @@ none_set:
     postgresql.schema.name:
       enabled: false
     postgresql.table.name:
+      enabled: false
+    service.instance.id:
       enabled: false
 filter_set_include:
   resource_attributes:

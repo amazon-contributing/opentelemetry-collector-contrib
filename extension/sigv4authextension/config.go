@@ -5,18 +5,18 @@ package sigv4authextension // import "github.com/open-telemetry/opentelemetry-co
 
 import (
 	"errors"
-	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"go.opentelemetry.io/collector/component"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 // Config stores the configuration for the Sigv4 Authenticator
 type Config struct {
-	Region        string     `mapstructure:"region,omitempty"`
-	Service       string     `mapstructure:"service,omitempty"`
-	AssumeRole    AssumeRole `mapstructure:"assume_role"`
-	credsProvider *aws.CredentialsProvider
+	awsutilv2.AWSSessionSettings `mapstructure:",squash"`
+
+	Service    string     `mapstructure:"service,omitempty"`
+	AssumeRole AssumeRole `mapstructure:"assume_role"`
 }
 
 // AssumeRole holds the configuration needed to assume a role
@@ -30,31 +30,43 @@ type AssumeRole struct {
 // compile time check that the Config struct satisfies the component.Config interface
 var _ component.Config = (*Config)(nil)
 
-// Validate checks that the configuration is valid.
-// We aim to catch most errors here to ensure that we
-// fail early and to avoid revalidating static data.
+// Validate checks that the configuration is well-formed.
 func (cfg *Config) Validate() error {
-	if cfg.AssumeRole.STSRegion == "" && cfg.Region != "" {
-		cfg.AssumeRole.STSRegion = cfg.Region
+	if cfg.AssumeRole.ARN != "" && cfg.RoleARN != "" {
+		return errors.New("role_arn and assume_role.arn cannot both be set")
 	}
-
-	var credsProvider *aws.CredentialsProvider
-	var err error
-	if cfg.AssumeRole.WebIdentityTokenFile != "" {
-		if cfg.AssumeRole.ARN == "" {
-			return errors.New("must specify ARN when using WebIdentityTokenFile")
-		}
-		credsProvider, err = getCredsProviderFromWebIdentityConfig(cfg)
-	} else {
-		credsProvider, err = getCredsProviderFromConfig(cfg)
+	if cfg.AssumeRole.WebIdentityTokenFile != "" && cfg.WebIdentityTokenFile != "" {
+		return errors.New("web_identity_token_file and assume_role.web_identity_token_file cannot both be set")
 	}
-	if err != nil {
-		return fmt.Errorf("could not retrieve credential provider: %w", err)
+	if cfg.resolvedWebIdentityTokenFile() != "" && cfg.resolvedRoleARN() == "" {
+		return errors.New("must specify role_arn or assume_role.arn when using web_identity_token_file")
 	}
-	if credsProvider == nil {
-		return errors.New("credsProvider cannot be nil")
-	}
-	cfg.credsProvider = credsProvider
-
 	return nil
+}
+
+// resolvedRoleARN returns whichever of cfg.RoleARN (top-level) or cfg.AssumeRole.ARN is set.
+// Validate guarantees they are not both set; returns "" when neither is set.
+func (cfg *Config) resolvedRoleARN() string {
+	if cfg.AssumeRole.ARN != "" {
+		return cfg.AssumeRole.ARN
+	}
+	return cfg.RoleARN
+}
+
+// resolvedSTSRegion returns AssumeRole.STSRegion if set, otherwise falls back to Region.
+func (cfg *Config) resolvedSTSRegion() string {
+	if cfg.AssumeRole.STSRegion != "" {
+		return cfg.AssumeRole.STSRegion
+	}
+	return cfg.Region
+}
+
+// resolvedWebIdentityTokenFile returns whichever of cfg.AWSSessionSettings.WebIdentityTokenFile
+// (top-level) or cfg.AssumeRole.WebIdentityTokenFile is set. Validate guarantees they are not
+// both set; returns "" when neither is set.
+func (cfg *Config) resolvedWebIdentityTokenFile() string {
+	if cfg.AssumeRole.WebIdentityTokenFile != "" {
+		return cfg.AssumeRole.WebIdentityTokenFile
+	}
+	return cfg.WebIdentityTokenFile
 }

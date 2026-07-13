@@ -60,7 +60,7 @@ func newExtension(logger *zap.Logger, cfg *Config) *provisionerExtension {
 func (e *provisionerExtension) Start(ctx context.Context, host component.Host) error {
 	e.host = host
 
-	client, err := newDefaultCWLogsClient(ctx, e.cfg.Region, e.cfg.LogsProvisionTimeout)
+	client, err := newDefaultCWLogsClient(ctx, e.logger, &e.cfg.AWSSessionSettings)
 	if err != nil {
 		return fmt.Errorf("failed to create CW Logs client: %w", err)
 	}
