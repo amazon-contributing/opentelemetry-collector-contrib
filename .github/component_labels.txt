@@ -113,6 +113,7 @@ extension/observer/hostobserver extension/observer/hostobserver
 extension/observer/k8sobserver extension/observer/k8sobserver
 extension/observer/kafkatopicsobserver extension/observer/kafkatopicsobserver
 extension/oidcauthextension extension/oidcauth
+extension/oidctokenextension extension/oidctoken
 extension/opampcustommessages extension/opampcustommessages
 extension/opampextension extension/opamp
 extension/pprofextension extension/pprof

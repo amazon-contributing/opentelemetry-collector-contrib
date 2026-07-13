@@ -117,6 +117,7 @@ components:
     - extension/oauth2client
     - extension/observer
     - extension/oidc
+    - extension/oidctoken
     - extension/opamp
     - extension/opampcustommessages
     - extension/otlp_encoding

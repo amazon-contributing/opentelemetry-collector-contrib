@@ -127,6 +127,7 @@ body:
       - extension/observer/k8sobserver
       - extension/observer/kafkatopicsobserver
       - extension/oidcauth
+      - extension/oidctoken
       - extension/opamp
       - extension/opampcustommessages
       - extension/pprof

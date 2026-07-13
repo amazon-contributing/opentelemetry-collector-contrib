@@ -187,6 +187,7 @@ pkg/xk8stest
 extension/observer/k8sobserver
 extension/observer/kafkatopicsobserver
 extension/oidcauthextension
+extension/oidctokenextension
 extension/opampcustommessages
 extension/opampextension
 extension/pprofextension
