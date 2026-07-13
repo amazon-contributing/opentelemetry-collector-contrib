@@ -37,8 +37,11 @@ func (cfg *Config) Validate() error {
 	if cfg.AssumeRole.ARN != "" && cfg.RoleARN != "" {
 		return errors.New("role_arn and assume_role.arn cannot both be set")
 	}
-	if cfg.AssumeRole.WebIdentityTokenFile != "" && cfg.resolvedRoleARN() == "" {
-		return errors.New("must specify role_arn or assume_role.arn when using WebIdentityTokenFile")
+	if cfg.AssumeRole.WebIdentityTokenFile != "" && cfg.WebIdentityTokenFile != "" {
+		return errors.New("web_identity_token_file and assume_role.web_identity_token_file cannot both be set")
+	}
+	if cfg.resolvedWebIdentityTokenFile() != "" && cfg.resolvedRoleARN() == "" {
+		return errors.New("must specify role_arn or assume_role.arn when using web_identity_token_file")
 	}
 	return nil
 }
@@ -50,6 +53,16 @@ func (cfg *Config) resolvedRoleARN() string {
 		return cfg.AssumeRole.ARN
 	}
 	return cfg.RoleARN
+}
+
+// resolvedWebIdentityTokenFile returns whichever of cfg.AssumeRole.WebIdentityTokenFile or the
+// top-level cfg.WebIdentityTokenFile (embedded AWSSessionSettings) is set. Validate guarantees they
+// are not both set; returns "" when neither is set.
+func (cfg *Config) resolvedWebIdentityTokenFile() string {
+	if cfg.AssumeRole.WebIdentityTokenFile != "" {
+		return cfg.AssumeRole.WebIdentityTokenFile
+	}
+	return cfg.WebIdentityTokenFile
 }
 
 // resolvedExternalID pairs the external ID with the role source: assume_role.external_id when the

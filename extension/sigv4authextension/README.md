@@ -32,14 +32,16 @@ The configuration fields are as follows:
     * Note for supported services an attempt will be made to obtain a valid service from the endpoint of the service you are exporting to. Supported services include - workspaces, es, logs and traces.
 
 The extension also accepts the standard AWS session settings — `region`, `profile`,
-`shared_credentials_file`, `local_mode`, `role_arn`, `external_id`, `endpoint`,
-`proxy_address`, `certificate_file_path`, `no_verify_ssl`, `request_timeout_seconds`,
-`imds_retries`. See [`AWSSessionSettings`](../../internal/aws/awsutil/awsconfig.go)
-for the full list.
+`shared_credentials_file`, `local_mode`, `role_arn`, `external_id`,
+`web_identity_token_file`, `endpoint`, `proxy_address`, `certificate_file_path`,
+`no_verify_ssl`, `request_timeout_seconds`, `imds_retries`. See
+[`AWSSessionSettings`](../../internal/aws/awsutil/awsconfig.go) for the full list.
 
 > Note that an attempt will be made to obtain a valid `region` from the endpoint of the service you are exporting to. `region` is differentiated from `assume_role.sts_region` to handle cross region authentication. See the [list of AWS regions](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html).
 
 > The role ARN can be set via either `role_arn` (inherited from session settings) or `assume_role.arn`, but not both.
+
+> The web identity token file can be set via either `web_identity_token_file` (inherited from session settings) or `assume_role.web_identity_token_file`, but not both. A role (`role_arn` or `assume_role.arn`) is required when it is set.
 
 
 ## Assume Role

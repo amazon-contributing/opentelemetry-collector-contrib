@@ -75,6 +75,19 @@ func TestLoadConfigError(t *testing.T) {
 	assert.ErrorContains(t, err, "must specify role_arn or assume_role.arn")
 }
 
+func TestValidateRejectsBothWebIdentityTokenFiles(t *testing.T) {
+	cfg := &Config{
+		AWSSessionSettings: awsutil.AWSSessionSettings{
+			Region:               "region",
+			RoleARN:              "arn:aws:iam::123456789012:role/my_role",
+			WebIdentityTokenFile: "testdata/token_file",
+		},
+		AssumeRole: AssumeRole{WebIdentityTokenFile: "testdata/token_file"},
+	}
+	err := cfg.Validate()
+	assert.ErrorContains(t, err, "web_identity_token_file and assume_role.web_identity_token_file cannot both be set")
+}
+
 func TestValidateRejectsBothRoleARNs(t *testing.T) {
 	cfg := &Config{
 		AWSSessionSettings: awsutil.AWSSessionSettings{

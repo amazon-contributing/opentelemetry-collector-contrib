@@ -49,7 +49,7 @@ func TestRoundTripper(t *testing.T) {
 	assert.Equal(t, awsCredsProvider, si.credsProvider)
 }
 
-func TestGetCredsProviderFromConfig(t *testing.T) {
+func TestResolveCredentialsProvider(t *testing.T) {
 	tests := []struct {
 		name            string
 		cfg             *Config
@@ -78,7 +78,7 @@ func TestGetCredsProviderFromConfig(t *testing.T) {
 			isolateAWSEnv(t)
 			t.Setenv("AWS_ACCESS_KEY_ID", testcase.AccessKeyID)
 			t.Setenv("AWS_SECRET_ACCESS_KEY", testcase.SecretAccessKey)
-			credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), testcase.cfg)
+			credsProvider, err := resolveCredentialsProvider(t.Context(), zap.NewNop(), testcase.cfg)
 
 			if testcase.shouldError {
 				assert.Error(t, err)
@@ -96,7 +96,7 @@ func TestGetCredsProviderFromConfig(t *testing.T) {
 	}
 }
 
-func TestGetCredsProviderFromConfig_SharedCredentialsFile(t *testing.T) {
+func TestResolveCredentialsProvider_SharedCredentialsFile(t *testing.T) {
 	isolateAWSEnv(t)
 	cfg := &Config{
 		AWSSessionSettings: awsutil.AWSSessionSettings{
@@ -107,7 +107,7 @@ func TestGetCredsProviderFromConfig_SharedCredentialsFile(t *testing.T) {
 		AssumeRole: AssumeRole{STSRegion: "region"},
 	}
 
-	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
+	credsProvider, err := resolveCredentialsProvider(t.Context(), zap.NewNop(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, credsProvider)
 
@@ -116,7 +116,7 @@ func TestGetCredsProviderFromConfig_SharedCredentialsFile(t *testing.T) {
 	assert.Equal(t, "FAKEAWSACCESSKEYID00", creds.AccessKeyID)
 }
 
-func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
+func TestResolveCredentialsProvider_Profile(t *testing.T) {
 	isolateAWSEnv(t)
 	cfg := &Config{
 		AWSSessionSettings: awsutil.AWSSessionSettings{
@@ -128,7 +128,7 @@ func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
 		AssumeRole: AssumeRole{STSRegion: "region"},
 	}
 
-	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
+	credsProvider, err := resolveCredentialsProvider(t.Context(), zap.NewNop(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, credsProvider)
 
@@ -137,7 +137,7 @@ func TestGetCredsProviderFromConfig_Profile(t *testing.T) {
 	assert.Equal(t, "FAKEAWSACCESSKEYID01", creds.AccessKeyID)
 }
 
-func TestGetCredsProviderFromConfig_LocalMode(t *testing.T) {
+func TestResolveCredentialsProvider_LocalMode(t *testing.T) {
 	isolateAWSEnv(t)
 	cfg := &Config{
 		AWSSessionSettings: awsutil.AWSSessionSettings{
@@ -149,44 +149,40 @@ func TestGetCredsProviderFromConfig_LocalMode(t *testing.T) {
 		AssumeRole: AssumeRole{STSRegion: "region"},
 	}
 
-	credsProvider, err := getCredsProviderFromConfig(t.Context(), zap.NewNop(), cfg)
+	credsProvider, err := resolveCredentialsProvider(t.Context(), zap.NewNop(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, credsProvider)
 }
 
-func TestGetCredsProviderFromWebIdentityConfig(t *testing.T) {
+func TestResolveCredentialsProvider_WebIdentity(t *testing.T) {
+	const roleARN = "arn:aws:iam::123456789012:role/my_role"
 	tests := []struct {
-		name        string
-		cfg         *Config
-		shouldError bool
+		name string
+		cfg  *Config
 	}{
 		{
-			"valid_token",
-			&Config{AWSSessionSettings: awsutil.AWSSessionSettings{Region: "region"}, Service: "service", AssumeRole: AssumeRole{ARN: "arn:aws:iam::123456789012:role/my_role", WebIdentityTokenFile: "testdata/token_file"}},
-			false,
+			"assume_role_web_identity_token_file",
+			&Config{AWSSessionSettings: awsutil.AWSSessionSettings{Region: "region"}, Service: "service", AssumeRole: AssumeRole{ARN: roleARN, WebIdentityTokenFile: "testdata/token_file"}},
 		},
 		{
-			"missing_token_file",
-			&Config{AWSSessionSettings: awsutil.AWSSessionSettings{Region: "region"}, Service: "service", AssumeRole: AssumeRole{ARN: "arn:aws:iam::123456789012:role/my_role", WebIdentityTokenFile: "testdata/no_token_file"}},
-			true,
+			"top_level_web_identity_token_file",
+			&Config{AWSSessionSettings: awsutil.AWSSessionSettings{Region: "region", RoleARN: roleARN, WebIdentityTokenFile: "testdata/token_file"}, Service: "service", AssumeRole: AssumeRole{STSRegion: "region"}},
+		},
+		{
+			// The #595 fix: a not-yet-present token file must NOT fail provider
+			// creation; it is read lazily on first Retrieve.
+			"missing_token_file_resolves_lazily",
+			&Config{AWSSessionSettings: awsutil.AWSSessionSettings{Region: "region"}, Service: "service", AssumeRole: AssumeRole{ARN: roleARN, WebIdentityTokenFile: "testdata/no_token_file"}},
 		},
 	}
-	// run tests
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
 			isolateAWSEnv(t)
-			credsProvider, err := getCredsProviderFromWebIdentityConfig(t.Context(), zap.NewNop(), testcase.cfg)
-
-			if testcase.shouldError {
-				assert.Error(t, err)
-				assert.Nil(t, credsProvider)
-				return
-			}
-
+			credsProvider, err := resolveCredentialsProvider(t.Context(), zap.NewNop(), testcase.cfg)
 			require.NoError(t, err)
 			require.NotNil(t, credsProvider)
 
-			// Should always error out as we are not providing a real token.
+			// Retrieve errors: no real OIDC token / STS endpoint in tests.
 			_, err = (*credsProvider).Retrieve(t.Context())
 			assert.Error(t, err)
 		})
