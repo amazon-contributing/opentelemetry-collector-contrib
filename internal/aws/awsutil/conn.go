@@ -11,6 +11,7 @@ import (
 
 	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"go.uber.org/zap"
 )
@@ -18,12 +19,17 @@ import (
 // GetAWSConfig returns an aws.Config configured per AWSSessionSettings.
 //
 // Region resolution priority: settings.Region, then AWS_REGION, then EC2
-// IMDS (skipped when settings.LocalMode is true). When settings.RoleARN
-// is non-empty, credentials are wrapped in an STS AssumeRole provider
-// that falls back from the regional endpoint to the partition's primary
-// endpoint on RegionDisabledException. Otherwise credentials come from
-// the chain in getCredentialProviderChain, falling through to the SDK
-// default chain when that's empty.
+// IMDS (skipped when settings.LocalMode is true).
+//
+// Credential wrapping (over the resolved base credentials, with regional->
+// partitional STS fallback on RegionDisabledException):
+//   - settings.WebIdentityTokenFile set: STS AssumeRoleWithWebIdentity using that
+//     OIDC token file (requires settings.RoleARN; the token is read lazily on
+//     first Retrieve, so a not-yet-present projected token does not fail here).
+//   - else settings.RoleARN set: STS AssumeRole (threading settings.ExternalID
+//     when non-empty).
+//   - else: the base chain from getRootCredentials, falling through to the SDK
+//     default chain when that's empty.
 //
 // settings is read-only; the same pointer can be reused across calls.
 func GetAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionSettings) (aws.Config, error) {
@@ -58,9 +64,18 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 		cfg.BaseEndpoint = aws.String(settings.Endpoint)
 	}
 
-	if settings.RoleARN != "" {
+	switch {
+	case settings.WebIdentityTokenFile != "":
+		if settings.RoleARN == "" {
+			return aws.Config{}, errors.New("role_arn must be set when web_identity_token_file is configured")
+		}
 		cfg.Credentials = aws.NewCredentialsCache(
-			newStsCredentialsProvider(cfg, settings.RoleARN, region, settings.ExternalID),
+			newWebIdentityCredentialsProvider(cfg, settings.RoleARN, region,
+				stscreds.IdentityTokenFile(settings.WebIdentityTokenFile)),
+		)
+	case settings.RoleARN != "":
+		cfg.Credentials = aws.NewCredentialsCache(
+			newAssumeRoleCredentialsProvider(cfg, settings.RoleARN, region, settings.ExternalID),
 		)
 	}
 

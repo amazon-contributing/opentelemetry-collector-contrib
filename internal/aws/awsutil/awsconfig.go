@@ -37,6 +37,8 @@ type AWSSessionSettings struct {
 	IMDSRetries int `mapstructure:"imds_retries"`
 	// External ID to verify third party role assumption
 	ExternalID string `mapstructure:"external_id,omitempty"`
+	// Path to an OIDC token file for STS AssumeRoleWithWebIdentity. Requires RoleARN.
+	WebIdentityTokenFile string `mapstructure:"web_identity_token_file,omitempty"`
 }
 
 // httpClientSettings is the subset of AWSSessionSettings that determines the HTTP

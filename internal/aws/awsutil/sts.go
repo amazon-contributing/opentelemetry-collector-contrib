@@ -53,48 +53,67 @@ func (p *stsCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials,
 	return creds, err
 }
 
-// newStsCredentialsProvider returns a provider that assumes roleARN
-// against region's STS endpoint, with automatic fallback to the
-// partition's primary STS endpoint on RegionDisabledException.
+// newRegionalFallbackCredentialsProvider wraps build(regionalCfg) with automatic
+// fallback to the partition's primary STS endpoint on RegionDisabledException.
+// build is invoked once per endpoint with a region-scoped copy of cfg.
 //
-// externalID is threaded into stscreds.AssumeRoleOptions when non-empty.
-//
-// If region cannot be resolved to a known partition, the partitional
-// client is not constructed; the provider behaves as regional-only and
-// surfaces the regional error rather than retrying in the wrong
-// partition.
-func newStsCredentialsProvider(cfg aws.Config, roleARN, region, externalID string) aws.CredentialsProvider {
+// If region cannot be resolved to a known partition, the partitional provider is
+// not constructed; the provider behaves as regional-only and surfaces the
+// regional error rather than retrying in the wrong partition.
+func newRegionalFallbackCredentialsProvider(cfg aws.Config, region string, build func(aws.Config) aws.CredentialsProvider) aws.CredentialsProvider {
 	regionalCfg := cfg.Copy()
 	regionalCfg.Region = region
 
-	opts := func(o *stscreds.AssumeRoleOptions) {
-		if externalID != "" {
-			o.ExternalID = &externalID
-		}
-	}
-
-	p := &stsCredentialsProvider{
-		regional: stscreds.NewAssumeRoleProvider(newAssumeRoleClient(regionalCfg), roleARN, opts),
-	}
+	p := &stsCredentialsProvider{regional: build(regionalCfg)}
 
 	if fallback := override.GetPartitionPrimaryRegion(region); fallback != "" {
 		partitionalCfg := cfg.Copy()
 		partitionalCfg.Region = fallback
-		p.partitional = stscreds.NewAssumeRoleProvider(newAssumeRoleClient(partitionalCfg), roleARN, opts)
+		p.partitional = build(partitionalCfg)
 	}
 
 	return p
 }
 
-// newAssumeRoleClient is overrideable in tests.
-var newAssumeRoleClient = newStsClient
+// newAssumeRoleCredentialsProvider returns a provider that assumes roleARN against
+// region's STS endpoint, with partitional fallback. externalID is threaded into
+// stscreds.AssumeRoleOptions when non-empty.
+func newAssumeRoleCredentialsProvider(cfg aws.Config, roleARN, region, externalID string) aws.CredentialsProvider {
+	opts := func(o *stscreds.AssumeRoleOptions) {
+		if externalID != "" {
+			o.ExternalID = &externalID
+		}
+	}
+	return newRegionalFallbackCredentialsProvider(cfg, region, func(c aws.Config) aws.CredentialsProvider {
+		return stscreds.NewAssumeRoleProvider(newAssumeRoleClient(c), roleARN, opts)
+	})
+}
+
+// newWebIdentityCredentialsProvider returns a provider that assumes roleARN via STS
+// AssumeRoleWithWebIdentity using the OIDC token from tokenRetriever, with
+// partitional fallback. The token is read lazily on Retrieve, so a token file that
+// is not yet present at startup (e.g. a projected Kubernetes service-account token)
+// does not fail configuration. externalID does not apply to web identity.
+func newWebIdentityCredentialsProvider(cfg aws.Config, roleARN, region string, tokenRetriever stscreds.IdentityTokenRetriever) aws.CredentialsProvider {
+	return newRegionalFallbackCredentialsProvider(cfg, region, func(c aws.Config) aws.CredentialsProvider {
+		return stscreds.NewWebIdentityRoleProvider(newWebIdentityClient(c), roleARN, tokenRetriever)
+	})
+}
+
+// newAssumeRoleClient and newWebIdentityClient are overrideable in tests.
+// *sts.Client satisfies both interfaces, so both share the Confused Deputy
+// middleware installed by newStsClient.
+var (
+	newAssumeRoleClient  = func(cfg aws.Config) stscreds.AssumeRoleAPIClient { return newStsClient(cfg) }
+	newWebIdentityClient = func(cfg aws.Config) stscreds.AssumeRoleWithWebIdentityAPIClient { return newStsClient(cfg) }
+)
 
 // newStsClient builds an STS client. When both AmzSourceAccount and
 // AmzSourceArn env vars are non-empty, registers a Build/Before
 // middleware that stamps the Confused Deputy headers on every request.
 // Build/Before runs ahead of SigV4 signing, so the headers are part of
 // the signed request.
-func newStsClient(cfg aws.Config) stscreds.AssumeRoleAPIClient {
+func newStsClient(cfg aws.Config) *sts.Client {
 	var options []func(*sts.Options)
 
 	sourceAccount := os.Getenv(AmzSourceAccount)

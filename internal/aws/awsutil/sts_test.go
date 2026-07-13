@@ -131,8 +131,8 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 	})
 }
 
-func TestNewStsCredentialsProvider_KnownPartition(t *testing.T) {
-	provider := newStsCredentialsProvider(testAWSConfig, testRoleARN, testRegion, "")
+func TestNewAssumeRoleCredentialsProvider_KnownPartition(t *testing.T) {
+	provider := newAssumeRoleCredentialsProvider(testAWSConfig, testRoleARN, testRegion, "")
 	stsProvider, ok := provider.(*stsCredentialsProvider)
 	require.True(t, ok)
 
