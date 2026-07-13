@@ -1,0 +1,4 @@
+oidctoken:
+  provider: azure
+  audience: https://management.azure.com/
+  output_token_file: /tmp/oidc-token
