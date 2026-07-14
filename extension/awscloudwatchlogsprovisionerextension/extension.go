@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension/extensionauth"
 	"go.opentelemetry.io/collector/extension/extensioncapabilities"
@@ -33,7 +34,9 @@ type cacheEntry struct {
 
 // cwLogsClient abstracts the CloudWatch Logs API for testability.
 type cwLogsClient interface {
-	CreateLogGroup(ctx context.Context, logGroupName string) error
+	CreateLogGroup(ctx context.Context, logGroupName string, logGroupClass types.LogGroupClass) error
+	PutRetentionPolicy(ctx context.Context, logGroupName string, retentionInDays int32) error
+	DescribeLogGroupsRetention(ctx context.Context, logGroupNames []string) (map[string]int32, error)
 	CreateLogStream(ctx context.Context, logGroupName, logStreamName string) error
 }
 
@@ -46,14 +49,16 @@ type provisionerExtension struct {
 	host   component.Host
 	client cwLogsClient
 
-	cache   sync.Map
-	sfGroup singleflight.Group
+	cache     sync.Map
+	sfGroup   singleflight.Group
+	retention *retentionManager
 }
 
 func newExtension(logger *zap.Logger, cfg *Config) *provisionerExtension {
 	return &provisionerExtension{
-		logger: logger,
-		cfg:    cfg,
+		logger:    logger,
+		cfg:       cfg,
+		retention: newRetentionManager(logger, cfg.LogsProvisionFailureBackoff),
 	}
 }
 
@@ -65,7 +70,7 @@ func (e *provisionerExtension) Start(ctx context.Context, host component.Host) e
 		return fmt.Errorf("failed to create CW Logs client: %w", err)
 	}
 	e.client = client
-
+	e.retention.Start(client)
 	e.logger.Info(
 		"awscloudwatchlogsprovisioner started",
 		zap.String("region", e.cfg.Region),
@@ -74,6 +79,7 @@ func (e *provisionerExtension) Start(ctx context.Context, host component.Host) e
 }
 
 func (e *provisionerExtension) Shutdown(_ context.Context) error {
+	e.retention.Stop()
 	return nil
 }
 
@@ -132,7 +138,13 @@ func (rt *provisionerRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 	logStream := req.Header.Get("x-aws-log-stream")
 
 	if logGroup != "" && logStream != "" {
-		wasProvisioned := rt.ext.ensure(req.Context(), logGroup, logStream)
+		logGroupClass := parseLogGroupClass(req.Header.Get("x-aws-log-class"))
+		wasProvisioned := rt.ext.ensure(req.Context(), logGroup, logStream, logGroupClass)
+
+		retentionInDays := parseRetentionDays(req.Header.Get("x-aws-log-retention-days"))
+		if wasProvisioned && retentionInDays > 0 {
+			rt.ext.retention.Enqueue(logGroup, retentionInDays)
+		}
 
 		resp, err := rt.base.RoundTrip(req)
 		if err != nil {
@@ -148,6 +160,9 @@ func (rt *provisionerRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 			resp.Body.Close()
 			if readErr == nil && strings.Contains(string(body), "does not exist") {
 				rt.ext.evictSuccessfulEntry(logGroup, logStream)
+				// Group may have been deleted. Clear retention cache so
+				// re-provisioning also re-applies retention.
+				rt.ext.retention.Evict(logGroup)
 				if wasProvisioned {
 					return nil, errors.New("destination log group/stream (that did exist) does not exist, evicted cache entry for re-provisioning for next retry")
 				}
@@ -161,6 +176,16 @@ func (rt *provisionerRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 	return rt.base.RoundTrip(req)
 }
 
+func parseLogGroupClass(s string) types.LogGroupClass {
+	c := types.LogGroupClass(strings.ToUpper(s))
+	switch c {
+	case types.LogGroupClassStandard, types.LogGroupClassInfrequentAccess:
+		return c
+	default:
+		return ""
+	}
+}
+
 func cacheKey(logGroup, logStream string) string {
 	return logGroup + "\x00" + logStream
 }
@@ -170,7 +195,7 @@ func cacheKey(logGroup, logStream string) string {
 // success entry or newly provisioned). Returns false if provisioning failed or
 // is within failure backoff.
 // Uses singleflight to deduplicate concurrent creation attempts for the same key.
-func (e *provisionerExtension) ensure(ctx context.Context, logGroup, logStream string) bool {
+func (e *provisionerExtension) ensure(ctx context.Context, logGroup, logStream string, logGroupClass types.LogGroupClass) bool {
 	key := cacheKey(logGroup, logStream)
 
 	if entry, ok := e.cache.Load(key); ok {
@@ -192,9 +217,8 @@ func (e *provisionerExtension) ensure(ctx context.Context, logGroup, logStream s
 			}
 		}
 
-		err := e.provision(ctx, logGroup, logStream)
+		err := e.provision(ctx, logGroup, logStream, logGroupClass)
 		if err != nil {
-			// Don't cache failures caused by context cancellation — allow retry for provision
 			if ctx.Err() != nil {
 				return nil, nil
 			}
@@ -226,7 +250,7 @@ func (e *provisionerExtension) ensure(ctx context.Context, logGroup, logStream s
 
 // provision creates the log stream (and log group if needed).
 // Tries stream first — if the group doesn't exist, creates it and retries.
-func (e *provisionerExtension) provision(ctx context.Context, logGroup, logStream string) error {
+func (e *provisionerExtension) provision(ctx context.Context, logGroup, logStream string, logGroupClass types.LogGroupClass) error {
 	err := e.client.CreateLogStream(ctx, logGroup, logStream)
 	if err == nil {
 		return nil
@@ -236,11 +260,8 @@ func (e *provisionerExtension) provision(ctx context.Context, logGroup, logStrea
 		return fmt.Errorf("CreateLogStream %q in %q: %w", logStream, logGroup, err)
 	}
 
-	e.logger.Debug(
-		"Log group not found, creating",
-		zap.String("logGroup", logGroup),
-	)
-	if grpErr := e.client.CreateLogGroup(ctx, logGroup); grpErr != nil {
+	e.logger.Debug("Log group not found, creating", zap.String("logGroup", logGroup))
+	if grpErr := e.client.CreateLogGroup(ctx, logGroup, logGroupClass); grpErr != nil {
 		return fmt.Errorf("CreateLogGroup %q: %w", logGroup, grpErr)
 	}
 

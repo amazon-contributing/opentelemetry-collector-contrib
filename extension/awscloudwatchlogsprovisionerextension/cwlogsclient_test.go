@@ -9,13 +9,19 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -49,6 +55,76 @@ func TestNewDefaultCWLogsClient_CABundle(t *testing.T) {
 		require.NoError(t, err)
 		assertHTTPClientHasRootCAs(t, client)
 	})
+}
+
+func TestDefaultClient_CreateLogGroup_SwallowsOperationAborted(t *testing.T) {
+	client := newStubbedCWLogsClient(func(*http.Request) (*http.Response, error) {
+		return awsJSONError("OperationAbortedException",
+			"Multiple concurrent requests to update the same resource were in conflict."), nil
+	})
+
+	assert.NoError(t, client.CreateLogGroup(t.Context(), "/test/group", ""))
+}
+
+func TestDefaultClient_CreateLogGroup_SwallowsAlreadyExists(t *testing.T) {
+	client := newStubbedCWLogsClient(func(*http.Request) (*http.Response, error) {
+		return awsJSONError("ResourceAlreadyExistsException", "The specified log group already exists"), nil
+	})
+
+	assert.NoError(t, client.CreateLogGroup(t.Context(), "/test/group", ""))
+}
+
+func TestDefaultClient_CreateLogGroup_PropagatesOtherErrors(t *testing.T) {
+	client := newStubbedCWLogsClient(func(*http.Request) (*http.Response, error) {
+		return awsJSONError("AccessDeniedException", "not authorized"), nil
+	})
+
+	assert.Error(t, client.CreateLogGroup(t.Context(), "/test/group", ""))
+}
+
+func TestDefaultClient_DescribeRetention_FallbackMemoized(t *testing.T) {
+	var identifierCalls, prefixCalls int
+	client := newStubbedCWLogsClient(func(req *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		if strings.Contains(string(body), "logGroupIdentifiers") {
+			identifierCalls++
+			return awsJSONError("InvalidParameterException",
+				"Input filter on Log group identifiers is not supported."), nil
+		}
+		prefixCalls++
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/x-amz-json-1.1"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"logGroups":[{"logGroupName":"/test/group","retentionInDays":90}]}`)),
+		}, nil
+	})
+
+	// First call: identifiers rejected → falls back to prefix and memoizes.
+	got, err := client.DescribeLogGroupsRetention(t.Context(), []string{"/test/group"})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]int32{"/test/group": 90}, got)
+	assert.Equal(t, 1, identifierCalls)
+	assert.Equal(t, 1, prefixCalls)
+
+	// Second call: goes straight to prefix, no identifiers attempt.
+	_, err = client.DescribeLogGroupsRetention(t.Context(), []string{"/test/group"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, identifierCalls)
+	assert.Equal(t, 2, prefixCalls)
+}
+
+func TestIsIdentifiersNotSupported(t *testing.T) {
+	notSupported := func(msg string) error {
+		return &types.InvalidParameterException{Message: aws.String(msg)}
+	}
+	assert.True(t, isIdentifiersNotSupported(notSupported("Input filter on Log group identifiers is not supported.")))
+	// Loose match survives rewording.
+	assert.True(t, isIdentifiersNotSupported(notSupported("Log group Identifiers filter is unsupported")))
+	assert.False(t, isIdentifiersNotSupported(notSupported("Invalid limit value")))
+	assert.False(t, isIdentifiersNotSupported(errors.New("identifiers")))
+	assert.False(t, isIdentifiersNotSupported(nil))
 }
 
 // assertHTTPClientHasRootCAs verifies the SDK CW Logs client's HTTP transport has a custom CA pool.

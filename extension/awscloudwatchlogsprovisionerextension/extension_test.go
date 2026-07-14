@@ -4,92 +4,39 @@
 package awscloudwatchlogsprovisionerextension
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
-// --- Mock CW Logs client ---
-
-type mockCWLogsClient struct {
-	createGroupErr  error
-	createStreamErr error
-	groupCalls      atomic.Int32
-	streamCalls     atomic.Int32
-}
-
-func (m *mockCWLogsClient) CreateLogGroup(_ context.Context, _ string) error {
-	m.groupCalls.Add(1)
-	return m.createGroupErr
-}
-
-func (m *mockCWLogsClient) CreateLogStream(_ context.Context, _, _ string) error {
-	m.streamCalls.Add(1)
-	return m.createStreamErr
-}
-
-// --- Mock inner auth ---
-
-type mockHTTPClient struct {
-	component.StartFunc
-	component.ShutdownFunc
-}
-
-func (m *mockHTTPClient) RoundTripper(base http.RoundTripper) (http.RoundTripper, error) {
-	return base, nil
-}
-
-// mockAuthWithHeader simulates an auth extension that adds a specific header
-// (e.g., sigv4auth adding Authorization). Used to verify auth chaining.
-type mockAuthWithHeader struct {
-	component.StartFunc
-	component.ShutdownFunc
-	headerKey   string
-	headerValue string
-}
-
-func (m *mockAuthWithHeader) RoundTripper(base http.RoundTripper) (http.RoundTripper, error) {
-	return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-		req2 := req.Clone(req.Context())
-		req2.Header.Set(m.headerKey, m.headerValue)
-		return base.RoundTrip(req2)
-	}), nil
-}
-
-// --- Mock host ---
-
-type mockHost struct {
-	extensions map[component.ID]component.Component
-}
-
-func (h *mockHost) GetExtensions() map[component.ID]component.Component {
-	return h.extensions
-}
-
 // --- Helper to build extension ---
 
-func newTestExtension(t *testing.T, cfg *Config, mockClient *mockCWLogsClient) *provisionerExtension {
+func newTestExtension(t *testing.T, cfg *Config, client cwLogsClient) *provisionerExtension {
 	if cfg.Region == "" {
 		cfg.Region = "us-east-1"
 	}
 	ext := newExtension(zaptest.NewLogger(t), cfg)
-	ext.client = mockClient
+	ext.client = client
+	ext.retention.batchInterval = 50 * time.Millisecond
+	ext.retention.retryBaseDelay = 10 * time.Millisecond
+	ext.retention.Start(client)
+	t.Cleanup(func() { ext.retention.Stop() })
 	return ext
 }
 
@@ -102,8 +49,11 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // --- Tests ---
 
 func TestRoundTripper_StaticHeaders(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/static/my-group", "my-stream").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
 	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
 
 	var capturedReq *http.Request
@@ -124,15 +74,13 @@ func TestRoundTripper_StaticHeaders(t *testing.T) {
 
 	assert.Equal(t, "/static/my-group", capturedReq.Header.Get("x-aws-log-group"))
 	assert.Equal(t, "my-stream", capturedReq.Header.Get("x-aws-log-stream"))
-	// Stream-first: CreateLogStream succeeds so CreateLogGroup is not called
-	assert.Equal(t, int32(0), mockClient.groupCalls.Load())
-	assert.Equal(t, int32(1), mockClient.streamCalls.Load())
+	m.AssertCalled(t, "CreateLogStream", "/static/my-group", "my-stream")
+	m.AssertNotCalled(t, "CreateLogGroup", mock.Anything, mock.Anything)
 }
 
-// Test: no log group at all — request passes through without provisioning
 func TestRoundTripper_NoLogGroup_PassesThrough(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	ext := newTestExtension(t, &Config{}, m)
 	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
 
 	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
@@ -143,18 +91,15 @@ func TestRoundTripper_NoLogGroup_PassesThrough(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
-	// No x-aws-log-group header
-
 	_, err = rt.RoundTrip(req)
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(0), mockClient.groupCalls.Load(), "should not provision when no log group header")
+	m.AssertNotCalled(t, "CreateLogStream", mock.Anything, mock.Anything)
 }
 
-// Test: missing log stream — skips provisioning (both headers required)
 func TestRoundTripper_MissingStream_SkipsProvisioning(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	ext := newTestExtension(t, &Config{}, m)
 	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
 
 	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
@@ -166,18 +111,19 @@ func TestRoundTripper_MissingStream_SkipsProvisioning(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
 	req.Header.Set("x-aws-log-group", "/my/group")
-	// No x-aws-log-stream header — both required for provisioning
 
 	_, err = rt.RoundTrip(req)
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(0), mockClient.streamCalls.Load(), "should not provision when stream header missing")
+	m.AssertNotCalled(t, "CreateLogStream", mock.Anything, mock.Anything)
 }
 
-// Test: 400 with "does not exist" evicts cache and returns error for retry
 func TestRoundTripper_400DoesNotExist_EvictsAndReturnsError(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
 	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
 
 	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
@@ -194,18 +140,50 @@ func TestRoundTripper_400DoesNotExist_EvictsAndReturnsError(t *testing.T) {
 	req.Header.Set("x-aws-log-group", "/test/group")
 	req.Header.Set("x-aws-log-stream", "default")
 
-	// First call: provisions, gets 400, evicts, returns error for retry
 	resp, err := rt.RoundTrip(req)
 	assert.Nil(t, resp)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist")
-	assert.Equal(t, int32(1), mockClient.streamCalls.Load())
 }
 
-// Test: 400 without "does not exist" does NOT evict cache
+func TestRoundTripper_400DoesNotExist_ForgetsRetentionDedup(t *testing.T) {
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
+	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
+
+	// Simulate a previously applied retention policy for the group.
+	ext.retention.cache.Store("/test/group", time.Time{})
+
+	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(strings.NewReader(`{"message":"The specified log group does not exist."}`)),
+		}, nil
+	})
+
+	rt, err := ext.RoundTripper(base)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req.Header.Set("x-aws-log-group", "/test/group")
+	req.Header.Set("x-aws-log-stream", "default")
+
+	_, err = rt.RoundTrip(req)
+	require.Error(t, err)
+
+	_, loaded := ext.retention.cache.Load("/test/group")
+	assert.False(t, loaded, "retention dedup entry should be cleared on 400 does-not-exist")
+}
+
 func TestRoundTripper_400OtherError_NoEviction(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
 	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
 
 	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
@@ -224,21 +202,19 @@ func TestRoundTripper_400OtherError_NoEviction(t *testing.T) {
 
 	_, err = rt.RoundTrip(req)
 	require.NoError(t, err)
-
-	// Only initial provision, no re-provision
-	assert.Equal(t, int32(1), mockClient.streamCalls.Load(), "should not re-provision for non-existence 400")
+	m.AssertNumberOfCalls(t, "CreateLogStream", 1)
 }
 
-// Test: 400 "does not exist" with a failed cache entry does NOT evict (preserves backoff)
 func TestRoundTripper_400DoesNotExist_FailedEntry_NoEviction(t *testing.T) {
 	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
-	mockClient := &mockCWLogsClient{
-		createStreamErr: notFoundErr,
-		createGroupErr:  errors.New("access denied"),
-	}
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(notFoundErr)
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(errors.New("access denied"))
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
 	ext := newTestExtension(t, &Config{
 		LogsProvisionFailureBackoff: 60 * time.Second,
-	}, mockClient)
+	}, m)
 	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
 
 	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
@@ -255,96 +231,90 @@ func TestRoundTripper_400DoesNotExist_FailedEntry_NoEviction(t *testing.T) {
 	req.Header.Set("x-aws-log-group", "/test/group")
 	req.Header.Set("x-aws-log-stream", "default")
 
-	// First call: ensure fails (access denied), caches failure entry
 	_, err = rt.RoundTrip(req)
 	require.NoError(t, err)
-	assert.Equal(t, int32(1), mockClient.groupCalls.Load())
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 1)
 
-	// Second call: gets 400 "does not exist" but cache has failed entry — should NOT evict
 	_, err = rt.RoundTrip(req)
 	require.NoError(t, err)
-	// Still only 1 group call — backoff preserved, no retry
-	assert.Equal(t, int32(1), mockClient.groupCalls.Load(), "should not evict failed entry")
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 1)
 }
 
 func TestEvictSuccessfulEntry(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+	ext := newTestExtension(t, &Config{}, m)
 
 	t.Run("evicts success entry", func(t *testing.T) {
 		ext.cache.Store(cacheKey("/group", "stream"), cacheEntry{success: true})
 		ext.evictSuccessfulEntry("/group", "stream")
-
 		_, loaded := ext.cache.Load(cacheKey("/group", "stream"))
-		assert.False(t, loaded, "success entry should be evicted")
+		assert.False(t, loaded)
 	})
 
 	t.Run("preserves failed entry", func(t *testing.T) {
-		ext.cache.Store(cacheKey("/group2", "stream"), cacheEntry{
-			success:   false,
-			expiresAt: time.Now().Add(time.Minute),
-		})
+		ext.cache.Store(cacheKey("/group2", "stream"), cacheEntry{expiresAt: time.Now().Add(time.Minute)})
 		ext.evictSuccessfulEntry("/group2", "stream")
-
 		_, loaded := ext.cache.Load(cacheKey("/group2", "stream"))
-		assert.True(t, loaded, "failed entry should NOT be evicted")
+		assert.True(t, loaded)
 	})
 
 	t.Run("no-op when entry missing", func(_ *testing.T) {
 		ext.evictSuccessfulEntry("/nonexistent", "stream")
-		// No panic, no-op
 	})
 }
 
 func TestEnsureProvisioned_Success(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
 
-	ext.ensure(t.Context(), "/test/group", "default")
+	ext := newTestExtension(t, &Config{}, m)
 
-	// Stream-first: CreateLogStream succeeds, no group creation needed
-	assert.Equal(t, int32(0), mockClient.groupCalls.Load())
-	assert.Equal(t, int32(1), mockClient.streamCalls.Load())
+	ext.ensure(t.Context(), "/test/group", "default", "")
+	m.AssertCalled(t, "CreateLogStream", "/test/group", "default")
+	m.AssertNotCalled(t, "CreateLogGroup", mock.Anything, mock.Anything)
 
-	// Second call should hit cache
-	ext.ensure(t.Context(), "/test/group", "default")
-	assert.Equal(t, int32(0), mockClient.groupCalls.Load(), "should not create again after cache hit")
-	assert.Equal(t, int32(1), mockClient.streamCalls.Load(), "should not create again after cache hit")
+	ext.ensure(t.Context(), "/test/group", "default", "")
+	m.AssertNumberOfCalls(t, "CreateLogStream", 1)
 }
 
 func TestEnsureProvisioned_FailureThenBackoff(t *testing.T) {
 	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
-	mockClient := &mockCWLogsClient{
-		createStreamErr: notFoundErr,
-		createGroupErr:  errors.New("throttled"),
-	}
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(notFoundErr)
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(errors.New("throttled"))
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
 	ext := newTestExtension(t, &Config{
 		LogsProvisionFailureBackoff: 60 * time.Second,
-	}, mockClient)
+	}, m)
 
-	ext.ensure(t.Context(), "/test/group", "default")
-	// Stream fails (not found) → group creation attempted → fails (throttled)
-	assert.Equal(t, int32(1), mockClient.groupCalls.Load())
+	ext.ensure(t.Context(), "/test/group", "default", "")
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 1)
 
-	ext.ensure(t.Context(), "/test/group", "default")
-	assert.Equal(t, int32(1), mockClient.groupCalls.Load(), "should not retry during backoff")
+	ext.ensure(t.Context(), "/test/group", "default", "")
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 1)
 }
 
 func TestEnsureProvisioned_Singleflight(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/singleflight", "default").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ext.ensure(t.Context(), "/test/singleflight", "default")
+			ext.ensure(t.Context(), "/test/singleflight", "default", "")
 		}()
 	}
 	wg.Wait()
 
-	assert.Equal(t, int32(1), mockClient.streamCalls.Load(), "singleflight should dedup concurrent creation")
+	m.AssertNumberOfCalls(t, "CreateLogStream", 1)
 }
 
 func TestStart_StoresHost(t *testing.T) {
@@ -356,13 +326,12 @@ func TestStart_StoresHost(t *testing.T) {
 	ext := newExtension(zaptest.NewLogger(t), cfg)
 
 	host := &mockHost{
-		extensions: map[component.ID]component.Component{
-			authID: &mockHTTPClient{},
-		},
+		extensions: map[component.ID]component.Component{authID: &mockHTTPClient{}},
 	}
 
 	err := ext.Start(t.Context(), host)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = ext.Shutdown(t.Context()) })
 	assert.NotNil(t, ext.host)
 }
 
@@ -377,6 +346,7 @@ func TestRoundTripper_MissingAdditionalAuth(t *testing.T) {
 	host := &mockHost{extensions: map[component.ID]component.Component{}}
 	err := ext.Start(t.Context(), host)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = ext.Shutdown(t.Context()) })
 
 	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK}, nil
@@ -387,25 +357,20 @@ func TestRoundTripper_MissingAdditionalAuth(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-// TestChainingWithAdditionalAuth verifies that the extension properly chains
-// with an additional auth extension, ensuring both the provisioner's headers
-// (x-aws-log-group) and the inner auth's modifications are present in the request.
 func TestChainingWithAdditionalAuth(t *testing.T) {
 	authID := component.MustNewID("sigv4auth")
-	mockClient := &mockCWLogsClient{}
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/my-service", "default").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
 
-	ext := newTestExtension(t, &Config{
-		AdditionalAuth: &authID,
-	}, mockClient)
+	ext := newTestExtension(t, &Config{AdditionalAuth: &authID}, m)
 
 	mockAuth := &mockAuthWithHeader{
 		headerKey:   "Authorization",
 		headerValue: "AWS4-HMAC-SHA256 Credential=...",
 	}
 	ext.host = &mockHost{
-		extensions: map[component.ID]component.Component{
-			authID: mockAuth,
-		},
+		extensions: map[component.ID]component.Component{authID: mockAuth},
 	}
 
 	var capturedReq *http.Request
@@ -425,7 +390,6 @@ func TestChainingWithAdditionalAuth(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "/test/my-service", capturedReq.Header.Get("x-aws-log-group"))
-	assert.Equal(t, "default", capturedReq.Header.Get("x-aws-log-stream"))
 	assert.Equal(t, "AWS4-HMAC-SHA256 Credential=...", capturedReq.Header.Get("Authorization"))
 }
 
@@ -440,32 +404,209 @@ func TestDependencies(t *testing.T) {
 }
 
 func TestEnsureProvisioned_DifferentKeysIndependent(t *testing.T) {
-	mockClient := &mockCWLogsClient{}
-	ext := newTestExtension(t, &Config{}, mockClient)
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", mock.Anything, mock.Anything).Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
 
-	ext.ensure(t.Context(), "/test/service-a", "default")
-	ext.ensure(t.Context(), "/test/service-b", "default")
+	ext := newTestExtension(t, &Config{}, m)
 
-	// Stream-first: both streams succeed without needing group creation
-	assert.Equal(t, int32(0), mockClient.groupCalls.Load())
-	assert.Equal(t, int32(2), mockClient.streamCalls.Load(), "different keys should create independently")
+	ext.ensure(t.Context(), "/test/service-a", "default", "")
+	ext.ensure(t.Context(), "/test/service-b", "default", "")
+
+	m.AssertNumberOfCalls(t, "CreateLogStream", 2)
+	m.AssertNotCalled(t, "CreateLogGroup", mock.Anything, mock.Anything)
 }
 
 func TestFailureBackoff_ExpiresAndRetries(t *testing.T) {
 	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
-	mockClient := &mockCWLogsClient{
-		createStreamErr: notFoundErr,
-		createGroupErr:  errors.New("throttled"),
-	}
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(notFoundErr)
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(errors.New("throttled"))
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
 	ext := newTestExtension(t, &Config{
 		LogsProvisionFailureBackoff: 1 * time.Second,
-	}, mockClient)
+	}, m)
 
-	ext.ensure(t.Context(), "/test/group", "default")
-	assert.Equal(t, int32(1), mockClient.groupCalls.Load())
+	ext.ensure(t.Context(), "/test/group", "default", "")
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 1)
 
 	time.Sleep(1100 * time.Millisecond)
 
-	ext.ensure(t.Context(), "/test/group", "default")
-	assert.Equal(t, int32(2), mockClient.groupCalls.Load(), "should retry after backoff expires")
+	ext.ensure(t.Context(), "/test/group", "default", "")
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 2)
+}
+
+func TestProvision_LogGroupClass(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "default").Return(notFoundErr).Once()
+	m.On("CreateLogStream", "/test/group", "default").Return(nil)
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClassInfrequentAccess).Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
+
+	ext.ensure(t.Context(), "/test/group", "default", types.LogGroupClassInfrequentAccess)
+
+	m.AssertCalled(t, "CreateLogGroup", "/test/group", types.LogGroupClassInfrequentAccess)
+	m.AssertNumberOfCalls(t, "CreateLogStream", 2)
+}
+
+func TestProvision_OperationAbortedTreatedAsSuccess(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	m := &mockCWLogsClient{}
+	// First CreateLogStream fails with not-found, triggering CreateLogGroup.
+	// CreateLogGroup returns nil (simulating the real client swallowing
+	// OperationAbortedException), then the retry CreateLogStream succeeds.
+	m.On("CreateLogStream", "/test/group", "stream-a").Return(notFoundErr).Once()
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(nil)
+	m.On("CreateLogStream", "/test/group", "stream-a").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
+	result := ext.ensure(t.Context(), "/test/group", "stream-a", "")
+	assert.True(t, result)
+
+	m.AssertCalled(t, "CreateLogGroup", "/test/group", types.LogGroupClass(""))
+	m.AssertNumberOfCalls(t, "CreateLogStream", 2)
+}
+
+func TestParseLogGroupClass(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected types.LogGroupClass
+	}{
+		{"", ""},
+		{"STANDARD", types.LogGroupClassStandard},
+		{"INFREQUENT_ACCESS", types.LogGroupClassInfrequentAccess},
+		{"standard", types.LogGroupClassStandard},                  // case-insensitive
+		{"Infrequent_Access", types.LogGroupClassInfrequentAccess}, // case-insensitive
+		{"DELIVERY", ""}, // valid API value, not supported for creation
+		{"invalid", ""},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.expected, parseLogGroupClass(tt.input), "input: %q", tt.input)
+	}
+}
+
+func TestIsOperationAborted(t *testing.T) {
+	abortedErr := &types.OperationAbortedException{Message: aws.String("concurrent operation")}
+	assert.True(t, isOperationAborted(abortedErr))
+	assert.False(t, isOperationAborted(errors.New("some other error")))
+	assert.False(t, isOperationAborted(nil))
+}
+
+func TestRoundTripper_RetentionAndLogClassHeaders(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/my-group", "my-stream").Return(notFoundErr).Once()
+	m.On("CreateLogStream", "/test/my-group", "my-stream").Return(nil)
+	m.On("CreateLogGroup", "/test/my-group", types.LogGroupClassInfrequentAccess).Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+	done := make(chan struct{})
+	m.On("PutRetentionPolicy", "/test/my-group", int32(90)).Return(nil).Run(func(_ mock.Arguments) {
+		close(done)
+	})
+
+	ext := newTestExtension(t, &Config{}, m)
+	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
+
+	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK}, nil
+	})
+
+	rt, err := ext.RoundTripper(base)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req.Header.Set("x-aws-log-group", "/test/my-group")
+	req.Header.Set("x-aws-log-stream", "my-stream")
+	req.Header.Set("x-aws-log-retention-days", "90")
+	req.Header.Set("x-aws-log-class", "INFREQUENT_ACCESS")
+
+	_, err = rt.RoundTrip(req)
+	require.NoError(t, err)
+
+	m.AssertCalled(t, "CreateLogGroup", "/test/my-group", types.LogGroupClassInfrequentAccess)
+	<-done
+	ext.retention.Stop()
+	m.AssertCalled(t, "PutRetentionPolicy", "/test/my-group", int32(90))
+}
+
+func TestRoundTripper_RetentionOnExistingGroup(t *testing.T) {
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/existing-group", "my-stream").Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+	done := make(chan struct{})
+	m.On("PutRetentionPolicy", "/test/existing-group", int32(30)).Return(nil).Run(func(_ mock.Arguments) {
+		close(done)
+	})
+
+	ext := newTestExtension(t, &Config{}, m)
+	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
+
+	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK}, nil
+	})
+
+	rt, err := ext.RoundTripper(base)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req.Header.Set("x-aws-log-group", "/test/existing-group")
+	req.Header.Set("x-aws-log-stream", "my-stream")
+	req.Header.Set("x-aws-log-retention-days", "30")
+
+	_, err = rt.RoundTrip(req)
+	require.NoError(t, err)
+
+	m.AssertNotCalled(t, "CreateLogGroup", mock.Anything, mock.Anything)
+	<-done
+	ext.retention.Stop()
+	m.AssertCalled(t, "PutRetentionPolicy", "/test/existing-group", int32(30))
+}
+
+func TestRoundTripper_InvalidRetention_Skipped(t *testing.T) {
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "stream").Return(nil)
+
+	ext := newTestExtension(t, &Config{}, m)
+	ext.host = &mockHost{extensions: map[component.ID]component.Component{}}
+
+	base := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK}, nil
+	})
+
+	rt, err := ext.RoundTripper(base)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req.Header.Set("x-aws-log-group", "/test/group")
+	req.Header.Set("x-aws-log-stream", "stream")
+	req.Header.Set("x-aws-log-retention-days", "42")
+
+	_, err = rt.RoundTrip(req)
+	require.NoError(t, err)
+
+	ext.retention.Stop()
+	m.AssertNotCalled(t, "PutRetentionPolicy", mock.Anything, mock.Anything)
+	m.AssertNotCalled(t, "DescribeLogGroupsRetention", mock.Anything)
+}
+
+func TestComponentLifecycle_Shutdown(t *testing.T) {
+	cfg := &Config{
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
+	}
+	ext := newExtension(zaptest.NewLogger(t), cfg)
+	require.NoError(t, ext.Shutdown(t.Context()))
+}
+
+func TestComponentLifecycle_StartShutdown(t *testing.T) {
+	cfg := &Config{
+		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
+	}
+	ext := newExtension(zaptest.NewLogger(t), cfg)
+	require.NoError(t, ext.Start(t.Context(), componenttest.NewNopHost()))
+	require.NoError(t, ext.Shutdown(t.Context()))
 }
