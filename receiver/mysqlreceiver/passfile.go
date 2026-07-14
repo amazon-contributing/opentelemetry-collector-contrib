@@ -4,18 +4,16 @@
 package mysqlreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver"
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
+
+	"gopkg.in/ini.v1"
 )
 
 // resolvePasswordFromPassfile reads a MySQL option file (.my.cnf format) and
 // resolves the password for the given connection parameters.
 //
-// Lookup strategy:
-//  1. Iterate all sections, match by host+port+user fields.
-//  2. If no section has match fields, fall back to the [client] section.
+// Lookup strategy: Iterate all sections, match by host+port+user fields.
 //
 // File format (standard MySQL INI):
 //
@@ -38,37 +36,21 @@ type myCnfSection struct {
 }
 
 func parseMyCnfFile(path string) ([]myCnfSection, error) {
-	f, err := os.Open(path)
+	cfg, err := ini.LoadSources(ini.LoadOptions{IgnoreInlineComment: true}, path)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open password file: %w", err)
 	}
-	defer f.Close()
 
 	var sections []myCnfSection
-	var current *myCnfSection
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+	for _, s := range cfg.Sections() {
+		if s.Name() == ini.DefaultSection {
 			continue
 		}
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			sectionName := strings.TrimSpace(line[1 : len(line)-1])
-			sections = append(sections, myCnfSection{name: sectionName, fields: make(map[string]string)})
-			current = &sections[len(sections)-1]
-			continue
+		fields := make(map[string]string)
+		for _, k := range s.Keys() {
+			fields[strings.ToLower(k.Name())] = k.Value()
 		}
-		if current == nil {
-			continue
-		}
-		key, value, found := parseINILine(line)
-		if found {
-			current.fields[strings.ToLower(key)] = value
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading password file: %w", err)
+		sections = append(sections, myCnfSection{name: s.Name(), fields: fields})
 	}
 	return sections, nil
 }
@@ -98,24 +80,4 @@ func matchField(field, expected string) bool {
 		return false
 	}
 	return strings.EqualFold(field, expected)
-}
-
-func parseINILine(line string) (string, string, bool) {
-	idx := strings.IndexByte(line, '=')
-	if idx < 0 {
-		return "", "", false
-	}
-	key := strings.TrimSpace(line[:idx])
-	value := strings.TrimSpace(line[idx+1:])
-	value = stripINIQuotes(value)
-	return key, value, true
-}
-
-func stripINIQuotes(s string) string {
-	if len(s) >= 2 {
-		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == 0x27 && s[len(s)-1] == 0x27) {
-			return s[1 : len(s)-1]
-		}
-	}
-	return s
 }

@@ -135,6 +135,14 @@ func TestResolvePasswordFromPassfile(t *testing.T) {
 			user:    "cw_monitor",
 			wantErr: true,
 		},
+		{
+			name:    "match but missing password field",
+			content: "[client]\nhost=localhost\nport=3306\nuser=cw_monitor\n",
+			host:    "localhost",
+			port:    "3306",
+			user:    "cw_monitor",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

@@ -31,6 +31,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.41.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
+	gopkg.in/ini.v1 v1.67.3
 )
 
 require (
