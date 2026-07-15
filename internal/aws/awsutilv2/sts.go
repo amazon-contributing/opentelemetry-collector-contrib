@@ -56,19 +56,13 @@ func (p *stsCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials,
 
 var getPartitionPrimaryRegion = awsv2.GetPartitionPrimaryRegion
 
-// newStsCredentialsProvider returns a credentials provider that assumes roleARN at the regional
-// STS endpoint. When the region's partition primary is known, the provider falls back to that
-// primary on RegionDisabledException; otherwise the bare regional provider is returned and no
-// fallback is attempted.
-func newStsCredentialsProvider(cfg aws.Config, roleARN, region, externalID string) aws.CredentialsProvider {
+// newRegionalFallbackCredentialsProvider builds a credentials provider from the given builder function,
+// with fallback to the partition's primary STS endpoint on RegionDisabledException. The builder
+// receives a regional aws.Config and returns a provider for that region.
+func newRegionalFallbackCredentialsProvider(cfg aws.Config, region string, build func(aws.Config) aws.CredentialsProvider) aws.CredentialsProvider {
 	regionalCfg := cfg.Copy()
 	regionalCfg.Region = region
-	opts := func(o *stscreds.AssumeRoleOptions) {
-		if externalID != "" {
-			o.ExternalID = &externalID
-		}
-	}
-	regional := stscreds.NewAssumeRoleProvider(newAssumeRoleClient(regionalCfg), roleARN, opts)
+	regional := build(regionalCfg)
 
 	fallback := getPartitionPrimaryRegion(region)
 	if fallback == "" {
@@ -78,17 +72,46 @@ func newStsCredentialsProvider(cfg aws.Config, roleARN, region, externalID strin
 	partitionalCfg.Region = fallback
 	return &stsCredentialsProvider{
 		regional:    regional,
-		partitional: stscreds.NewAssumeRoleProvider(newAssumeRoleClient(partitionalCfg), roleARN, opts),
+		partitional: build(partitionalCfg),
 	}
 }
 
 // newAssumeRoleClient is overrideable in tests.
-var newAssumeRoleClient = newStsClient
+var newAssumeRoleClient = func(cfg aws.Config) stscreds.AssumeRoleAPIClient {
+	return newStsClient(cfg)
+}
+
+// newAssumeRoleCredentialsProvider returns a credentials provider that assumes roleARN via STS
+// AssumeRole, with regional/partitional fallback on RegionDisabledException.
+func newAssumeRoleCredentialsProvider(cfg aws.Config, roleARN, region, externalID string) aws.CredentialsProvider {
+	return newRegionalFallbackCredentialsProvider(cfg, region, func(regionalCfg aws.Config) aws.CredentialsProvider {
+		opts := func(o *stscreds.AssumeRoleOptions) {
+			if externalID != "" {
+				o.ExternalID = &externalID
+			}
+		}
+		return stscreds.NewAssumeRoleProvider(newAssumeRoleClient(regionalCfg), roleARN, opts)
+	})
+}
+
+// newWebIdentityClient is overrideable in tests.
+var newWebIdentityClient = func(cfg aws.Config) stscreds.AssumeRoleWithWebIdentityAPIClient {
+	return newStsClient(cfg)
+}
+
+// newWebIdentityCredentialsProvider returns a credentials provider that exchanges a web identity
+// token for temporary credentials via STS AssumeRoleWithWebIdentity, with regional/partitional
+// fallback on RegionDisabledException.
+func newWebIdentityCredentialsProvider(cfg aws.Config, roleARN, region string, tokenRetriever stscreds.IdentityTokenRetriever) aws.CredentialsProvider {
+	return newRegionalFallbackCredentialsProvider(cfg, region, func(regionalCfg aws.Config) aws.CredentialsProvider {
+		return stscreds.NewWebIdentityRoleProvider(newWebIdentityClient(regionalCfg), roleARN, tokenRetriever)
+	})
+}
 
 // newStsClient creates an STS client and, when both confused-deputy environment variables are set, appends
 // headers that let resource-based policies limit the service's permissions to a specific resource.
 // See https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
-func newStsClient(cfg aws.Config) stscreds.AssumeRoleAPIClient {
+func newStsClient(cfg aws.Config) *sts.Client {
 	var optFns []func(*sts.Options)
 	sourceAccount := os.Getenv(envSourceAccount)
 	sourceArn := os.Getenv(envSourceArn)

@@ -1,0 +1,24 @@
+type: oidctoken
+display_name: OIDC Token Extension
+
+description: |
+  This extension provides OIDC token management for authenticating to AWS from
+  non-AWS environments (e.g., Azure VMs). It auto-detects the cloud provider,
+  fetches OIDC tokens, and writes them to a file for sigv4auth to consume.
+
+status:
+  class: extension
+  stability:
+    alpha: [extension]
+  codeowners:
+    active: [movence]
+
+tests:
+  goleak:
+    ignore:
+      top:
+        - "net/http.(*persistConn).writeLoop"
+        - "internal/poll.runtime_pollWait"
+  config:
+    provider: none
+    output_token_file: /tmp/oidc-token

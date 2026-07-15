@@ -571,6 +571,58 @@ func TestGetAWSConfig_WebIdentityFromEnv(t *testing.T) {
 		"web identity provider should have attempted to read the configured token file")
 }
 
+// TestGetAWSConfig_WebIdentityFromSettings confirms that an explicit WebIdentityTokenFile in settings
+// configures a web identity provider.
+func TestGetAWSConfig_WebIdentityFromSettings(t *testing.T) {
+	isolateAWSEnv(t)
+	stubWebIdentityClient(t)
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:               testRegion,
+		LocalMode:            true,
+		RoleARN:              testRoleARN,
+		WebIdentityTokenFile: "testdata/token_file",
+	})
+	require.NoError(t, err)
+
+	creds, err := cfg.Credentials.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "AKIAWEBIDENTITY", creds.AccessKeyID)
+	assert.Equal(t, "web-identity-secret", creds.SecretAccessKey)
+	assert.Equal(t, "web-identity-token", creds.SessionToken)
+}
+
+// TestGetAWSConfig_WebIdentityFromSettings_MissingFile confirms that a non-existent token file
+// does not fail GetAWSConfig but fails lazily on Retrieve.
+func TestGetAWSConfig_WebIdentityFromSettings_MissingFile(t *testing.T) {
+	isolateAWSEnv(t)
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:               testRegion,
+		LocalMode:            true,
+		RoleARN:              testRoleARN,
+		WebIdentityTokenFile: "/nonexistent/token_file",
+	})
+	require.NoError(t, err)
+
+	_, retrieveErr := cfg.Credentials.Retrieve(t.Context())
+	require.Error(t, retrieveErr)
+}
+
+// TestGetAWSConfig_WebIdentityFromSettings_MissingRoleARN confirms that WebIdentityTokenFile
+// without RoleARN returns a clear configuration error.
+func TestGetAWSConfig_WebIdentityFromSettings_MissingRoleARN(t *testing.T) {
+	isolateAWSEnv(t)
+
+	_, err := GetAWSConfig(t.Context(), zap.NewNop(), &AWSSessionSettings{
+		Region:               testRegion,
+		LocalMode:            true,
+		WebIdentityTokenFile: "testdata/token_file",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "role_arn")
+}
+
 // TestGetAWSConfig_ContainerCredentialsFromEnv confirms AWS_CONTAINER_CREDENTIALS_FULL_URI activates the
 // container provider, using a local httptest server that returns synthetic credentials.
 func TestGetAWSConfig_ContainerCredentialsFromEnv(t *testing.T) {

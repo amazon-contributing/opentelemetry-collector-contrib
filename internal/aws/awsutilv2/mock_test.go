@@ -10,9 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -69,6 +73,31 @@ func tempCredentialsFile(t *testing.T) string {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, content, 0o600))
 	return path
+}
+
+var _ stscreds.AssumeRoleWithWebIdentityAPIClient = (*mockWebIdentityAPIClient)(nil)
+
+func stubWebIdentityClient(t *testing.T) {
+	t.Helper()
+	orig := newWebIdentityClient
+	newWebIdentityClient = func(aws.Config) stscreds.AssumeRoleWithWebIdentityAPIClient {
+		return mockWebIdentityAPIClient{}
+	}
+	t.Cleanup(func() { newWebIdentityClient = orig })
+}
+
+type mockWebIdentityAPIClient struct{}
+
+func (mockWebIdentityAPIClient) AssumeRoleWithWebIdentity(context.Context, *sts.AssumeRoleWithWebIdentityInput, ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
+	expiry := time.Now().Add(time.Hour)
+	return &sts.AssumeRoleWithWebIdentityOutput{
+		Credentials: &types.Credentials{
+			AccessKeyId:     aws.String("AKIAWEBIDENTITY"),
+			SecretAccessKey: aws.String("web-identity-secret"),
+			SessionToken:    aws.String("web-identity-token"),
+			Expiration:      &expiry,
+		},
+	}, nil
 }
 
 // isolateAWSEnv clears AWS-related env vars and points the SDK at fake config paths so GetAWSConfig

@@ -10,9 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	sigv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
 	"go.opentelemetry.io/collector/extension/extensionauth"
@@ -68,70 +65,23 @@ func newSigv4Extension(cfg *Config, credsProvider *aws.CredentialsProvider, awsS
 	}
 }
 
-// resolveCredentialsProvider dispatches to the appropriate credential source (web-identity or
-// the shared-credentials chain) and returns the resolved provider.
+// resolveCredentialsProvider builds an aws.CredentialsProvider by delegating to awsutilv2.GetAWSConfig
+// which handles shared credentials, web identity, and assume-role.
 func resolveCredentialsProvider(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
-	var (
-		creds *aws.CredentialsProvider
-		err   error
-	)
-	if cfg.AssumeRole.WebIdentityTokenFile != "" {
-		creds, err = getCredsProviderFromWebIdentityConfig(ctx, logger, cfg)
-	} else {
-		creds, err = getCredsProviderFromConfig(ctx, logger, cfg)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("could not retrieve credential provider: %w", err)
-	}
-	return creds, nil
-}
-
-// getCredsProviderFromConfig builds an aws.CredentialsProvider from cfg: shared profile/file when
-// configured, otherwise the SDK default chain, optionally wrapped with regional/partitional assume-role.
-func getCredsProviderFromConfig(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
 	settings := cfg.AWSSessionSettings
 	settings.Region = cfg.resolvedSTSRegion()
 	settings.RoleARN = cfg.resolvedRoleARN()
+	settings.WebIdentityTokenFile = cfg.resolvedWebIdentityTokenFile()
 	awscfg, err := awsutilv2.GetAWSConfig(ctx, logger, &settings)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not retrieve credentials provider: %w", err)
 	}
-	if _, err = awscfg.Credentials.Retrieve(ctx); err != nil {
-		return nil, err
+	// Skip eager Retrieve for web identity: the token may not be available yet at startup
+	// (e.g., projected SA token in Kubernetes) and will be read on first use.
+	if settings.WebIdentityTokenFile == "" {
+		if _, err = awscfg.Credentials.Retrieve(ctx); err != nil {
+			return nil, fmt.Errorf("could not retrieve credentials: %w", err)
+		}
 	}
-	return &awscfg.Credentials, nil
-}
-
-func getCredsProviderFromWebIdentityConfig(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
-	tokenRetriever := stscreds.IdentityTokenRetriever(
-		stscreds.IdentityTokenFile(cfg.AssumeRole.WebIdentityTokenFile),
-	)
-	_, err := tokenRetriever.GetIdentityToken()
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve token file: %w", err)
-	}
-
-	stsRegion := cfg.resolvedSTSRegion()
-	roleARN := cfg.resolvedRoleARN()
-	awscfg, err := awsconfig.LoadDefaultConfig(ctx,
-		awsconfig.WithWebIdentityRoleCredentialOptions(
-			func(options *stscreds.WebIdentityRoleOptions) {
-				options.TokenRetriever = tokenRetriever
-				options.RoleARN = roleARN
-			},
-		),
-		awsconfig.WithRegion(stsRegion),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load AWS configuration: %w", err)
-	}
-	stsSvc := sts.NewFromConfig(awscfg)
-
-	provider := stscreds.NewWebIdentityRoleProvider(stsSvc, roleARN, tokenRetriever)
-	awscfg.Credentials = aws.NewCredentialsCache(provider)
-	logger.Debug("Web identity credentials provider configured",
-		zap.String("role-arn", roleARN),
-		zap.String("region", stsRegion))
-
 	return &awscfg.Credentials, nil
 }

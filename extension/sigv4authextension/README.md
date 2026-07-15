@@ -29,12 +29,14 @@ The configuration fields are as follows:
 The extension also accepts the standard AWS session settings — `region`, `profile`,
 `shared_credentials_file`, `local_mode`, `role_arn`, `external_id`, `endpoint`,
 `proxy_address`, `certificate_file_path`, `no_verify_ssl`, `request_timeout_seconds`,
-`imds_retries`. See [`AWSSessionSettings`](../../internal/aws/awsutilv2/awsconfig.go)
+`imds_retries`, `web_identity_token_file`. See [`AWSSessionSettings`](../../internal/aws/awsutilv2/awsconfig.go)
 for the full list.
 
 > Note that an attempt will be made to obtain a valid `region` from the endpoint of the service you are exporting to. `region` is differentiated from `assume_role.sts_region` to handle cross region authentication. See the [list of AWS regions](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html).
 
 > The role ARN can be set via either `role_arn` (inherited from session settings) or `assume_role.arn`, but not both.
+
+> The web identity token file can be set via either `web_identity_token_file` (inherited from session settings) or `assume_role.web_identity_token_file`, but not both. A `role_arn` or `assume_role.arn` must be provided when using web identity.
 
 
 ## Assume Role
