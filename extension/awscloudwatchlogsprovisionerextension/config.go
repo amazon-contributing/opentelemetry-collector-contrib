@@ -28,7 +28,7 @@ type Config struct {
 
 	// LogsProvisionFailureBackoff is the TTL for negative cache entries.
 	// During this period, the extension won't retry creation for the same (group, stream) pair.
-	// Default: 30s.
+	// Default: 5s.
 	LogsProvisionFailureBackoff time.Duration `mapstructure:"logs_provision_failure_backoff"`
 }
 

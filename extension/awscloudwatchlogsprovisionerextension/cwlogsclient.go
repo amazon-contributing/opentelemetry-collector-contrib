@@ -53,6 +53,11 @@ func isAlreadyExists(err error) bool {
 	return errors.As(err, &alreadyExists)
 }
 
+func isOperationAborted(err error) bool {
+	var aborted *types.OperationAbortedException
+	return errors.As(err, &aborted)
+}
+
 func isNotFound(err error) bool {
 	var notFound *types.ResourceNotFoundException
 	return errors.As(err, &notFound)

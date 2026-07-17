@@ -22,7 +22,7 @@ func TestNewFactory(t *testing.T) {
 func TestCreateDefaultConfig(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	assert.Equal(t, 10, cfg.RequestTimeoutSeconds)
-	assert.Equal(t, 30*time.Second, cfg.LogsProvisionFailureBackoff)
+	assert.Equal(t, 5*time.Second, cfg.LogsProvisionFailureBackoff)
 	assert.Nil(t, cfg.AdditionalAuth)
 	assert.NoError(t, componenttest.CheckConfigStruct(cfg))
 }
