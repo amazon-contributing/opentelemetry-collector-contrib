@@ -38,7 +38,7 @@ func (c *defaultCWLogsClient) CreateLogGroup(ctx context.Context, logGroupName s
 		LogGroupName:  aws.String(logGroupName),
 		LogGroupClass: logGroupClass,
 	})
-	if err != nil && !isAlreadyExists(err) && !isOperationAborted(err) {
+	if err != nil && !isAlreadyExists(err) {
 		return err
 	}
 	return nil

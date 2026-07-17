@@ -5,6 +5,7 @@ package awscloudwatchlogsprovisionerextension
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -33,6 +34,7 @@ func newTestExtension(t *testing.T, cfg *Config, client cwLogsClient) *provision
 	}
 	ext := newExtension(zaptest.NewLogger(t), cfg)
 	ext.client = client
+	ext.streamRetryDelay = 1 * time.Millisecond
 	ext.retention.batchInterval = 50 * time.Millisecond
 	ext.retention.retryBaseDelay = 10 * time.Millisecond
 	ext.retention.Start(client)
@@ -453,25 +455,6 @@ func TestProvision_LogGroupClass(t *testing.T) {
 	m.AssertNumberOfCalls(t, "CreateLogStream", 2)
 }
 
-func TestProvision_OperationAbortedTreatedAsSuccess(t *testing.T) {
-	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
-	m := &mockCWLogsClient{}
-	// First CreateLogStream fails with not-found, triggering CreateLogGroup.
-	// CreateLogGroup returns nil (simulating the real client swallowing
-	// OperationAbortedException), then the retry CreateLogStream succeeds.
-	m.On("CreateLogStream", "/test/group", "stream-a").Return(notFoundErr).Once()
-	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(nil)
-	m.On("CreateLogStream", "/test/group", "stream-a").Return(nil)
-	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
-
-	ext := newTestExtension(t, &Config{}, m)
-	result := ext.ensure(t.Context(), "/test/group", "stream-a", "")
-	assert.True(t, result)
-
-	m.AssertCalled(t, "CreateLogGroup", "/test/group", types.LogGroupClass(""))
-	m.AssertNumberOfCalls(t, "CreateLogStream", 2)
-}
-
 func TestParseLogGroupClass(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -592,6 +575,114 @@ func TestRoundTripper_InvalidRetention_Skipped(t *testing.T) {
 	ext.retention.Stop()
 	m.AssertNotCalled(t, "PutRetentionPolicy", mock.Anything, mock.Anything)
 	m.AssertNotCalled(t, "DescribeLogGroupsRetention", mock.Anything)
+}
+
+func TestProvision_StreamRetryOnNotFoundAfterOperationAborted(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	abortedErr := &types.OperationAbortedException{Message: aws.String("concurrent operation")}
+	m := &mockCWLogsClient{}
+	// CreateLogStream fails with NotFound (group doesn't exist yet).
+	m.On("CreateLogStream", "/test/group", "stream-b").Return(notFoundErr).Once()
+	// CreateLogGroup loses the race.
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(abortedErr)
+	// First retry: still NotFound (winner's CreateLogGroup in flight).
+	m.On("CreateLogStream", "/test/group", "stream-b").Return(notFoundErr).Once()
+	// Second retry: succeeds (group now exists).
+	m.On("CreateLogStream", "/test/group", "stream-b").Return(nil).Once()
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
+	result := ext.ensure(t.Context(), "/test/group", "stream-b", "")
+
+	assert.True(t, result)
+	m.AssertNumberOfCalls(t, "CreateLogStream", 3)
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 1)
+}
+
+func TestProvision_StreamRetryExhaustedAfterOperationAborted(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	abortedErr := &types.OperationAbortedException{Message: aws.String("concurrent operation")}
+	m := &mockCWLogsClient{}
+	// All CreateLogStream calls return NotFound.
+	m.On("CreateLogStream", "/test/group", "stream-c").Return(notFoundErr)
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(abortedErr)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{
+		LogsProvisionFailureBackoff: 60 * time.Second,
+	}, m)
+	result := ext.ensure(t.Context(), "/test/group", "stream-c", "")
+
+	assert.False(t, result)
+	// 1 initial + maxStreamRetries post-group-create = 4 total
+	m.AssertNumberOfCalls(t, "CreateLogStream", 1+maxStreamRetries)
+}
+
+func TestProvision_StreamNoRetryWhenGroupCreateSucceeds(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "stream-e").Return(notFoundErr)
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{
+		LogsProvisionFailureBackoff: 60 * time.Second,
+	}, m)
+	result := ext.ensure(t.Context(), "/test/group", "stream-e", "")
+
+	assert.False(t, result)
+	// 1 initial + 1 post-group-create (no retries since group create succeeded)
+	m.AssertNumberOfCalls(t, "CreateLogStream", 2)
+}
+
+func TestProvision_StreamRetryStopsOnNonNotFoundError(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	abortedErr := &types.OperationAbortedException{Message: aws.String("concurrent operation")}
+	throttleErr := errors.New("throttled")
+	m := &mockCWLogsClient{}
+	m.On("CreateLogStream", "/test/group", "stream-d").Return(notFoundErr).Once()
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(abortedErr)
+	// First retry: non-NotFound error, should stop immediately.
+	m.On("CreateLogStream", "/test/group", "stream-d").Return(throttleErr).Once()
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
+	result := ext.ensure(t.Context(), "/test/group", "stream-d", "")
+
+	assert.False(t, result)
+	// 1 initial + 1 post-group-create (which hit throttle, no further retries)
+	m.AssertNumberOfCalls(t, "CreateLogStream", 2)
+}
+
+func TestProvision_CreateLogGroupSingleflighted(t *testing.T) {
+	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
+	m := &mockCWLogsClient{}
+	// All initial CreateLogStream calls fail with NotFound.
+	m.On("CreateLogStream", "/test/group", mock.Anything).Return(notFoundErr).Once()
+	m.On("CreateLogStream", "/test/group", mock.Anything).Return(notFoundErr).Once()
+	m.On("CreateLogStream", "/test/group", mock.Anything).Return(notFoundErr).Once()
+	// CreateLogGroup should only be called once despite 3 concurrent provisions.
+	m.On("CreateLogGroup", "/test/group", types.LogGroupClass("")).Return(nil).Run(func(_ mock.Arguments) {
+		time.Sleep(50 * time.Millisecond)
+	})
+	// Post-group retries succeed.
+	m.On("CreateLogStream", "/test/group", mock.Anything).Return(nil)
+	m.On("DescribeLogGroupsRetention", mock.Anything).Return(map[string]int32{}, nil)
+
+	ext := newTestExtension(t, &Config{}, m)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func(stream string) {
+			defer wg.Done()
+			result := ext.ensure(t.Context(), "/test/group", stream, "")
+			assert.True(t, result)
+		}(fmt.Sprintf("stream-%d", i))
+	}
+	wg.Wait()
+
+	m.AssertNumberOfCalls(t, "CreateLogGroup", 1)
 }
 
 func TestComponentLifecycle_Shutdown(t *testing.T) {

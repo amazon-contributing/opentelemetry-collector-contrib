@@ -27,6 +27,11 @@ var (
 	_ extensioncapabilities.Dependent = (*provisionerExtension)(nil)
 )
 
+const (
+	maxStreamRetries = 3
+	streamRetryDelay = 150 * time.Millisecond
+)
+
 type cacheEntry struct {
 	success   bool
 	expiresAt time.Time // only used for failed entries
@@ -49,16 +54,19 @@ type provisionerExtension struct {
 	host   component.Host
 	client cwLogsClient
 
-	cache     sync.Map
-	sfGroup   singleflight.Group
-	retention *retentionManager
+	cache            sync.Map
+	sfGroup          singleflight.Group
+	sfCreateGroup    singleflight.Group
+	retention        *retentionManager
+	streamRetryDelay time.Duration
 }
 
 func newExtension(logger *zap.Logger, cfg *Config) *provisionerExtension {
 	return &provisionerExtension{
-		logger:    logger,
-		cfg:       cfg,
-		retention: newRetentionManager(logger, cfg.LogsProvisionFailureBackoff),
+		logger:           logger,
+		cfg:              cfg,
+		retention:        newRetentionManager(logger, cfg.LogsProvisionFailureBackoff),
+		streamRetryDelay: streamRetryDelay,
 	}
 }
 
@@ -261,15 +269,49 @@ func (e *provisionerExtension) provision(ctx context.Context, logGroup, logStrea
 	}
 
 	e.logger.Debug("Log group not found, creating", zap.String("logGroup", logGroup))
-	if grpErr := e.client.CreateLogGroup(ctx, logGroup, logGroupClass); grpErr != nil {
+	var grpErr error
+	for range maxStreamRetries {
+		grpResult, _, _ := e.sfCreateGroup.Do(logGroup, func() (any, error) {
+			return e.client.CreateLogGroup(ctx, logGroup, logGroupClass), nil
+		})
+		grpErr, _ = grpResult.(error)
+		// A canceled result while our own ctx is alive means the flight ran on
+		// another caller's now-canceled ctx and the group was likely not
+		// created. Re-issue the create on our own ctx.
+		if grpErr != nil && ctx.Err() == nil && errors.Is(grpErr, context.Canceled) {
+			continue
+		}
+		break
+	}
+	if grpErr != nil && !isOperationAborted(grpErr) {
 		return fmt.Errorf("CreateLogGroup %q: %w", logGroup, grpErr)
 	}
 
-	if retryErr := e.client.CreateLogStream(ctx, logGroup, logStream); retryErr != nil {
-		return fmt.Errorf("CreateLogStream %q in %q (retry): %w", logStream, logGroup, retryErr)
+	// OperationAborted means a concurrent CreateLogGroup for the same group is
+	// in flight across processes, so the group may not exist yet. Retry the
+	// stream create briefly on NotFound instead of failing.
+	attempts := 1
+	if grpErr != nil {
+		attempts = maxStreamRetries
 	}
-
-	return nil
+	var retryErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(e.streamRetryDelay):
+			}
+		}
+		retryErr = e.client.CreateLogStream(ctx, logGroup, logStream)
+		if retryErr == nil {
+			return nil
+		}
+		if !isNotFound(retryErr) {
+			break
+		}
+	}
+	return fmt.Errorf("CreateLogStream %q in %q (retry): %w", logStream, logGroup, retryErr)
 }
 
 // evict removes the cache entry only if it was previously successful.
