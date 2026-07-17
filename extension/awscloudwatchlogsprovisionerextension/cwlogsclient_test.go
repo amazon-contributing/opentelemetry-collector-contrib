@@ -53,15 +53,13 @@ func awsJSONError(errType, message string) *http.Response {
 	}
 }
 
-func TestDefaultClient_CreateLogGroup_PropagatesOperationAborted(t *testing.T) {
+func TestDefaultClient_CreateLogGroup_SwallowsOperationAborted(t *testing.T) {
 	client := newStubbedCWLogsClient(func(*http.Request) (*http.Response, error) {
 		return awsJSONError("OperationAbortedException",
 			"Multiple concurrent requests to update the same resource were in conflict."), nil
 	})
 
-	err := client.CreateLogGroup(t.Context(), "/test/group")
-	require.Error(t, err)
-	assert.True(t, isOperationAborted(err))
+	assert.NoError(t, client.CreateLogGroup(t.Context(), "/test/group"))
 }
 
 func TestDefaultClient_CreateLogGroup_SwallowsAlreadyExists(t *testing.T) {

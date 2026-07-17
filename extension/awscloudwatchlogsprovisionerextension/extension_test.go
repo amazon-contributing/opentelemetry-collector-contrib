@@ -489,11 +489,9 @@ func TestFailureBackoff_ExpiresAndRetries(t *testing.T) {
 	assert.Equal(t, int32(2), mockClient.groupCalls.Load(), "should retry after backoff expires")
 }
 
-func TestProvision_StreamRetrySucceedsAfterOperationAborted(t *testing.T) {
+func TestProvision_StreamRetrySucceedsAfterGroupCreate(t *testing.T) {
 	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
-	abortedErr := &types.OperationAbortedException{Message: aws.String("concurrent operation")}
 	mockClient := &mockCWLogsClient{
-		createGroupErr: abortedErr,
 		// Initial CreateLogStream hits NotFound; the retry after the delay succeeds.
 		createStreamFn: func(call int32) error {
 			if call == 1 {
@@ -511,11 +509,9 @@ func TestProvision_StreamRetrySucceedsAfterOperationAborted(t *testing.T) {
 	assert.Equal(t, int32(1), mockClient.groupCalls.Load())
 }
 
-func TestProvision_StreamRetryFailsAfterOperationAborted(t *testing.T) {
+func TestProvision_StreamRetryFailsAfterGroupCreate(t *testing.T) {
 	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
-	abortedErr := &types.OperationAbortedException{Message: aws.String("concurrent operation")}
 	mockClient := &mockCWLogsClient{
-		createGroupErr:  abortedErr,
 		createStreamErr: notFoundErr,
 	}
 
@@ -526,22 +522,6 @@ func TestProvision_StreamRetryFailsAfterOperationAborted(t *testing.T) {
 
 	assert.False(t, result)
 	// 1 initial + 1 retry after delay
-	assert.Equal(t, int32(2), mockClient.streamCalls.Load())
-}
-
-func TestProvision_NoDelayWhenGroupCreateSucceeds(t *testing.T) {
-	notFoundErr := &types.ResourceNotFoundException{Message: aws.String("not found")}
-	mockClient := &mockCWLogsClient{
-		createStreamErr: notFoundErr,
-	}
-
-	ext := newTestExtension(t, &Config{
-		LogsProvisionFailureBackoff: 60 * time.Second,
-	}, mockClient)
-	result := ext.ensure(t.Context(), "/test/group", "stream-e")
-
-	assert.False(t, result)
-	// 1 initial + 1 immediate retry (no delay since group create succeeded)
 	assert.Equal(t, int32(2), mockClient.streamCalls.Load())
 }
 

@@ -254,18 +254,15 @@ func (e *provisionerExtension) provision(ctx context.Context, logGroup, logStrea
 		// request's context expires. The SDK HTTP client has its own timeout.
 		return nil, e.client.CreateLogGroup(context.Background(), logGroup)
 	})
-	switch {
-	case grpErr == nil:
-		// Group created or already exists.
-	case isOperationAborted(grpErr):
-		// Another process is creating the group. Wait briefly for it to land.
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(e.streamRetryDelay):
-		}
-	default:
+	if grpErr != nil {
 		return fmt.Errorf("CreateLogGroup %q: %w", logGroup, grpErr)
+	}
+
+	// Brief pause since the group may not be visible to CreateLogStream yet.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(e.streamRetryDelay):
 	}
 
 	if retryErr := e.client.CreateLogStream(ctx, logGroup, logStream); retryErr != nil {
