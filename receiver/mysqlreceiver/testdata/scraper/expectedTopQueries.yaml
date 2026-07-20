@@ -70,10 +70,22 @@ resourceLogs:
               - key: mysql.events_statements_summary_by_digest.sum_select_scan
                 value:
                   intValue: "0"
+              - key: mysql.events_statements_summary_by_digest.sum_rows_affected
+                value:
+                  intValue: "0"
+              - key: mysql.events_statements_summary_by_digest.sum_select_range_check
+                value:
+                  intValue: "0"
+              - key: mysql.events_statements_summary_by_digest.sum_sort_merge_passes
+                value:
+                  intValue: "0"
+              - key: mysql.events_statements_summary_by_digest.sum_sort_range
+                value:
+                  intValue: "0"
             body: {}
             eventName: db.server.top_query
             spanId: ""
-            timeUnixNano: "1781713240371970301"
+            timeUnixNano: "1784577605563079923"
             traceId: ""
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver

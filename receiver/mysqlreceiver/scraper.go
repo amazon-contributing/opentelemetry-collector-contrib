@@ -744,6 +744,10 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 		_, sumSortScanVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_sort_scan", q.sumSortScan)
 		_, sumNoGoodIndexUsedVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_no_good_index_used", q.sumNoGoodIndexUsed)
 		_, sumSelectScanVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_select_scan", q.sumSelectScan)
+		_, sumRowsAffectedVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_rows_affected", q.sumRowsAffected)
+		_, sumSelectRangeCheckVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_select_range_check", q.sumSelectRangeCheck)
+		_, sumSortMergePassesVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_sort_merge_passes", q.sumSortMergePasses)
+		_, sumSortRangeVal := m.cacheAndDiff(q.schemaName, q.digest, "sum_sort_range", q.sumSortRange)
 
 		obfuscatedQuery, err := m.obfuscator.obfuscateSQLString(q.digestText)
 		if err != nil {
@@ -791,6 +795,10 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			sumSortScanVal,
 			sumNoGoodIndexUsedVal,
 			sumSelectScanVal,
+			sumRowsAffectedVal,
+			sumSelectRangeCheckVal,
+			sumSortMergePassesVal,
+			sumSortRangeVal,
 		)
 	}
 }
