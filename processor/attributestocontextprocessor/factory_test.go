@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/processor/processortest"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributestocontextprocessor/internal/actions"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributestocontextprocessor/internal/metadata"
 )
 
@@ -41,7 +40,7 @@ func TestValidateConfig(t *testing.T) {
 func TestFactory_CreateLogs(t *testing.T) {
 	factory := NewFactory()
 	cfg := &Config{
-		Actions: []actions.KeyValue{
+		Actions: []ActionKeyValue{
 			{Key: "service", FromResourceAttribute: "service.name"},
 		},
 	}

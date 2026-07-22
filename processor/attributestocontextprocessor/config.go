@@ -12,9 +12,11 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributestocontextprocessor/internal/actions"
 )
 
+type ActionKeyValue = actions.KeyValue
+
 // Config defines the configuration for the attributestocontext processor.
 type Config struct {
-	Actions []actions.KeyValue `mapstructure:"actions"`
+	Actions []ActionKeyValue `mapstructure:"actions"`
 }
 
 var _ component.Config = (*Config)(nil)

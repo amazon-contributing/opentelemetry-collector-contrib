@@ -115,7 +115,6 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-
 func TestPassfileValidation(t *testing.T) {
 	validFile := filepath.Join(t.TempDir(), "pgpass")
 	require.NoError(t, os.WriteFile(validFile, []byte("localhost:5432:testdb:otel:secret\n"), 0o600))
@@ -124,7 +123,7 @@ func TestPassfileValidation(t *testing.T) {
 	require.NoError(t, os.WriteFile(validFileReadOnly, []byte("localhost:5432:testdb:otel:secret\n"), 0o400))
 
 	badPermsFile := filepath.Join(t.TempDir(), "pgpass_bad")
-	require.NoError(t, os.WriteFile(badPermsFile, []byte("localhost:5432:*:otel:secret\n"), 0o644))
+	require.NoError(t, os.WriteFile(badPermsFile, []byte("localhost:5432:*:otel:secret\n"), 0o644)) //nolint:gosec
 
 	factory := NewFactory()
 
@@ -206,12 +205,10 @@ func TestPassfileValidation(t *testing.T) {
 			actual := xconfmap.Validate(cfg)
 			if tC.expectError != "" {
 				require.ErrorContains(t, actual, tC.expectError)
-			} else {
+			} else if actual != nil {
 				// May still have unrelated errors (e.g. endpoint), just ensure no password/username errors
-				if actual != nil {
-					require.NotContains(t, actual.Error(), "password")
-					require.NotContains(t, actual.Error(), "username")
-				}
+				require.NotContains(t, actual.Error(), "password")
+				require.NotContains(t, actual.Error(), "username")
 			}
 		})
 	}
