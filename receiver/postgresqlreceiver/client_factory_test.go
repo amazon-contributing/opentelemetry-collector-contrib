@@ -51,7 +51,7 @@ func TestDefaultClientFactoryPassfile(t *testing.T) {
 
 	factory := newDefaultClientFactory(cfg)
 	require.Equal(t, "fileuser", factory.baseConfig.username)
-	require.Equal(t, "", factory.baseConfig.password)
+	require.Empty(t, factory.baseConfig.password)
 	require.Equal(t, f, factory.baseConfig.passfile)
 }
 
@@ -70,7 +70,7 @@ func TestPoolClientFactoryPassfile(t *testing.T) {
 
 	factory := newPoolClientFactory(cfg)
 	require.Equal(t, "pooluser", factory.baseConfig.username)
-	require.Equal(t, "", factory.baseConfig.password)
+	require.Empty(t, factory.baseConfig.password)
 	require.Equal(t, f, factory.baseConfig.passfile)
 }
 

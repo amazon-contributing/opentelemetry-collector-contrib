@@ -668,8 +668,10 @@ func (c *postgreSQLClient) getDeprecatedReplicationStats(ctx context.Context) ([
 			errors = multierr.Append(errors, err)
 			continue
 		}
-		rs = append(rs, replicationStats{clientAddr: client, pendingBytes: replicationBytes,
-			replayLagInt: replayLagInt, writeLagInt: writeLagInt, flushLagInt: flushLagInt})
+		rs = append(rs, replicationStats{
+			clientAddr: client, pendingBytes: replicationBytes,
+			replayLagInt: replayLagInt, writeLagInt: writeLagInt, flushLagInt: flushLagInt,
+		})
 	}
 	return rs, errors
 }
@@ -700,8 +702,10 @@ func (c *postgreSQLClient) getReplicationStats(ctx context.Context) ([]replicati
 			errors = multierr.Append(errors, err)
 			continue
 		}
-		rs = append(rs, replicationStats{clientAddr: client, pendingBytes: replicationBytes,
-			replayLag: replayLag, writeLag: writeLag, flushLag: flushLag})
+		rs = append(rs, replicationStats{
+			clientAddr: client, pendingBytes: replicationBytes,
+			replayLag: replayLag, writeLag: writeLag, flushLag: flushLag,
+		})
 	}
 	return rs, errors
 }

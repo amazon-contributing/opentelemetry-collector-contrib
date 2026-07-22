@@ -10,13 +10,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	sigv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
 	"go.opentelemetry.io/collector/extension/extensionauth"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
 
 // sigv4Auth is a struct that implements the extensionauth.HTTPClient interface.
@@ -24,6 +23,7 @@ import (
 type sigv4Auth struct {
 	cfg                    *Config
 	logger                 *zap.Logger
+	credsProvider          *aws.CredentialsProvider
 	awsSDKInfo             string
 	component.StartFunc    // embedded default behavior to do nothing with Start()
 	component.ShutdownFunc // embedded default behavior to do nothing with Shutdown()
@@ -47,7 +47,7 @@ func (sa *sigv4Auth) RoundTripper(base http.RoundTripper) (http.RoundTripper, er
 		signer:        signer,
 		region:        cfg.Region,
 		service:       cfg.Service,
-		credsProvider: cfg.credsProvider,
+		credsProvider: sa.credsProvider,
 		awsSDKInfo:    sa.awsSDKInfo,
 		logger:        sa.logger,
 	}
@@ -55,65 +55,33 @@ func (sa *sigv4Auth) RoundTripper(base http.RoundTripper) (http.RoundTripper, er
 	return &rt, nil
 }
 
-// newSigv4Extension() is called by createExtension() in factory.go and
-// returns a new sigv4Auth struct.
-func newSigv4Extension(cfg *Config, awsSDKInfo string, logger *zap.Logger) *sigv4Auth {
+// newSigv4Extension returns a new sigv4Auth backed by the given credentials provider.
+func newSigv4Extension(cfg *Config, credsProvider *aws.CredentialsProvider, awsSDKInfo string, logger *zap.Logger) *sigv4Auth {
 	return &sigv4Auth{
-		cfg:        cfg,
-		logger:     logger,
-		awsSDKInfo: awsSDKInfo,
+		cfg:           cfg,
+		credsProvider: credsProvider,
+		logger:        logger,
+		awsSDKInfo:    awsSDKInfo,
 	}
 }
 
-// getCredsProviderFromConfig() is a helper function that gets AWS credentials
-// from the Config.
-func getCredsProviderFromConfig(cfg *Config) (*aws.CredentialsProvider, error) {
-	awscfg, err := awsconfig.LoadDefaultConfig(context.Background(),
-		awsconfig.WithRegion(cfg.AssumeRole.STSRegion),
-	)
+// resolveCredentialsProvider builds an aws.CredentialsProvider by delegating to awsutilv2.GetAWSConfig
+// which handles shared credentials, web identity, and assume-role.
+func resolveCredentialsProvider(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
+	settings := cfg.AWSSessionSettings
+	settings.Region = cfg.resolvedSTSRegion()
+	settings.RoleARN = cfg.resolvedRoleARN()
+	settings.WebIdentityTokenFile = cfg.resolvedWebIdentityTokenFile()
+	awscfg, err := awsutilv2.GetAWSConfig(ctx, logger, &settings)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not retrieve credentials provider: %w", err)
 	}
-	if cfg.AssumeRole.ARN != "" {
-		stsSvc := sts.NewFromConfig(awscfg)
-
-		provider := stscreds.NewAssumeRoleProvider(stsSvc, cfg.AssumeRole.ARN)
-		awscfg.Credentials = aws.NewCredentialsCache(provider)
+	// Skip eager Retrieve for web identity: the token may not be available yet at startup
+	// (e.g., projected SA token in Kubernetes) and will be read on first use.
+	if settings.WebIdentityTokenFile == "" {
+		if _, err = awscfg.Credentials.Retrieve(ctx); err != nil {
+			return nil, fmt.Errorf("could not retrieve credentials: %w", err)
+		}
 	}
-
-	_, err = awscfg.Credentials.Retrieve(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	return &awscfg.Credentials, nil
-}
-
-func getCredsProviderFromWebIdentityConfig(cfg *Config) (*aws.CredentialsProvider, error) {
-	tokenRetriever := stscreds.IdentityTokenRetriever(
-		stscreds.IdentityTokenFile(cfg.AssumeRole.WebIdentityTokenFile),
-	)
-	_, err := tokenRetriever.GetIdentityToken()
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve token file: %w", err)
-	}
-
-	awscfg, err := awsconfig.LoadDefaultConfig(context.Background(),
-		awsconfig.WithWebIdentityRoleCredentialOptions(
-			func(options *stscreds.WebIdentityRoleOptions) {
-				options.TokenRetriever = tokenRetriever
-				options.RoleARN = cfg.AssumeRole.ARN
-			},
-		),
-		awsconfig.WithRegion(cfg.AssumeRole.STSRegion),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load AWS configuration: %w", err)
-	}
-	stsSvc := sts.NewFromConfig(awscfg)
-
-	provider := stscreds.NewWebIdentityRoleProvider(stsSvc, cfg.AssumeRole.ARN, tokenRetriever)
-	awscfg.Credentials = aws.NewCredentialsCache(provider)
-
 	return &awscfg.Credentials, nil
 }

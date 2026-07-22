@@ -16,3 +16,7 @@ tests:
         - "net/http.(*persistConn).writeLoop"
         - "internal/poll.runtime_pollWait"
   config:
+    region: us-east-1
+    profile: default
+    shared_credentials_file:
+      - testdata/credentials

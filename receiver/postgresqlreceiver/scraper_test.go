@@ -38,7 +38,7 @@ func TestUnsuccessfulScrape(t *testing.T) {
 
 	scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newDefaultClientFactory(cfg), newCache(1), newTTLCache[string](1, time.Second))
 
-	actualMetrics, err := scraper.scrape(context.Background())
+	actualMetrics, err := scraper.scrape(t.Context())
 	require.Error(t, err)
 
 	require.NoError(t, pmetrictest.CompareMetrics(pmetric.NewMetrics(), actualMetrics))
@@ -68,7 +68,7 @@ func TestScraper(t *testing.T) {
 
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 
-		actualMetrics, err := scraper.scrape(context.Background())
+		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile := filepath.Join("testdata", "scraper", "otel", file)
@@ -119,7 +119,7 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
-		actualMetrics, err := scraper.scrape(context.Background())
+		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile := filepath.Join("testdata", "scraper", "otel", file)
@@ -143,7 +143,7 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = false
 
 		scraper = newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
-		actualMetrics, err = scraper.scrape(context.Background())
+		actualMetrics, err = scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile = filepath.Join("testdata", "scraper", "otel", fileDefault)
@@ -194,7 +194,7 @@ func TestScraperNoDatabaseMultipleWithoutPreciseLag(t *testing.T) {
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
-		actualMetrics, err := scraper.scrape(context.Background())
+		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile := filepath.Join("testdata", "scraper", "multiple", file)
@@ -245,7 +245,7 @@ func TestScraperNoDatabaseMultiple(t *testing.T) {
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
-		actualMetrics, err := scraper.scrape(context.Background())
+		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile := filepath.Join("testdata", "scraper", "multiple", file)
@@ -297,7 +297,7 @@ func TestScraperWithResourceAttributeFeatureGate(t *testing.T) {
 
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
-		actualMetrics, err := scraper.scrape(context.Background())
+		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile := filepath.Join("testdata", "scraper", "multiple", file)
@@ -348,7 +348,7 @@ func TestScraperWithResourceAttributeFeatureGateSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
-		actualMetrics, err := scraper.scrape(context.Background())
+		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile := filepath.Join("testdata", "scraper", "otel", file)
@@ -375,7 +375,7 @@ func TestScraperExcludeDatabase(t *testing.T) {
 
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
-		actualMetrics, err := scraper.scrape(context.Background())
+		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
 
 		expectedFile := filepath.Join("testdata", "scraper", "multiple", file)
@@ -463,7 +463,7 @@ func TestScrapeQuerySample(t *testing.T) {
 		querySampleColumnQuery:                "select * from pg_stat_activity where id = 32",
 		querySampleColumnDurationMilliseconds: "1.2",
 	}))
-	actualLogs, err := scraper.scrapeQuerySamples(context.Background(), 30)
+	actualLogs, err := scraper.scrapeQuerySamples(t.Context(), 30)
 	assert.NoError(t, err)
 	expectedFile := filepath.Join("testdata", "scraper", "query-sample", "expected.yaml")
 	// Uncomment line below to re-generate expected logs.
@@ -513,7 +513,7 @@ func TestScrapeQuerySampleWithTraceparent(t *testing.T) {
 		querySampleColumnQuery:                "select * from pg_stat_activity where id = 32",
 		querySampleColumnDurationMilliseconds: "1.2",
 	}))
-	actualLogs, err := scraper.scrapeQuerySamples(context.Background(), 30)
+	actualLogs, err := scraper.scrapeQuerySamples(t.Context(), 30)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, actualLogs.ResourceLogs().Len())
@@ -602,7 +602,7 @@ func TestScrapeTopQueries(t *testing.T) {
 
 	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(sqlmock.NewRows(expectedRows).FromCSVString(expectedValues[:len(expectedValues)-1]))
 	mock.ExpectQuery(expectedExplain).WillReturnRows(sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow("[{\"Plan\":{\"Node Type\":\"Merge Join\",\"Parallel Aware\":false,\"Async Capable\":false,\"Join Type\":\"Inner\",\"Startup Cost\":0.43,\"Total Cost\":55.27,\"Plan Rows\":290,\"Plan Width\":1675,\"Inner Unique\":\"?\",\"Merge Cond\":\"( e.businessentityid = p.businessentityid )\",\"Plans\":[{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Outer\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Employee_BusinessEntityID\",\"Relation Name\":\"employee\",\"Alias\":\"e\",\"Startup Cost\":0.15,\"Total Cost\":21.5,\"Plan Rows\":290,\"Plan Width\":112},{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Inner\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Person_BusinessEntityID\",\"Relation Name\":\"person\",\"Alias\":\"p\",\"Startup Cost\":0.29,\"Total Cost\":2261.87,\"Plan Rows\":19972,\"Plan Width\":1563}]}}]"))
-	actualLogs, err := scraper.scrapeTopQuery(context.Background(), 31, 32, 33, time.Minute)
+	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	assert.NoError(t, err)
 	expectedFile := filepath.Join("testdata", "scraper", "top-query", "expected.yaml")
 	expectedLogs, err := golden.ReadLogs(expectedFile)
@@ -717,13 +717,13 @@ func TestScrapeTopQueriesCollectsOnlyWhenIntervalHasElapsed(t *testing.T) {
 	scraper := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second))
 
 	assert.True(t, scraper.lastExecutionTimestamp.IsZero(), "lastExecutionTimestamp should be zero before first collection")
-	logs1, err := scraper.scrapeTopQuery(context.Background(), 31, 32, 33, time.Minute)
+	logs1, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	assert.NotNil(t, logs1)
 	assert.NoError(t, err)
 	assert.False(t, scraper.lastExecutionTimestamp.IsZero(), "lastExecutionTimestamp won't be zero after first collection")
 
 	collectionTime := scraper.lastExecutionTimestamp
-	logs2, err := scraper.scrapeTopQuery(context.Background(), 31, 32, 33, time.Minute)
+	logs2, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	assert.NotNil(t, logs2)
 	assert.NoError(t, err)
 	assert.Equal(t, collectionTime, scraper.lastExecutionTimestamp, "No new collection should happen until configured collection_interval")
@@ -1048,10 +1048,10 @@ func (m *mockClient) initMocks(database string, schema string, databases []strin
 			},
 		}, nil)
 		m.On("getSessionStates", mock.Anything).Return(map[string]int64{
-			"active":                            3,
-			"idle":                              5,
-			"idle in transaction":               1,
-			"idle in transaction (aborted)":     0,
+			"active":                        3,
+			"idle":                          5,
+			"idle in transaction":           1,
+			"idle in transaction (aborted)": 0,
 		}, nil)
 	} else {
 		table1 := "table1"
@@ -1182,7 +1182,7 @@ func TestCollectSessionStates(t *testing.T) {
 	settings := receivertest.NewNopSettings(metadata.Type)
 	scraper := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 
-	actualMetrics, err := scraper.scrape(context.Background())
+	actualMetrics, err := scraper.scrape(t.Context())
 	require.NoError(t, err)
 
 	// Verify that postgresql.sessions metric is present
