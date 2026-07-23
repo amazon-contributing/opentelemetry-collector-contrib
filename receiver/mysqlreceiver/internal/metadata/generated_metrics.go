@@ -1145,6 +1145,9 @@ var MetricsInfo = metricsInfo{
 	MysqlConnectionErrors: metricInfo{
 		Name: "mysql.connection.errors",
 	},
+	MysqlDeadlocks: metricInfo{
+		Name: "mysql.deadlocks",
+	},
 	MysqlDoubleWrites: metricInfo{
 		Name: "mysql.double_writes",
 	},
@@ -1272,6 +1275,7 @@ type metricsInfo struct {
 	MysqlCommands                metricInfo
 	MysqlConnectionCount         metricInfo
 	MysqlConnectionErrors        metricInfo
+	MysqlDeadlocks               metricInfo
 	MysqlDoubleWrites            metricInfo
 	MysqlHandlers                metricInfo
 	MysqlIndexIoWaitCount        metricInfo
@@ -2101,6 +2105,58 @@ func (m *metricMysqlConnectionErrors) emit(metrics pmetric.MetricSlice) {
 
 func newMetricMysqlConnectionErrors(cfg MysqlConnectionErrorsMetricConfig) metricMysqlConnectionErrors {
 	m := metricMysqlConnectionErrors{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricMysqlDeadlocks struct {
+	data     pmetric.Metric             // data buffer for generated metric.
+	config   MysqlDeadlocksMetricConfig // metric config provided by user.
+	capacity int                        // max observed number of data points added to the metric.
+}
+
+// init fills mysql.deadlocks metric with initial data.
+func (m *metricMysqlDeadlocks) init() {
+	m.data.SetName("mysql.deadlocks")
+	m.data.SetDescription("The number of InnoDB deadlocks.")
+	m.data.SetUnit("1")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+}
+
+func (m *metricMysqlDeadlocks) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricMysqlDeadlocks) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricMysqlDeadlocks) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricMysqlDeadlocks(cfg MysqlDeadlocksMetricConfig) metricMysqlDeadlocks {
+	m := metricMysqlDeadlocks{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -5407,6 +5463,7 @@ type MetricsBuilder struct {
 	metricMysqlCommands                metricMysqlCommands
 	metricMysqlConnectionCount         metricMysqlConnectionCount
 	metricMysqlConnectionErrors        metricMysqlConnectionErrors
+	metricMysqlDeadlocks               metricMysqlDeadlocks
 	metricMysqlDoubleWrites            metricMysqlDoubleWrites
 	metricMysqlHandlers                metricMysqlHandlers
 	metricMysqlIndexIoWaitCount        metricMysqlIndexIoWaitCount
@@ -5481,6 +5538,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMysqlCommands:                newMetricMysqlCommands(mbc.Metrics.MysqlCommands),
 		metricMysqlConnectionCount:         newMetricMysqlConnectionCount(mbc.Metrics.MysqlConnectionCount),
 		metricMysqlConnectionErrors:        newMetricMysqlConnectionErrors(mbc.Metrics.MysqlConnectionErrors),
+		metricMysqlDeadlocks:               newMetricMysqlDeadlocks(mbc.Metrics.MysqlDeadlocks),
 		metricMysqlDoubleWrites:            newMetricMysqlDoubleWrites(mbc.Metrics.MysqlDoubleWrites),
 		metricMysqlHandlers:                newMetricMysqlHandlers(mbc.Metrics.MysqlHandlers),
 		metricMysqlIndexIoWaitCount:        newMetricMysqlIndexIoWaitCount(mbc.Metrics.MysqlIndexIoWaitCount),
@@ -5608,6 +5666,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricMysqlCommands.emit(ils.Metrics())
 	mb.metricMysqlConnectionCount.emit(ils.Metrics())
 	mb.metricMysqlConnectionErrors.emit(ils.Metrics())
+	mb.metricMysqlDeadlocks.emit(ils.Metrics())
 	mb.metricMysqlDoubleWrites.emit(ils.Metrics())
 	mb.metricMysqlHandlers.emit(ils.Metrics())
 	mb.metricMysqlIndexIoWaitCount.emit(ils.Metrics())
@@ -5765,6 +5824,16 @@ func (mb *MetricsBuilder) RecordMysqlConnectionErrorsDataPoint(ts pcommon.Timest
 		return fmt.Errorf("failed to parse int64 for MysqlConnectionErrors, value was %s: %w", inputVal, err)
 	}
 	mb.metricMysqlConnectionErrors.recordDataPoint(mb.startTime, ts, val, connectionErrorAttributeValue.String())
+	return nil
+}
+
+// RecordMysqlDeadlocksDataPoint adds a data point to mysql.deadlocks metric.
+func (mb *MetricsBuilder) RecordMysqlDeadlocksDataPoint(ts pcommon.Timestamp, inputVal string) error {
+	val, err := strconv.ParseInt(inputVal, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse int64 for MysqlDeadlocks, value was %s: %w", inputVal, err)
+	}
+	mb.metricMysqlDeadlocks.recordDataPoint(mb.startTime, ts, val)
 	return nil
 }
 

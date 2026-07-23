@@ -319,7 +319,7 @@ func (c *mySQLClient) getGlobalStats() (map[string]string, error) {
 
 // getInnodbStats queries the db for innodb metrics.
 func (c *mySQLClient) getInnodbStats() (map[string]string, error) {
-	q := "SELECT name, count FROM information_schema.innodb_metrics WHERE name LIKE '%buffer_pool_size%';"
+	q := "SELECT name, count FROM information_schema.innodb_metrics WHERE name LIKE '%buffer_pool_size%' OR name = 'lock_deadlocks';"
 	return query(*c, q)
 }
 

@@ -28,6 +28,8 @@ all_set:
     mysql.connection.errors:
       enabled: true
       attributes: ["error"]
+    mysql.deadlocks:
+      enabled: true
     mysql.double_writes:
       enabled: true
       attributes: ["kind"]
@@ -175,6 +177,8 @@ reaggregate_set:
     mysql.connection.errors:
       enabled: true
       attributes: []
+    mysql.deadlocks:
+      enabled: true
     mysql.double_writes:
       enabled: true
       attributes: []
@@ -322,6 +326,8 @@ none_set:
     mysql.connection.errors:
       enabled: false
       attributes: ["error"]
+    mysql.deadlocks:
+      enabled: false
     mysql.double_writes:
       enabled: false
       attributes: ["kind"]

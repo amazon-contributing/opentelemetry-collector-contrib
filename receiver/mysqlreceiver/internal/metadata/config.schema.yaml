@@ -186,6 +186,13 @@ $defs:
                 - "error"
             default:
               - "error"
+      mysql.deadlocks:
+        description: "MysqlDeadlocksMetricConfig provides config for the mysql.deadlocks metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       mysql.double_writes:
         description: "MysqlDoubleWritesMetricConfig provides config for the mysql.double_writes metric."
         type: object

@@ -170,6 +170,9 @@ func TestMetricsBuilder(t *testing.T) {
 				mb.RecordMysqlConnectionErrorsDataPoint(ts, "3", AttributeConnectionErrorInternal)
 			}
 
+			allMetricsCount++
+			mb.RecordMysqlDeadlocksDataPoint(ts, "1")
+
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordMysqlDoubleWritesDataPoint(ts, "1", AttributeDoubleWritesPagesWritten)
@@ -812,6 +815,20 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok := dp.Attributes().Get("error")
 						assert.False(t, ok)
 					}
+				case "mysql.deadlocks":
+					assert.False(t, validatedMetrics["mysql.deadlocks"], "Found a duplicate in the metrics slice: mysql.deadlocks")
+					validatedMetrics["mysql.deadlocks"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "The number of InnoDB deadlocks.", mi.Description())
+					assert.Equal(t, "1", mi.Unit())
+					assert.True(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
 				case "mysql.double_writes":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["mysql.double_writes"], "Found a duplicate in the metrics slice: mysql.double_writes")

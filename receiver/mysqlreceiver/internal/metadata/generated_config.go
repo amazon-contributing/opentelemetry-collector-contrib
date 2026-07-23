@@ -405,6 +405,26 @@ func (ms *MysqlConnectionErrorsMetricConfig) Validate() error {
 	return nil
 }
 
+// MysqlDeadlocksMetricConfig provides config for the mysql.deadlocks metric.
+type MysqlDeadlocksMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *MysqlDeadlocksMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // MysqlDoubleWritesMetricAttributeKey specifies the key of an attribute for the mysql.double_writes metric.
 type MysqlDoubleWritesMetricAttributeKey string
 
@@ -2064,6 +2084,7 @@ type MetricsConfig struct {
 	MysqlCommands                MysqlCommandsMetricConfig                `mapstructure:"mysql.commands"`
 	MysqlConnectionCount         MysqlConnectionCountMetricConfig         `mapstructure:"mysql.connection.count"`
 	MysqlConnectionErrors        MysqlConnectionErrorsMetricConfig        `mapstructure:"mysql.connection.errors"`
+	MysqlDeadlocks               MysqlDeadlocksMetricConfig               `mapstructure:"mysql.deadlocks"`
 	MysqlDoubleWrites            MysqlDoubleWritesMetricConfig            `mapstructure:"mysql.double_writes"`
 	MysqlHandlers                MysqlHandlersMetricConfig                `mapstructure:"mysql.handlers"`
 	MysqlIndexIoWaitCount        MysqlIndexIoWaitCountMetricConfig        `mapstructure:"mysql.index.io.wait.count"`
@@ -2150,6 +2171,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []MysqlConnectionErrorsMetricAttributeKey{MysqlConnectionErrorsMetricAttributeKeyConnectionError},
+		},
+		MysqlDeadlocks: MysqlDeadlocksMetricConfig{
+			Enabled: false,
 		},
 		MysqlDoubleWrites: MysqlDoubleWritesMetricConfig{
 			Enabled:             true,

@@ -122,10 +122,12 @@ func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 
 	errs := &scrapererror.ScrapeErrors{}
 	for k, v := range innodbStats {
-		if k != "buffer_pool_size" {
-			continue
+		switch k {
+		case "buffer_pool_size":
+			addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
+		case "lock_deadlocks":
+			addPartialIfError(errs, m.mb.RecordMysqlDeadlocksDataPoint(now, v))
 		}
-		addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
 	}
 
 	// collect io_waits metrics.
