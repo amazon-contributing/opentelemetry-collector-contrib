@@ -127,6 +127,19 @@ func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 			addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
 		case "lock_deadlocks":
 			addPartialIfError(errs, m.mb.RecordMysqlDeadlocksDataPoint(now, v))
+		case "trx_rseg_history_len":
+			addPartialIfError(errs, m.mb.RecordMysqlHistoryListLengthDataPoint(now, v))
+		}
+	}
+
+	// collect active transaction count.
+	trxStats, trxErr := m.sqlclient.getInnodbTrxStats()
+	if trxErr != nil {
+		m.logger.Error("Failed to fetch InnoDB transaction stats", zap.Error(trxErr))
+	}
+	for k, v := range trxStats {
+		if k == "active_transactions" {
+			addPartialIfError(errs, m.mb.RecordMysqlActiveTransactionsDataPoint(now, v))
 		}
 	}
 

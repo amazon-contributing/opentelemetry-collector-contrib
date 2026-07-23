@@ -366,6 +366,14 @@ metrics:
     enabled: true
 ```
 
+### mysql.active_transactions
+
+The number of currently active InnoDB transactions, from COUNT(*) of INFORMATION_SCHEMA.INNODB_TRX.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| 1 | Sum | Int | Cumulative | false | Development |
+
 ### mysql.client.network.io
 
 The number of transmitted bytes between server and clients.
@@ -423,6 +431,14 @@ The number of InnoDB deadlocks.
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | 1 | Sum | Int | Cumulative | true | Development |
+
+### mysql.history_list_length
+
+The InnoDB history list length — the number of undo log records not yet purged, from INFORMATION_SCHEMA.INNODB_METRICS (trx_rseg_history_len). A persistently high or growing value indicates long-running or abandoned transactions delaying purge.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| 1 | Sum | Int | Cumulative | false | Development |
 
 ### mysql.joins
 

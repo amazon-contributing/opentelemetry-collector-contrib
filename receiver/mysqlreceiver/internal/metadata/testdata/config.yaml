@@ -1,6 +1,8 @@
 default:
 all_set:
   metrics:
+    mysql.active_transactions:
+      enabled: true
     mysql.buffer_pool.data_pages:
       enabled: true
       attributes: ["status"]
@@ -36,6 +38,8 @@ all_set:
     mysql.handlers:
       enabled: true
       attributes: ["kind"]
+    mysql.history_list_length:
+      enabled: true
     mysql.index.io.wait.count:
       enabled: true
       attributes: ["operation","table","schema","index"]
@@ -150,6 +154,8 @@ all_set:
       enabled: true
 reaggregate_set:
   metrics:
+    mysql.active_transactions:
+      enabled: true
     mysql.buffer_pool.data_pages:
       enabled: true
       attributes: []
@@ -185,6 +191,8 @@ reaggregate_set:
     mysql.handlers:
       enabled: true
       attributes: []
+    mysql.history_list_length:
+      enabled: true
     mysql.index.io.wait.count:
       enabled: true
       attributes: []
@@ -299,6 +307,8 @@ reaggregate_set:
       enabled: true
 none_set:
   metrics:
+    mysql.active_transactions:
+      enabled: false
     mysql.buffer_pool.data_pages:
       enabled: false
       attributes: ["status"]
@@ -334,6 +344,8 @@ none_set:
     mysql.handlers:
       enabled: false
       attributes: ["kind"]
+    mysql.history_list_length:
+      enabled: false
     mysql.index.io.wait.count:
       enabled: false
       attributes: ["operation","table","schema","index"]

@@ -1,3 +1,4 @@
 name	count
 buffer_pool_size	134217728
 lock_deadlocks	5
+trx_rseg_history_len	42

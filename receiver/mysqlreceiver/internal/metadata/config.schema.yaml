@@ -4,6 +4,13 @@ $defs:
     description: MetricsConfig provides config for mysql metrics.
     type: object
     properties:
+      mysql.active_transactions:
+        description: "MysqlActiveTransactionsMetricConfig provides config for the mysql.active_transactions metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       mysql.buffer_pool.data_pages:
         description: "MysqlBufferPoolDataPagesMetricConfig provides config for the mysql.buffer_pool.data_pages metric."
         type: object
@@ -239,6 +246,13 @@ $defs:
                 - "kind"
             default:
               - "kind"
+      mysql.history_list_length:
+        description: "MysqlHistoryListLengthMetricConfig provides config for the mysql.history_list_length metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       mysql.index.io.wait.count:
         description: "MysqlIndexIoWaitCountMetricConfig provides config for the mysql.index.io.wait.count metric."
         type: object

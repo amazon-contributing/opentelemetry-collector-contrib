@@ -113,6 +113,9 @@ func TestMetricsBuilder(t *testing.T) {
 			defaultMetricsCount := 0
 			allMetricsCount := 0
 
+			allMetricsCount++
+			mb.RecordMysqlActiveTransactionsDataPoint(ts, "1")
+
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordMysqlBufferPoolDataPagesDataPoint(ts, 1, AttributeBufferPoolDataDirty)
@@ -186,6 +189,9 @@ func TestMetricsBuilder(t *testing.T) {
 			if tt.name == "reaggregate_set" {
 				mb.RecordMysqlHandlersDataPoint(ts, "3", AttributeHandlerDelete)
 			}
+
+			allMetricsCount++
+			mb.RecordMysqlHistoryListLengthDataPoint(ts, "1")
 
 			defaultMetricsCount++
 			allMetricsCount++
@@ -465,6 +471,20 @@ func TestMetricsBuilder(t *testing.T) {
 			validatedMetrics := make(map[string]bool)
 			for _, mi := range allMetricsList {
 				switch mi.Name() {
+				case "mysql.active_transactions":
+					assert.False(t, validatedMetrics["mysql.active_transactions"], "Found a duplicate in the metrics slice: mysql.active_transactions")
+					validatedMetrics["mysql.active_transactions"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "The number of currently active InnoDB transactions, from COUNT(*) of INFORMATION_SCHEMA.INNODB_TRX.", mi.Description())
+					assert.Equal(t, "1", mi.Unit())
+					assert.False(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
 				case "mysql.buffer_pool.data_pages":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["mysql.buffer_pool.data_pages"], "Found a duplicate in the metrics slice: mysql.buffer_pool.data_pages")
@@ -917,6 +937,20 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok := dp.Attributes().Get("kind")
 						assert.False(t, ok)
 					}
+				case "mysql.history_list_length":
+					assert.False(t, validatedMetrics["mysql.history_list_length"], "Found a duplicate in the metrics slice: mysql.history_list_length")
+					validatedMetrics["mysql.history_list_length"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "The InnoDB history list length — the number of undo log records not yet purged, from INFORMATION_SCHEMA.INNODB_METRICS (trx_rseg_history_len). A persistently high or growing value indicates long-running or abandoned transactions delaying purge.", mi.Description())
+					assert.Equal(t, "1", mi.Unit())
+					assert.False(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
 				case "mysql.index.io.wait.count":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["mysql.index.io.wait.count"], "Found a duplicate in the metrics slice: mysql.index.io.wait.count")

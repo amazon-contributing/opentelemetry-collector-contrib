@@ -1115,6 +1115,9 @@ var MapAttributeWriteLockType = map[string]AttributeWriteLockType{
 }
 
 var MetricsInfo = metricsInfo{
+	MysqlActiveTransactions: metricInfo{
+		Name: "mysql.active_transactions",
+	},
 	MysqlBufferPoolDataPages: metricInfo{
 		Name: "mysql.buffer_pool.data_pages",
 	},
@@ -1153,6 +1156,9 @@ var MetricsInfo = metricsInfo{
 	},
 	MysqlHandlers: metricInfo{
 		Name: "mysql.handlers",
+	},
+	MysqlHistoryListLength: metricInfo{
+		Name: "mysql.history_list_length",
 	},
 	MysqlIndexIoWaitCount: metricInfo{
 		Name: "mysql.index.io.wait.count",
@@ -1265,6 +1271,7 @@ var MetricsInfo = metricsInfo{
 }
 
 type metricsInfo struct {
+	MysqlActiveTransactions      metricInfo
 	MysqlBufferPoolDataPages     metricInfo
 	MysqlBufferPoolLimit         metricInfo
 	MysqlBufferPoolOperations    metricInfo
@@ -1278,6 +1285,7 @@ type metricsInfo struct {
 	MysqlDeadlocks               metricInfo
 	MysqlDoubleWrites            metricInfo
 	MysqlHandlers                metricInfo
+	MysqlHistoryListLength       metricInfo
 	MysqlIndexIoWaitCount        metricInfo
 	MysqlIndexIoWaitTime         metricInfo
 	MysqlJoins                   metricInfo
@@ -1318,6 +1326,58 @@ type metricsInfo struct {
 
 type metricInfo struct {
 	Name string
+}
+
+type metricMysqlActiveTransactions struct {
+	data     pmetric.Metric                      // data buffer for generated metric.
+	config   MysqlActiveTransactionsMetricConfig // metric config provided by user.
+	capacity int                                 // max observed number of data points added to the metric.
+}
+
+// init fills mysql.active_transactions metric with initial data.
+func (m *metricMysqlActiveTransactions) init() {
+	m.data.SetName("mysql.active_transactions")
+	m.data.SetDescription("The number of currently active InnoDB transactions, from COUNT(*) of INFORMATION_SCHEMA.INNODB_TRX.")
+	m.data.SetUnit("1")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(false)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+}
+
+func (m *metricMysqlActiveTransactions) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricMysqlActiveTransactions) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricMysqlActiveTransactions) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricMysqlActiveTransactions(cfg MysqlActiveTransactionsMetricConfig) metricMysqlActiveTransactions {
+	m := metricMysqlActiveTransactions{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
 }
 
 type metricMysqlBufferPoolDataPages struct {
@@ -2339,6 +2399,58 @@ func (m *metricMysqlHandlers) emit(metrics pmetric.MetricSlice) {
 
 func newMetricMysqlHandlers(cfg MysqlHandlersMetricConfig) metricMysqlHandlers {
 	m := metricMysqlHandlers{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricMysqlHistoryListLength struct {
+	data     pmetric.Metric                     // data buffer for generated metric.
+	config   MysqlHistoryListLengthMetricConfig // metric config provided by user.
+	capacity int                                // max observed number of data points added to the metric.
+}
+
+// init fills mysql.history_list_length metric with initial data.
+func (m *metricMysqlHistoryListLength) init() {
+	m.data.SetName("mysql.history_list_length")
+	m.data.SetDescription("The InnoDB history list length — the number of undo log records not yet purged, from INFORMATION_SCHEMA.INNODB_METRICS (trx_rseg_history_len). A persistently high or growing value indicates long-running or abandoned transactions delaying purge.")
+	m.data.SetUnit("1")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(false)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+}
+
+func (m *metricMysqlHistoryListLength) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricMysqlHistoryListLength) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricMysqlHistoryListLength) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricMysqlHistoryListLength(cfg MysqlHistoryListLengthMetricConfig) metricMysqlHistoryListLength {
+	m := metricMysqlHistoryListLength{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -5453,6 +5565,7 @@ type MetricsBuilder struct {
 	buildInfo                          component.BuildInfo  // contains version information.
 	resourceAttributeIncludeFilter     map[string]filter.Filter
 	resourceAttributeExcludeFilter     map[string]filter.Filter
+	metricMysqlActiveTransactions      metricMysqlActiveTransactions
 	metricMysqlBufferPoolDataPages     metricMysqlBufferPoolDataPages
 	metricMysqlBufferPoolLimit         metricMysqlBufferPoolLimit
 	metricMysqlBufferPoolOperations    metricMysqlBufferPoolOperations
@@ -5466,6 +5579,7 @@ type MetricsBuilder struct {
 	metricMysqlDeadlocks               metricMysqlDeadlocks
 	metricMysqlDoubleWrites            metricMysqlDoubleWrites
 	metricMysqlHandlers                metricMysqlHandlers
+	metricMysqlHistoryListLength       metricMysqlHistoryListLength
 	metricMysqlIndexIoWaitCount        metricMysqlIndexIoWaitCount
 	metricMysqlIndexIoWaitTime         metricMysqlIndexIoWaitTime
 	metricMysqlJoins                   metricMysqlJoins
@@ -5528,6 +5642,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		startTime:                          pcommon.NewTimestampFromTime(time.Now()),
 		metricsBuffer:                      pmetric.NewMetrics(),
 		buildInfo:                          settings.BuildInfo,
+		metricMysqlActiveTransactions:      newMetricMysqlActiveTransactions(mbc.Metrics.MysqlActiveTransactions),
 		metricMysqlBufferPoolDataPages:     newMetricMysqlBufferPoolDataPages(mbc.Metrics.MysqlBufferPoolDataPages),
 		metricMysqlBufferPoolLimit:         newMetricMysqlBufferPoolLimit(mbc.Metrics.MysqlBufferPoolLimit),
 		metricMysqlBufferPoolOperations:    newMetricMysqlBufferPoolOperations(mbc.Metrics.MysqlBufferPoolOperations),
@@ -5541,6 +5656,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMysqlDeadlocks:               newMetricMysqlDeadlocks(mbc.Metrics.MysqlDeadlocks),
 		metricMysqlDoubleWrites:            newMetricMysqlDoubleWrites(mbc.Metrics.MysqlDoubleWrites),
 		metricMysqlHandlers:                newMetricMysqlHandlers(mbc.Metrics.MysqlHandlers),
+		metricMysqlHistoryListLength:       newMetricMysqlHistoryListLength(mbc.Metrics.MysqlHistoryListLength),
 		metricMysqlIndexIoWaitCount:        newMetricMysqlIndexIoWaitCount(mbc.Metrics.MysqlIndexIoWaitCount),
 		metricMysqlIndexIoWaitTime:         newMetricMysqlIndexIoWaitTime(mbc.Metrics.MysqlIndexIoWaitTime),
 		metricMysqlJoins:                   newMetricMysqlJoins(mbc.Metrics.MysqlJoins),
@@ -5656,6 +5772,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	ils.Scope().SetName(ScopeName)
 	ils.Scope().SetVersion(mb.buildInfo.Version)
 	ils.Metrics().EnsureCapacity(mb.metricsCapacity)
+	mb.metricMysqlActiveTransactions.emit(ils.Metrics())
 	mb.metricMysqlBufferPoolDataPages.emit(ils.Metrics())
 	mb.metricMysqlBufferPoolLimit.emit(ils.Metrics())
 	mb.metricMysqlBufferPoolOperations.emit(ils.Metrics())
@@ -5669,6 +5786,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricMysqlDeadlocks.emit(ils.Metrics())
 	mb.metricMysqlDoubleWrites.emit(ils.Metrics())
 	mb.metricMysqlHandlers.emit(ils.Metrics())
+	mb.metricMysqlHistoryListLength.emit(ils.Metrics())
 	mb.metricMysqlIndexIoWaitCount.emit(ils.Metrics())
 	mb.metricMysqlIndexIoWaitTime.emit(ils.Metrics())
 	mb.metricMysqlJoins.emit(ils.Metrics())
@@ -5735,6 +5853,16 @@ func (mb *MetricsBuilder) Emit(options ...ResourceMetricsOption) pmetric.Metrics
 	metrics := mb.metricsBuffer
 	mb.metricsBuffer = pmetric.NewMetrics()
 	return metrics
+}
+
+// RecordMysqlActiveTransactionsDataPoint adds a data point to mysql.active_transactions metric.
+func (mb *MetricsBuilder) RecordMysqlActiveTransactionsDataPoint(ts pcommon.Timestamp, inputVal string) error {
+	val, err := strconv.ParseInt(inputVal, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse int64 for MysqlActiveTransactions, value was %s: %w", inputVal, err)
+	}
+	mb.metricMysqlActiveTransactions.recordDataPoint(mb.startTime, ts, val)
+	return nil
 }
 
 // RecordMysqlBufferPoolDataPagesDataPoint adds a data point to mysql.buffer_pool.data_pages metric.
@@ -5854,6 +5982,16 @@ func (mb *MetricsBuilder) RecordMysqlHandlersDataPoint(ts pcommon.Timestamp, inp
 		return fmt.Errorf("failed to parse int64 for MysqlHandlers, value was %s: %w", inputVal, err)
 	}
 	mb.metricMysqlHandlers.recordDataPoint(mb.startTime, ts, val, handlerAttributeValue.String())
+	return nil
+}
+
+// RecordMysqlHistoryListLengthDataPoint adds a data point to mysql.history_list_length metric.
+func (mb *MetricsBuilder) RecordMysqlHistoryListLengthDataPoint(ts pcommon.Timestamp, inputVal string) error {
+	val, err := strconv.ParseInt(inputVal, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse int64 for MysqlHistoryListLength, value was %s: %w", inputVal, err)
+	}
+	mb.metricMysqlHistoryListLength.recordDataPoint(mb.startTime, ts, val)
 	return nil
 }
 
