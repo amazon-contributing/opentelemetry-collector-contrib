@@ -28,7 +28,7 @@ func createDefaultConfig() component.Config {
 	settings.RequestTimeoutSeconds = 10
 	return &Config{
 		AWSSessionSettings:          settings,
-		LogsProvisionFailureBackoff: 30 * time.Second,
+		LogsProvisionFailureBackoff: 5 * time.Second,
 	}
 }
 

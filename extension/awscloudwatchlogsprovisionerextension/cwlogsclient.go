@@ -31,7 +31,10 @@ func (c *defaultCWLogsClient) CreateLogGroup(ctx context.Context, logGroupName s
 	_, err := c.svc.CreateLogGroup(ctx, &cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(logGroupName),
 	})
-	if err != nil && !isAlreadyExists(err) {
+	// AlreadyExists: group was created before us.
+	// OperationAborted: another concurrent create is in flight.
+	// Both mean the group exists or will exist momentarily.
+	if err != nil && !isAlreadyExists(err) && !isOperationAborted(err) {
 		return err
 	}
 	return nil
@@ -51,6 +54,11 @@ func (c *defaultCWLogsClient) CreateLogStream(ctx context.Context, logGroupName,
 func isAlreadyExists(err error) bool {
 	var alreadyExists *types.ResourceAlreadyExistsException
 	return errors.As(err, &alreadyExists)
+}
+
+func isOperationAborted(err error) bool {
+	var aborted *types.OperationAbortedException
+	return errors.As(err, &aborted)
 }
 
 func isNotFound(err error) bool {

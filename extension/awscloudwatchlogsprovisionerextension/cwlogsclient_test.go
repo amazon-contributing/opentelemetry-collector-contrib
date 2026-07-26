@@ -9,19 +9,74 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
 )
+
+// newStubbedCWLogsClient returns a defaultCWLogsClient whose SDK client sends
+// requests to the given RoundTripper instead of the network. The SDK's real
+// serialization and error deserialization still run.
+func newStubbedCWLogsClient(rt roundTripperFunc) *defaultCWLogsClient {
+	svc := cloudwatchlogs.New(cloudwatchlogs.Options{
+		Region:           "us-east-1",
+		Credentials:      aws.AnonymousCredentials{},
+		HTTPClient:       &http.Client{Transport: rt},
+		RetryMaxAttempts: 1,
+	})
+	return &defaultCWLogsClient{svc: svc}
+}
+
+// awsJSONError builds an AWS JSON protocol error response.
+func awsJSONError(errType, message string) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header: http.Header{
+			"Content-Type":     []string{"application/x-amz-json-1.1"},
+			"X-Amzn-Errortype": []string{errType},
+		},
+		Body: io.NopCloser(strings.NewReader(`{"__type":"` + errType + `","message":"` + message + `"}`)),
+	}
+}
+
+func TestDefaultClient_CreateLogGroup_SwallowsOperationAborted(t *testing.T) {
+	client := newStubbedCWLogsClient(func(*http.Request) (*http.Response, error) {
+		return awsJSONError("OperationAbortedException",
+			"Multiple concurrent requests to update the same resource were in conflict."), nil
+	})
+
+	assert.NoError(t, client.CreateLogGroup(t.Context(), "/test/group"))
+}
+
+func TestDefaultClient_CreateLogGroup_SwallowsAlreadyExists(t *testing.T) {
+	client := newStubbedCWLogsClient(func(*http.Request) (*http.Response, error) {
+		return awsJSONError("ResourceAlreadyExistsException", "The specified log group already exists"), nil
+	})
+
+	assert.NoError(t, client.CreateLogGroup(t.Context(), "/test/group"))
+}
+
+func TestDefaultClient_CreateLogGroup_PropagatesOtherErrors(t *testing.T) {
+	client := newStubbedCWLogsClient(func(*http.Request) (*http.Response, error) {
+		return awsJSONError("AccessDeniedException", "not authorized"), nil
+	})
+
+	assert.Error(t, client.CreateLogGroup(t.Context(), "/test/group"))
+}
 
 // TestNewDefaultCWLogsClient_CABundle verifies the CA bundle flows into the SDK CW Logs client's
 // HTTP transport from either CertificateFilePath or AWS_CA_BUNDLE.

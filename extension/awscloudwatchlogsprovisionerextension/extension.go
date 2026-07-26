@@ -5,7 +5,6 @@ package awscloudwatchlogsprovisionerextension // import "github.com/open-telemet
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,9 +25,17 @@ var (
 	_ extensioncapabilities.Dependent = (*provisionerExtension)(nil)
 )
 
+const streamRetryDelay = 150 * time.Millisecond
+
 type cacheEntry struct {
 	success   bool
 	expiresAt time.Time // only used for failed entries
+}
+
+// inFailureBackoff reports whether the entry is a failed entry whose backoff
+// has not yet expired.
+func (ce cacheEntry) inFailureBackoff() bool {
+	return !ce.success && time.Now().Before(ce.expiresAt)
 }
 
 // cwLogsClient abstracts the CloudWatch Logs API for testability.
@@ -46,14 +53,17 @@ type provisionerExtension struct {
 	host   component.Host
 	client cwLogsClient
 
-	cache   sync.Map
-	sfGroup singleflight.Group
+	cache            sync.Map
+	sfProvision      singleflight.Group
+	sfCreateGroup    singleflight.Group
+	streamRetryDelay time.Duration
 }
 
 func newExtension(logger *zap.Logger, cfg *Config) *provisionerExtension {
 	return &provisionerExtension{
-		logger: logger,
-		cfg:    cfg,
+		logger:           logger,
+		cfg:              cfg,
+		streamRetryDelay: streamRetryDelay,
 	}
 }
 
@@ -132,7 +142,7 @@ func (rt *provisionerRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 	logStream := req.Header.Get("x-aws-log-stream")
 
 	if logGroup != "" && logStream != "" {
-		wasProvisioned := rt.ext.ensure(req.Context(), logGroup, logStream)
+		rt.ext.ensure(req.Context(), logGroup, logStream)
 
 		resp, err := rt.base.RoundTrip(req)
 		if err != nil {
@@ -140,17 +150,16 @@ func (rt *provisionerRoundTripper) RoundTrip(req *http.Request) (*http.Response,
 		}
 
 		// If the CW OTLP endpoint returns 400 with "does not exist", evict the
-		// cache entry. If ensure() returned true (log group was previously known
-		// to exist), return an error to trigger the exporter's retry logic — on
-		// retry, ensure() re-provisions the log group/stream.
+		// success cache entry and return an error so the exporter retries
+		// instead of treating the 400 as a permanent failure and dropping the
+		// data. On a retry after the failure backoff expires, ensure()
+		// re-provisions the log group/stream.
 		if resp.StatusCode == http.StatusBadRequest {
 			body, readErr := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if readErr == nil && strings.Contains(string(body), "does not exist") {
 				rt.ext.evictSuccessfulEntry(logGroup, logStream)
-				if wasProvisioned {
-					return nil, errors.New("destination log group/stream (that did exist) does not exist, evicted cache entry for re-provisioning for next retry")
-				}
+				return nil, fmt.Errorf("destination log group %q/stream %q does not exist, will re-provision on next retry", logGroup, logStream)
 			}
 			resp.Body = io.NopCloser(strings.NewReader(string(body)))
 		}
@@ -178,16 +187,16 @@ func (e *provisionerExtension) ensure(ctx context.Context, logGroup, logStream s
 		if ce.success {
 			return true
 		}
-		if time.Now().Before(ce.expiresAt) {
+		if ce.inFailureBackoff() {
 			return false
 		}
 	}
 
-	_, _, _ = e.sfGroup.Do(key, func() (any, error) {
+	_, _, _ = e.sfProvision.Do(key, func() (any, error) {
 		// Double-check cache after acquiring singleflight.
 		if entry, ok := e.cache.Load(key); ok {
 			ce := entry.(cacheEntry)
-			if ce.success || time.Now().Before(ce.expiresAt) {
+			if ce.success || ce.inFailureBackoff() {
 				return nil, nil
 			}
 		}
@@ -240,14 +249,25 @@ func (e *provisionerExtension) provision(ctx context.Context, logGroup, logStrea
 		"Log group not found, creating",
 		zap.String("logGroup", logGroup),
 	)
-	if grpErr := e.client.CreateLogGroup(ctx, logGroup); grpErr != nil {
+	_, grpErr, _ := e.sfCreateGroup.Do(logGroup, func() (any, error) {
+		// Use Background so the shared create is not canceled when the winning
+		// request's context expires. The SDK HTTP client has its own timeout.
+		return nil, e.client.CreateLogGroup(context.Background(), logGroup)
+	})
+	if grpErr != nil {
 		return fmt.Errorf("CreateLogGroup %q: %w", logGroup, grpErr)
+	}
+
+	// Brief pause since the group may not be visible to CreateLogStream yet.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(e.streamRetryDelay):
 	}
 
 	if retryErr := e.client.CreateLogStream(ctx, logGroup, logStream); retryErr != nil {
 		return fmt.Errorf("CreateLogStream %q in %q (retry): %w", logStream, logGroup, retryErr)
 	}
-
 	return nil
 }
 
