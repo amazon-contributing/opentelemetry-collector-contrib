@@ -124,7 +124,7 @@ func TestExplainQueryEarlyExits(t *testing.T) {
 }
 
 func TestNewMySQLClient_PassfileResolvesPassword(t *testing.T) {
-	content := "localhost:3306:testdb:cw_monitor:secret_from_file\n"
+	content := "[client]\nhost=localhost\nport=3306\nuser=cw_monitor\npassword=secret_from_file\n"
 	dir := t.TempDir()
 	passfilePath := filepath.Join(dir, ".mysql_credentials")
 	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
@@ -152,7 +152,7 @@ func TestNewMySQLClient_PassfileResolvesPassword(t *testing.T) {
 }
 
 func TestNewMySQLClient_PassfileNoMatch(t *testing.T) {
-	content := "otherhost:3306:otherdb:otheruser:pass\n"
+	content := "[other]\nhost=otherhost\nport=3306\nuser=otheruser\npassword=pass\n"
 	dir := t.TempDir()
 	passfilePath := filepath.Join(dir, ".mysql_credentials")
 	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
@@ -177,7 +177,7 @@ func TestNewMySQLClient_PassfileNoMatch(t *testing.T) {
 }
 
 func TestNewMySQLClient_PasswordTakesPrecedenceOverPassfile(t *testing.T) {
-	content := "localhost:3306:*:cw_monitor:file_password\n"
+	content := "[client]\nhost=localhost\nport=3306\nuser=cw_monitor\npassword=file_password\n"
 	dir := t.TempDir()
 	passfilePath := filepath.Join(dir, ".mysql_credentials")
 	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
@@ -203,4 +203,54 @@ func TestNewMySQLClient_PasswordTakesPrecedenceOverPassfile(t *testing.T) {
 	mc := c.(*mySQLClient)
 	assert.Contains(t, mc.connStr, "inline_password")
 	assert.NotContains(t, mc.connStr, "file_password")
+}
+
+func TestNewMySQLClient_PassfileEmptyUsername(t *testing.T) {
+	content := "[client]\nhost=localhost\nport=3306\nuser=cw_monitor\npassword=secret\n"
+	dir := t.TempDir()
+	passfilePath := filepath.Join(dir, ".mysql_credentials")
+	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
+
+	conf := &Config{
+		Username: "",
+		Passfile: passfilePath,
+		Database: "testdb",
+		AddrConfig: confignet.AddrConfig{
+			Endpoint:  "localhost:3306",
+			Transport: confignet.TransportTypeTCP,
+		},
+		AllowNativePasswords: true,
+		TLS: configtls.ClientConfig{
+			Insecure: true,
+		},
+	}
+
+	_, err := newMySQLClient(conf)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "unable to resolve password from passfile")
+}
+
+func TestNewMySQLClient_PassfileEmptyPassword(t *testing.T) {
+	content := "[client]\nhost=localhost\nport=3306\nuser=cw_monitor\n"
+	dir := t.TempDir()
+	passfilePath := filepath.Join(dir, ".mysql_credentials")
+	require.NoError(t, os.WriteFile(passfilePath, []byte(content), 0o600))
+
+	conf := &Config{
+		Username: "cw_monitor",
+		Passfile: passfilePath,
+		Database: "testdb",
+		AddrConfig: confignet.AddrConfig{
+			Endpoint:  "localhost:3306",
+			Transport: confignet.TransportTypeTCP,
+		},
+		AllowNativePasswords: true,
+		TLS: configtls.ClientConfig{
+			Insecure: true,
+		},
+	}
+
+	_, err := newMySQLClient(conf)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "unable to resolve password from passfile")
 }

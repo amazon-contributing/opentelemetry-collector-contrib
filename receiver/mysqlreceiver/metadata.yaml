@@ -194,6 +194,18 @@ attributes:
   mysql.events_statements_summary_by_digest.sum_select_scan:
     description: The total number of joins that did a full scan of the first table.
     type: int
+  mysql.events_statements_summary_by_digest.sum_rows_affected:
+    description: The total number of rows affected by the digest.
+    type: int
+  mysql.events_statements_summary_by_digest.sum_select_range_check:
+    description: The total number of joins without keys that check for key usage after each row.
+    type: int
+  mysql.events_statements_summary_by_digest.sum_sort_merge_passes:
+    description: The total number of sort merge passes for the digest.
+    type: int
+  mysql.events_statements_summary_by_digest.sum_sort_range:
+    description: The total number of sorts done using ranges.
+    type: int
 
   mysql.events_waits_current.timer_wait:
     description: Timing information for the event, indicating elapsed time the event waited in seconds.
@@ -370,6 +382,10 @@ events:
       - mysql.events_statements_summary_by_digest.sum_sort_scan
       - mysql.events_statements_summary_by_digest.sum_no_good_index_used
       - mysql.events_statements_summary_by_digest.sum_select_scan
+      - mysql.events_statements_summary_by_digest.sum_rows_affected
+      - mysql.events_statements_summary_by_digest.sum_select_range_check
+      - mysql.events_statements_summary_by_digest.sum_sort_merge_passes
+      - mysql.events_statements_summary_by_digest.sum_sort_range
 
 metrics:
   mysql.buffer_pool.data_pages:

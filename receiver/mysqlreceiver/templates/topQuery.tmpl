@@ -16,7 +16,11 @@ SELECT
     `sum_select_full_join`,
     `sum_sort_scan`,
     `sum_no_good_index_used`,
-    `sum_select_scan`
+    `sum_select_scan`,
+    `sum_rows_affected`,
+    `sum_select_range_check`,
+    `sum_sort_merge_passes`,
+    `sum_sort_range`
 FROM performance_schema.events_statements_summary_by_digest
 WHERE `last_seen` >= NOW() - INTERVAL {{ .lookbackTime }} second
     AND ((`digest_text` NOT LIKE 'EXPLAIN %' AND `digest_text` NOT LIKE '/* otel-collector-ignore */%')

@@ -100,7 +100,7 @@ func createLogsReceiver(
 	if cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled {
 		// we have 14 delta-tracked columns. so we set the cache size accordingly.
 		// TODO: parameterize this cache size.
-		ns := newMySQLScraper(params, cfg, newCache[int64](int(cfg.TopQueryCollection.MaxQuerySampleCount*14*2)), newTTLCache[string](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.QueryPlanCacheTTL))
+		ns := newMySQLScraper(params, cfg, newCache[int64](int(cfg.TopQueryCollection.MaxQuerySampleCount*18*2)), newTTLCache[string](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.QueryPlanCacheTTL))
 		s, err := scraper.NewLogs(
 			ns.scrapeTopQueryFunc,
 			scraper.WithStart(ns.start),

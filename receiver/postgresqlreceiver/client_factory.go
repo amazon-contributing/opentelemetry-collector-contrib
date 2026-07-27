@@ -153,5 +153,3 @@ func getDB(cfg postgreSQLConfig, database string) (*sql.DB, error) {
 	}
 	return sql.OpenDB(conn), nil
 }
-
-

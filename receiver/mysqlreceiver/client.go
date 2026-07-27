@@ -235,6 +235,10 @@ type topQuery struct {
 	sumSortScan               int64
 	sumNoGoodIndexUsed        int64
 	sumSelectScan             int64
+	sumRowsAffected           int64
+	sumSelectRangeCheck       int64
+	sumSortMergePasses        int64
+	sumSortRange              int64
 }
 
 var _ client = (*mySQLClient)(nil)
@@ -259,7 +263,7 @@ func newMySQLClient(conf *Config) (client, error) {
 		if err != nil {
 			return nil, err
 		}
-		resolved, err := resolvePasswordFromPassfile(conf.Passfile, host, port, conf.Database, conf.Username)
+		resolved, err := resolvePasswordFromPassfile(conf.Passfile, host, port, conf.Username)
 		if err != nil {
 			return nil, fmt.Errorf("unable to resolve password from passfile: %w", err)
 		}
@@ -799,6 +803,10 @@ func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64) ([]topQuery,
 			&tq.sumSortScan,
 			&tq.sumNoGoodIndexUsed,
 			&tq.sumSelectScan,
+			&tq.sumRowsAffected,
+			&tq.sumSelectRangeCheck,
+			&tq.sumSortMergePasses,
+			&tq.sumSortRange,
 		)
 		if err != nil {
 			return nil, err

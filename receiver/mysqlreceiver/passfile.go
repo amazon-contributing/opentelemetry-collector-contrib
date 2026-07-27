@@ -4,74 +4,80 @@
 package mysqlreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mysqlreceiver"
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
+
+	"gopkg.in/ini.v1"
 )
 
-// resolvePasswordFromPassfile reads a pgpass-inspired credential file and resolves
-// the password for the given connection parameters. The file format is:
+// resolvePasswordFromPassfile reads a MySQL option file (.my.cnf format) and
+// resolves the password for the given connection parameters.
 //
-//	hostname:port:database:username:password
+// Lookup strategy: Iterate all sections, match by host+port+user fields.
 //
-// An asterisk (*) matches any value in that field.
-func resolvePasswordFromPassfile(path, hostname, port, database, username string) (string, error) {
-	f, err := os.Open(path)
+// File format (standard MySQL INI):
+//
+//	[client]
+//	host=localhost
+//	port=3306
+//	user=cw_monitor
+//	password=secret
+func resolvePasswordFromPassfile(path, hostname, port, username string) (string, error) {
+	sections, err := parseMyCnfFile(path)
 	if err != nil {
-		return "", fmt.Errorf("unable to open passfile: %w", err)
+		return "", err
 	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := splitPassfileLine(line)
-		if len(parts) != 5 {
-			continue
-		}
-
-		if matchField(parts[0], hostname) &&
-			matchField(parts[1], port) &&
-			matchField(parts[2], database) &&
-			matchField(parts[3], username) {
-			return parts[4], nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("error reading passfile: %w", err)
-	}
-
-	return "", fmt.Errorf("no matching entry found in passfile %q", path)
+	return lookupByMatching(sections, hostname, port, username, path)
 }
 
-// splitPassfileLine splits a passfile line on unescaped colons.
-// Backslash-escaped colons (\:) are treated as literal colons.
-func splitPassfileLine(line string) []string {
-	var parts []string
-	var current strings.Builder
-
-	for i := 0; i < len(line); i++ {
-		switch {
-		case line[i] == '\\' && i+1 < len(line):
-			current.WriteByte(line[i+1])
-			i++
-		case line[i] == ':':
-			parts = append(parts, current.String())
-			current.Reset()
-		default:
-			current.WriteByte(line[i])
-		}
-	}
-	parts = append(parts, current.String())
-	return parts
+type myCnfSection struct {
+	name   string
+	fields map[string]string
 }
 
-func matchField(pattern, value string) bool {
-	return pattern == "*" || pattern == value
+func parseMyCnfFile(path string) ([]myCnfSection, error) {
+	cfg, err := ini.LoadSources(ini.LoadOptions{IgnoreInlineComment: true}, path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open password file: %w", err)
+	}
+
+	var sections []myCnfSection
+	for _, s := range cfg.Sections() {
+		if s.Name() == ini.DefaultSection {
+			continue
+		}
+		fields := make(map[string]string)
+		for _, k := range s.Keys() {
+			fields[strings.ToLower(k.Name())] = k.Value()
+		}
+		sections = append(sections, myCnfSection{name: s.Name(), fields: fields})
+	}
+	return sections, nil
+}
+
+func lookupByMatching(sections []myCnfSection, hostname, port, username, path string) (string, error) {
+	for _, s := range sections {
+		sHost := s.fields["host"]
+		sPort := s.fields["port"]
+		sUser := s.fields["user"]
+		if sHost == "" || sPort == "" || sUser == "" {
+			continue
+		}
+		if matchField(sHost, hostname) && matchField(sPort, port) && matchField(sUser, username) {
+			if pass, ok := s.fields["password"]; ok {
+				return pass, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no matching entry found in password file %q for host=%s port=%s user=%s", path, hostname, port, username)
+}
+
+// matchField compares a field value against expected.
+// Both fields must be present and match (case-insensitive).
+func matchField(field, expected string) bool {
+	if field == "" || expected == "" {
+		return false
+	}
+	return strings.EqualFold(field, expected)
 }
