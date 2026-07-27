@@ -16,7 +16,7 @@ This extension is designed for use with the `otlphttp` exporter to send logs to 
 |----------------------------------|------------|------------------------------------------------------------------|
 | `region`                         | (required) | AWS region for CloudWatch Logs API calls                         |
 | `additional_auth`                | (none)     | Inner auth extension for request signing (typically `sigv4auth`) |
-| `logs_provision_failure_backoff` | `30s`      | TTL for negative cache entries after a creation failure          |
+| `logs_provision_failure_backoff` | `5s`       | TTL for negative cache entries after a creation failure          |
 
 The extension also accepts the standard AWS session settings — `profile`, `shared_credentials_file`,
 `local_mode`, `role_arn`, `external_id`, `endpoint`, `proxy_address`, `certificate_file_path`,
