@@ -28,8 +28,8 @@ type mockPerfCounterWatcher struct {
 }
 
 // Close provides a mock function with given fields:
-func (_m *mockPerfCounterWatcher) Close() error {
-	ret := _m.Called()
+func (w *mockPerfCounterWatcher) Close() error {
+	ret := w.Called()
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func() error); ok {
@@ -42,8 +42,8 @@ func (_m *mockPerfCounterWatcher) Close() error {
 }
 
 // Path provides a mock function with given fields:
-func (_m *mockPerfCounterWatcher) Path() string {
-	ret := _m.Called()
+func (w *mockPerfCounterWatcher) Path() string {
+	ret := w.Called()
 
 	var r0 string
 	if rf, ok := ret.Get(0).(func() string); ok {
@@ -56,8 +56,8 @@ func (_m *mockPerfCounterWatcher) Path() string {
 }
 
 // ScrapeData provides a mock function with given fields:
-func (_m *mockPerfCounterWatcher) ScrapeData() ([]winperfcounters.CounterValue, error) {
-	ret := _m.Called()
+func (w *mockPerfCounterWatcher) ScrapeData() ([]winperfcounters.CounterValue, error) {
+	ret := w.Called()
 
 	var r0 []winperfcounters.CounterValue
 	if rf, ok := ret.Get(0).(func() []winperfcounters.CounterValue); ok {
@@ -76,7 +76,7 @@ func (_m *mockPerfCounterWatcher) ScrapeData() ([]winperfcounters.CounterValue, 
 	return r0, r1
 }
 
-func (_m *mockPerfCounterWatcher) Reset() error {
+func (*mockPerfCounterWatcher) Reset() error {
 	return nil
 }
 

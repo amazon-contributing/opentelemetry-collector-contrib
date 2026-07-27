@@ -5,7 +5,11 @@
 
 package sqlserverreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver"
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"os"
+)
 
 func (cfg *Config) validateInstanceAndComputerName() error {
 	if cfg.InstanceName != "" && cfg.ComputerName == "" {
@@ -15,5 +19,14 @@ func (cfg *Config) validateInstanceAndComputerName() error {
 		return errors.New("'computer_name' may not be specified without 'instance_name'")
 	}
 
+	return nil
+}
+
+// validatePassfilePermissions only checks that the passfile is accessible on
+// Windows, where Unix-style permission bits do not apply.
+func (cfg *Config) validatePassfilePermissions() error {
+	if _, err := os.Stat(cfg.Passfile); err != nil {
+		return fmt.Errorf("`passfile` is inaccessible: %w", err)
+	}
 	return nil
 }

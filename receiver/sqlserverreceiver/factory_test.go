@@ -43,16 +43,18 @@ func TestFactory(t *testing.T) {
 						InitialDelay:       time.Second,
 					},
 					TopQueryCollection: TopQueryCollection{
-						Enabled:             false,
-						LookbackTime:        uint(2 * 10),
 						MaxQuerySampleCount: 1000,
-						TopQueryCount:       200,
+						TopQueryCount:       250,
+						CollectionInterval:  time.Minute,
+						QueryPlanCacheSize:  1000,
+						QueryPlanCacheTTL:   time.Hour,
+						MaxQueryPlanSize:    900 * 1024,
 					},
 					QuerySample: QuerySample{
-						Enabled:         false,
 						MaxRowsPerQuery: 100,
 					},
 					MetricsBuilderConfig: metadata.DefaultMetricsBuilderConfig(),
+					LogsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
 				}
 
 				require.Equal(t, expectedCfg, factory.CreateDefaultConfig())
@@ -102,7 +104,9 @@ func TestFactory(t *testing.T) {
 				cfg.Metrics.SqlserverDatabaseLatency.Enabled = true
 
 				require.True(t, cfg.isDirectDBConnectionEnabled)
-				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", getDBConnectionString(cfg))
+				connStr, err := getDBConnectionString(cfg)
+				require.NoError(t, err)
+				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", connStr)
 
 				params := receivertest.NewNopSettings(metadata.Type)
 				scrapers, err := setupScrapers(params, cfg)
@@ -155,7 +159,8 @@ func TestFactory(t *testing.T) {
 					t.Context(),
 					receivertest.NewNopSettings(metadata.Type),
 					nil,
-					consumertest.NewNop())
+					consumertest.NewNop(),
+				)
 				require.ErrorIs(t, err, errConfigNotSQLServer)
 			},
 		},
@@ -190,7 +195,9 @@ func TestFactory(t *testing.T) {
 				cfg.Metrics.SqlserverDatabaseLatency.Enabled = true
 
 				require.True(t, cfg.isDirectDBConnectionEnabled)
-				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", getDBConnectionString(cfg))
+				connStr, err := getDBConnectionString(cfg)
+				require.NoError(t, err)
+				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", connStr)
 
 				params := receivertest.NewNopSettings(metadata.Type)
 				scrapers, err := setupLogsScrapers(params, cfg)
@@ -201,7 +208,7 @@ func TestFactory(t *testing.T) {
 				require.Empty(t, sqlScrapers)
 
 				cfg.InstanceName = "instanceName"
-				cfg.TopQueryCollection.Enabled = true
+				cfg.Events.DbServerTopQuery.Enabled = true
 				scrapers, err = setupLogsScrapers(params, cfg)
 				require.NoError(t, err)
 				require.NotEmpty(t, scrapers)
@@ -263,8 +270,69 @@ func TestSetupQueries(t *testing.T) {
 
 	metricsMetadata, ok := metadata["metrics"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, metricsMetadata, 45,
-		"Every time metrics are added or removed, the function `setupQueries` must "+
-			"be modified to properly account for the change. Please update `setupQueries` and then, "+
-			"and only then, update the expected metric count here.")
+	require.Len(t, metricsMetadata, 55, "Every time metrics are added or removed, the function `setupQueries` must "+
+		"be modified to properly account for the change. Please update `setupQueries` and then, "+
+		"and only then, update the expected metric count here.")
+}
+
+func TestGetDBConnectionStringWithPassfile(t *testing.T) {
+	dir := t.TempDir()
+	passfilePath := dir + "/.sqlserver_password"
+
+	t.Run("returns full ADO line from passfile", func(t *testing.T) {
+		content := "server=myhost;user id=sa;password=Secret123;port=1433\n"
+		err := os.WriteFile(passfilePath, []byte(content), 0o600)
+		require.NoError(t, err)
+
+		cfg := &Config{
+			Server:   "myhost",
+			Username: "sa",
+			Port:     1433,
+			Passfile: passfilePath,
+		}
+
+		connStr, err := getDBConnectionString(cfg)
+		require.NoError(t, err)
+		require.Equal(t, "server=myhost;user id=sa;password=Secret123;port=1433", connStr)
+	})
+
+	t.Run("returns error when no entry matches", func(t *testing.T) {
+		content := "server=otherhost;user id=sa;password=Secret123;port=1433\n"
+		err := os.WriteFile(passfilePath, []byte(content), 0o600)
+		require.NoError(t, err)
+
+		cfg := &Config{
+			Server:   "myhost",
+			Username: "sa",
+			Port:     1433,
+			Passfile: passfilePath,
+		}
+
+		_, err = getDBConnectionString(cfg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no matching entry found")
+	})
+
+	t.Run("returns datasource when set", func(t *testing.T) {
+		cfg := &Config{
+			DataSource: "custom-connection-string",
+		}
+
+		connStr, err := getDBConnectionString(cfg)
+		require.NoError(t, err)
+		require.Equal(t, "custom-connection-string", connStr)
+	})
+
+	t.Run("returns formatted string with password when no passfile", func(t *testing.T) {
+		cfg := &Config{
+			Server:   "0.0.0.0",
+			Username: "sa",
+			Password: "password",
+			Port:     1433,
+		}
+
+		connStr, err := getDBConnectionString(cfg)
+		require.NoError(t, err)
+		require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", connStr)
+	})
 }

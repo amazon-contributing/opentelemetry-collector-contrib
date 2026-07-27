@@ -35,7 +35,9 @@ func TestFactoryOtherOS(t *testing.T) {
 				require.NoError(t, cfg.Validate())
 
 				require.True(t, cfg.isDirectDBConnectionEnabled)
-				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", getDBConnectionString(cfg))
+				connStr, err := getDBConnectionString(cfg)
+				require.NoError(t, err)
+				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", connStr)
 
 				params := receivertest.NewNopSettings(metadata.Type)
 				scrapers, err := setupScrapers(params, cfg)
@@ -78,7 +80,9 @@ func TestFactoryOtherOS(t *testing.T) {
 				require.NoError(t, cfg.Validate())
 
 				require.True(t, cfg.isDirectDBConnectionEnabled)
-				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", getDBConnectionString(cfg))
+				connStr, err := getDBConnectionString(cfg)
+				require.NoError(t, err)
+				require.Equal(t, "server=0.0.0.0;user id=sa;password=password;port=1433", connStr)
 
 				params := receivertest.NewNopSettings(metadata.Type)
 				scrapers, err := setupLogsScrapers(params, cfg)
@@ -89,7 +93,7 @@ func TestFactoryOtherOS(t *testing.T) {
 				require.Empty(t, sqlScrapers)
 
 				cfg.InstanceName = "instanceName"
-				cfg.TopQueryCollection.Enabled = true
+				cfg.Events.DbServerTopQuery.Enabled = true
 				scrapers, err = setupLogsScrapers(params, cfg)
 				require.NoError(t, err)
 				require.NotEmpty(t, scrapers)

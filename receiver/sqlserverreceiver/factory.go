@@ -11,6 +11,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	_ "github.com/microsoft/go-mssqldb"                     // register Db driver
 	_ "github.com/microsoft/go-mssqldb/integratedauth/krb5" // register Db driver
 	"go.opentelemetry.io/collector/component"
@@ -36,13 +37,25 @@ func newCache(size int) *lru.Cache[string, int64] {
 	return cache
 }
 
+// newTTLCache creates a new TTL cache with the given size and TTL duration.
+// If the size is less or equal to 0, it will be set to 1.
+// Used for caching query plans with automatic expiration.
+func newTTLCache(size int, ttl time.Duration) *expirable.LRU[string, string] {
+	if size <= 0 {
+		size = 1
+	}
+	cache := expirable.NewLRU[string, string](size, nil, ttl)
+	return cache
+}
+
 // NewFactory creates a factory for SQL Server receiver.
 func NewFactory() receiver.Factory {
 	return receiver.NewFactory(
 		metadata.Type,
 		createDefaultConfig,
 		receiver.WithMetrics(createMetricsReceiver, metadata.MetricsStability),
-		receiver.WithLogs(createLogsReceiver, metadata.LogsStability))
+		receiver.WithLogs(createLogsReceiver, metadata.LogsStability),
+	)
 }
 
 func createDefaultConfig() component.Config {
@@ -51,15 +64,17 @@ func createDefaultConfig() component.Config {
 	return &Config{
 		ControllerConfig:     cfg,
 		MetricsBuilderConfig: metadata.DefaultMetricsBuilderConfig(),
+		LogsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
 		QuerySample: QuerySample{
-			Enabled:         false,
 			MaxRowsPerQuery: 100,
 		},
 		TopQueryCollection: TopQueryCollection{
-			Enabled:             false,
-			LookbackTime:        uint(2 * cfg.CollectionInterval / time.Second),
 			MaxQuerySampleCount: 1000,
-			TopQueryCount:       200,
+			TopQueryCount:       250,
+			CollectionInterval:  time.Minute,
+			QueryPlanCacheSize:  1000,       // Cache 1000 query plans
+			QueryPlanCacheTTL:   time.Hour,  // Keep plans for 1 hour
+			MaxQueryPlanSize:    900 * 1024, // 900KB max - plans are always compressed
 		},
 	}
 }
@@ -75,8 +90,16 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerPerformanceCounterQuery(cfg.InstanceName))
 	}
 
-	if cfg.Metrics.SqlserverDatabaseCount.Enabled {
+	if cfg.Metrics.SqlserverDatabaseCount.Enabled || cfg.Metrics.SqlserverCPUCount.Enabled || cfg.Metrics.SqlserverComputerUptime.Enabled {
 		queries = append(queries, getSQLServerPropertiesQuery(cfg.InstanceName))
+	}
+
+	if isWaitStatsQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerWaitStatsQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverSessionCount.Enabled {
+		queries = append(queries, getSQLServerSessionStatesQuery(cfg.InstanceName))
 	}
 
 	return queries
@@ -85,11 +108,11 @@ func setupQueries(cfg *Config) []string {
 func setupLogQueries(cfg *Config) []string {
 	var queries []string
 
-	if cfg.QuerySample.Enabled {
+	if cfg.Events.DbServerQuerySample.Enabled {
 		queries = append(queries, getSQLServerQuerySamplesQuery())
 	}
 
-	if cfg.TopQueryCollection.Enabled {
+	if cfg.Events.DbServerTopQuery.Enabled {
 		queries = append(queries, getSQLServerQueryTextAndPlanQuery())
 	}
 
@@ -97,11 +120,17 @@ func setupLogQueries(cfg *Config) []string {
 }
 
 // Assumes config has all information necessary to directly connect to the database
-func getDBConnectionString(config *Config) string {
-	if config.DataSource != "" {
-		return config.DataSource
+func getDBConnectionString(config *Config) (string, error) {
+	switch {
+	case config.DataSource != "":
+		return config.DataSource, nil
+	case string(config.Password) == "" && config.Passfile != "":
+		// An inline password takes priority; the passfile is only used when no
+		// password is set.
+		return resolvePassfileEntry(config.Passfile, config.Server, config.Port, config.Username)
+	default:
+		return fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d", config.Server, config.Username, string(config.Password), config.Port), nil
 	}
-	return fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d", config.Server, config.Username, string(config.Password), config.Port)
 }
 
 // SQL Server scraper creation is split out into a separate method for the sake of testing.
@@ -120,7 +149,11 @@ func setupSQLServerScrapers(params receiver.Settings, cfg *Config) []*sqlServerS
 	// TODO: Test if this needs to be re-defined for each scraper
 	// This should be tested when there is more than one query being made.
 	dbProviderFunc := func() (*sql.DB, error) {
-		return sql.Open("sqlserver", getDBConnectionString(cfg))
+		connStr, err := getDBConnectionString(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return sql.Open("sqlserver", connStr)
 	}
 
 	var scrapers []*sqlServerScraperHelper
@@ -130,13 +163,17 @@ func setupSQLServerScrapers(params receiver.Settings, cfg *Config) []*sqlServerS
 		// lru only returns error when the size is less than 0
 		cache := newCache(1)
 
+		// Query plan cache not needed for metrics scrapers
+		queryPlanCache := newTTLCache(1, time.Second)
+
 		sqlServerScraper := newSQLServerScraper(id, query,
 			sqlquery.TelemetryConfig{},
 			dbProviderFunc,
 			sqlquery.NewDbClient,
 			params,
 			cfg,
-			cache)
+			cache,
+			queryPlanCache)
 
 		scrapers = append(scrapers, sqlServerScraper)
 	}
@@ -161,7 +198,11 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) []*sqlSer
 	// TODO: Test if this needs to be re-defined for each scraper
 	// This should be tested when there is more than one query being made.
 	dbProviderFunc := func() (*sql.DB, error) {
-		return sql.Open("sqlserver", getDBConnectionString(cfg))
+		connStr, err := getDBConnectionString(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return sql.Open("sqlserver", connStr)
 	}
 
 	var scrapers []*sqlServerScraperHelper
@@ -169,14 +210,19 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) []*sqlSer
 		id := component.NewIDWithName(metadata.Type, fmt.Sprintf("logs-query-%d: %s", i, query))
 
 		cache := newCache(1)
+		var queryPlanCache *expirable.LRU[string, string]
 
 		if query == getSQLServerQueryTextAndPlanQuery() {
 			// we have 8 metrics in this query and multiple 2 to allow to cache more queries.
 			cache = newCache(int(cfg.MaxQuerySampleCount * 8 * 2))
+			// Initialize query plan cache with configured size and TTL for top query collection
+			queryPlanCache = newTTLCache(cfg.QueryPlanCacheSize, cfg.QueryPlanCacheTTL)
 		}
 
 		if query == getSQLServerQuerySamplesQuery() {
 			cache = newCache(1)
+			// Query samples don't need plan caching
+			queryPlanCache = newTTLCache(1, time.Second)
 		}
 
 		sqlServerScraper := newSQLServerScraper(id, query,
@@ -185,7 +231,8 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) []*sqlSer
 			sqlquery.NewDbClient,
 			params,
 			cfg,
-			cache)
+			cache,
+			queryPlanCache)
 
 		scrapers = append(scrapers, sqlServerScraper)
 	}
@@ -234,7 +281,8 @@ func setupLogsScrapers(params receiver.Settings, cfg *Config) ([]scraperhelper.C
 			scraper.NewFactory(metadata.Type, nil,
 				scraper.WithLogs(func(context.Context, scraper.Settings, component.Config) (scraper.Logs, error) {
 					return s, nil
-				}, component.StabilityLevelAlpha)), nil)
+				}, component.StabilityLevelAlpha)), nil,
+		)
 		opts = append(opts, opt)
 	}
 
@@ -267,6 +315,7 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverDeadlockRate.Enabled ||
 		metrics.SqlserverIndexSearchRate.Enabled ||
 		metrics.SqlserverLockTimeoutRate.Enabled ||
+		metrics.SqlserverLockWaitCount.Enabled ||
 		metrics.SqlserverLockWaitRate.Enabled ||
 		metrics.SqlserverLoginRate.Enabled ||
 		metrics.SqlserverLogoutRate.Enabled ||
@@ -278,9 +327,18 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverProcessesBlocked.Enabled ||
 		metrics.SqlserverReplicaDataRate.Enabled ||
 		metrics.SqlserverResourcePoolDiskThrottledReadRate.Enabled ||
+		metrics.SqlserverResourcePoolDiskOperations.Enabled ||
 		metrics.SqlserverResourcePoolDiskThrottledWriteRate.Enabled ||
 		metrics.SqlserverTableCount.Enabled ||
 		metrics.SqlserverTransactionDelay.Enabled ||
 		metrics.SqlserverTransactionMirrorWriteRate.Enabled ||
 		metrics.SqlserverUserConnectionCount.Enabled
+}
+
+func isWaitStatsQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+
+	return metrics.SqlserverOsWaitDuration.Enabled
 }
