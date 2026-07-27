@@ -4,12 +4,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -146,12 +140,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -288,12 +276,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -430,12 +412,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -572,12 +548,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -714,12 +684,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -856,12 +820,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -998,12 +956,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1140,12 +1092,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1282,12 +1228,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1424,12 +1364,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1566,12 +1500,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1708,12 +1636,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1850,12 +1772,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1992,12 +1908,6 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
