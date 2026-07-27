@@ -10,7 +10,7 @@ component: mysqlreceiver
 note: Add the `mysql.history_list_length` and `mysql.active_transactions` metrics.
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
-issues: [39217]
+issues: [XXXXX]
 
 # (Optional) One or more lines of additional information to render under the primary note.
 # These lines will be padded with 2 spaces and then inserted directly into the document.
