@@ -12,7 +12,6 @@ import (
 	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"go.uber.org/zap"
 )
 
@@ -82,10 +81,10 @@ func getRootCredentials(cfg *AWSSessionSettings) aws.CredentialsProvider {
 // shared-credentials file list and an optional credentials provider.
 // Sleeps initialLoadRetryDelay and retries once on initial failure.
 //
-// After a successful load, when the SDK resolved to the EC2 instance
-// role and shared-config files exist on disk under the user.Current()
-// home dir, log a warning so operators understand why their credentials
-// file is being ignored.
+// loadConfig does not eagerly Retrieve credentials — that decision is left
+// to the caller so it can be gated on settings.WebIdentityTokenFile (where
+// the base chain is intentionally unused and would produce spurious errors,
+// e.g. on Azure VMs).
 func loadConfig(
 	ctx context.Context,
 	logger *zap.Logger,
@@ -121,27 +120,22 @@ func loadConfig(
 		}
 	}
 
-	cred, err := cfg.Credentials.Retrieve(ctx)
-	if err != nil {
-		logger.Error("Failed to get credential from session", zap.Error(err))
-		return cfg, nil
-	}
-	logger.Debug("Using credential from session",
-		zap.String("access-key", cred.AccessKeyID),
-		zap.String("source", cred.Source))
-
-	if cred.Source == ec2rolecreds.ProviderName {
-		var found []string
-		credFiles, cfgFiles := getFallbackSharedConfigFiles(currentUserHomeDir)
-		for _, f := range append(credFiles, cfgFiles...) {
-			if _, statErr := os.Stat(f); statErr == nil {
-				found = append(found, f)
-			}
-		}
-		if len(found) > 0 {
-			logger.Warn("Unused shared config file(s) found.", zap.Strings("files", found))
-		}
-	}
-
 	return cfg, nil
+}
+
+// warnIfUnusedSharedConfigFiles logs a warning when shared config files
+// exist under the current user's home directory but the resolved
+// credentials came from a source that ignores them (e.g. EC2 IMDS).
+// Called by GetAWSConfig for the base-chain path.
+func warnIfUnusedSharedConfigFiles(logger *zap.Logger) {
+	var found []string
+	credFiles, cfgFiles := getFallbackSharedConfigFiles(currentUserHomeDir)
+	for _, f := range append(credFiles, cfgFiles...) {
+		if _, err := os.Stat(f); err == nil {
+			found = append(found, f)
+		}
+	}
+	if len(found) > 0 {
+		logger.Warn("Unused shared config file(s) found.", zap.Strings("files", found))
+	}
 }

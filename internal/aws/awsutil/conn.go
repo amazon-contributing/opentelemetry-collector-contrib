@@ -11,6 +11,7 @@ import (
 
 	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"go.uber.org/zap"
@@ -73,10 +74,29 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 			newWebIdentityCredentialsProvider(cfg, settings.RoleARN, region,
 				stscreds.IdentityTokenFile(settings.WebIdentityTokenFile)),
 		)
-	case settings.RoleARN != "":
-		cfg.Credentials = aws.NewCredentialsCache(
-			newAssumeRoleCredentialsProvider(cfg, settings.RoleARN, region, settings.ExternalID),
-		)
+		logger.Debug("Using web identity credentials provider")
+	default:
+		// Eagerly Retrieve on the base chain for the diagnostic log of the
+		// resolved credential source. Skipped for web identity because the base
+		// chain is unused there: on hosts without EC2 IMDS (e.g. Azure VMs) it
+		// always fails and produces a spurious ERROR at startup.
+		cred, retrieveErr := cfg.Credentials.Retrieve(ctx)
+		if retrieveErr != nil {
+			logger.Error("Failed to get credential from session", zap.Error(retrieveErr))
+		}
+		if settings.RoleARN != "" {
+			cfg.Credentials = aws.NewCredentialsCache(
+				newAssumeRoleCredentialsProvider(cfg, settings.RoleARN, region, settings.ExternalID),
+			)
+			logger.Debug("Using assume role credentials provider")
+		} else if retrieveErr == nil {
+			logger.Debug("Using credential from session",
+				zap.String("access-key", cred.AccessKeyID),
+				zap.String("source", cred.Source))
+			if cred.Source == ec2rolecreds.ProviderName {
+				warnIfUnusedSharedConfigFiles(logger)
+			}
+		}
 	}
 
 	return cfg, nil
