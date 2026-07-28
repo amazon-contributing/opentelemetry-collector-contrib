@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/xray"
 	"github.com/aws/smithy-go"
 	"go.opentelemetry.io/collector/component"
@@ -35,12 +36,18 @@ const (
 
 // newTracesExporter creates an exporter.Traces that converts to an X-Ray PutTraceSegments
 // request and then posts the request to the configured region's X-Ray endpoint.
-func newTracesExporter(_ context.Context, cfg *Config, set exporter.Settings, registry telemetry.Registry) (exporter.Traces, error) {
+func newTracesExporter(ctx context.Context, cfg *Config, set exporter.Settings, registry telemetry.Registry) (exporter.Traces, error) {
+	return newTracesExporterWithClient(ctx, cfg, set, registry, aws.Config{}, nil)
+}
+
+func newTracesExporterWithClient(_ context.Context, cfg *Config, set exporter.Settings, registry telemetry.Registry, awsConfig aws.Config, xrayClient awsxray.XRayClient) (exporter.Traces, error) {
 	typeLog := zap.String("type", set.ID.Type().String())
 	nameLog := zap.String("name", set.ID.String())
 	logger := set.Logger
 
-	var xrayClient awsxray.XRayClient
+	// injectedClient records whether the caller supplied a client (tests). When true, the real
+	// client construction and middleware wiring in Start are skipped.
+	injectedClient := xrayClient != nil
 	sender := telemetry.NewNopSender()
 
 	return exporterhelper.NewTraces(context.Background(), set, cfg,
@@ -80,16 +87,19 @@ func newTracesExporter(_ context.Context, cfg *Config, set exporter.Settings, re
 			return err
 		},
 		exporterhelper.WithStart(func(ctx context.Context, host component.Host) error {
-			awsConfig, err := awsutil.GetAWSConfig(ctx, logger, &cfg.AWSSessionSettings)
-			if err != nil {
-				return err
+			if !injectedClient {
+				var err error
+				awsConfig, err = awsutil.GetAWSConfig(ctx, logger, &cfg.AWSSessionSettings)
+				if err != nil {
+					return err
+				}
+				// SDK v2 middleware MUST attach before NewXRayClient is called —
+				// APIOptions are snapshotted at construction.
+				if cfg.MiddlewareID != nil {
+					awsmiddleware.TryConfigure(logger, host, *cfg.MiddlewareID, awsmiddleware.SDKv2(&awsConfig))
+				}
+				xrayClient = awsxray.NewXRayClient(logger, awsConfig, set.BuildInfo)
 			}
-			// SDK v2 middleware MUST attach before NewXRayClient is called —
-			// APIOptions are snapshotted at construction.
-			if cfg.MiddlewareID != nil {
-				awsmiddleware.TryConfigure(logger, host, *cfg.MiddlewareID, awsmiddleware.SDKv2(&awsConfig))
-			}
-			xrayClient = awsxray.NewXRayClient(logger, awsConfig, set.BuildInfo)
 
 			if cfg.TelemetryConfig.Enabled {
 				opts := telemetry.ToOptions(ctx, cfg.TelemetryConfig, awsConfig, &cfg.AWSSessionSettings)
