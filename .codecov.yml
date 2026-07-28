@@ -401,6 +401,10 @@ component_management:
     name: extension_oidcauth
     paths:
     - extension/oidcauthextension/**
+  - component_id: extension_oidctoken
+    name: extension_oidctoken
+    paths:
+    - extension/oidctokenextension/**
   - component_id: extension_opampcustommessages
     name: extension_opampcustommessages
     paths:
