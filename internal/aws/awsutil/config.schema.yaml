@@ -50,3 +50,6 @@ $defs:
         type: array
         items:
           type: string
+      web_identity_token_file:
+        description: Path to an OIDC token file for STS AssumeRoleWithWebIdentity. Requires RoleARN.
+        type: string
