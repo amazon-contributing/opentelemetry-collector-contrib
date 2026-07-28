@@ -124,6 +124,9 @@ resourceLogs:
               - key: user.name
                 value:
                   stringValue: sa
+              - key: sqlserver.application.name
+                value:
+                  stringValue: ""
               - key: sqlserver.procedure_id
                 value:
                   stringValue: "0"

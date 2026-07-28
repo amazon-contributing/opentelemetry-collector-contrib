@@ -279,6 +279,10 @@ attributes:
     description: Number of writes performed by the query.
     type: int
     requirement_level: recommended
+  sqlserver.application.name:
+    description: The name of the client application connected to SQL Server.
+    type: string
+    requirement_level: recommended
   table.state:
     description: The state of the table.
     type: string
@@ -348,6 +352,7 @@ events:
       - sqlserver.wait_category
       - sqlserver.writes
       - user.name
+      - sqlserver.application.name
       - sqlserver.procedure_id
       - sqlserver.procedure_name
 
