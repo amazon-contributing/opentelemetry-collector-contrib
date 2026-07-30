@@ -364,7 +364,10 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 		queryID := item.Value[dbAttributePrefix+queryidColumnName].(string)
 		rawQuery, _ := item.Value[dbAttributePrefix+"raw_query"].(string)
 		plan, ok := p.queryPlanCache.Get(queryID + "-plan")
-		if !ok && explained < maxExplainEachInterval {
+		// EXPLAIN can fail for superuser-owned queries, which often reference objects the
+		// monitoring user cannot read. Skip the attempt; the query is still reported.
+		isSuperuser, _ := item.Value[dbAttributePrefix+"rolsuper"].(string)
+		if !ok && isSuperuser != "true" && explained < maxExplainEachInterval {
 			database := item.Value[string(semconv.DBNamespaceKey)].(string)
 			dbClient, err := clientFactory.getClient(database)
 			if err == nil {

@@ -574,6 +574,7 @@ func TestScrapeTopQueries(t *testing.T) {
 		"query":               "select * from pg_stat_activity where id = 32",
 		"queryid":             queryid,
 		"rolname":             "master",
+		"rolsuper":            "false",
 		"rows":                "30",
 		"total_exec_time":     "11000",
 		"total_plan_time":     "12000",
@@ -622,6 +623,75 @@ func TestScrapeTopQueries(t *testing.T) {
 	planTime, planTimeExists := scraper.cache.Get(queryid + totalPlanTimeColumnName)
 	assert.True(t, planTimeExists)
 	assert.Equal(t, float64(12), planTime)
+}
+
+func TestScrapeTopQueriesSkipsExplainForSuperuserQueries(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{}
+	cfg.Events.DbServerTopQuery.Enabled = true
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	assert.NoError(t, err)
+
+	defer db.Close()
+
+	factory := mockSimpleClientFactory{db: db}
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	logger, err := zap.NewProduction()
+	assert.NoError(t, err)
+	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+	queryid := "114514"
+	returnedValues := map[string]string{
+		"calls":               "123",
+		"datname":             "postgres",
+		"shared_blks_dirtied": "1111",
+		"shared_blks_hit":     "1112",
+		"shared_blks_read":    "1113",
+		"shared_blks_written": "1114",
+		"local_blks_hit":      "2001",
+		"local_blks_read":     "2002",
+		"local_blks_dirtied":  "2003",
+		"local_blks_written":  "2004",
+		"temp_blks_read":      "1115",
+		"temp_blks_written":   "1116",
+		"query":               "select * from pg_stat_activity where id = 32",
+		"queryid":             queryid,
+		"rolname":             "postgres",
+		"rolsuper":            "true",
+		"rows":                "30",
+		"total_exec_time":     "11000",
+		"total_plan_time":     "12000",
+	}
+
+	rowNames := make([]string, 0, len(returnedValues))
+	var valuesBuilder strings.Builder
+	for k, v := range returnedValues {
+		rowNames = append(rowNames, k)
+		valuesBuilder.WriteString(fmt.Sprintf("%s,", v))
+	}
+	values := valuesBuilder.String()
+
+	scraper := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](10, time.Minute))
+
+	// Only the top query itself is expected. Deliberately no EXPLAIN expectation.
+	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(sqlmock.NewRows(rowNames).FromCSVString(values[:len(values)-1]))
+
+	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+	assert.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	// A failed EXPLAIN attempt would still cache an empty plan, so an absent cache
+	// entry is what distinguishes "skipped" from "attempted and failed".
+	_, cached := scraper.queryPlanCache.Get(queryid + "-plan")
+	assert.False(t, cached, "no EXPLAIN should have been attempted for a superuser query")
+
+	// The query is still reported, just without a plan.
+	records := actualLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	require.Equal(t, 1, records.Len())
+	planAttr, exists := records.At(0).Attributes().Get("postgresql.query_plan")
+	require.True(t, exists)
+	assert.Empty(t, planAttr.Str())
 }
 
 func TestIsExplainableQuery(t *testing.T) {

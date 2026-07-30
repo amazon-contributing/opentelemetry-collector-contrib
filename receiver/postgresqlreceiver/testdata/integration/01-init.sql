@@ -22,6 +22,9 @@ CREATE TABLE test2 (
 CREATE INDEX otelindex ON test1(id);
 CREATE INDEX otel2index ON test2(id);
 
+CREATE USER appuser WITH PASSWORD 'apppass';
+GRANT SELECT ON test2 TO appuser;
+
 -- Generating usage of index
 INSERT INTO test2 (id)
 VALUES(67);

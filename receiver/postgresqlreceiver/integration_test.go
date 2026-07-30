@@ -194,13 +194,21 @@ func TestScrapeLogsFromContainer(t *testing.T) {
 	defer testcontainers.CleanupContainer(t, ci)
 	p, err := ci.MappedPort(t.Context(), postgresqlPort)
 	assert.NoError(t, err)
-	connStr := fmt.Sprintf("postgres://root:otel@localhost:%s/otel2?sslmode=disable", p.Port())
+	// Run the query under test as a non-superuser so the EXPLAIN path is exercised.
+	connStr := fmt.Sprintf("postgres://appuser:apppass@localhost:%s/otel2?sslmode=disable", p.Port())
 	db, err := sql.Open("postgres", connStr)
 	assert.NoError(t, err)
 
 	_, err = db.Exec("Select * from test2 where id = 67")
 	assert.NoError(t, err)
 	defer db.Close()
+
+	superConnStr := fmt.Sprintf("postgres://root:otel@localhost:%s/otel2?sslmode=disable", p.Port())
+	superDB, err := sql.Open("postgres", superConnStr)
+	assert.NoError(t, err)
+	_, err = superDB.Exec("Select count(*) from test2")
+	assert.NoError(t, err)
+	defer superDB.Close()
 
 	cfg := Config{
 		Databases: []string{"postgres"},
@@ -254,11 +262,20 @@ func TestScrapeLogsFromContainer(t *testing.T) {
 	assert.NoError(t, err)
 	logRecords = firstTimeTopQueryPLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
 	found = false
+	foundSuperuserQuery := false
 	for _, record := range logRecords.All() {
 		attributes := record.Attributes().AsRaw()
 		queryAttribute, ok := attributes["db.query.text"]
 		query := strings.ToLower(queryAttribute.(string))
 		assert.True(t, ok)
+		if strings.HasPrefix(query, "select count ( * ) from test2") {
+			// Owned by the superuser: still reported, but with no execution plan.
+			assert.Equal(t, "root", attributes["postgresql.rolname"])
+			assert.Empty(t, attributes["postgresql.query_plan"],
+				"no EXPLAIN should be attempted for a superuser-owned query")
+			foundSuperuserQuery = true
+			continue
+		}
 		if !strings.HasPrefix(query, "select * from test2 where") {
 			continue
 		}
@@ -273,6 +290,7 @@ func TestScrapeLogsFromContainer(t *testing.T) {
 		found = true
 	}
 	assert.True(t, found, "Expected to find a log record with the query text from the first time top query")
+	assert.True(t, foundSuperuserQuery, "Expected the superuser-owned query to still be reported as a top query")
 
 	_, err = db.Exec("Select * from test2 where id = 67")
 	assert.NoError(t, err)
