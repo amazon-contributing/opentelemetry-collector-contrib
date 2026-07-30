@@ -388,6 +388,16 @@ events:
       - mysql.events_statements_summary_by_digest.sum_sort_range
 
 metrics:
+  mysql.active_transactions:
+    enabled: false
+    description: The number of currently active InnoDB transactions, from COUNT(*) of INFORMATION_SCHEMA.INNODB_TRX.
+    stability: development
+    unit: "1"
+    sum:
+      value_type: int
+      input_type: string
+      monotonic: false
+      aggregation_temporality: cumulative
   mysql.buffer_pool.data_pages:
     enabled: true
     description: The number of data pages in the InnoDB buffer pool.
@@ -493,6 +503,16 @@ metrics:
       monotonic: true
       aggregation_temporality: cumulative
     attributes: [connection_error]
+  mysql.deadlocks:
+    enabled: false
+    description: The number of InnoDB deadlocks.
+    stability: development
+    unit: "1"
+    sum:
+      value_type: int
+      input_type: string
+      monotonic: true
+      aggregation_temporality: cumulative
   mysql.double_writes:
     enabled: true
     description: The number of writes to the InnoDB doublewrite buffer.
@@ -515,6 +535,16 @@ metrics:
       monotonic: true
       aggregation_temporality: cumulative
     attributes: [handler]
+  mysql.history_list_length:
+    enabled: false
+    description: The InnoDB history list length — the number of undo log records not yet purged, from INFORMATION_SCHEMA.INNODB_METRICS (trx_rseg_history_len). A persistently high or growing value indicates long-running or abandoned transactions delaying purge.
+    stability: development
+    unit: "1"
+    sum:
+      value_type: int
+      input_type: string
+      monotonic: false
+      aggregation_temporality: cumulative
   mysql.index.io.wait.count:
     enabled: true
     description: The total count of I/O wait events for an index.

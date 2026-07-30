@@ -25,6 +25,7 @@ type client interface {
 	getVersion() (*version.Version, error)
 	getGlobalStats() (map[string]string, error)
 	getInnodbStats() (map[string]string, error)
+	getInnodbTrxStats() (map[string]string, error)
 	getTableStats() ([]tableStats, error)
 	getTableIoWaitsStats() ([]tableIoWaitsStats, error)
 	getIndexIoWaitsStats() ([]indexIoWaitsStats, error)
@@ -319,7 +320,13 @@ func (c *mySQLClient) getGlobalStats() (map[string]string, error) {
 
 // getInnodbStats queries the db for innodb metrics.
 func (c *mySQLClient) getInnodbStats() (map[string]string, error) {
-	q := "SELECT name, count FROM information_schema.innodb_metrics WHERE name LIKE '%buffer_pool_size%';"
+	q := "SELECT name, count FROM information_schema.innodb_metrics WHERE name LIKE '%buffer_pool_size%' OR name = 'lock_deadlocks' OR name = 'trx_rseg_history_len';"
+	return query(*c, q)
+}
+
+// getInnodbTrxStats queries the db for the number of currently active InnoDB transactions.
+func (c *mySQLClient) getInnodbTrxStats() (map[string]string, error) {
+	q := "SELECT 'active_transactions' AS name, COUNT(*) AS count FROM information_schema.innodb_trx;"
 	return query(*c, q)
 }
 

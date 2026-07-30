@@ -9,6 +9,26 @@ import (
 	"go.opentelemetry.io/collector/filter"
 )
 
+// MysqlActiveTransactionsMetricConfig provides config for the mysql.active_transactions metric.
+type MysqlActiveTransactionsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *MysqlActiveTransactionsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // MysqlBufferPoolDataPagesMetricAttributeKey specifies the key of an attribute for the mysql.buffer_pool.data_pages metric.
 type MysqlBufferPoolDataPagesMetricAttributeKey string
 
@@ -405,6 +425,26 @@ func (ms *MysqlConnectionErrorsMetricConfig) Validate() error {
 	return nil
 }
 
+// MysqlDeadlocksMetricConfig provides config for the mysql.deadlocks metric.
+type MysqlDeadlocksMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *MysqlDeadlocksMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // MysqlDoubleWritesMetricAttributeKey specifies the key of an attribute for the mysql.double_writes metric.
 type MysqlDoubleWritesMetricAttributeKey string
 
@@ -498,6 +538,26 @@ func (ms *MysqlHandlersMetricConfig) Validate() error {
 		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
 	}
 
+	return nil
+}
+
+// MysqlHistoryListLengthMetricConfig provides config for the mysql.history_list_length metric.
+type MysqlHistoryListLengthMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *MysqlHistoryListLengthMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
 	return nil
 }
 
@@ -2054,6 +2114,7 @@ func (ms *MysqlUptimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
 
 // MetricsConfig provides config for mysql metrics.
 type MetricsConfig struct {
+	MysqlActiveTransactions      MysqlActiveTransactionsMetricConfig      `mapstructure:"mysql.active_transactions"`
 	MysqlBufferPoolDataPages     MysqlBufferPoolDataPagesMetricConfig     `mapstructure:"mysql.buffer_pool.data_pages"`
 	MysqlBufferPoolLimit         MysqlBufferPoolLimitMetricConfig         `mapstructure:"mysql.buffer_pool.limit"`
 	MysqlBufferPoolOperations    MysqlBufferPoolOperationsMetricConfig    `mapstructure:"mysql.buffer_pool.operations"`
@@ -2064,8 +2125,10 @@ type MetricsConfig struct {
 	MysqlCommands                MysqlCommandsMetricConfig                `mapstructure:"mysql.commands"`
 	MysqlConnectionCount         MysqlConnectionCountMetricConfig         `mapstructure:"mysql.connection.count"`
 	MysqlConnectionErrors        MysqlConnectionErrorsMetricConfig        `mapstructure:"mysql.connection.errors"`
+	MysqlDeadlocks               MysqlDeadlocksMetricConfig               `mapstructure:"mysql.deadlocks"`
 	MysqlDoubleWrites            MysqlDoubleWritesMetricConfig            `mapstructure:"mysql.double_writes"`
 	MysqlHandlers                MysqlHandlersMetricConfig                `mapstructure:"mysql.handlers"`
+	MysqlHistoryListLength       MysqlHistoryListLengthMetricConfig       `mapstructure:"mysql.history_list_length"`
 	MysqlIndexIoWaitCount        MysqlIndexIoWaitCountMetricConfig        `mapstructure:"mysql.index.io.wait.count"`
 	MysqlIndexIoWaitTime         MysqlIndexIoWaitTimeMetricConfig         `mapstructure:"mysql.index.io.wait.time"`
 	MysqlJoins                   MysqlJoinsMetricConfig                   `mapstructure:"mysql.joins"`
@@ -2107,6 +2170,9 @@ type MetricsConfig struct {
 
 func DefaultMetricsConfig() MetricsConfig {
 	return MetricsConfig{
+		MysqlActiveTransactions: MysqlActiveTransactionsMetricConfig{
+			Enabled: false,
+		},
 		MysqlBufferPoolDataPages: MysqlBufferPoolDataPagesMetricConfig{
 			Enabled:             true,
 			AggregationStrategy: AggregationStrategySum,
@@ -2151,6 +2217,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []MysqlConnectionErrorsMetricAttributeKey{MysqlConnectionErrorsMetricAttributeKeyConnectionError},
 		},
+		MysqlDeadlocks: MysqlDeadlocksMetricConfig{
+			Enabled: false,
+		},
 		MysqlDoubleWrites: MysqlDoubleWritesMetricConfig{
 			Enabled:             true,
 			AggregationStrategy: AggregationStrategySum,
@@ -2160,6 +2229,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled:             true,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []MysqlHandlersMetricAttributeKey{MysqlHandlersMetricAttributeKeyHandler},
+		},
+		MysqlHistoryListLength: MysqlHistoryListLengthMetricConfig{
+			Enabled: false,
 		},
 		MysqlIndexIoWaitCount: MysqlIndexIoWaitCountMetricConfig{
 			Enabled:             true,

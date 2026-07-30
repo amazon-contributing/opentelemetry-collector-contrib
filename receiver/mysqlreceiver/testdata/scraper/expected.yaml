@@ -9,6 +9,15 @@ resourceMetrics:
             stringValue: localhost:3306
     scopeMetrics:
       - metrics:
+          - description: The number of currently active InnoDB transactions, from COUNT(*) of INFORMATION_SCHEMA.INNODB_TRX.
+            name: mysql.active_transactions
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "3"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            unit: "1"
           - description: The number of data pages in the InnoDB buffer pool.
             name: mysql.buffer_pool.data_pages
             sum:
@@ -308,6 +317,16 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: "1"
+          - description: The number of InnoDB deadlocks.
+            name: mysql.deadlocks
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "5"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: "1"
           - description: The number of writes to the InnoDB doublewrite buffer.
             name: mysql.double_writes
             sum:
@@ -461,6 +480,15 @@ resourceMetrics:
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
               isMonotonic: true
+            unit: "1"
+          - description: The InnoDB history list length — the number of undo log records not yet purged, from INFORMATION_SCHEMA.INNODB_METRICS (trx_rseg_history_len). A persistently high or growing value indicates long-running or abandoned transactions delaying purge.
+            name: mysql.history_list_length
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "42"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
             unit: "1"
           - description: The total count of I/O wait events for an index.
             name: mysql.index.io.wait.count

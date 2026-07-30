@@ -66,6 +66,9 @@ func TestScrape(t *testing.T) {
 		cfg.MetricsBuilderConfig.Metrics.MysqlReplicaTimeBehindSource.Enabled = true
 
 		cfg.MetricsBuilderConfig.Metrics.MysqlConnectionCount.Enabled = true
+		cfg.MetricsBuilderConfig.Metrics.MysqlDeadlocks.Enabled = true
+		cfg.MetricsBuilderConfig.Metrics.MysqlActiveTransactions.Enabled = true
+		cfg.MetricsBuilderConfig.Metrics.MysqlHistoryListLength.Enabled = true
 
 		cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
 		cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
@@ -74,6 +77,7 @@ func TestScrape(t *testing.T) {
 		scraper.sqlclient = &mockClient{
 			globalStatsFile:             "global_stats",
 			innodbStatsFile:             "innodb_stats",
+			innodbTrxStatsFile:          "innodb_trx_stats",
 			tableIoWaitsFile:            "table_io_waits_stats",
 			indexIoWaitsFile:            "index_io_waits_stats",
 			tableStatsFile:              "table_stats",
@@ -142,6 +146,7 @@ func TestScrape(t *testing.T) {
 		scraper.sqlclient = &mockClient{
 			globalStatsFile:             "global_stats_partial",
 			innodbStatsFile:             "innodb_stats_empty",
+			innodbTrxStatsFile:          "innodb_trx_stats_empty",
 			tableIoWaitsFile:            "table_io_waits_stats_empty",
 			indexIoWaitsFile:            "index_io_waits_stats_empty",
 			tableStatsFile:              "table_stats_empty",
@@ -183,6 +188,7 @@ func TestScrapeBufferPoolPagesMiscOutOfBounds(t *testing.T) {
 	scraper.sqlclient = &mockClient{
 		globalStatsFile:             "global_stats_oob",
 		innodbStatsFile:             "innodb_stats_empty",
+		innodbTrxStatsFile:          "innodb_trx_stats_empty",
 		tableIoWaitsFile:            "table_io_waits_stats_empty",
 		indexIoWaitsFile:            "index_io_waits_stats_empty",
 		tableStatsFile:              "table_stats_empty",
@@ -295,6 +301,7 @@ var _ client = (*mockClient)(nil)
 type mockClient struct {
 	globalStatsFile             string
 	innodbStatsFile             string
+	innodbTrxStatsFile          string
 	tableIoWaitsFile            string
 	indexIoWaitsFile            string
 	tableStatsFile              string
@@ -336,6 +343,10 @@ func (c *mockClient) getGlobalStats() (map[string]string, error) {
 
 func (c *mockClient) getInnodbStats() (map[string]string, error) {
 	return readFile(c.innodbStatsFile)
+}
+
+func (c *mockClient) getInnodbTrxStats() (map[string]string, error) {
+	return readFile(c.innodbTrxStatsFile)
 }
 
 func (c *mockClient) getTableStats() ([]tableStats, error) {
@@ -665,6 +676,7 @@ func TestCollectSessionStates(t *testing.T) {
 	scraper.sqlclient = &mockClient{
 		globalStatsFile:             "global_stats",
 		innodbStatsFile:             "innodb_stats",
+		innodbTrxStatsFile:          "innodb_trx_stats",
 		tableIoWaitsFile:            "table_io_waits_stats",
 		indexIoWaitsFile:            "index_io_waits_stats",
 		tableStatsFile:              "table_stats",
