@@ -47,9 +47,15 @@ func NewIMDSClient(logger *zap.Logger, retries int, optFns ...func(*imds.Options
 }
 
 // NewIMDSClientFromConfig builds an IMDSClient from an aws.Config. The config's
-// HTTPClient, Region, and other relevant settings flow through to both
-// underlying clients. See NewIMDSClient for the meaning of logger and retries.
+// Region, APIOptions, and other relevant settings flow through to both
+// underlying clients, but its HTTPClient is deliberately ignored: IMDS is only
+// reachable at the link-local metadata endpoint, so a custom HTTP client
+// carried by the config (for example, one with proxy or TLS settings intended
+// for regional service calls) would break metadata lookups. Both underlying
+// clients use the SDK default IMDS HTTP client with its fast-fail timeouts.
+// See NewIMDSClient for the meaning of logger and retries.
 func NewIMDSClientFromConfig(cfg aws.Config, logger *zap.Logger, retries int, optFns ...func(*imds.Options)) *IMDSClient {
+	cfg.HTTPClient = nil
 	return &IMDSClient{
 		strict:     imds.NewFromConfig(cfg, strictOptions(retries, optFns)...),
 		permissive: imds.NewFromConfig(cfg, permissiveOptions(optFns)...),

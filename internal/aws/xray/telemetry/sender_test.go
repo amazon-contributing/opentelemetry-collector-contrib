@@ -6,6 +6,8 @@ package telemetry
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -144,4 +146,46 @@ func TestQueueOverflow(t *testing.T) {
 		assert.Greater(t, *record.SegmentsSentCount, int32(5))
 		assert.LessOrEqual(t, *record.SegmentsSentCount, int32(20))
 	}
+}
+
+// sentinelHTTPClient fails any request; TestIncludeMetadataIgnoresConfigHTTPClient
+// uses it to assert IMDS lookups do not go through the config's HTTP client.
+type sentinelHTTPClient struct {
+	calls atomic.Int64
+}
+
+func (s *sentinelHTTPClient) Do(*http.Request) (*http.Response, error) {
+	s.calls.Add(1)
+	return nil, errors.New("sentinel HTTP client must not be used")
+}
+
+// TestIncludeMetadataIgnoresConfigHTTPClient verifies the IMDS lookups behind
+// hostname/instance-id metadata use the SDK default IMDS client rather than a
+// custom HTTP client (proxy/TLS) carried by the aws.Config.
+func TestIncludeMetadataIgnoresConfigHTTPClient(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPut && r.URL.Path == "/latest/api/token":
+			w.Header().Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
+			_, _ = w.Write([]byte("test-token"))
+		case r.URL.Path == "/latest/meta-data/hostname":
+			_, _ = w.Write([]byte("imds-hostname"))
+		case r.URL.Path == "/latest/meta-data/instance-id":
+			_, _ = w.Write([]byte("i-0123456789abcdef0"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "false")
+	t.Setenv("AWS_EC2_METADATA_SERVICE_ENDPOINT", srv.URL)
+
+	sentinel := &sentinelHTTPClient{}
+	awsConfig := aws.Config{HTTPClient: sentinel}
+	opts := ToOptions(t.Context(), Config{IncludeMetadata: true}, awsConfig, &awsutil.AWSSessionSettings{})
+	sender := newSender(&mockXRayClient{}, opts...)
+
+	assert.Equal(t, "imds-hostname", sender.hostname)
+	assert.Equal(t, "i-0123456789abcdef0", sender.instanceID)
+	assert.Zero(t, sentinel.calls.Load(), "IMDS requests must not go through the config's HTTP client")
 }

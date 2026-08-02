@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go/middleware"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -211,4 +213,27 @@ func TestExtractEbsIDsUsedByKubernetes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewEBSVolumeUsesDefaultHTTPClient(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	cfg := aws.Config{
+		HTTPClient:       &sentinelHTTPClient{},
+		BaseEndpoint:     aws.String("https://sentinel.example.com"),
+		RetryMaxAttempts: 42,
+		APIOptions:       []func(*middleware.Stack) error{func(*middleware.Stack) error { return nil }},
+	}
+	provider := newEBSVolume(ctx, cfg, "instanceId", "us-east-1", time.Minute, zap.NewNop(),
+		func(e *ebsVolume) { e.maxJitterTime = 0 })
+
+	opts := provider.(*ebsVolume).client.(*ec2.Client).Options()
+	assert.IsType(t, &awshttp.BuildableClient{}, opts.HTTPClient,
+		"EC2 client must use the SDK default HTTP client, not the config's custom client")
+	assert.Nil(t, opts.BaseEndpoint,
+		"EC2 client must use the SDK default endpoint resolution, not the config's custom endpoint")
+	assert.Equal(t, 0, opts.RetryMaxAttempts,
+		"EC2 client must use the SDK default retry attempts, not the config's retry budget")
+	assert.Len(t, opts.APIOptions, 1, "APIOptions (middleware) must be preserved")
+	assert.Equal(t, "us-east-1", opts.Region)
 }

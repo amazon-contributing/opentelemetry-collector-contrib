@@ -53,6 +53,12 @@ func newEC2Tags(
 	logger *zap.Logger,
 	options ...ec2TagsOption,
 ) ec2TagsProvider {
+	// Customer settings on the config (custom HTTP client, endpoint, retry
+	// budget) are scoped to telemetry data-plane calls; host-metadata EC2 API
+	// calls use the SDK defaults.
+	cfg.HTTPClient = nil
+	cfg.BaseEndpoint = nil
+	cfg.RetryMaxAttempts = 0
 	et := &ec2Tags{
 		instanceID: instanceID,
 		client: ec2.NewFromConfig(cfg, func(o *ec2.Options) {

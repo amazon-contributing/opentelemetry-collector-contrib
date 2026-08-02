@@ -4,12 +4,14 @@
 package awsutil
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -21,21 +23,21 @@ func TestResolveRegion_PriorityOrder(t *testing.T) {
 	t.Run("ConfigRegionWinsOverEnv", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "env-region")
 		s := &AWSSessionSettings{Region: "config-region"}
-		got := resolveRegion(t.Context(), logger, s, nil)
+		got := resolveRegion(t.Context(), logger, s)
 		assert.Equal(t, "config-region", got)
 	})
 
 	t.Run("EnvWinsWhenConfigEmpty", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "env-region")
 		s := &AWSSessionSettings{}
-		got := resolveRegion(t.Context(), logger, s, nil)
+		got := resolveRegion(t.Context(), logger, s)
 		assert.Equal(t, "env-region", got)
 	})
 
 	t.Run("LocalModeSkipsIMDS", func(t *testing.T) {
 		t.Setenv("AWS_REGION", "")
 		s := &AWSSessionSettings{LocalMode: true}
-		got := resolveRegion(t.Context(), logger, s, nil)
+		got := resolveRegion(t.Context(), logger, s)
 		assert.Empty(t, got)
 	})
 }
@@ -217,4 +219,61 @@ func TestGetAWSConfig_STSClientsIsolatedFromEndpointAndRetries(t *testing.T) {
 		require.NoError(t, err)
 		verify(t, cfg, *captured)
 	})
+}
+
+// The custom HTTP client (proxy/TLS/timeout settings) must be scoped to the
+// data plane: the returned config carries it, while the configs handed to
+// the STS client constructors must not.
+func TestGetAWSConfig_CustomHTTPClientScopedToDataPlane(t *testing.T) {
+	staticCredsEnv(t)
+
+	settings := &AWSSessionSettings{
+		Region:                "us-east-1",
+		RoleARN:               testRoleARN,
+		NumberOfWorkers:       8,
+		RequestTimeoutSeconds: 30,
+	}
+	// getHTTPClient caches by settings, so this returns the same instance
+	// GetAWSConfig attaches to the returned config.
+	customClient, err := getHTTPClient(zap.NewNop(), settings)
+	require.NoError(t, err)
+
+	captured := captureSTSClientConfigs(t)
+
+	cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), settings)
+	require.NoError(t, err)
+
+	assert.Same(t, customClient, cfg.HTTPClient, "returned config must carry the custom client")
+	require.NotEmpty(t, *captured)
+	for _, c := range *captured {
+		assert.Nil(t, c.HTTPClient, "STS clients must not carry the custom client (SDK default expected)")
+	}
+}
+
+type fakeIMDSRegionClient struct {
+	region string
+}
+
+func (f fakeIMDSRegionClient) GetRegion(context.Context, *imds.GetRegionInput, ...func(*imds.Options)) (*imds.GetRegionOutput, error) {
+	return &imds.GetRegionOutput{Region: f.region}, nil
+}
+
+// The IMDS region-lookup client must be built without the custom HTTP
+// client (SDK default IMDS client behavior).
+func TestResolveRegionFromIMDS_NoCustomHTTPClient(t *testing.T) {
+	orig := newIMDSClient
+	t.Cleanup(func() { newIMDSClient = orig })
+
+	var gotOpts imds.Options
+	newIMDSClient = func(_ *zap.Logger, _ int, optFns ...func(*imds.Options)) imdsRegionClient {
+		for _, fn := range optFns {
+			fn(&gotOpts)
+		}
+		return fakeIMDSRegionClient{region: "eu-west-1"}
+	}
+
+	region, err := resolveRegionFromIMDS(t.Context(), zap.NewNop(), 1)
+	require.NoError(t, err)
+	assert.Equal(t, "eu-west-1", region)
+	assert.Nil(t, gotOpts.HTTPClient, "IMDS region lookup must not carry the custom client")
 }

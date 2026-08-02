@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -232,4 +233,21 @@ func TestConfusedDeputyHeaders(t *testing.T) {
 			assert.Equal(t, tc.expectedHeaderAccount, capturedHeaders.Get(SourceAccountHeaderKey))
 		})
 	}
+}
+
+func TestNewStsClientTimeout(t *testing.T) {
+	t.Run("NilClient", func(t *testing.T) {
+		opts := newStsClient(aws.Config{Region: "us-east-1"}).Options()
+		client, ok := opts.HTTPClient.(*http.Client)
+		require.True(t, ok)
+		assert.Equal(t, stsClientTimeout, client.Timeout)
+	})
+
+	t.Run("BuildableClientPreserved", func(t *testing.T) {
+		cfg := aws.Config{Region: "us-east-1", HTTPClient: awshttp.NewBuildableClient()}
+		opts := newStsClient(cfg).Options()
+		client, ok := opts.HTTPClient.(*awshttp.BuildableClient)
+		require.True(t, ok)
+		assert.Equal(t, stsClientTimeout, client.GetTimeout())
+	})
 }

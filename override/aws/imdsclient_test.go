@@ -5,6 +5,7 @@ package aws
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -166,4 +167,32 @@ func TestIMDSClient_BothFail(t *testing.T) {
 	defer cancel()
 	_, err := c.GetRegion(ctx, &imds.GetRegionInput{})
 	assert.Error(t, err)
+}
+
+// sentinelHTTPClient counts calls; any use means the config's HTTPClient
+// leaked into an IMDS client.
+type sentinelHTTPClient struct {
+	calls int
+}
+
+func (s *sentinelHTTPClient) Do(*http.Request) (*http.Response, error) {
+	s.calls++
+	return nil, errors.New("sentinel HTTP client must not be used")
+}
+
+// TestIMDSClientFromConfig_IgnoresConfigHTTPClient verifies that a custom HTTP
+// client carried by the aws.Config (e.g. a data-plane proxy/TLS client) is not
+// used for IMDS calls: requests must go through the SDK default client.
+func TestIMDSClientFromConfig_IgnoresConfigHTTPClient(t *testing.T) {
+	enableIMDS(t)
+	srv, _ := imdsTestServer(t, false, "us-west-2", nil)
+
+	sentinel := &sentinelHTTPClient{}
+	cfg := aws.Config{HTTPClient: sentinel}
+	c := NewIMDSClientFromConfig(cfg, nil, 0, fastTestOptions(srv.URL))
+	out, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
+
+	require.NoError(t, err)
+	assert.Equal(t, "us-west-2", out.Region)
+	assert.Zero(t, sentinel.calls, "IMDS requests must not go through the config's HTTP client")
 }

@@ -45,10 +45,9 @@ func getHTTPClient(logger *zap.Logger, settings *AWSSessionSettings) (aws.HTTPCl
 }
 
 // newHTTPClient returns an aws.HTTPClient backed by an
-// *awshttp.BuildableClient. The concrete type matters: the SDK's
-// resolveHTTPClient only appends AWS_CA_BUNDLE-derived root CAs when the
-// client is a *BuildableClient, so a plain *http.Client would silently
-// bypass that handling.
+// *awshttp.BuildableClient. This client is attached to the returned config
+// after config.LoadDefaultConfig, so it applies to data-plane service
+// clients only — never to IMDS, the credential chain, or STS.
 //
 // settings.CertificateFilePath, when non-empty, is parsed into an empty x509
 // pool (system CAs are intentionally not included; operators who need both

@@ -84,6 +84,11 @@ type loadConfigFn func(ctx context.Context, optFns ...func(*config.LoadOptions) 
 // shared-credentials file list and an optional credentials provider.
 // Waits initialLoadRetryDelay and retries once on initial failure.
 //
+// No HTTP client is supplied: the default credential chain (and any STS
+// clients later built from the returned config) use SDK default clients.
+// The component's custom client is attached by the caller afterwards,
+// scoping it to data-plane clients only.
+//
 // loadConfig does not eagerly Retrieve credentials — that decision is left
 // to the caller so it can be gated on settings.WebIdentityTokenFile (where
 // the base chain is intentionally unused and would produce spurious errors,
@@ -93,7 +98,6 @@ func loadConfig(
 	logger *zap.Logger,
 	region string,
 	provider aws.CredentialsProvider,
-	httpClient aws.HTTPClient,
 ) (aws.Config, error) {
 	credentialsFiles, configFiles := getFallbackSharedConfigFiles(backwardsCompatibleUserHomeDir)
 	logger.Debug("Fallback shared config file(s)",
@@ -101,7 +105,6 @@ func loadConfig(
 		zap.Strings("config", configFiles))
 
 	opts := []func(*config.LoadOptions) error{
-		config.WithHTTPClient(httpClient),
 		config.WithSharedCredentialsFiles(credentialsFiles),
 		config.WithSharedConfigFiles(configFiles),
 	}

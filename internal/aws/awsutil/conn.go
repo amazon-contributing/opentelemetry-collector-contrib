@@ -44,7 +44,7 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 		return aws.Config{}, err
 	}
 
-	region := resolveRegion(ctx, logger, settings, httpClient)
+	region := resolveRegion(ctx, logger, settings)
 	if region == "" {
 		msg := "Cannot fetch region variable from config file, environment variables and ec2 metadata."
 		if settings.LocalMode {
@@ -56,7 +56,7 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 
 	provider := getRootCredentials(settings)
 
-	cfg, err := loadConfig(ctx, logger, region, provider, httpClient)
+	cfg, err := loadConfig(ctx, logger, region, provider)
 	if err != nil {
 		return aws.Config{}, err
 	}
@@ -96,10 +96,13 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 	}
 
 	// Keep these mutations after the credential-provider construction above:
-	// sts.NewFromConfig snapshots the config, so setting BaseEndpoint earlier
-	// would route STS AssumeRole calls to the data-plane endpoint (and leak
-	// its retry budget). The returned config still carries both settings for
-	// data-plane clients.
+	// sts.NewFromConfig snapshots the config, so setting them earlier would
+	// give the STS credential clients the data-plane endpoint, retry budget,
+	// and custom HTTP client. The custom client (proxy_address,
+	// certificate_file_path, no_verify_ssl, request_timeout_seconds) is
+	// scoped to data-plane clients only;
+	// IMDS, the default credential chain, and STS use SDK default clients.
+	cfg.HTTPClient = httpClient
 	cfg.RetryMaxAttempts = max(settings.MaxRetries, 0) + 1
 	if settings.Endpoint != "" {
 		cfg.BaseEndpoint = aws.String(settings.Endpoint)
@@ -115,7 +118,6 @@ func resolveRegion(
 	ctx context.Context,
 	logger *zap.Logger,
 	settings *AWSSessionSettings,
-	httpClient aws.HTTPClient,
 ) string {
 	if settings.Region != "" {
 		logger.Debug("Fetch region from commandline/config file", zap.String("region", settings.Region))
@@ -129,7 +131,7 @@ func resolveRegion(
 		return ""
 	}
 
-	region, err := resolveRegionFromIMDS(ctx, logger, settings.IMDSRetries, httpClient)
+	region, err := resolveRegionFromIMDS(ctx, logger, settings.IMDSRetries)
 	if err != nil {
 		logger.Error("Unable to retrieve the region from the EC2 instance", zap.Error(err))
 		return ""
@@ -138,21 +140,28 @@ func resolveRegion(
 	return region
 }
 
+// imdsRegionClient is the subset of *override.IMDSClient used for region
+// lookup; newIMDSClient is overrideable in tests.
+type imdsRegionClient interface {
+	GetRegion(ctx context.Context, params *imds.GetRegionInput, optFns ...func(*imds.Options)) (*imds.GetRegionOutput, error)
+}
+
+var newIMDSClient = func(logger *zap.Logger, retries int, optFns ...func(*imds.Options)) imdsRegionClient {
+	return override.NewIMDSClient(logger, retries, optFns...)
+}
+
 // resolveRegionFromIMDS resolves the region via EC2 IMDS using the shared
 // strict-then-permissive client from override/aws: an IMDSv2-only client
 // (with the IMDS retryer) is tried first, falling back to a permissive client
-// (IMDSv1 fallback enabled) on failure. The supplied httpClient flows through
-// to both underlying clients so per-component TLS / proxy / cert-pool config
-// applies to IMDS too.
+// (IMDSv1 fallback enabled) on failure. Both underlying clients use the SDK
+// default IMDS HTTP client (fast-fail timeouts); the component's custom
+// client is data-plane only.
 func resolveRegionFromIMDS(
 	ctx context.Context,
 	logger *zap.Logger,
 	retries int,
-	httpClient aws.HTTPClient,
 ) (string, error) {
-	client := override.NewIMDSClient(logger, retries, func(o *imds.Options) {
-		o.HTTPClient = httpClient
-	})
+	client := newIMDSClient(logger, retries)
 	out, err := client.GetRegion(ctx, &imds.GetRegionInput{})
 	if err != nil {
 		return "", err

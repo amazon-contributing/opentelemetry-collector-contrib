@@ -9,17 +9,24 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"sync/atomic"
+	"time"
 
 	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	ststypes "github.com/aws/aws-sdk-go-v2/service/sts/types"
 	smithymiddleware "github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
+
+// stsClientTimeout bounds each STS request so an unresponsive backend
+// cannot hang credential refresh.
+const stsClientTimeout = time.Minute
 
 // Confused Deputy Prevention header keys and the env vars that drive
 // them. See https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html.
@@ -117,6 +124,14 @@ var (
 // the signed request.
 func newStsClient(cfg aws.Config) *sts.Client {
 	var options []func(*sts.Options)
+
+	// Preserves a client already resolved on the config (e.g. AWS_CA_BUNDLE).
+	switch c := cfg.HTTPClient.(type) {
+	case nil:
+		cfg.HTTPClient = &http.Client{Timeout: stsClientTimeout}
+	case *awshttp.BuildableClient:
+		cfg.HTTPClient = c.WithTimeout(stsClientTimeout)
+	}
 
 	sourceAccount := os.Getenv(AmzSourceAccount)
 	sourceArn := os.Getenv(AmzSourceArn)

@@ -62,6 +62,12 @@ func newEBSVolume(
 	logger *zap.Logger,
 	options ...ebsVolumeOption,
 ) ebsVolumeProvider {
+	// Customer settings on the config (custom HTTP client, endpoint, retry
+	// budget) are scoped to telemetry data-plane calls; host-metadata EC2 API
+	// calls use the SDK defaults.
+	cfg.HTTPClient = nil
+	cfg.BaseEndpoint = nil
+	cfg.RetryMaxAttempts = 0
 	e := &ebsVolume{
 		dev2Vol:    make(map[string]string),
 		instanceID: instanceID,
