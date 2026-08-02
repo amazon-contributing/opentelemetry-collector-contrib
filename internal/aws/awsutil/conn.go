@@ -47,6 +47,9 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 	region := resolveRegion(ctx, logger, settings, httpClient)
 	if region == "" {
 		msg := "Cannot fetch region variable from config file, environment variables and ec2 metadata."
+		if settings.LocalMode {
+			msg = "region is required when local_mode is enabled"
+		}
 		logger.Error(msg)
 		return aws.Config{}, errors.New(msg)
 	}
@@ -97,7 +100,7 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 	// would route STS AssumeRole calls to the data-plane endpoint (and leak
 	// its retry budget). The returned config still carries both settings for
 	// data-plane clients.
-	cfg.RetryMaxAttempts = settings.MaxRetries + 1
+	cfg.RetryMaxAttempts = max(settings.MaxRetries, 0) + 1
 	if settings.Endpoint != "" {
 		cfg.BaseEndpoint = aws.String(settings.Endpoint)
 	}

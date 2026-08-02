@@ -48,6 +48,7 @@ func TestGetAWSConfig_NoRegionResolvable(t *testing.T) {
 		RequestTimeoutSeconds: 30,
 	})
 	assert.Error(t, err)
+	assert.EqualError(t, err, "region is required when local_mode is enabled")
 	assert.Equal(t, aws.Config{}, cfg)
 }
 
@@ -103,6 +104,8 @@ func TestGetAWSConfig_RetryMaxAttempts(t *testing.T) {
 		maxRetries          int
 		wantRetryMaxAttempt int
 	}{
+		{-2, 1},
+		{-1, 1},
 		{0, 1},
 		{1, 2},
 		{2, 3},

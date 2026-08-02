@@ -16,7 +16,7 @@ import (
 )
 
 // initialLoadRetryDelay shields agent startup from transient
-// credentials-file-mount races on Kubernetes / ECS by sleeping once before
+// credentials-file-mount races on Kubernetes / ECS by waiting once before
 // retrying a failed config load.
 const initialLoadRetryDelay = 15 * time.Second
 
@@ -77,9 +77,12 @@ func getRootCredentials(cfg *AWSSessionSettings) aws.CredentialsProvider {
 	return nil
 }
 
+// loadConfigFn matches config.LoadDefaultConfig and is injectable in tests.
+type loadConfigFn func(ctx context.Context, optFns ...func(*config.LoadOptions) error) (aws.Config, error)
+
 // loadConfig invokes config.LoadDefaultConfig with the project-pinned
 // shared-credentials file list and an optional credentials provider.
-// Sleeps initialLoadRetryDelay and retries once on initial failure.
+// Waits initialLoadRetryDelay and retries once on initial failure.
 //
 // loadConfig does not eagerly Retrieve credentials — that decision is left
 // to the caller so it can be gated on settings.WebIdentityTokenFile (where
@@ -109,17 +112,38 @@ func loadConfig(
 		opts = append(opts, config.WithCredentialsProvider(provider))
 	}
 
-	cfg, err := config.LoadDefaultConfig(ctx, opts...)
-	if err != nil {
-		logger.Error("Error in creating session object waiting 15 seconds", zap.Error(err))
-		time.Sleep(initialLoadRetryDelay)
-		cfg, err = config.LoadDefaultConfig(ctx, opts...)
-		if err != nil {
-			logger.Error("Retry failed for creating credential sessions", zap.Error(err))
-			return aws.Config{}, err
-		}
+	return loadConfigWithRetry(ctx, logger, config.LoadDefaultConfig, opts, initialLoadRetryDelay)
+}
+
+// loadConfigWithRetry calls load once and retries once after retryDelay if
+// the first attempt fails.
+func loadConfigWithRetry(
+	ctx context.Context,
+	logger *zap.Logger,
+	load loadConfigFn,
+	opts []func(*config.LoadOptions) error,
+	retryDelay time.Duration,
+) (aws.Config, error) {
+	cfg, err := load(ctx, opts...)
+	if err == nil {
+		return cfg, nil
+	}
+	logger.Error("Error in creating session object, retrying",
+		zap.Duration("delay", retryDelay), zap.Error(err))
+
+	timer := time.NewTimer(retryDelay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+		return aws.Config{}, ctx.Err()
 	}
 
+	cfg, err = load(ctx, opts...)
+	if err != nil {
+		logger.Error("Retry failed for creating credential sessions", zap.Error(err))
+		return aws.Config{}, err
+	}
 	return cfg, nil
 }
 

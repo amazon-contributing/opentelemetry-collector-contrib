@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync/atomic"
 
 	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -33,21 +34,22 @@ const (
 // partition's primary endpoint on RegionDisabledException, and latches
 // onto the partitional client for all subsequent retrievals.
 type stsCredentialsProvider struct {
-	regional, partitional, fallback aws.CredentialsProvider
+	fallback              atomic.Pointer[aws.CredentialsProvider]
+	regional, partitional aws.CredentialsProvider
 }
 
 var _ aws.CredentialsProvider = (*stsCredentialsProvider)(nil)
 
 func (p *stsCredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
-	if p.fallback != nil {
-		return p.fallback.Retrieve(ctx)
+	if fb := p.fallback.Load(); fb != nil {
+		return (*fb).Retrieve(ctx)
 	}
 	creds, err := p.regional.Retrieve(ctx)
 	if err != nil {
 		var rde *ststypes.RegionDisabledException
 		if errors.As(err, &rde) && p.partitional != nil {
-			p.fallback = p.partitional
-			return p.fallback.Retrieve(ctx)
+			p.fallback.Store(&p.partitional)
+			return p.partitional.Retrieve(ctx)
 		}
 	}
 	return creds, err

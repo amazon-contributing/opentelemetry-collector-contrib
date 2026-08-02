@@ -4,11 +4,16 @@
 package awsutil
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 // overrideChainContribution mirrors the inner double loop in
@@ -71,4 +76,21 @@ func TestGetRootCredentials_FirstNonNil(t *testing.T) {
 		got := getRootCredentials(&AWSSessionSettings{Profile: "p"})
 		assert.NotNil(t, got)
 	})
+}
+
+func TestLoadConfigWithRetry_ContextCanceledDuringWait(t *testing.T) {
+	failingLoad := func(context.Context, ...func(*config.LoadOptions) error) (aws.Config, error) {
+		return aws.Config{}, assert.AnError
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	start := time.Now()
+	_, err := loadConfigWithRetry(ctx, zap.NewNop(), failingLoad, nil, time.Hour)
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Less(t, time.Since(start), 10*time.Second, "cancellation must interrupt the retry wait promptly")
 }

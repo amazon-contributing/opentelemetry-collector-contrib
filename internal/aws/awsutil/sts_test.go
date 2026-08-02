@@ -6,6 +6,7 @@ package awsutil
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -99,12 +100,12 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 			regional:    regional,
 			partitional: partitional,
 		}
-		assert.Nil(t, provider.fallback)
+		assert.Nil(t, provider.fallback.Load())
 
 		got, err := provider.Retrieve(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, testCredentials, got)
-		assert.NotNil(t, provider.fallback)
+		assert.NotNil(t, provider.fallback.Load())
 
 		// Second call goes directly through fallback; regional must not be
 		// consulted (Once() above would fail if it were).
@@ -114,6 +115,28 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 
 		regional.AssertExpectations(t)
 		partitional.AssertExpectations(t)
+	})
+
+	t.Run("Fallback/ConcurrentRetrieve", func(t *testing.T) {
+		regional := new(mockCredentialsProvider)
+		regional.On("Retrieve", mock.Anything).Return(aws.Credentials{}, &ststypes.RegionDisabledException{})
+		partitional := new(mockCredentialsProvider)
+		partitional.On("Retrieve", mock.Anything).Return(testCredentials, nil)
+
+		provider := &stsCredentialsProvider{
+			regional:    regional,
+			partitional: partitional,
+		}
+
+		var wg sync.WaitGroup
+		for range 10 {
+			wg.Go(func() {
+				got, err := provider.Retrieve(t.Context())
+				assert.NoError(t, err)
+				assert.Equal(t, testCredentials, got)
+			})
+		}
+		wg.Wait()
 	})
 
 	t.Run("Regional/RegionDisabledExceptionWithoutPartitional", func(t *testing.T) {
@@ -127,7 +150,7 @@ func TestStsCredentialsProvider_Retrieve(t *testing.T) {
 		_, err := provider.Retrieve(t.Context())
 		var rde *ststypes.RegionDisabledException
 		assert.ErrorAs(t, err, &rde)
-		assert.Nil(t, provider.fallback)
+		assert.Nil(t, provider.fallback.Load())
 	})
 }
 
