@@ -5,9 +5,11 @@ package awsutil
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -142,4 +144,74 @@ func TestGetAWSConfig_DoesNotMutateSettings(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, before, *settings)
+}
+
+// captureSTSClientConfigs swaps the STS client constructor seams to record
+// every aws.Config they receive, delegating to the real constructors.
+func captureSTSClientConfigs(t *testing.T) *[]aws.Config {
+	t.Helper()
+	var captured []aws.Config
+	origAssume := newAssumeRoleClient
+	origWebID := newWebIdentityClient
+	newAssumeRoleClient = func(cfg aws.Config) stscreds.AssumeRoleAPIClient {
+		captured = append(captured, cfg)
+		return origAssume(cfg)
+	}
+	newWebIdentityClient = func(cfg aws.Config) stscreds.AssumeRoleWithWebIdentityAPIClient {
+		captured = append(captured, cfg)
+		return origWebID(cfg)
+	}
+	t.Cleanup(func() {
+		newAssumeRoleClient = origAssume
+		newWebIdentityClient = origWebID
+	})
+	return &captured
+}
+
+// The STS clients used for AssumeRole / AssumeRoleWithWebIdentity must not
+// inherit the data-plane BaseEndpoint or retry budget, while the returned
+// config must still carry both.
+func TestGetAWSConfig_STSClientsIsolatedFromEndpointAndRetries(t *testing.T) {
+	staticCredsEnv(t)
+
+	newSettings := func() *AWSSessionSettings {
+		return &AWSSessionSettings{
+			Region:                "us-east-1",
+			Endpoint:              "https://example-endpoint.local",
+			RoleARN:               testRoleARN,
+			MaxRetries:            2,
+			NumberOfWorkers:       8,
+			RequestTimeoutSeconds: 30,
+		}
+	}
+
+	verify := func(t *testing.T, cfg aws.Config, captured []aws.Config) {
+		t.Helper()
+		require.NotEmpty(t, captured)
+		for _, c := range captured {
+			assert.Nil(t, c.BaseEndpoint)
+			assert.Equal(t, 0, c.RetryMaxAttempts)
+		}
+		require.NotNil(t, cfg.BaseEndpoint)
+		assert.Equal(t, "https://example-endpoint.local", *cfg.BaseEndpoint)
+		assert.Equal(t, 3, cfg.RetryMaxAttempts)
+	}
+
+	t.Run("AssumeRole", func(t *testing.T) {
+		captured := captureSTSClientConfigs(t)
+
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), newSettings())
+		require.NoError(t, err)
+		verify(t, cfg, *captured)
+	})
+
+	t.Run("WebIdentity", func(t *testing.T) {
+		captured := captureSTSClientConfigs(t)
+
+		settings := newSettings()
+		settings.WebIdentityTokenFile = filepath.Join("testdata", "token_file")
+		cfg, err := GetAWSConfig(t.Context(), zap.NewNop(), settings)
+		require.NoError(t, err)
+		verify(t, cfg, *captured)
+	})
 }

@@ -58,13 +58,6 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 		return aws.Config{}, err
 	}
 
-	// SDK v2's RetryMaxAttempts counts the initial attempt; v1's MaxRetries
-	// did not. The +1 keeps the v1 caller contract.
-	cfg.RetryMaxAttempts = settings.MaxRetries + 1
-	if settings.Endpoint != "" {
-		cfg.BaseEndpoint = aws.String(settings.Endpoint)
-	}
-
 	switch {
 	case settings.WebIdentityTokenFile != "":
 		if settings.RoleARN == "" {
@@ -97,6 +90,16 @@ func getAWSConfig(ctx context.Context, logger *zap.Logger, settings *AWSSessionS
 				warnIfUnusedSharedConfigFiles(logger)
 			}
 		}
+	}
+
+	// Keep these mutations after the credential-provider construction above:
+	// sts.NewFromConfig snapshots the config, so setting BaseEndpoint earlier
+	// would route STS AssumeRole calls to the data-plane endpoint (and leak
+	// its retry budget). The returned config still carries both settings for
+	// data-plane clients.
+	cfg.RetryMaxAttempts = settings.MaxRetries + 1
+	if settings.Endpoint != "" {
+		cfg.BaseEndpoint = aws.String(settings.Endpoint)
 	}
 
 	return cfg, nil
