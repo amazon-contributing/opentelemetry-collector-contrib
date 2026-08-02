@@ -1,4 +1,5 @@
 type: attributestocontext
+display_name: Attributes to Context Processor
 
 status:
   class: processor

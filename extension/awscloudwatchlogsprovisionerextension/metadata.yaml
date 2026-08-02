@@ -1,4 +1,5 @@
 type: awscloudwatchlogsprovisioner
+display_name: AWS CloudWatch Logs Provisioner Extension
 
 status:
   class: extension

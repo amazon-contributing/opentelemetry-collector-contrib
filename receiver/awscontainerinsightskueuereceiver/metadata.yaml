@@ -1,4 +1,5 @@
 type: awscontainerinsightskueuereceiver
+display_name: AWS Container Insights Kueue Receiver
 
 status:
   class: receiver
