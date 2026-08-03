@@ -137,3 +137,24 @@ func TestSharedCredentialsProvider_KeylessProfile(t *testing.T) {
 	_, err := p.Retrieve(t.Context())
 	require.ErrorContains(t, err, "does not contain static credentials")
 }
+
+func TestSharedCredentialsProvider_EmptyFilenameHonorsEnvFile(t *testing.T) {
+	// With no explicit Filename, the credentials file resolves from
+	// AWS_SHARED_CREDENTIALS_FILE before the home-dir default, and the
+	// shared config file is never merged.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv(envAwsProfile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmp := filepath.Join(t.TempDir(), "custom-credentials")
+	require.NoError(t, os.WriteFile(tmp, []byte("[default]\naws_access_key_id = AKIDEXAMPLE\naws_secret_access_key = envFileSecret\n"), 0o600))
+	t.Setenv(envAwsSharedCredentialsFile, tmp)
+	// A decoy default config file that must not be consulted.
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".aws"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".aws", "config"), []byte("[default]\naws_access_key_id = AKIDDECOY\naws_secret_access_key = decoySecret\n"), 0o600))
+
+	p := SharedCredentialsProvider{Profile: "default"}
+	creds, err := p.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "envFileSecret", creds.SecretAccessKey)
+}

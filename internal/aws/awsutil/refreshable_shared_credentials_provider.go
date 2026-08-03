@@ -66,24 +66,28 @@ func (p SharedCredentialsProvider) Retrieve(ctx context.Context) (aws.Credential
 	if profile == "" {
 		profile = defaultProfileName
 	}
-	var opts []func(*config.LoadSharedConfigOptions)
-	if p.Filename != "" {
-		opts = append(opts, func(o *config.LoadSharedConfigOptions) {
-			// Read credentials only from the caller's file. Empty ConfigFiles
-			// prevents the SDK from also merging the default shared config file
-			// (for example $HOME/.aws/config), so an explicitly configured
-			// credentials file is authoritative and a missing file or profile
-			// fails loudly instead of silently resolving elsewhere.
-			o.CredentialsFiles = []string{p.Filename}
-			o.ConfigFiles = []string{}
-		})
+	filename := p.Filename
+	if filename == "" {
+		setFromEnvVal(&filename, envAwsSharedCredentialsFile)
 	}
+	if filename == "" {
+		filename = defaultSharedCredentialsFile(backwardsCompatibleUserHomeDir())
+	}
+	opts := []func(*config.LoadSharedConfigOptions){func(o *config.LoadSharedConfigOptions) {
+		// Read credentials only from the resolved file. Empty ConfigFiles
+		// prevents the SDK from also merging the default shared config file
+		// (for example $HOME/.aws/config), so the credentials file is
+		// authoritative and a missing file or profile fails loudly instead
+		// of silently resolving elsewhere.
+		o.CredentialsFiles = []string{filename}
+		o.ConfigFiles = []string{}
+	}}
 	sharedConfig, err := config.LoadSharedConfigProfile(ctx, profile, opts...)
 	if err != nil {
 		return aws.Credentials{}, err
 	}
 	if !sharedConfig.Credentials.HasKeys() {
-		return aws.Credentials{}, fmt.Errorf("shared credentials profile %q in %q does not contain static credentials", profile, p.Filename)
+		return aws.Credentials{}, fmt.Errorf("shared credentials profile %q in %q does not contain static credentials", profile, filename)
 	}
 	return sharedConfig.Credentials, nil
 }
