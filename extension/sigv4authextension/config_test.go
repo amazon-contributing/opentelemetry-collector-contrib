@@ -150,12 +150,20 @@ func TestResolvedExternalID(t *testing.T) {
 			want: "top",
 		},
 		{
-			name: "assume_role_external_id_pairs_with_assume_role_arn",
+			name: "assume_role_external_id_wins_when_both_set",
 			cfg: &Config{
 				AWSSessionSettings: awsutil.AWSSessionSettings{ExternalID: "top"},
 				AssumeRole:         AssumeRole{ARN: "arn:aws:iam::123456789012:role/r", ExternalID: "assume"},
 			},
 			want: "assume",
+		},
+		{
+			name: "top_level_external_id_with_assume_role_arn",
+			cfg: &Config{
+				AWSSessionSettings: awsutil.AWSSessionSettings{ExternalID: "top"},
+				AssumeRole:         AssumeRole{ARN: "arn:aws:iam::123456789012:role/r"},
+			},
+			want: "top",
 		},
 	}
 	for _, tc := range tests {

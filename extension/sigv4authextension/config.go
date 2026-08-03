@@ -65,10 +65,10 @@ func (cfg *Config) resolvedWebIdentityTokenFile() string {
 	return cfg.WebIdentityTokenFile
 }
 
-// resolvedExternalID pairs the external ID with the role source: assume_role.external_id when the
-// role is given via assume_role.arn, otherwise the top-level external_id.
+// resolvedExternalID returns AssumeRole.ExternalID if set, otherwise falls back to the
+// top-level external_id.
 func (cfg *Config) resolvedExternalID() string {
-	if cfg.AssumeRole.ARN != "" {
+	if cfg.AssumeRole.ExternalID != "" {
 		return cfg.AssumeRole.ExternalID
 	}
 	return cfg.ExternalID
