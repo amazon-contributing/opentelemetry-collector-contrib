@@ -151,8 +151,8 @@ func TestHandlerSignerErrorsOut(t *testing.T) {
 
 	credErr := errors.New("mock credential retrieval error")
 	origNewAWSConfig := newAWSConfig
-	newAWSConfig = func(ctx context.Context, roleArn, region string, log *zap.Logger) (aws.Config, error) {
-		cfg, err := origNewAWSConfig(ctx, roleArn, region, log)
+	newAWSConfig = func(ctx context.Context, settings *awsutil.AWSSessionSettings, log *zap.Logger) (aws.Config, error) {
+		cfg, err := origNewAWSConfig(ctx, settings, log)
 		if err != nil {
 			return cfg, err
 		}
@@ -208,7 +208,7 @@ func TestCantGetAWSConfigSession(t *testing.T) {
 	}()
 
 	expectedErr := errors.New("expected newAWSConfigError")
-	newAWSConfig = func(_ context.Context, _, _ string, _ *zap.Logger) (aws.Config, error) {
+	newAWSConfig = func(_ context.Context, _ *awsutil.AWSSessionSettings, _ *zap.Logger) (aws.Config, error) {
 		return aws.Config{}, expectedErr
 	}
 	_, err := NewServer(cfg, logger)

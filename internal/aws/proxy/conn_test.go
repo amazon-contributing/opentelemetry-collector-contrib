@@ -14,33 +14,31 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 var ec2Region = "us-west-2"
 
 type mock struct {
-	getEC2RegionErr             error
 	getRegionFromEC2MetadataErr error
 	cfg                         aws.Config
+	capturedSettings            *awsutil.AWSSessionSettings
+	capturedIMDSRetries         int
 }
 
-func (m *mock) getEC2Region(_ context.Context, _ aws.Config) (string, error) {
-	if m.getEC2RegionErr != nil {
-		return "", m.getEC2RegionErr
-	}
-	return ec2Region, nil
-}
-
-func (m *mock) newAWSConfig(_ context.Context, _, region string, _ *zap.Logger) (aws.Config, error) {
+func (m *mock) newAWSConfig(_ context.Context, settings *awsutil.AWSSessionSettings, _ *zap.Logger) (aws.Config, error) {
+	m.capturedSettings = settings
 	cfg := m.cfg
 	// Mirror real awsutil.GetAWSConfig behavior: region is always set in the returned config
-	if region != "" {
-		cfg.Region = region
+	if settings.Region != "" {
+		cfg.Region = settings.Region
 	}
 	return cfg, nil
 }
 
-func (m *mock) getRegionFromEC2Metadata(_ context.Context, _ *zap.Logger) (string, error) {
+func (m *mock) getRegionFromEC2Metadata(_ context.Context, _ *zap.Logger, imdsRetries int) (string, error) {
+	m.capturedIMDSRetries = imdsRetries
 	if m.getRegionFromEC2MetadataErr != nil {
 		return "", m.getRegionFromEC2MetadataErr
 	}
@@ -52,22 +50,20 @@ func logSetup() (*zap.Logger, *observer.ObservedLogs) {
 	return zap.New(core), recorded
 }
 
-func setupMock(t *testing.T, cfg aws.Config) {
+func setupMock(t *testing.T, cfg aws.Config) *mock {
 	t.Helper()
-	origGetEC2Region := getEC2Region
 	origNewAWSConfig := newAWSConfig
 	origGetRegionFromEC2Metadata := getRegionFromEC2Metadata
 
-	m := mock{cfg: cfg}
-	getEC2Region = m.getEC2Region
+	m := &mock{cfg: cfg}
 	newAWSConfig = m.newAWSConfig
 	getRegionFromEC2Metadata = m.getRegionFromEC2Metadata
 
 	t.Cleanup(func() {
-		getEC2Region = origGetEC2Region
 		newAWSConfig = origNewAWSConfig
 		getRegionFromEC2Metadata = origGetRegionFromEC2Metadata
 	})
+	return m
 }
 
 // fetch region value from environment variable
@@ -245,12 +241,20 @@ func TestMissingECSMetadataFile(t *testing.T) {
 }
 
 func TestNewAWSConfigDelegatesToAwsutil(t *testing.T) {
+	sessionSettings := func(roleArn, region string) *awsutil.AWSSessionSettings {
+		cfg := DefaultConfig()
+		cfg.RoleARN = roleArn
+		settings := cfg.toSessionConfig()
+		settings.Region = region
+		return settings
+	}
+
 	t.Run("without RoleARN", func(t *testing.T) {
 		logger := zap.NewNop()
 		t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
 		t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
 
-		cfg, err := newAWSConfig(t.Context(), "", "us-west-2", logger)
+		cfg, err := newAWSConfig(t.Context(), sessionSettings("", "us-west-2"), logger)
 		assert.NoError(t, err)
 		assert.Equal(t, "us-west-2", cfg.Region, "region should be set")
 		assert.Equal(t, 3, cfg.RetryMaxAttempts, "max retries should be 3")
@@ -261,7 +265,7 @@ func TestNewAWSConfigDelegatesToAwsutil(t *testing.T) {
 		t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
 		t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
 
-		cfg, err := newAWSConfig(t.Context(), "arn:aws:iam::123456789012:role/TestRole", "eu-west-1", logger)
+		cfg, err := newAWSConfig(t.Context(), sessionSettings("arn:aws:iam::123456789012:role/TestRole", "eu-west-1"), logger)
 		assert.NoError(t, err)
 		assert.Equal(t, "eu-west-1", cfg.Region, "region should be set")
 		assert.Equal(t, 3, cfg.RetryMaxAttempts, "max retries should be 3")
@@ -293,12 +297,56 @@ func TestNewAWSConfigDelegatesToAwsutil(t *testing.T) {
 
 		for _, pr := range partitionRegions {
 			t.Run(pr.partition+"/"+pr.region, func(t *testing.T) {
-				cfg, err := newAWSConfig(t.Context(), "", pr.region, logger)
+				cfg, err := newAWSConfig(t.Context(), sessionSettings("", pr.region), logger)
 				assert.NoError(t, err, "should create config for %s", pr.region)
 				assert.Equal(t, pr.region, cfg.Region)
 			})
 		}
 	})
+}
+
+// The default signing path must pass the complete toSessionConfig-derived
+// settings to awsutil.GetAWSConfig so fields like profile and
+// shared_credentials_file reach the credential chain.
+func TestGetAWSConfigSessionPassesFullSessionSettings(t *testing.T) {
+	logger, _ := logSetup()
+	m := setupMock(t, aws.Config{})
+
+	cfg := DefaultConfig()
+	cfg.Region = "us-east-1"
+	cfg.RoleARN = "arn:aws:iam::123456789012:role/TestRole"
+	cfg.Profile = "custom-profile"
+	cfg.SharedCredentialsFile = []string{"/tmp/creds-a", "/tmp/creds-b"}
+	cfg.CertificateFilePath = "/tmp/cert.pem"
+	cfg.IMDSRetries = 4
+	cfg.ProxyAddress = "https://proxy.example.com"
+	cfg.AWSEndpoint = "https://xray.us-east-1.amazonaws.com"
+
+	awsCfg, err := getAWSConfigSession(t.Context(), cfg, logger)
+	assert.NoError(t, err, "getAWSConfigSession should not error out")
+	assert.Equal(t, "us-east-1", awsCfg.Region)
+
+	expected := cfg.toSessionConfig()
+	expected.Region = "us-east-1"
+	assert.Equal(t, expected, m.capturedSettings,
+		"settings passed to GetAWSConfig should match toSessionConfig with the resolved region")
+}
+
+// The imds_retries config field must reach the EC2 IMDS region lookup.
+func TestIMDSRetriesThreadedToRegionLookup(t *testing.T) {
+	t.Setenv(awsDefaultRegionEnvVar, "")
+	t.Setenv(awsRegionEnvVar, "")
+
+	logger, _ := logSetup()
+	m := setupMock(t, aws.Config{})
+
+	cfg := DefaultConfig()
+	cfg.IMDSRetries = 3
+
+	awsCfg, err := getAWSConfigSession(t.Context(), cfg, logger)
+	assert.NoError(t, err, "getAWSConfigSession should not error out")
+	assert.Equal(t, ec2Region, awsCfg.Region)
+	assert.Equal(t, 3, m.capturedIMDSRetries, "imds_retries should reach the EC2 region lookup")
 }
 
 func TestProxyServerTransportInvalidProxyAddr(t *testing.T) {

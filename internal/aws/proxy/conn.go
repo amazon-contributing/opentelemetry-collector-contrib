@@ -34,25 +34,12 @@ const (
 	ecsMetadataFileEnvVar             = "ECS_CONTAINER_METADATA_FILE"
 )
 
-var getEC2Region = func(ctx context.Context, cfg aws.Config) (string, error) {
-	client := override.NewIMDSClientFromConfig(cfg, nil, override.GetDefaultRetryNumber())
-	output, err := client.GetRegion(ctx, &imds.GetRegionInput{})
-	if err != nil {
-		return "", err
-	}
-	return output.Region, nil
-}
-
 // newAWSConfig creates an AWS config using awsutil.GetAWSConfig, which handles
-// region setting, retry configuration, and STS AssumeRole credentials if a role
-// ARN is provided. The SDK's built-in EndpointResolverV2 handles partition-aware
+// region setting, retry configuration, credential chain resolution (profile,
+// shared credentials files), and STS AssumeRole credentials if a role ARN is
+// provided. The SDK's built-in EndpointResolverV2 handles partition-aware
 // endpoint resolution for all AWS partitions.
-var newAWSConfig = func(ctx context.Context, roleArn, region string, log *zap.Logger) (aws.Config, error) {
-	settings := &awsutil.AWSSessionSettings{
-		Region:     region,
-		RoleARN:    roleArn,
-		MaxRetries: 2,
-	}
+var newAWSConfig = func(ctx context.Context, settings *awsutil.AWSSessionSettings, log *zap.Logger) (aws.Config, error) {
 	return awsutil.GetAWSConfig(ctx, log, settings)
 }
 
@@ -62,16 +49,9 @@ func getAWSConfigSession(ctx context.Context, c *Config, logger *zap.Logger) (aw
 		return aws.Config{}, err
 	}
 
-	cfg, err := newAWSConfig(ctx, c.RoleARN, region, logger)
-	if err != nil {
-		return aws.Config{}, err
-	}
-
-	if c.AWSEndpoint != "" {
-		cfg.BaseEndpoint = aws.String(c.AWSEndpoint)
-	}
-
-	return cfg, nil
+	settings := c.toSessionConfig()
+	settings.Region = region
+	return newAWSConfig(ctx, settings, logger)
 }
 
 // resolveRegion determines the AWS region using the following priority:
@@ -97,7 +77,7 @@ func resolveRegion(ctx context.Context, c *Config, logger *zap.Logger) (string, 
 		return "", errors.New("region not specified and local mode enabled; cannot fetch from metadata services")
 	}
 
-	return getRegionFromMetadata(ctx, logger)
+	return getRegionFromMetadata(ctx, logger, c.IMDSRetries)
 }
 
 // getRegionFromEnv returns the region from environment variables.
@@ -111,7 +91,7 @@ func getRegionFromEnv() string {
 
 // getRegionFromMetadata attempts to get region from ECS metadata first,
 // then falls back to EC2 IMDS.
-func getRegionFromMetadata(ctx context.Context, logger *zap.Logger) (string, error) {
+func getRegionFromMetadata(ctx context.Context, logger *zap.Logger, imdsRetries int) (string, error) {
 	// Try ECS metadata first (proxy-specific feature not in awsutil)
 	region, err := getRegionFromECSMetadata()
 	if err == nil {
@@ -121,7 +101,7 @@ func getRegionFromMetadata(ctx context.Context, logger *zap.Logger) (string, err
 	logger.Debug("Unable to fetch region from ECS metadata", zap.Error(err))
 
 	// Fall back to EC2 IMDS
-	region, ec2Err := getRegionFromEC2Metadata(ctx, logger)
+	region, ec2Err := getRegionFromEC2Metadata(ctx, logger, imdsRetries)
 	if ec2Err == nil {
 		logger.Debug("Fetched region from EC2 metadata", zap.String("region", region))
 		return region, nil
@@ -132,14 +112,16 @@ func getRegionFromMetadata(ctx context.Context, logger *zap.Logger) (string, err
 	return "", fmt.Errorf("could not fetch region from ecs metadata or ec2 metadata: ECS: %w; EC2: %w", err, ec2Err)
 }
 
-// getRegionFromEC2Metadata fetches region from EC2 Instance Metadata Service.
-var getRegionFromEC2Metadata = func(ctx context.Context, logger *zap.Logger) (string, error) {
-	tempSettings := &awsutil.AWSSessionSettings{}
-	tempCfg, err := awsutil.GetAWSConfig(ctx, logger, tempSettings)
+// getRegionFromEC2Metadata fetches region from the EC2 Instance Metadata
+// Service using the strict-then-permissive IMDS client (IMDSv2-only first,
+// IMDSv1 fallback second).
+var getRegionFromEC2Metadata = func(ctx context.Context, logger *zap.Logger, imdsRetries int) (string, error) {
+	client := override.NewIMDSClient(logger, imdsRetries)
+	output, err := client.GetRegion(ctx, &imds.GetRegionInput{})
 	if err != nil {
 		return "", err
 	}
-	return getEC2Region(ctx, tempCfg)
+	return output.Region, nil
 }
 
 func getRegionFromECSMetadata() (string, error) {

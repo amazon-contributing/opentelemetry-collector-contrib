@@ -95,9 +95,9 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 				logger.Debug("Received request on X-Ray receiver TCP proxy server", zap.String("URL", sanitize.URL(r.In.URL)))
 			}
 
-			// Strip Connection header before signing. ReverseProxy strips
-			// hop-by-hop headers after Rewrite, so signing with it present
-			// would produce a signature that doesn't match what's forwarded.
+			// ReverseProxy already strips hop-by-hop headers before Rewrite;
+			// kept as a defensive guard since a Connection header present at
+			// signing would produce a signature mismatch.
 			r.Out.Header.Del(connHeader)
 
 			ruleServiceName := serviceName
@@ -215,9 +215,9 @@ func consumeBody(body io.ReadCloser) ([]byte, string, error) {
 
 // buildRoutingMaps creates maps for routing API requests to their service
 // configurations and per-role credentials providers. Invalid rules (missing
-// service_name, unresolvable region, unresolvable endpoint, or failed STS
-// AssumeRole at startup) are mapped to nil so the proxyHandler can reject
-// them with HTTP 400 instead of forwarding unsigned requests.
+// service_name, unresolvable region, unresolvable endpoint, or failed
+// credential-provider construction) are mapped to nil so the proxyHandler
+// can reject them with HTTP 400 instead of forwarding unsigned requests.
 func buildRoutingMaps(
 	ctx context.Context,
 	routes []RoutingRule,
