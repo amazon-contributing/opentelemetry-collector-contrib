@@ -51,12 +51,22 @@ func getHTTPClient(logger *zap.Logger, settings *AWSSessionSettings) (aws.HTTPCl
 //
 // settings.CertificateFilePath, when non-empty, is parsed into an empty x509
 // pool (system CAs are intentionally not included; operators who need both
-// must combine them in the bundle file).
+// must combine them in the bundle file). A bundle referenced by the
+// AWS_CA_BUNDLE environment variable is appended to the same pool, matching
+// the SDK's own treatment of clients passed into config.LoadDefaultConfig.
 func newHTTPClient(logger *zap.Logger, settings httpClientSettings) (aws.HTTPClient, error) {
 	rootCAs, certPoolErr := loadCertPool(settings.CertificateFilePath)
 	if settings.CertificateFilePath != "" && certPoolErr != nil {
 		logger.Warn("could not create root ca from",
 			zap.String("file", settings.CertificateFilePath), zap.Error(certPoolErr))
+	}
+	if settings.caBundleEnv != "" {
+		var err error
+		rootCAs, err = appendCertPool(rootCAs, settings.caBundleEnv)
+		if err != nil {
+			logger.Warn("could not append AWS_CA_BUNDLE root ca from",
+				zap.String("file", settings.caBundleEnv), zap.Error(err))
+		}
 	}
 
 	proxyFunc, err := GetProxyFunc(settings.ProxyAddress)
@@ -108,6 +118,22 @@ func loadCertPool(bundleFile string) (*x509.CertPool, error) {
 		return nil, errors.New("unable to append certs")
 	}
 	return p, nil
+}
+
+// appendCertPool appends the PEM bundle from bundleFile into pool, creating
+// the pool when nil.
+func appendCertPool(pool *x509.CertPool, bundleFile string) (*x509.CertPool, error) {
+	bundleBytes, err := os.ReadFile(bundleFile)
+	if err != nil {
+		return pool, err
+	}
+	if pool == nil {
+		pool = x509.NewCertPool()
+	}
+	if !pool.AppendCertsFromPEM(bundleBytes) {
+		return pool, errors.New("unable to append certs")
+	}
+	return pool, nil
 }
 
 // ProxyServerTransport returns an *http.Transport for the X-Ray signing

@@ -4,13 +4,21 @@
 package awsutil
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"math/big"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -98,6 +106,48 @@ func TestNewHTTPClient(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, client)
 	})
+
+	t.Run("CABundleEnvSetsRootCAs", func(t *testing.T) {
+		client, err := newHTTPClient(zap.NewNop(), httpClientSettings{NumberOfWorkers: 8, RequestTimeoutSeconds: 30, caBundleEnv: writeSelfSignedCertForTest(t)})
+		require.NoError(t, err)
+		tr := client.(*awshttp.BuildableClient).GetTransport()
+		require.NotNil(t, tr.TLSClientConfig)
+		assert.NotNil(t, tr.TLSClientConfig.RootCAs)
+	})
+
+	t.Run("CABundleEnvMergesWithCertificateFilePath", func(t *testing.T) {
+		client, err := newHTTPClient(zap.NewNop(), httpClientSettings{
+			NumberOfWorkers:       8,
+			RequestTimeoutSeconds: 30,
+			CertificateFilePath:   writeSelfSignedCertForTest(t),
+			caBundleEnv:           writeSelfSignedCertForTest(t),
+		})
+		require.NoError(t, err)
+		tr := client.(*awshttp.BuildableClient).GetTransport()
+		require.NotNil(t, tr.TLSClientConfig)
+		require.NotNil(t, tr.TLSClientConfig.RootCAs)
+		// Both bundles must land in the pool.
+		assert.Len(t, tr.TLSClientConfig.RootCAs.Subjects(), 2) //nolint:staticcheck // pool built purely from PEM, Subjects is accurate
+	})
+}
+
+// writeSelfSignedCertForTest writes a self-signed cert PEM to a temp file and
+// returns its path.
+func writeSelfSignedCertForTest(t *testing.T) string {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	require.NoError(t, err)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	f := filepath.Join(t.TempDir(), "ca.pem")
+	require.NoError(t, os.WriteFile(f, pemBytes, 0o600))
+	return f
 }
 
 func TestProxyServerTransport(t *testing.T) {
@@ -140,6 +190,15 @@ func TestGetHTTPClient_CachesByConfig(t *testing.T) {
 
 	assert.Same(t, clientA, clientB, "identical settings should return the same client")
 	assert.NotSame(t, clientA, clientC, "different settings should return different clients")
+
+	// A changed AWS_CA_BUNDLE must not reuse a client built without it.
+	t.Setenv("AWS_CA_BUNDLE", writeSelfSignedCertForTest(t))
+	clientD, err := getHTTPClient(zap.NewNop(), settingsA)
+	require.NoError(t, err)
+	assert.NotSame(t, clientA, clientD, "changed AWS_CA_BUNDLE should return a different client")
+	trD := clientD.(*awshttp.BuildableClient).GetTransport()
+	require.NotNil(t, trD.TLSClientConfig)
+	assert.NotNil(t, trD.TLSClientConfig.RootCAs)
 }
 
 func TestGetHTTPClient_Concurrent(t *testing.T) {

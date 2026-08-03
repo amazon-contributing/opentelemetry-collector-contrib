@@ -4,6 +4,8 @@
 
 package awsutil // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 
+import "os"
+
 // AWSSessionSettings defines the common session configs for AWS components
 type AWSSessionSettings struct {
 	// Maximum number of concurrent calls to AWS X-Ray to upload documents.
@@ -50,6 +52,9 @@ type httpClientSettings struct {
 	NoVerifySSL           bool
 	RequestTimeoutSeconds int
 	NumberOfWorkers       int
+	// caBundleEnv captures AWS_CA_BUNDLE at client-construction time so a
+	// changed environment never reuses a client built for a different bundle.
+	caBundleEnv string
 }
 
 // httpClientSettings returns the transport-relevant subset of settings used as a
@@ -61,6 +66,7 @@ func (s *AWSSessionSettings) httpClientSettings() httpClientSettings {
 		NoVerifySSL:           s.NoVerifySSL,
 		RequestTimeoutSeconds: s.RequestTimeoutSeconds,
 		NumberOfWorkers:       s.NumberOfWorkers,
+		caBundleEnv:           os.Getenv("AWS_CA_BUNDLE"),
 	}
 }
 
