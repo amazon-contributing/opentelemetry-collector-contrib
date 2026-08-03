@@ -21,9 +21,9 @@ const (
 // function. It returns the shared-credentials file list and the shared-config file list
 // separately: the v2 SDK drops format-mismatched sections, so a config-style "[profile foo]"
 // header passed via WithSharedCredentialsFiles is silently ignored (and a credentials-style
-// header passed via WithSharedConfigFiles likewise). configFiles stays nil unless
-// AWS_SDK_LOAD_CONFIG is set to a truthy value, so passing it to WithSharedConfigFiles preserves
-// the SDK's default shared-config-file resolution.
+// header passed via WithSharedConfigFiles likewise). The shared config file is consulted only
+// when AWS_SDK_LOAD_CONFIG is set to a truthy value; otherwise configFiles is a non-nil empty
+// list so the SDK does not fall back to loading the default ~/.aws/config.
 func getFallbackSharedConfigFiles(userHomeDirProvider func() string) (credentialsFiles, configFiles []string) {
 	var sharedCredentialsFile, sharedConfigFile string
 	setFromEnvVal(&sharedCredentialsFile, envAwsSharedCredentialsFile)
@@ -32,6 +32,9 @@ func getFallbackSharedConfigFiles(userHomeDirProvider func() string) (credential
 	}
 	credentialsFiles = []string{sharedCredentialsFile}
 
+	// Non-nil empty result when the gate is off: WithSharedConfigFiles treats
+	// nil as "not set" and the SDK then loads the default ~/.aws/config.
+	configFiles = []string{}
 	enableSharedConfig, _ := strconv.ParseBool(os.Getenv(envAwsSdkLoadConfig))
 	if enableSharedConfig {
 		setFromEnvVal(&sharedConfigFile, envAwsSharedConfigFile)

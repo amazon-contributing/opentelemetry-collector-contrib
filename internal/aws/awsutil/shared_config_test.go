@@ -19,12 +19,13 @@ func TestGetFallbackSharedConfigFiles(t *testing.T) {
 	assert.Equal(t, []string{"credentials"}, credFiles)
 	assert.Equal(t, []string{"config"}, cfgFiles)
 
-	// AWS_SDK_LOAD_CONFIG disabled -> no config files (nil), so callers preserve
-	// the SDK's default shared-config-file resolution via WithSharedConfigFiles(nil).
+	// AWS_SDK_LOAD_CONFIG disabled -> empty non-nil config list, so the SDK
+	// does not fall back to loading the default ~/.aws/config.
 	t.Setenv(envAwsSdkLoadConfig, "false")
 	credFiles, cfgFiles = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
 	assert.Equal(t, []string{"credentials"}, credFiles)
-	assert.Nil(t, cfgFiles)
+	assert.NotNil(t, cfgFiles)
+	assert.Empty(t, cfgFiles)
 
 	t.Setenv(envAwsSdkLoadConfig, "true")
 	t.Setenv(envAwsSharedCredentialsFile, "")
