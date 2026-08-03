@@ -16,6 +16,7 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -417,6 +418,57 @@ func TestEpClient_ServiceNameToPodNum(t *testing.T) {
 	default:
 		t.Error("The shutdown channel is not closed")
 	}
+}
+
+func TestEpClient_ServiceToPodNumAccumulatesAcrossSlices(t *testing.T) {
+	newSlice := func(sliceName, podName, address string) *discoveryv1.EndpointSlice {
+		return &discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sliceName,
+				Namespace: "default",
+				UID:       types.UID(sliceName + "-uid"),
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "web",
+					discoveryv1.LabelManagedBy:   "endpointslice-controller.k8s.io",
+				},
+			},
+			AddressType: discoveryv1.AddressTypeIPv4,
+			Endpoints: []discoveryv1.Endpoint{
+				{
+					Addresses: []string{address},
+					Conditions: discoveryv1.EndpointConditions{
+						Ready: aws.Bool(true),
+					},
+					TargetRef: &v1.ObjectReference{
+						Kind:      "Pod",
+						Namespace: "default",
+						Name:      podName,
+					},
+				},
+			},
+		}
+	}
+
+	// Two EndpointSlices backing the same Service; the pod counts must
+	// accumulate instead of the second slice overwriting the first.
+	slices := []runtime.Object{
+		newSlice("web-slice-1", "web-pod-1", "192.168.1.10"),
+		newSlice("web-slice-2", "web-pod-2", "192.168.1.11"),
+	}
+
+	client, stopChan := setUpEndpointClient()
+	defer close(stopChan)
+
+	assert.NoError(t, client.store.Replace(convertToInterfaceArray(slices), ""))
+
+	assert.Equal(t, map[Service]int{
+		NewService("web", "default"): 2,
+	}, client.ServiceToPodNum())
+
+	assert.Equal(t, map[string][]string{
+		"namespace:default,podName:web-pod-1": {"web"},
+		"namespace:default,podName:web-pod-2": {"web"},
+	}, client.PodKeyToServiceNames())
 }
 
 func TestTransformFuncEndpoint(t *testing.T) {
