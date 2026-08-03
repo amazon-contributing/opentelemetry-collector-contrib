@@ -31,6 +31,7 @@ func fastTestOptions(endpoint string) func(*imds.Options) {
 func enableIMDS(t *testing.T) {
 	t.Helper()
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "false")
+	t.Setenv(ec2MetadataV1DisabledEnvVar, "")
 }
 
 func TestStrictOptions(t *testing.T) {
@@ -46,12 +47,46 @@ func TestStrictOptions(t *testing.T) {
 }
 
 func TestPermissiveOptions(t *testing.T) {
+	apply := func(t *testing.T) imds.Options {
+		t.Helper()
+		var o imds.Options
+		for _, fn := range permissiveOptions(nil, nil) {
+			fn(&o)
+		}
+		return o
+	}
+
+	tests := []struct {
+		name     string
+		envValue string
+		want     aws.Ternary
+	}{
+		{name: "unset leaves fallback enabled", envValue: "", want: aws.UnknownTernary},
+		{name: "true disables fallback", envValue: "true", want: aws.FalseTernary},
+		{name: "case-insensitive true disables fallback", envValue: "TRUE", want: aws.FalseTernary},
+		{name: "false leaves fallback enabled", envValue: "false", want: aws.UnknownTernary},
+		{name: "invalid value treated as unset", envValue: "not-a-bool", want: aws.UnknownTernary},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(ec2MetadataV1DisabledEnvVar, tt.envValue)
+			o := apply(t)
+			assert.Equal(t, tt.want, o.EnableFallback)
+			assert.Nil(t, o.Retryer, "permissive client uses the default retryer")
+		})
+	}
+}
+
+func TestPermissiveOptions_OptOutWinsOverCaller(t *testing.T) {
+	t.Setenv(ec2MetadataV1DisabledEnvVar, "true")
 	var o imds.Options
-	for _, fn := range permissiveOptions(nil) {
+	caller := func(opt *imds.Options) {
+		opt.EnableFallback = aws.TrueTernary
+	}
+	for _, fn := range permissiveOptions(nil, []func(*imds.Options){caller}) {
 		fn(&o)
 	}
-	assert.Equal(t, aws.TrueTernary, o.EnableFallback, "permissive client must enable IMDSv1 fallback")
-	assert.Nil(t, o.Retryer, "permissive client uses the default retryer")
+	assert.Equal(t, aws.FalseTernary, o.EnableFallback)
 }
 
 // TestStrictOptions_CallerOptionsApplyFirst verifies that caller-supplied
@@ -69,19 +104,25 @@ func TestStrictOptions_CallerOptionsApplyFirst(t *testing.T) {
 	assert.Equal(t, aws.FalseTernary, o.EnableFallback, "strict setting must win over caller")
 }
 
+// imdsServerCounts tracks the request patterns the tests assert on.
+type imdsServerCounts struct {
+	tokenRequests int // PUT /latest/api/token (IMDSv2 handshake)
+	v1Requests    int // GETs without an IMDSv2 token header (IMDSv1 fallback)
+}
+
 // imdsTestServer emulates the parts of IMDS exercised by these tests. When
 // failTokens is true it rejects the IMDSv2 token request (PUT
 // /latest/api/token) with 403, which forces the strict (IMDSv2-only) client to
 // fail and the permissive client to fall back to the token-less IMDSv1 flow.
 // It serves the instance identity document (used by GetRegion and
 // GetInstanceIdentityDocument) and any keys in the metadata map.
-func imdsTestServer(t *testing.T, failTokens bool, region string, metadata map[string]string) (*httptest.Server, *int) {
+func imdsTestServer(t *testing.T, failTokens bool, region string, metadata map[string]string) (*httptest.Server, *imdsServerCounts) {
 	t.Helper()
-	var tokenRequests int
+	counts := &imdsServerCounts{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPut && r.URL.Path == "/latest/api/token":
-			tokenRequests++
+			counts.tokenRequests++
 			if failTokens {
 				w.WriteHeader(http.StatusForbidden)
 				return
@@ -89,8 +130,14 @@ func imdsTestServer(t *testing.T, failTokens bool, region string, metadata map[s
 			w.Header().Set("X-aws-ec2-metadata-token-ttl-seconds", "21600")
 			_, _ = w.Write([]byte("test-token"))
 		case r.URL.Path == "/latest/dynamic/instance-identity/document":
+			if r.Header.Get("X-aws-ec2-metadata-token") == "" {
+				counts.v1Requests++
+			}
 			_, _ = w.Write([]byte(`{"region":"` + region + `","instanceId":"i-test","instanceType":"t3.micro"}`))
 		default:
+			if r.Header.Get("X-aws-ec2-metadata-token") == "" {
+				counts.v1Requests++
+			}
 			key := strings.TrimPrefix(r.URL.Path, "/latest/meta-data/")
 			if val, ok := metadata[key]; ok {
 				_, _ = w.Write([]byte(val))
@@ -100,32 +147,33 @@ func imdsTestServer(t *testing.T, failTokens bool, region string, metadata map[s
 		}
 	}))
 	t.Cleanup(srv.Close)
-	return srv, &tokenRequests
+	return srv, counts
 }
 
 func TestIMDSClient_StrictSucceeds(t *testing.T) {
 	enableIMDS(t)
-	srv, tokenRequests := imdsTestServer(t, false, "us-west-2", nil)
+	srv, counts := imdsTestServer(t, false, "us-west-2", nil)
 
 	c := NewIMDSClient(nil, 0, fastTestOptions(srv.URL))
 	out, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "us-west-2", out.Region)
-	assert.Positive(t, *tokenRequests, "strict client should request an IMDSv2 token")
+	assert.Positive(t, counts.tokenRequests, "strict client should request an IMDSv2 token")
 }
 
 func TestIMDSClient_FallsBackToPermissive(t *testing.T) {
 	enableIMDS(t)
 	// Token endpoint fails → strict (IMDSv2-only) errors → permissive client
 	// falls back to the token-less IMDSv1 flow and succeeds.
-	srv, _ := imdsTestServer(t, true, "eu-central-1", nil)
+	srv, counts := imdsTestServer(t, true, "eu-central-1", nil)
 
 	c := NewIMDSClient(nil, 0, fastTestOptions(srv.URL))
 	out, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "eu-central-1", out.Region)
+	assert.Positive(t, counts.v1Requests, "permissive client should fall back to IMDSv1 by default")
 }
 
 func TestIMDSClient_GetInstanceIdentityDocumentFallback(t *testing.T) {
@@ -167,6 +215,55 @@ func TestIMDSClient_BothFail(t *testing.T) {
 	defer cancel()
 	_, err := c.GetRegion(ctx, &imds.GetRegionInput{})
 	assert.Error(t, err)
+}
+
+// stubV1FallbackDisabledResolver mimics the shared-config resolver that
+// config.LoadDefaultConfig places in aws.Config.ConfigSources; the imds
+// package discovers it via its GetEC2IMDSV1FallbackDisabled method.
+type stubV1FallbackDisabledResolver struct {
+	disabled bool
+}
+
+func (s stubV1FallbackDisabledResolver) GetEC2IMDSV1FallbackDisabled() (bool, bool) {
+	return s.disabled, true
+}
+
+func TestIMDSClient_V1OptOut_OptionsPath(t *testing.T) {
+	enableIMDS(t)
+	t.Setenv(ec2MetadataV1DisabledEnvVar, "true")
+	srv, counts := imdsTestServer(t, true, "us-east-1", nil)
+
+	c := NewIMDSClient(nil, 0, fastTestOptions(srv.URL))
+	_, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
+
+	assert.Error(t, err, "with IMDSv1 disabled and IMDSv2 tokens rejected, the call must fail")
+	assert.Zero(t, counts.v1Requests, "no token-less IMDSv1 request may be sent when the operator opted out")
+	assert.Positive(t, counts.tokenRequests, "IMDSv2 token handshake should still be attempted")
+}
+
+func TestIMDSClient_V1OptOut_FromConfigPath(t *testing.T) {
+	enableIMDS(t)
+	srv, counts := imdsTestServer(t, true, "us-east-1", nil)
+
+	cfg := aws.Config{ConfigSources: []any{stubV1FallbackDisabledResolver{disabled: true}}}
+	c := NewIMDSClientFromConfig(cfg, nil, 0, fastTestOptions(srv.URL))
+	_, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
+
+	assert.Error(t, err, "with IMDSv1 disabled and IMDSv2 tokens rejected, the call must fail")
+	assert.Zero(t, counts.v1Requests, "no token-less IMDSv1 request may be sent when the operator opted out")
+}
+
+func TestIMDSClient_V1NotDisabled_FromConfigPath(t *testing.T) {
+	enableIMDS(t)
+	srv, counts := imdsTestServer(t, true, "sa-east-1", nil)
+
+	cfg := aws.Config{ConfigSources: []any{stubV1FallbackDisabledResolver{disabled: false}}}
+	c := NewIMDSClientFromConfig(cfg, nil, 0, fastTestOptions(srv.URL))
+	out, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sa-east-1", out.Region)
+	assert.Positive(t, counts.v1Requests, "permissive client should fall back to IMDSv1 when not opted out")
 }
 
 // sentinelHTTPClient counts calls; any use means the config's HTTPClient
