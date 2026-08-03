@@ -122,3 +122,18 @@ func TestSharedCredentialsProvider_EmptyProfileHonorsAwsProfileEnv(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, "customSecretValue", creds.SecretAccessKey)
 }
+
+func TestSharedCredentialsProvider_KeylessProfile(t *testing.T) {
+	// A profile that exists but carries no static keys must fail loudly
+	// instead of returning zero-value credentials.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsProfile, "")
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmp := filepath.Join(t.TempDir(), "credentials")
+	require.NoError(t, os.WriteFile(tmp, []byte("[default]\nregion = us-west-2\n"), 0o600))
+
+	p := SharedCredentialsProvider{Filename: tmp, Profile: "default"}
+	_, err := p.Retrieve(t.Context())
+	require.ErrorContains(t, err, "does not contain static credentials")
+}

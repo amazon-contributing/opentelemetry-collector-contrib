@@ -5,6 +5,7 @@ package awsutil // import "github.com/open-telemetry/opentelemetry-collector-con
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -80,6 +81,9 @@ func (p SharedCredentialsProvider) Retrieve(ctx context.Context) (aws.Credential
 	sharedConfig, err := config.LoadSharedConfigProfile(ctx, profile, opts...)
 	if err != nil {
 		return aws.Credentials{}, err
+	}
+	if !sharedConfig.Credentials.HasKeys() {
+		return aws.Credentials{}, fmt.Errorf("shared credentials profile %q in %q does not contain static credentials", profile, p.Filename)
 	}
 	return sharedConfig.Credentials, nil
 }
