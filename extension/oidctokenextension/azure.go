@@ -12,19 +12,20 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
 const (
 	defaultAzureIMDSEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
 	azureIMDSInstancePath    = "/metadata/instance"
-	// azureIMDSAPIVersion is shared by both the token and instance-probe
-	// requests. IMDS versions its whole supported-versions list service-wide
-	// (not per-endpoint): 2020-09-01 satisfies the token endpoint's documented
-	// "2018-02-01 or greater" floor and is a supported instance version. It also
-	// matches internal/metadataproviders/azure.
+	// azureIMDSAPIVersion is shared by the token, instance-probe, and
+	// azEnvironment requests. IMDS versions its whole supported-versions list
+	// service-wide (not per-endpoint): 2020-09-01 satisfies the token
+	// endpoint's documented "2018-02-01 or greater" floor and is a supported
+	// instance version. It also matches internal/metadataproviders/azure.
 	azureIMDSAPIVersion     = "2020-09-01"
-	defaultAzureResource    = "https://management.azure.com/"
 	defaultAzureTokenExpiry = 3600
 	// azureIMDSProbeTimeout bounds the availability probe so a blackholed
 	// link-local address cannot stall extension startup for the full
@@ -32,42 +33,127 @@ const (
 	azureIMDSProbeTimeout = 3 * time.Second
 )
 
+// Azure Resource Manager (ARM) resource identifiers per sovereign cloud. The
+// managed-identity OIDC token's audience must target ARM for the cloud the VM
+// runs in, and the AWS IAM OIDC trust policy's :aud condition must match the
+// same value for AssumeRoleWithWebIdentity to succeed.
+const (
+	armResourcePublic = "https://management.azure.com/"
+	armResourceChina  = "https://management.chinacloudapi.cn/"
+	armResourceUSGov  = "https://management.usgovcloudapi.net/"
+	// defaultAzureResource is the public-cloud ARM resource, used as the
+	// fallback when the cloud cannot be detected.
+	defaultAzureResource = armResourcePublic
+)
+
+// armResourceForEnvironment maps an IMDS compute.azEnvironment value to its ARM
+// resource. Comparison is case-insensitive because IMDS returns mixed case
+// ("AzureChinaCloud"). Unknown or empty environments fall back to public ARM,
+// which preserves the previous behavior.
+func armResourceForEnvironment(env string) string {
+	switch strings.ToLower(strings.TrimSpace(env)) {
+	case "azurechinacloud":
+		return armResourceChina
+	case "azureusgovernmentcloud", "azureusgovernment":
+		return armResourceUSGov
+	default:
+		return armResourcePublic
+	}
+}
+
 type azureProvider struct {
 	client   *http.Client
 	endpoint string
-	resource string
+	// configuredResource is the explicit audience override from config. When
+	// empty, the ARM resource is auto-detected from the VM's Azure cloud.
+	configuredResource string
+
+	mu               sync.Mutex
+	resolvedResource string
 }
 
 var _ TokenProvider = (*azureProvider)(nil)
 
 func newAzureProvider(resource string) *azureProvider {
-	if resource == "" {
-		resource = defaultAzureResource
-	}
 	// IMDS lives at a fixed link-local address; never route metadata requests
 	// through an HTTP(S) proxy. Clone the default transport for sane dial/TLS
 	// defaults, then disable proxy resolution.
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	return &azureProvider{
-		client:   &http.Client{Timeout: 30 * time.Second, Transport: transport},
-		endpoint: defaultAzureIMDSEndpoint,
-		resource: resource,
+		client:             &http.Client{Timeout: 30 * time.Second, Transport: transport},
+		endpoint:           defaultAzureIMDSEndpoint,
+		configuredResource: resource,
 	}
 }
 
 func (*azureProvider) Name() string { return "azure" }
 
-// instanceMetadataURL derives the availability-probe URL from the same base
+// instanceMetadataURL derives an instance-metadata URL from the same base
 // (scheme + host) as the token endpoint, so endpoint overrides apply to both.
-func (p *azureProvider) instanceMetadataURL() string {
+// An optional leaf (e.g. "/compute/azEnvironment") is appended to the instance
+// path, and extra query params are merged in.
+func (p *azureProvider) instanceMetadataURL(leaf string, extra url.Values) string {
 	u, err := url.Parse(p.endpoint)
 	if err != nil {
 		return ""
 	}
-	u.Path = azureIMDSInstancePath
-	u.RawQuery = url.Values{"api-version": {azureIMDSAPIVersion}}.Encode()
+	u.Path = azureIMDSInstancePath + leaf
+	q := url.Values{"api-version": {azureIMDSAPIVersion}}
+	for k, vs := range extra {
+		for _, v := range vs {
+			q.Set(k, v)
+		}
+	}
+	u.RawQuery = q.Encode()
 	return u.String()
+}
+
+// resolveResource returns the ARM resource to request. An explicit configured
+// audience always wins. Otherwise it is detected once from azEnvironment and
+// cached; a detection failure returns the public-cloud fallback without
+// caching, so a later refresh can retry once IMDS is reachable.
+func (p *azureProvider) resolveResource(ctx context.Context) string {
+	if p.configuredResource != "" {
+		return p.configuredResource
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.resolvedResource != "" {
+		return p.resolvedResource
+	}
+	env, err := p.detectEnvironment(ctx)
+	resource := armResourceForEnvironment(env)
+	if err != nil {
+		return resource // fallback for this call only; do not cache
+	}
+	p.resolvedResource = resource
+	return resource
+}
+
+// detectEnvironment reads compute.azEnvironment from IMDS instance metadata.
+func (p *azureProvider) detectEnvironment(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		p.instanceMetadataURL("/compute/azEnvironment", url.Values{"format": {"text"}}), http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("azure: create azEnvironment request: %w", err)
+	}
+	req.Header.Set("Metadata", "true")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("azure: azEnvironment request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("azure: azEnvironment returned %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("azure: read azEnvironment: %w", err)
+	}
+	return strings.TrimSpace(string(body)), nil
 }
 
 func (p *azureProvider) IsAvailable(ctx context.Context) bool {
@@ -76,7 +162,7 @@ func (p *azureProvider) IsAvailable(ctx context.Context) bool {
 	ctx, cancel := context.WithTimeout(ctx, azureIMDSProbeTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.instanceMetadataURL(), http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.instanceMetadataURL("", nil), http.NoBody)
 	if err != nil {
 		return false
 	}
@@ -102,7 +188,7 @@ func (p *azureProvider) GetToken(ctx context.Context) (string, time.Duration, er
 	req.Header.Set("Metadata", "true")
 	q := req.URL.Query()
 	q.Set("api-version", azureIMDSAPIVersion)
-	q.Set("resource", p.resource)
+	q.Set("resource", p.resolveResource(ctx))
 	req.URL.RawQuery = q.Encode()
 
 	resp, err := p.client.Do(req)

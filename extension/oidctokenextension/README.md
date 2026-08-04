@@ -21,13 +21,20 @@ fetches OIDC tokens, and writes them to a file for sigv4auth to consume.
 
 * `output_token_file`: **Required**. The path where the extension writes the fetched OIDC token. Point `sigv4auth`'s `web_identity_token_file` to the same path.
 * `provider`: **Optional**. The OIDC token provider. One of `auto` (default; detects the provider from the environment, currently resolving to Azure), `azure`, or `none` (disables token fetching).
-* `audience`: **Optional**. The audience/resource claim requested in the OIDC token. Each provider has its own default if not set.
+* `audience`: **Optional**. The audience/resource claim requested in the OIDC token. When unset, the Azure provider auto-detects the correct Azure Resource Manager (ARM) resource for the VM's cloud from IMDS `compute.azEnvironment`. Set this only to override auto-detection.
 
 ### Supported Providers
 
-| Provider | Default Audience                |
-|----------|---------------------------------|
-| Azure    | `https://management.azure.com/` |
+For Azure, the default audience is the ARM resource of the cloud the VM runs
+in, detected from IMDS `compute.azEnvironment`:
+
+| Azure environment (`azEnvironment`) | Auto-detected audience                  |
+|-------------------------------------|-----------------------------------------|
+| `AzurePublicCloud`                  | `https://management.azure.com/`         |
+| `AzureChinaCloud`                   | `https://management.chinacloudapi.cn/`  |
+| `AzureUSGovernmentCloud`            | `https://management.usgovcloudapi.net/` |
+
+Unknown or unreadable environments fall back to `https://management.azure.com/`.
 
 ## How It Works
 
