@@ -14,6 +14,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.124.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/prometheus v0.124.1
 	github.com/prometheus/client_golang v1.22.0
+	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.62.0
 	github.com/prometheus/exporter-toolkit v0.14.0
 	github.com/prometheus/prometheus v0.300.1
@@ -177,7 +178,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/alertmanager v0.27.0 // indirect
-	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common/assets v0.2.0 // indirect
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect

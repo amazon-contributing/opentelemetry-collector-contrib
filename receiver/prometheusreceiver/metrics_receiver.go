@@ -24,6 +24,7 @@ import (
 	"github.com/mwitkow/go-conntrack"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 	commonconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
 	"github.com/prometheus/common/route"
@@ -77,6 +78,45 @@ type pReceiver struct {
 	skipOffsetting         bool // for testing only
 }
 
+// sharedRegistries tracks every live receiver's registry so one caller can report all of them.
+// Registration stays per instance, so re-creating a receiver never collides; only the first live
+// instance for an ID is published, which keeps the receiver label unambiguous.
+var (
+	sharedMu         sync.Mutex
+	sharedRegistries = map[string]*prometheus.Registry{}
+)
+
+func joinShared(id string, reg *prometheus.Registry) {
+	sharedMu.Lock()
+	defer sharedMu.Unlock()
+	if _, exists := sharedRegistries[id]; !exists {
+		sharedRegistries[id] = reg
+	}
+}
+
+func leaveShared(id string, reg *prometheus.Registry) {
+	sharedMu.Lock()
+	defer sharedMu.Unlock()
+	if sharedRegistries[id] == reg {
+		delete(sharedRegistries, id)
+	}
+}
+
+// SharedGatherer reports the discovery and scrape registries of every running receiver in this
+// process. The set is resolved at gather time, so receivers starting or stopping later are picked
+// up without re-wiring, and each series keeps the receiver label identifying its origin.
+func SharedGatherer() prometheus.Gatherer {
+	return prometheus.GathererFunc(func() ([]*dto.MetricFamily, error) {
+		sharedMu.Lock()
+		all := make(prometheus.Gatherers, 0, len(sharedRegistries))
+		for _, reg := range sharedRegistries {
+			all = append(all, reg)
+		}
+		sharedMu.Unlock()
+		return all.Gather()
+	})
+}
+
 // New creates a new prometheus.Receiver reference.
 func newPrometheusReceiver(set receiver.Settings, cfg *Config, next consumer.Metrics) *pReceiver {
 	baseCfg := promconfig.Config(*cfg.PrometheusConfig)
@@ -114,6 +154,7 @@ func (r *pReceiver) Start(ctx context.Context, host component.Host) error {
 		r.settings.Logger.Error("Failed to initPrometheusComponents Prometheus components", zap.Error(err))
 		return err
 	}
+	joinShared(r.settings.ID.String(), r.registry)
 
 	err = r.targetAllocatorManager.Start(ctx, host, r.scrapeManager, r.discoveryManager)
 	if err != nil {
@@ -412,6 +453,7 @@ func gcInterval(cfg *PromConfig) time.Duration {
 
 // Shutdown stops and cancels the underlying Prometheus scrapers.
 func (r *pReceiver) Shutdown(ctx context.Context) error {
+	leaveShared(r.settings.ID.String(), r.registry)
 	if r.cancelFunc != nil {
 		r.cancelFunc()
 	}
