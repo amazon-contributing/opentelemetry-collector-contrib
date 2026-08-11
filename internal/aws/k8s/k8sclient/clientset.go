@@ -149,6 +149,17 @@ func CaptureOnlyNodeLabelsInfo(captureOnlyNodeLabelInfo bool) Option {
 	}
 }
 
+// SkipReplicaSetWatch suppresses the cluster-wide ReplicaSet informer for this
+// client, which then serves a no-op ReplicaSet client instead.
+func SkipReplicaSetWatch(skip bool) Option {
+	return Option{
+		name: "skipReplicaSetWatch:" + strconv.FormatBool(skip),
+		set: func(kc *K8sClient) {
+			kc.skipReplicaSetWatch = skip
+		},
+	}
+}
+
 func getStringifiedOptions(options ...Option) string {
 	opts := make([]string, len(options))
 	for i, option := range options {
@@ -253,6 +264,7 @@ type K8sClient struct {
 	nodeSelector             fields.Selector
 	captureNodeLevelInfo     bool
 	captureOnlyNodeLabelInfo bool
+	skipReplicaSetWatch      bool
 
 	jobMu sync.Mutex
 	job   jobClientWithStopper
@@ -406,6 +418,12 @@ func (c *K8sClient) GetReplicaSetClient() ReplicaSetClient {
 	var err error
 	c.rsMu.Lock()
 	if c.replicaSet == nil || reflect.ValueOf(c.replicaSet).IsNil() {
+		if c.skipReplicaSetWatch {
+			// No informer is started; callers fall back to name-based owner parsing.
+			c.replicaSet = &noOpReplicaSetClient{}
+			c.rsMu.Unlock()
+			return c.replicaSet
+		}
 		c.replicaSet, err = newReplicaSetClient(c.clientSet, c.logger, replicaSetSyncCheckerOption(c.syncChecker))
 		if err != nil {
 			c.logger.Error("use an no-op replica set client instead because of error", zap.Error(err))

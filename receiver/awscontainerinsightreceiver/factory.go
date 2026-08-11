@@ -28,6 +28,9 @@ const (
 	// Metrics is tagged with service name by default
 	defaultTagService = true
 
+	// Watch ReplicaSets by default; skipping is opt-in
+	defaultSkipReplicaSetWatch = false
+
 	// Don't use pod full name by default (as the full names contain suffix with random characters)
 	defaultPrefFullPodName = false
 
@@ -61,6 +64,7 @@ func createDefaultConfig() component.Config {
 		CollectionInterval:          defaultCollectionInterval,
 		ContainerOrchestrator:       defaultContainerOrchestrator,
 		TagService:                  defaultTagService,
+		SkipReplicaSetWatch:         defaultSkipReplicaSetWatch,
 		PrefFullPodName:             defaultPrefFullPodName,
 		AddFullPodNameMetricLabel:   defaultAddFullPodNameMetricLabel,
 		AddContainerNameMetricLabel: defaultAddContainerNameMetricLabel,
