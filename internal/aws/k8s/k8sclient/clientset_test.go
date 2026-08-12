@@ -40,3 +40,25 @@ func TestGetShutdown(t *testing.T) {
 	assert.Empty(t, optionsToK8sClient)
 	removeTempKubeConfig()
 }
+
+// SkipReplicaSetWatch must short-circuit before any informer or clientSet use,
+// serving the no-op client whose empty map drives name-based owner parsing.
+func TestSkipReplicaSetWatchServesNoOpClient(t *testing.T) {
+	c := &K8sClient{skipReplicaSetWatch: true, logger: zap.NewNop()}
+
+	rs := c.GetReplicaSetClient()
+	assert.NotNil(t, rs)
+	assert.Empty(t, rs.ReplicaSetToDeployment(), "no-op client must return an empty map so callers fall back to name parsing")
+	assert.Empty(t, rs.ReplicaSetInfos(), "no-op client must emit no cluster ReplicaSet metrics")
+
+	// The option sets the field...
+	kc := &K8sClient{}
+	SkipReplicaSetWatch(true).set(kc)
+	assert.True(t, kc.skipReplicaSetWatch)
+
+	// ...and keys the singleton distinctly, so leader and per-node clients differ.
+	assert.NotEqual(t,
+		getStringifiedOptions(SkipReplicaSetWatch(true)),
+		getStringifiedOptions(SkipReplicaSetWatch(false)),
+	)
+}
