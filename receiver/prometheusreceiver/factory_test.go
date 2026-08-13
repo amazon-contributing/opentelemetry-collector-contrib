@@ -105,6 +105,46 @@ func TestConcurrentStartsWithSameID(t *testing.T) {
 	require.NoError(t, first.Shutdown(t.Context()))
 }
 
+// A receiver ID can have several live instances at once. Shutting down the first (published)
+// instance must not orphan the others from the shared gatherer: the next live instance is
+// published instead of the ID going dark.
+func TestSharedGathererSurvivesFirstShutdownWithSameID(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig()
+	set := receivertest.NewNopSettings(metadata.Type)
+	host := componenttest.NewNopHost()
+
+	first, err := factory.CreateMetrics(t.Context(), set, cfg, consumertest.NewNop())
+	require.NoError(t, err)
+	require.NoError(t, first.Start(t.Context(), host))
+
+	second, err := factory.CreateMetrics(t.Context(), set, cfg, consumertest.NewNop())
+	require.NoError(t, err)
+	require.NoError(t, second.Start(t.Context(), host))
+
+	// The originally-published instance shuts down while the second stays live.
+	require.NoError(t, first.Shutdown(t.Context()))
+
+	families, err := SharedGatherer().Gather()
+	require.NoError(t, err)
+	seen := false
+	for _, mf := range families {
+		for _, m := range mf.GetMetric() {
+			for _, l := range m.GetLabel() {
+				if l.GetName() == "receiver" && l.GetValue() == set.ID.String() {
+					seen = true
+				}
+			}
+		}
+	}
+	assert.True(t, seen, "receiver %q must still be published after the first instance shuts down (families=%d)", set.ID.String(), len(families))
+
+	require.NoError(t, second.Shutdown(t.Context()))
+	families, err = SharedGatherer().Gather()
+	require.NoError(t, err)
+	assert.Empty(t, families, "no instances left; shared set must be empty")
+}
+
 // One caller has to report every receiver's discovery and scrape metrics, so the gatherer must
 // resolve the live set at scrape time and label each series with the receiver it came from.
 func TestSharedGathererCoversAllReceivers(t *testing.T) {

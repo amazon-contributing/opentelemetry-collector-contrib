@@ -79,38 +79,57 @@ type pReceiver struct {
 }
 
 // sharedRegistries tracks every live receiver's registry so one caller can report all of them.
-// Registration stays per instance, so re-creating a receiver never collides; only the first live
-// instance for an ID is published, which keeps the receiver label unambiguous.
+// Registration is per instance and keyed by receiver ID, but a single ID can have several live
+// instances at once (some callers keep instances alive under one ID and retry Start on a timer),
+// so each ID maps to an ordered list of its live registries. The first still-live instance is the
+// one published, which keeps the receiver label unambiguous; when it shuts down the next live
+// instance is published instead of the ID going dark, and re-creating a receiver never collides.
 var (
 	sharedMu         sync.Mutex
-	sharedRegistries = map[string]*prometheus.Registry{}
+	sharedRegistries = map[string][]*prometheus.Registry{}
 )
 
 func joinShared(id string, reg *prometheus.Registry) {
 	sharedMu.Lock()
 	defer sharedMu.Unlock()
-	if _, exists := sharedRegistries[id]; !exists {
-		sharedRegistries[id] = reg
+	for _, existing := range sharedRegistries[id] {
+		if existing == reg {
+			return
+		}
 	}
+	sharedRegistries[id] = append(sharedRegistries[id], reg)
 }
 
 func leaveShared(id string, reg *prometheus.Registry) {
 	sharedMu.Lock()
 	defer sharedMu.Unlock()
-	if sharedRegistries[id] == reg {
+	regs := sharedRegistries[id]
+	for i, existing := range regs {
+		if existing == reg {
+			regs = append(regs[:i], regs[i+1:]...)
+			break
+		}
+	}
+	if len(regs) == 0 {
 		delete(sharedRegistries, id)
+	} else {
+		sharedRegistries[id] = regs
 	}
 }
 
 // SharedGatherer reports the discovery and scrape registries of every running receiver in this
 // process. The set is resolved at gather time, so receivers starting or stopping later are picked
-// up without re-wiring, and each series keeps the receiver label identifying its origin.
+// up without re-wiring, and each series keeps the receiver label identifying its origin. When more
+// than one live instance shares a receiver ID, the first still-live instance is published to keep
+// the receiver label unambiguous.
 func SharedGatherer() prometheus.Gatherer {
 	return prometheus.GathererFunc(func() ([]*dto.MetricFamily, error) {
 		sharedMu.Lock()
 		all := make(prometheus.Gatherers, 0, len(sharedRegistries))
-		for _, reg := range sharedRegistries {
-			all = append(all, reg)
+		for _, regs := range sharedRegistries {
+			if len(regs) > 0 {
+				all = append(all, regs[0])
+			}
 		}
 		sharedMu.Unlock()
 		return all.Gather()
@@ -154,7 +173,6 @@ func (r *pReceiver) Start(ctx context.Context, host component.Host) error {
 		r.settings.Logger.Error("Failed to initPrometheusComponents Prometheus components", zap.Error(err))
 		return err
 	}
-	joinShared(r.settings.ID.String(), r.registry)
 
 	err = r.targetAllocatorManager.Start(ctx, host, r.scrapeManager, r.discoveryManager)
 	if err != nil {
@@ -172,6 +190,9 @@ func (r *pReceiver) Start(ctx context.Context, host component.Host) error {
 		close(r.configLoaded)
 	})
 
+	// Register only after the fallible start steps above have run, so a failed Start (which the
+	// collector may not pair with a Shutdown call) never leaks this registry into the shared set.
+	joinShared(r.settings.ID.String(), r.registry)
 	return nil
 }
 
