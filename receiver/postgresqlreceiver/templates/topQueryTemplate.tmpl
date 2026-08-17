@@ -14,6 +14,7 @@ SELECT
   query,
   queryid::TEXT,
   rolname,
+  rolsuper::TEXT,
   rows::TEXT,
   total_exec_time,
   total_plan_time
