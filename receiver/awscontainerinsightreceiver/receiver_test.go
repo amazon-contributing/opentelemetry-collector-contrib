@@ -188,6 +188,12 @@ func (*MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factor
 }
 
 func TestAWSContainerInsightReceiverStart(t *testing.T) {
+	// Static region and credentials so building the AWS config succeeds
+	// without touching IMDS, letting Start reach middleware discovery.
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_ACCESS_KEY_ID", "test")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+
 	// Create a mock host
 	mockHost := new(MockHost)
 	testType, _ := component.NewType("awsmiddleware")
@@ -213,4 +219,6 @@ func TestAWSContainerInsightReceiverStart(t *testing.T) {
 	assert.NoError(t, err)
 	err = receiver.Start(t.Context(), mockHost)
 	assert.Error(t, err)
+
+	mockHost.AssertCalled(t, "GetExtensions")
 }

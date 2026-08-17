@@ -12,7 +12,7 @@ $defs:
         description: AWSEndpoint is the X-Ray service endpoint which the local TCP server forwards requests to.
         type: string
       certificate_file_path:
-        description: Add a custom certificates file
+        description: CertificateFilePath is accepted for configuration compatibility but does not affect the proxy's forwarding TLS or STS clients on this component. Custom CAs for the STS clients come from AWS_CA_BUNDLE; the forwarding transport trusts system roots only (or tls.insecure).
         type: string
       imds_retries:
         description: How many times should we retry imds v2

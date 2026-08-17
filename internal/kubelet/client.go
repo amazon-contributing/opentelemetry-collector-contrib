@@ -73,17 +73,12 @@ func NewClientProvider(endpoint string, cfg *ClientConfig, logger *zap.Logger) (
 			logger:   logger,
 		}, nil
 	case k8sconfig.AuthTypeServiceAccount:
-		caCertPath := svcAcctCACertPath
-		if cfg.CAFile != "" {
-			caCertPath = cfg.CAFile
-		}
 		return &saClientProvider{
-			endpoint:           endpoint,
-			caCertPath:         caCertPath,
-			cfg:                cfg,
-			tokenPath:          svcAcctTokenPath,
-			insecureSkipVerify: cfg.InsecureSkipVerify,
-			logger:             logger,
+			endpoint:   endpoint,
+			caCertPath: svcAcctCACertPath,
+			cfg:        cfg,
+			tokenPath:  svcAcctTokenPath,
+			logger:     logger,
 		}, nil
 	case k8sconfig.AuthTypeNone:
 		return &readOnlyClientProvider{
@@ -193,12 +188,11 @@ func (p *tlsClientProvider) BuildClient() (Client, error) {
 }
 
 type saClientProvider struct {
-	endpoint           string
-	caCertPath         string
-	cfg                *ClientConfig
-	tokenPath          string
-	insecureSkipVerify bool
-	logger             *zap.Logger
+	endpoint   string
+	caCertPath string
+	cfg        *ClientConfig
+	tokenPath  string
+	logger     *zap.Logger
 }
 
 func (p *saClientProvider) BuildClient() (Client, error) {

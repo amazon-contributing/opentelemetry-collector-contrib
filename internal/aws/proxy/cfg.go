@@ -48,7 +48,10 @@ type Config struct {
 	// Change the default shared creds file location
 	SharedCredentialsFile []string `mapstructure:"shared_credentials_file"`
 
-	// Add a custom certificates file
+	// CertificateFilePath is accepted for configuration compatibility but
+	// does not affect the proxy's forwarding TLS or STS clients on this
+	// component. Custom CAs for the STS clients come from AWS_CA_BUNDLE;
+	// the forwarding transport trusts system roots only (or tls.insecure).
 	CertificateFilePath string `mapstructure:"certificate_file_path"`
 
 	// How many times should we retry imds v2

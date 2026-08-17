@@ -5,6 +5,7 @@ package aws
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -39,7 +40,10 @@ func (s stubCredsProvider) Retrieve(_ context.Context) (aws.Credentials, error) 
 // field directly because the public API only exposes Append.
 func resetChain(t *testing.T) {
 	t.Helper()
-	GetCredentialsChainOverride().credentialsProvider = make([]func(string) aws.CredentialsProvider, 0)
+	c := GetCredentialsChainOverride()
+	c.mu.Lock()
+	c.factories = nil
+	c.mu.Unlock()
 	require.Empty(t, GetCredentialsChainOverride().GetCredentialsChain())
 }
 
@@ -106,4 +110,54 @@ func TestAppendCredentialsChain_FactoryMayReturnNil(t *testing.T) {
 
 	assert.NotNil(t, got[0]("/accept/this"))
 	assert.Nil(t, got[0]("/reject/that"))
+}
+
+func TestGetCredentialsChain_SnapshotIsolation(t *testing.T) {
+	resetChain(t)
+	defer resetChain(t)
+
+	c := GetCredentialsChainOverride()
+	c.AppendCredentialsChain(stubProvider("a"))
+
+	snapshot := c.GetCredentialsChain()
+	require.Len(t, snapshot, 1)
+
+	// Mutating the snapshot must not affect the registry.
+	snapshot[0] = nil
+	got := c.GetCredentialsChain()
+	require.Len(t, got, 1)
+	require.NotNil(t, got[0])
+
+	// Appending after the snapshot was taken must not grow the snapshot.
+	c.AppendCredentialsChain(stubProvider("b"))
+	assert.Len(t, snapshot, 1)
+	assert.Len(t, c.GetCredentialsChain(), 2)
+}
+
+func TestAppendCredentialsChain_ConcurrentAppend(t *testing.T) {
+	resetChain(t)
+	defer resetChain(t)
+
+	c := GetCredentialsChainOverride()
+
+	const goroutines = 16
+	const appendsPerGoroutine = 8
+
+	var wg sync.WaitGroup
+	for range goroutines {
+		wg.Go(func() {
+			for range appendsPerGoroutine {
+				c.AppendCredentialsChain(stubProvider("concurrent"))
+				// Interleave reads to exercise append/read races under -race.
+				_ = c.GetCredentialsChain()
+			}
+		})
+	}
+	wg.Wait()
+
+	got := c.GetCredentialsChain()
+	require.Len(t, got, goroutines*appendsPerGoroutine)
+	for _, factory := range got {
+		require.NotNil(t, factory)
+	}
 }

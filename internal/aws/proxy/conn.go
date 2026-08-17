@@ -193,6 +193,9 @@ func isValidRegion(region string) bool {
 // It leverages the STS EndpointResolverV2 (which internally uses awsrulesfn.GetPartition
 // covering all 8 AWS partitions) to resolve the correct DNS suffix, then replaces the
 // service name in the resolved URL.
+//
+// The string substitution below assumes resolved STS URLs are always
+// "sts."-host-prefixed (true for all 8 current partitions).
 func getServiceEndpoint(region, serviceName string) (string, error) {
 	if !isValidRegion(region) {
 		return "", fmt.Errorf("invalid region: %s", region)

@@ -6,6 +6,9 @@ package handler // import "github.com/open-telemetry/opentelemetry-collector-con
 import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/smithy-go/middleware"
+	// requestcompression is a private smithy-go API;
+	// It backs the SDK's generated code for modeled request
+	// compression, which CloudWatch Logs does not model.
 	smithyrequestcompression "github.com/aws/smithy-go/private/requestcompression"
 )
 
