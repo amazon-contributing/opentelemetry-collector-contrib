@@ -44,7 +44,7 @@ type MetricCalculator struct {
 	calculateFunc CalculateFunc
 }
 
-// NewMetricCalculator Creates a metric calculator that enforces a five-minute time to live on cache entries.
+// NewMetricCalculator Creates a metric calculator that enforces a 15-minute time to live on cache entries.
 func NewMetricCalculator(calculateFunc CalculateFunc) MetricCalculator {
 	return MetricCalculator{
 		cache:         NewMapWithExpiry(cleanInterval),

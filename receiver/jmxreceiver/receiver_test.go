@@ -146,6 +146,29 @@ otel.metrics.exporter = otlp`,
 			"",
 		},
 		{
+			"emits aggregate across mbeans when enabled",
+			"5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5",
+			"",
+			&Config{
+				JARPath:      "testdata/fake_jmx.jar",
+				Endpoint:     "myhost:12345",
+				TargetSystem: "mytargetsystem",
+				OTLPExporterConfig: otlpExporterConfig{
+					Endpoint: "https://myotlpendpoint",
+				},
+				AggregateAcrossMBeans: true,
+			},
+			`otel.exporter.otlp.endpoint = https://myotlpendpoint
+otel.exporter.otlp.timeout = 0
+otel.jmx.aggregate.across.mbeans = true
+otel.jmx.interval.milliseconds = 0
+otel.jmx.remote.registry.ssl = false
+otel.jmx.service.url = service:jmx:rmi:///jndi/rmi://myhost:12345/jmxrmi
+otel.jmx.target.system = mytargetsystem
+otel.metrics.exporter = otlp`,
+			"",
+		},
+		{
 			"handles all JMX Scraper relevant input appropriately",
 			"",
 			"dce3d9a8457bb5097144e88e1c1246f428e047a677462cff1a638c172c7eeab1",

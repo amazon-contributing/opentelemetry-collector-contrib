@@ -22,7 +22,8 @@ var partitionPrimaryRegions = map[string]string{
 }
 
 // GetPartition returns the AWS partition ID for the given region (e.g.
-// "aws", "aws-cn"). Returns "" if the region cannot be resolved.
+// "aws", "aws-cn"). Regions that match no known partition resolve to the
+// default "aws" partition, so a partition ID is always returned.
 func GetPartition(region string) string {
 	p := awsrulesfn.GetPartition(region)
 	if p == nil {
