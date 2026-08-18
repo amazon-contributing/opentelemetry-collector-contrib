@@ -25,6 +25,9 @@ const (
 	metadataPodIP        = "k8s.pod.ip"
 	metadataPodStartTime = "k8s.pod.start_time"
 	specPodHostName      = "k8s.pod.hostname"
+	// metadataPodRuntimeClass extracts pod.spec.runtimeClassName. There is no
+	// semconv attribute for it yet, so a custom key is used.
+	metadataPodRuntimeClass = "k8s.pod.runtimeclass"
 	// TODO: use k8s.cluster.uid, container.image.repo_digests
 	// from semconv when available,
 	//   replace clusterUID with conventions.AttributeK8SClusterUID
@@ -152,6 +155,8 @@ func withExtractMetadata(fields ...string) option {
 				p.rules.PodHostName = true
 			case metadataPodStartTime:
 				p.rules.StartTime = true
+			case metadataPodRuntimeClass:
+				p.rules.RuntimeClassName = true
 			case metadataPodIP:
 				p.rules.PodIP = true
 			case conventions.AttributeK8SDeploymentName:

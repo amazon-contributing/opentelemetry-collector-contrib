@@ -636,6 +636,7 @@ func TestExtractionRules(t *testing.T) {
 	// Disable saving ip into k8s.pod.ip
 	c.Associations[0].Sources[0].Name = ""
 
+	runtimeClassName := "kata-containers"
 	pod := &api_v1.Pod{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:              "auth-service-abc12-xyz3",
@@ -677,8 +678,9 @@ func TestExtractionRules(t *testing.T) {
 			},
 		},
 		Spec: api_v1.PodSpec{
-			NodeName: "node1",
-			Hostname: "host1",
+			NodeName:         "node1",
+			Hostname:         "host1",
+			RuntimeClassName: &runtimeClassName,
 		},
 		Status: api_v1.PodStatus{
 			PodIP: "1.1.1.1",
@@ -711,6 +713,15 @@ func TestExtractionRules(t *testing.T) {
 			name:       "no-rules",
 			rules:      ExtractionRules{},
 			attributes: nil,
+		},
+		{
+			name: "runtimeClassName",
+			rules: ExtractionRules{
+				RuntimeClassName: true,
+			},
+			attributes: map[string]string{
+				"k8s.pod.runtimeclass": "kata-containers",
+			},
 		},
 		{
 			name: "deployment",

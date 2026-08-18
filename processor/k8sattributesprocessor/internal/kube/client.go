@@ -546,6 +546,10 @@ func (c *WatchClient) extractPodAttributes(pod *api_v1.Pod) map[string]string {
 		tags[tagNodeName] = pod.Spec.NodeName
 	}
 
+	if c.Rules.RuntimeClassName && pod.Spec.RuntimeClassName != nil {
+		tags[tagRuntimeClassName] = *pod.Spec.RuntimeClassName
+	}
+
 	if c.Rules.ClusterUID {
 		if val, ok := c.Namespaces["kube-system"]; ok {
 			tags[tagClusterUID] = val.NamespaceUID
@@ -597,6 +601,10 @@ func removeUnnecessaryPodData(pod *api_v1.Pod, rules ExtractionRules) *api_v1.Po
 
 	if rules.PodHostName {
 		transformedPod.Spec.Hostname = pod.Spec.Hostname
+	}
+
+	if rules.RuntimeClassName {
+		transformedPod.Spec.RuntimeClassName = pod.Spec.RuntimeClassName
 	}
 
 	if needContainerAttributes(rules) {

@@ -78,6 +78,7 @@ are then also available for the use within association rules. Available attribut
   - k8s.pod.ip
   - k8s.pod.start_time
   - k8s.pod.uid
+  - k8s.pod.runtimeclass
   - k8s.replicaset.uid
   - k8s.replicaset.name
   - k8s.deployment.uid
