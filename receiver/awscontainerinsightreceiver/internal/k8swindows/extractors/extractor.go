@@ -1,15 +1,10 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//go:build windows
-// +build windows
-
 package extractors // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/extractors"
 
 import (
 	"time"
-
-	"github.com/Microsoft/hcsshim"
 
 	cExtractor "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/cadvisor/extractors"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
@@ -56,26 +51,6 @@ type NetworkStat struct {
 	TxErrors        uint64
 	DroppedIncoming uint64
 	DroppedOutgoing uint64
-}
-
-// HCSNetworkStat Network Stat from HCS.
-type HCSNetworkStat struct {
-	Name                   string
-	BytesReceived          uint64
-	BytesSent              uint64
-	DroppedPacketsIncoming uint64
-	DroppedPacketsOutgoing uint64
-}
-
-// HCSStat Stats from HCS.
-type HCSStat struct {
-	Time time.Time
-	Id   string //nolint:revive
-	Name string
-
-	CPU *hcsshim.ProcessorStats
-
-	Network *[]HCSNetworkStat
 }
 
 // RawMetric Represent Container, Pod, Node Metric  Extractors.

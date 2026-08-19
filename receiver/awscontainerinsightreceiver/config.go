@@ -89,6 +89,17 @@ type Config struct {
 	// RunOnSystemd is an optional attribute to run the receiver in an EC2 environment
 	RunOnSystemd bool `mapstructure:"run_on_systemd,omitempty"`
 
+	// EnableIsolatedPodSummaryMetrics enables a supplemental kubelet Summary API
+	// path (Linux/EKS only) that recovers container-scope metrics for VM-isolated
+	// pods (e.g. RuntimeClass isolated-sandbox / confidential-sandbox), whose host
+	// pod-slice cgroup is empty and therefore invisible to the cadvisor provider.
+	EnableIsolatedPodSummaryMetrics bool `mapstructure:"enable_isolated_pod_summary_metrics,omitempty"`
+
+	// IsolatedPodRuntimeClasses overrides the set of RuntimeClass names treated as
+	// VM-isolated by EnableIsolatedPodSummaryMetrics. When empty, a built-in
+	// default set is used.
+	IsolatedPodRuntimeClasses []string `mapstructure:"isolated_pod_runtime_classes,omitempty"`
+
 	// MiddlewareID is an ID for an extension that can be used to configure the
 	// AWS client.
 	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
