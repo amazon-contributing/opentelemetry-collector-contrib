@@ -29,7 +29,7 @@ type SimplePrometheusScraper struct {
 }
 
 type SimplePrometheusScraperOpts struct {
-	Ctx               context.Context
+	Ctx context.Context
 	// Name uniquely identifies this scraper's embedded prometheus receiver. Each scraper in a
 	// process must pass a distinct name: the name becomes the receiver ID (and its "receiver"
 	// label), and receivers sharing an ID collide in the process-wide shared gatherer so only one
