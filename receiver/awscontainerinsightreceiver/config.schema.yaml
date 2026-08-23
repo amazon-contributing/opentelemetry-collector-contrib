@@ -62,5 +62,8 @@ properties:
   run_on_systemd:
     description: RunOnSystemd is an optional attribute to run the receiver in an EC2 environment
     type: boolean
+  skip_replicaset_watch:
+    description: 'Whether to skip the cluster-wide ReplicaSet informer. When true no ReplicaSet watch is started: pod-to-Deployment attribution falls back to parsing the ReplicaSet name and cluster ReplicaSet metrics are not emitted. Default false.'
+    type: boolean
 allOf:
   - $ref: /internal/aws/awsutil.aws_session_settings

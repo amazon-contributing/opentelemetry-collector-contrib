@@ -29,7 +29,12 @@ type SimplePrometheusScraper struct {
 }
 
 type SimplePrometheusScraperOpts struct {
-	Ctx               context.Context
+	Ctx context.Context
+	// Name uniquely identifies this scraper's embedded prometheus receiver. Each scraper in a
+	// process must pass a distinct name: the name becomes the receiver ID (and its "receiver"
+	// label), and receivers sharing an ID collide in the process-wide shared gatherer so only one
+	// is reported. Empty falls back to the bare "prometheus" ID for backward compatibility.
+	Name              string
 	TelemetrySettings component.TelemetrySettings
 	Consumer          consumer.Metrics
 	Host              component.Host
@@ -67,8 +72,12 @@ func NewSimplePrometheusScraper(opts SimplePrometheusScraperOpts) (*SimplePromet
 		}
 	}
 
+	receiverID := component.MustNewID("prometheus")
+	if opts.Name != "" {
+		receiverID = component.MustNewIDWithName("prometheus", opts.Name)
+	}
 	params := receiver.Settings{
-		ID:                component.MustNewID("prometheus"),
+		ID:                receiverID,
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 

@@ -169,7 +169,7 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 	k8sDecorator, err := stores.NewK8sDecorator(ctx, kubeletClient, acir.config.TagService, acir.config.PrefFullPodName,
 		acir.config.AddFullPodNameMetricLabel, acir.config.AddContainerNameMetricLabel,
 		acir.config.EnableControlPlaneMetrics, acir.config.EnableAcceleratedComputeMetrics,
-		acir.config.KubeConfigPath, hostName, acir.config.RunOnSystemd, acir.settings.Logger)
+		acir.config.SkipReplicaSetWatch, acir.config.KubeConfigPath, hostName, acir.config.RunOnSystemd, acir.settings.Logger)
 	if err != nil {
 		acir.settings.Logger.Warn("Unable to start K8s decorator", zap.Error(err))
 	} else {
@@ -187,7 +187,8 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 	if acir.config.CollectionRole == LEADER || acir.config.CollectionRole == ALL {
 		var leaderElection *k8sapiserver.LeaderElection
 		leaderElection, err = k8sapiserver.NewLeaderElection(acir.settings.Logger, k8sapiserver.WithLeaderLockName(acir.config.LeaderLockName),
-			k8sapiserver.WithLeaderLockUsingConfigMapOnly(acir.config.LeaderLockUsingConfigMapOnly))
+			k8sapiserver.WithLeaderLockUsingConfigMapOnly(acir.config.LeaderLockUsingConfigMapOnly),
+			k8sapiserver.WithSkipReplicaSetWatch(acir.config.SkipReplicaSetWatch))
 		if err != nil {
 			acir.settings.Logger.Warn("Unable to elect leader node", zap.Error(err))
 		}
@@ -336,6 +337,7 @@ func (acir *awsContainerInsightReceiver) initDcgmScraper(ctx context.Context, ho
 		TelemetrySettings: acir.settings,
 		Consumer:          &decoConsumer,
 		Host:              host,
+		Name:              "dcgm",
 		ScraperConfigs:    gpu.GetScraperConfig(hostInfo, acir.config.AcceleratedComputeGPUMetricsCollectionInterval),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
@@ -361,6 +363,7 @@ func (acir *awsContainerInsightReceiver) initNVMeEBSScraper(ctx context.Context,
 		TelemetrySettings: acir.settings,
 		Consumer:          &decoConsumer,
 		Host:              host,
+		Name:              "nvme_ebs",
 		ScraperConfigs:    nvme.GetEbsScraperConfig(hostInfo),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
@@ -386,6 +389,7 @@ func (acir *awsContainerInsightReceiver) initNVMeLISScraper(ctx context.Context,
 		TelemetrySettings: acir.settings,
 		Consumer:          &decoConsumer,
 		Host:              host,
+		Name:              "nvme_lis",
 		ScraperConfigs:    nvme.GetLisScraperConfig(hostInfo),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,
@@ -440,6 +444,7 @@ func (acir *awsContainerInsightReceiver) initNeuronScraper(ctx context.Context, 
 		TelemetrySettings: acir.settings,
 		Consumer:          &podAttributesDecoratorConsumer,
 		Host:              host,
+		Name:              "neuron",
 		ScraperConfigs:    neuron.GetNeuronScrapeConfig(hostInfo),
 		HostInfoProvider:  hostInfo,
 		Logger:            acir.settings.Logger,

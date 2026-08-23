@@ -46,6 +46,8 @@ type LeaderElection struct {
 	persistentVolumeClient      k8sclient.PersistentVolumeClient
 	ingressClient               k8sclient.IngressClient
 
+	skipReplicaSetWatch bool
+
 	// the following can be set to mocks in testing
 	broadcaster eventBroadcaster
 	// the close of isLeadingC indicates the leader election is done. This is used in testing
@@ -66,17 +68,32 @@ func WithLeaderLockUsingConfigMapOnly(leaderLockUsingConfigMapOnly bool) LeaderE
 	}
 }
 
+// WithSkipReplicaSetWatch drops the leader's cluster-wide ReplicaSet informer.
+// Cluster ReplicaSet metrics (ownerless ReplicaSets only) are then not emitted.
+func WithSkipReplicaSetWatch(skip bool) LeaderElectionOption {
+	return func(le *LeaderElection) {
+		le.skipReplicaSetWatch = skip
+	}
+}
+
 func NewLeaderElection(logger *zap.Logger, options ...LeaderElectionOption) (*LeaderElection, error) {
 	le := &LeaderElection{
-		logger: logger,
-		k8sClient: k8sclient.Get(logger,
-			k8sclient.CaptureOnlyNodeLabelsInfo(true),
-		),
+		logger:      logger,
 		broadcaster: record.NewBroadcaster(),
 	}
 
 	for _, opt := range options {
 		opt(le)
+	}
+
+	// Built after options so the ReplicaSet skip can reach it, and only when an
+	// option has not already injected a client.
+	if le.k8sClient == nil {
+		clientOpts := []k8sclient.Option{k8sclient.CaptureOnlyNodeLabelsInfo(true)}
+		if le.skipReplicaSetWatch {
+			clientOpts = append(clientOpts, k8sclient.SkipReplicaSetWatch(true))
+		}
+		le.k8sClient = k8sclient.Get(logger, clientOpts...)
 	}
 
 	if le.k8sClient == nil {

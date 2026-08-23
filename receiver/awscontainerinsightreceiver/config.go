@@ -37,6 +37,11 @@ type Config struct {
 	// Whether to add the associated service name as attribute. The default is true
 	TagService bool `mapstructure:"add_service_as_attribute"`
 
+	// Whether to skip the cluster-wide ReplicaSet informer. When true no ReplicaSet
+	// watch is started: pod-to-Deployment attribution falls back to parsing the
+	// ReplicaSet name and cluster ReplicaSet metrics are not emitted. Default false.
+	SkipReplicaSetWatch bool `mapstructure:"skip_replicaset_watch"`
+
 	// The "PodName" attribute is set based on the name of the relevant controllers like Daemonset, Job, ReplicaSet, ReplicationController, ...
 	// If it cannot be set that way and PrefFullPodName is true, the "PodName" attribute is set to the pod's own name.
 	// The default value is false

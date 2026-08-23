@@ -128,7 +128,7 @@ type PodStore struct {
 }
 
 func NewPodStore(client podClient, prefFullPodName, addFullPodNameMetricLabel, includeEnhancedMetrics bool,
-	enableAcceleratedComputeMetrics bool, hostName string, isSystemdEnabled bool, logger *zap.Logger,
+	enableAcceleratedComputeMetrics, skipReplicaSetWatch bool, hostName string, isSystemdEnabled bool, logger *zap.Logger,
 ) (*PodStore, error) {
 	if hostName == "" {
 		return nil, fmt.Errorf("missing environment variable %s. Please check your deployment YAML config or passed as part of the agent config", ci.HostName)
@@ -140,10 +140,14 @@ func NewPodStore(client podClient, prefFullPodName, addFullPodNameMetricLabel, i
 		logger:   logger,
 	}
 	if !isSystemdEnabled {
-		k8sClient = k8sclient.Get(logger,
+		clientOpts := []k8sclient.Option{
 			k8sclient.NodeSelector(fields.OneTermEqualSelector("metadata.name", hostName)),
 			k8sclient.CaptureNodeLevelInfo(true),
-		)
+		}
+		if skipReplicaSetWatch {
+			clientOpts = append(clientOpts, k8sclient.SkipReplicaSetWatch(true))
+		}
+		k8sClient = k8sclient.Get(logger, clientOpts...)
 
 		if k8sClient == nil {
 			return nil, errors.New("failed to start pod store because k8sclient is nil")

@@ -157,7 +157,9 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 	}
 
 	params := receiver.Settings{
-		ID:                component.MustNewID("prometheus"),
+		// Distinct ID so this scraper is reported alongside the node-level scrapers in the
+		// process-wide shared gatherer; on the leader node it shares a process with them.
+		ID:                component.MustNewIDWithName("prometheus", "kube_apiserver"),
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 
