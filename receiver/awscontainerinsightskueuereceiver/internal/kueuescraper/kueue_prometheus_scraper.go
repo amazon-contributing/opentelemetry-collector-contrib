@@ -128,7 +128,7 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 	}
 
 	params := receiver.Settings{
-		ID:                component.MustNewID("prometheus"),
+		ID:                component.MustNewIDWithName("prometheus", "kueue"),
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 

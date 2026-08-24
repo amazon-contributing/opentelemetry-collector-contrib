@@ -203,7 +203,7 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 	// create test receiver
 	params := receiver.Settings{
 		TelemetrySettings: settings,
-		ID:                component.NewIDWithName(component.MustNewType("prometheus"), ""),
+		ID:                component.MustNewIDWithName("prometheus", "kueue"),
 	}
 	promReceiver, err := promFactory.CreateMetrics(t.Context(), params, &promConfig, mConsumer)
 	assert.NoError(t, err)
