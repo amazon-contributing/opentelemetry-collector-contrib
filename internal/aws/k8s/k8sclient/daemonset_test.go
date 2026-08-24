@@ -47,7 +47,7 @@ var daemonSetObjects = []runtime.Object{
 func TestDaemonSetClient(t *testing.T) {
 	options := daemonSetSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset(daemonSetObjects...)
+	fakeClientSet := fake.NewClientset(daemonSetObjects...)
 	client, _ := newDaemonSetClient(fakeClientSet, zap.NewNop(), options)
 
 	daemonSets := make([]any, len(daemonSetObjects))

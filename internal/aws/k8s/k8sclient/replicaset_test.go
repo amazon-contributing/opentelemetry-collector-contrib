@@ -124,7 +124,7 @@ func TestReplicaSetClient_ReplicaSetToDeployment(t *testing.T) {
 func TestReplicaSetClient(t *testing.T) {
 	setOption := replicaSetSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset(replicaSetArray...)
+	fakeClientSet := fake.NewClientset(replicaSetArray...)
 	client, _ := newReplicaSetClient(fakeClientSet, zap.NewNop(), setOption)
 
 	replicaSets := make([]any, len(replicaSetArray))

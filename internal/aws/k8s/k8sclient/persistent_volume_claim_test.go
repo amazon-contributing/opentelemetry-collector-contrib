@@ -65,7 +65,7 @@ var pvcObjects = []runtime.Object{
 func TestPersistentVolumeClaimClient_GetPVCMetrics(t *testing.T) {
 	setOption := PersistentVolumeClaimSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset(pvcObjects...)
+	fakeClientSet := fake.NewClientset(pvcObjects...)
 	client, _ := newPersistentVolumeClaimClient(fakeClientSet, zap.NewNop(), setOption)
 
 	for _, obj := range pvcObjects {

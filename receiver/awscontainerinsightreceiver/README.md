@@ -75,6 +75,46 @@ The "ContainerName" attribute is the name of the container. If false ContainerNa
 
 "LeaderLockName" can be used to optionally override the lock resource name to be used during leader election for EKS Container Insights. The elected leader is responsible for scraping cluster level metrics. The default value is "otel-container-insight-clusterleader".
 
+**leader_lock_using_config_map_only (optional)**
+
+Whether to use a ConfigMap (rather than a Lease) as the leader-election lock resource. The default value is false.
+
+**collection_role (optional)**
+
+The role of this collector instance for EKS Container Insights: "ALL" (node-level and, if elected leader, cluster-level metrics), "LEADER" (cluster-level only, participates in leader election), or "NODE" (node-level only). The default value is ALL.
+
+**enable_control_plane_metrics (optional)**
+
+Whether the elected leader also scrapes Kubernetes control-plane (API server) metrics. The default value is false.
+
+**accelerated_compute_metrics (optional)**
+
+Whether to enable accelerated-compute features whose metrics (GPU/Neuron/EFA) are scraped from vendor-specific sources. The default value is false.
+
+**accelerated_compute_gpu_metrics_collection_interval (optional)**
+
+The collection interval for GPU (DCGM) metrics. When unset, a 60 second interval is used.
+
+**skip_replicaset_watch (optional)**
+
+Whether to skip the cluster-wide ReplicaSet informer. When true no ReplicaSet watch is started: pod-to-Deployment attribution falls back to parsing the ReplicaSet name and cluster ReplicaSet metrics are not emitted. The default value is false.
+
+**run_on_systemd (optional)**
+
+Whether the receiver is running directly on a host under systemd (non-containerized EKS/Kubernetes on EC2 or on-prem). The default value is false.
+
+**host_ip (optional) / host_name (optional)**
+
+Explicit host IP and host name for systemd mode, used when they cannot be auto-detected from the environment.
+
+**kube_config_path (optional)**
+
+Path to a kubeconfig file for systemd mode. When unset, in-cluster configuration is used.
+
+**middleware (optional)**
+
+ID of an extension implementing the awsmiddleware handler interface (e.g. agenthealth) to attach to the receiver's AWS API clients.
+
 ## Sample configuration for Container Insights 
 This is a sample configuration for AWS Container Insights using the `awscontainerinsightreceiver` and `awsemfexporter` for an EKS cluster:
 ```

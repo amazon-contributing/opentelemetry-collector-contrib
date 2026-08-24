@@ -55,7 +55,7 @@ var deploymentObjects = []runtime.Object{
 func TestDeploymentClient(t *testing.T) {
 	options := deploymentSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset(deploymentObjects...)
+	fakeClientSet := fake.NewClientset(deploymentObjects...)
 	client, _ := newDeploymentClient(fakeClientSet, zap.NewNop(), options)
 
 	deployments := make([]any, len(deploymentObjects))

@@ -56,7 +56,7 @@ var pvObjects = []runtime.Object{
 func TestPersistentVolumeClient_GetPersistentVolumeMetrics(t *testing.T) {
 	setOption := PersistentVolumeSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset(pvObjects...)
+	fakeClientSet := fake.NewClientset(pvObjects...)
 	client, err := newPersistentVolumeClient(fakeClientSet, zap.NewNop(), setOption)
 	assert.NoError(t, err)
 
@@ -75,7 +75,7 @@ func TestPersistentVolumeClient_GetPersistentVolumeMetrics(t *testing.T) {
 func TestPersistentVolumeClient_EmptyStore(t *testing.T) {
 	setOption := PersistentVolumeSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 	client, err := newPersistentVolumeClient(fakeClientSet, zap.NewNop(), setOption)
 	assert.NoError(t, err)
 

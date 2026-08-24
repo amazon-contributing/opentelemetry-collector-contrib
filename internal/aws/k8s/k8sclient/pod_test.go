@@ -212,7 +212,7 @@ func TestPodClient_PodInfos(t *testing.T) {
 		},
 	}
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 	client := newPodClient(fakeClientSet, zap.NewNop(), setOption)
 	assert.NoError(t, client.store.Replace(samplePodArray, ""))
 	client.refresh()
