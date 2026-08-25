@@ -108,7 +108,7 @@ func TestAzureProviderInstanceMetadataURL(t *testing.T) {
 }
 
 func TestNewAzureProviderDefault(t *testing.T) {
-	provider := New("").(*azureProvider)
+	provider := New(&http.Client{}, "").(*azureProvider)
 	require.Equal(t, "azure", provider.Name())
 	// With no explicit audience and no successful probe yet, resource() falls
 	// back to the public ARM resource.
@@ -118,7 +118,7 @@ func TestNewAzureProviderDefault(t *testing.T) {
 }
 
 func TestNewAzureProviderWithResource(t *testing.T) {
-	provider := New("https://custom.resource/").(*azureProvider)
+	provider := New(&http.Client{}, "https://custom.resource/").(*azureProvider)
 	require.Equal(t, "https://custom.resource/", provider.configuredResource)
 }
 

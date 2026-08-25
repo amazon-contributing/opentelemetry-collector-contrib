@@ -72,11 +72,11 @@ type azureProvider struct {
 
 var _ provider.TokenProvider = (*azureProvider)(nil)
 
-// New returns an Azure managed-identity token provider. An empty resource means the ARM resource (token audience) is
-// auto-detected from IMDS.
-func New(resource string) provider.TokenProvider {
+// New returns an Azure managed-identity token provider using the given metadata HTTP client. An empty resource
+// means the ARM resource (token audience) is auto-detected from IMDS.
+func New(client *http.Client, resource string) provider.TokenProvider {
 	return &azureProvider{
-		client:             provider.NewMetadataClient(),
+		client:             client,
 		endpoint:           defaultIMDSEndpoint,
 		configuredResource: resource,
 	}

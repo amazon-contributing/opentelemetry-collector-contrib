@@ -67,16 +67,17 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) buildProviders() []provider.TokenProvider {
+	client := provider.NewMetadataClient()
 	switch c.Provider {
 	case ProviderNone:
 		return nil
 	case ProviderAzure:
-		return []provider.TokenProvider{azure.New(c.Audience)}
+		return []provider.TokenProvider{azure.New(client, c.Audience)}
 	case ProviderGCP:
-		return []provider.TokenProvider{gcp.New(c.Audience)}
+		return []provider.TokenProvider{gcp.New(client, c.Audience)}
 	default: // ProviderAuto
 		// The extension picks the first provider whose IsAvailable probe succeeds. The probes are mutually
 		// exclusive across clouds, so order does not matter.
-		return []provider.TokenProvider{azure.New(c.Audience), gcp.New(c.Audience)}
+		return []provider.TokenProvider{azure.New(client, c.Audience), gcp.New(client, c.Audience)}
 	}
 }

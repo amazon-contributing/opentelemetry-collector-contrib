@@ -9,24 +9,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
+
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider"
 )
 
 const (
-	// defaultMetadataHost is the GCE metadata server base URL. The token and probe paths are joined onto it,
-	// so overriding it (in tests) redirects both.
-	defaultMetadataHost = "http://metadata.google.internal"
-	// identityPath is the service-account identity endpoint. It returns a Google-signed OIDC JWT (issuer
-	// https://accounts.google.com) for the instance's default service account.
-	identityPath = "/computeMetadata/v1/instance/service-accounts/default/identity"
-	// instanceIDPath is a stable leaf used only for the availability probe. Every GCE instance exposes it.
-	instanceIDPath = "/computeMetadata/v1/instance/id"
+	// identityPath is the GCE metadata service-account identity endpoint (relative to the metadata client's
+	// computeMetadata/v1/ base). It returns a Google-signed OIDC JWT (issuer https://accounts.google.com) for
+	// the instance's default service account.
+	identityPath = "instance/service-accounts/default/identity"
 	// defaultAudience is the audience requested in the identity token. It is effectively cosmetic: GCE tokens
 	// also carry an azp claim (the service account's unique ID), and AWS STS uses azp as the audience. The
 	// metadata endpoint just requires a non-empty value.
@@ -34,92 +31,46 @@ const (
 	// defaultTokenExpiry is the fallback TTL used when the token's exp claim cannot be parsed. GCE identity
 	// tokens are normally valid 1 hour.
 	defaultTokenExpiry = time.Hour
-	// The GCE metadata server requires this request header and echoes it back on responses, which is how a
-	// host is confirmed to be GCE.
-	metadataFlavorHeader = "Metadata-Flavor"
-	metadataFlavorValue  = "Google"
 )
 
-// gcpProvider fetches an OIDC token from the GCE metadata server.
+// gcpProvider fetches an OIDC token from the GCE metadata server via the compute/metadata client, which
+// handles the metadata host, Metadata-Flavor header, and retries.
 type gcpProvider struct {
-	client   *http.Client
-	host     string
+	client   *metadata.Client
 	audience string
 }
 
 var _ provider.TokenProvider = (*gcpProvider)(nil)
 
-// New returns a GCE metadata-server token provider. An empty audience defaults to sts.amazonaws.com.
-func New(audience string) provider.TokenProvider {
+// New returns a GCE metadata-server token provider using the given metadata HTTP client. An empty audience
+// defaults to sts.amazonaws.com.
+func New(client *http.Client, audience string) provider.TokenProvider {
 	if audience == "" {
 		audience = defaultAudience
 	}
 	return &gcpProvider{
-		client:   provider.NewMetadataClient(),
-		host:     defaultMetadataHost,
+		client:   metadata.NewClient(client),
 		audience: audience,
 	}
 }
 
 func (*gcpProvider) Name() string { return "gcp" }
 
-// IsAvailable reports whether the host is a GCE instance by probing the metadata server: a 200 with a
-// Metadata-Flavor: Google response header identifies it. Best-effort detection for provider selection, not
-// an authenticated check.
+// IsAvailable reports whether the host is a GCE instance. Best-effort detection for provider selection.
 func (p *gcpProvider) IsAvailable(ctx context.Context) bool {
 	ctx, cancel := context.WithTimeout(ctx, provider.DefaultMetadataProbeTimeout)
 	defer cancel()
-
-	probeURL, err := url.JoinPath(p.host, instanceIDPath)
-	if err != nil {
-		return false
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probeURL, http.NoBody)
-	if err != nil {
-		return false
-	}
-	req.Header.Set(metadataFlavorHeader, metadataFlavorValue)
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK && resp.Header.Get(metadataFlavorHeader) == metadataFlavorValue
+	return metadata.OnGCEWithContext(ctx)
 }
 
 func (p *gcpProvider) GetToken(ctx context.Context) (string, time.Duration, error) {
-	tokenURL, err := url.JoinPath(p.host, identityPath)
-	if err != nil {
-		return "", 0, fmt.Errorf("gcp: build token url: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, http.NoBody)
-	if err != nil {
-		return "", 0, fmt.Errorf("gcp: create request: %w", err)
-	}
-	req.Header.Set(metadataFlavorHeader, metadataFlavorValue)
-	q := req.URL.Query()
-	q.Set("audience", p.audience)
 	// format=standard yields a standard OIDC ID token (aud/azp/exp/iat/iss/sub), which is all STS needs.
-	q.Set("format", "standard")
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := p.client.Do(req)
+	suffix := identityPath + "?audience=" + url.QueryEscape(p.audience) + "&format=standard"
+	token, err := p.client.GetWithContext(ctx, suffix)
 	if err != nil {
-		return "", 0, fmt.Errorf("gcp: metadata request failed: %w", err)
+		return "", 0, fmt.Errorf("gcp: fetch identity token: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", 0, fmt.Errorf("gcp: metadata returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", 0, fmt.Errorf("gcp: read response: %w", err)
-	}
-	// The identity endpoint returns the raw JWT as the response body.
-	token := strings.TrimSpace(string(body))
+	token = strings.TrimSpace(token)
 	if token == "" {
 		return "", 0, errors.New("gcp: empty identity token in metadata response")
 	}
