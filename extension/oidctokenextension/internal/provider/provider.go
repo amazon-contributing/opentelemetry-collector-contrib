@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package oidctokenextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension"
+package provider // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider"
 
 import (
 	"context"

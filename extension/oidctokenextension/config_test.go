@@ -49,9 +49,10 @@ func TestConfig_ProviderType(t *testing.T) {
 	}{
 		{"auto", ProviderAuto, false},
 		{"azure", ProviderAzure, false},
+		{"gcp", ProviderGCP, false},
 		{"none", ProviderNone, false},
-		{"gcp", "", true},
 		{"", "", true},
+		{"aws", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -97,7 +98,8 @@ func TestConfig_BuildProviders(t *testing.T) {
 	}{
 		{"none", ProviderNone, []string{}},
 		{"azure", ProviderAzure, []string{"azure"}},
-		{"auto", ProviderAuto, []string{"azure"}},
+		{"gcp", ProviderGCP, []string{"gcp"}},
+		{"auto", ProviderAuto, []string{"azure", "gcp"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

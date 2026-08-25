@@ -14,6 +14,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider"
 )
 
 func TestStartWithProvider(t *testing.T) {
@@ -25,7 +27,7 @@ func TestStartWithProvider(t *testing.T) {
 	ext := &oidcTokenExtension{
 		logger:             zap.NewNop(),
 		config:             cfg,
-		providers:          []TokenProvider{mp},
+		providers:          []provider.TokenProvider{mp},
 		minRefreshInterval: minRefreshInterval,
 	}
 
@@ -62,7 +64,7 @@ func TestShutdownNoProviderPreservesExistingFile(t *testing.T) {
 	ext := &oidcTokenExtension{
 		logger:             zap.NewNop(),
 		config:             &Config{OutputTokenFile: tokenFile},
-		providers:          []TokenProvider{mp},
+		providers:          []provider.TokenProvider{mp},
 		minRefreshInterval: minRefreshInterval,
 	}
 

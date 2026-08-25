@@ -8,6 +8,10 @@ import (
 	"fmt"
 
 	"go.opentelemetry.io/collector/component"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider/azure"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider/gcp"
 )
 
 // ProviderType selects the OIDC token provider.
@@ -18,17 +22,19 @@ const (
 	ProviderAuto ProviderType = "auto"
 	// ProviderAzure uses Azure VM managed identity (IMDS) to fetch tokens.
 	ProviderAzure ProviderType = "azure"
+	// ProviderGCP uses the GCE metadata server's service-account identity endpoint to fetch tokens.
+	ProviderGCP ProviderType = "gcp"
 	// ProviderNone disables token fetching.
 	ProviderNone ProviderType = "none"
 )
 
 func (p *ProviderType) UnmarshalText(text []byte) error {
 	switch v := ProviderType(text); v {
-	case ProviderAuto, ProviderAzure, ProviderNone:
+	case ProviderAuto, ProviderAzure, ProviderGCP, ProviderNone:
 		*p = v
 		return nil
 	default:
-		return fmt.Errorf("unsupported provider %q (expected auto, azure, or none)", v)
+		return fmt.Errorf("unsupported provider %q (expected auto, azure, gcp, or none)", v)
 	}
 }
 
@@ -60,13 +66,17 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (c *Config) buildProviders() []TokenProvider {
+func (c *Config) buildProviders() []provider.TokenProvider {
 	switch c.Provider {
 	case ProviderNone:
 		return nil
 	case ProviderAzure:
-		return []TokenProvider{newAzureProvider(c.Audience)}
+		return []provider.TokenProvider{azure.New(c.Audience)}
+	case ProviderGCP:
+		return []provider.TokenProvider{gcp.New(c.Audience)}
 	default: // ProviderAuto
-		return []TokenProvider{newAzureProvider(c.Audience)}
+		// The extension picks the first provider whose IsAvailable probe succeeds. The probes are mutually
+		// exclusive across clouds, so order does not matter.
+		return []provider.TokenProvider{azure.New(c.Audience), gcp.New(c.Audience)}
 	}
 }
