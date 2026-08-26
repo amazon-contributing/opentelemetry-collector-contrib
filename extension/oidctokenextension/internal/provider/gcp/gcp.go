@@ -77,27 +77,23 @@ func (p *gcpProvider) GetToken(ctx context.Context) (string, time.Duration, erro
 	return token, tokenTTL(token), nil
 }
 
-// tokenTTL derives the token lifetime from the JWT's exp claim, falling back to defaultTokenExpiry when the
-// token cannot be parsed.
+// tokenTTL returns the token lifetime from the JWT's exp claim, falling back to defaultTokenExpiry when exp
+// cannot be read (malformed JWT or no exp claim), matching the azure provider's fallback for a missing
+// expires_in. An already-expired token yields a non-positive TTL, which triggers an immediate refresh.
 func tokenTTL(token string) time.Duration {
-	fallback := defaultTokenExpiry
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return fallback
+		return defaultTokenExpiry
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return fallback
+		return defaultTokenExpiry
 	}
 	var claims struct {
 		Exp int64 `json:"exp"`
 	}
 	if err = json.Unmarshal(payload, &claims); err != nil || claims.Exp == 0 {
-		return fallback
+		return defaultTokenExpiry
 	}
-	ttl := time.Until(time.Unix(claims.Exp, 0))
-	if ttl <= 0 {
-		return fallback
-	}
-	return ttl
+	return time.Until(time.Unix(claims.Exp, 0))
 }

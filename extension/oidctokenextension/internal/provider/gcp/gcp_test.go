@@ -111,12 +111,14 @@ func TestTokenTTL(t *testing.T) {
 	require.Greater(t, ttl, 29*time.Minute)
 	require.LessOrEqual(t, ttl, 30*time.Minute)
 
-	// Malformed tokens and already-expired tokens fall back to the default TTL.
-	fallback := defaultTokenExpiry
-	require.Equal(t, fallback, tokenTTL("not-a-jwt"))
-	require.Equal(t, fallback, tokenTTL("a.b.c"))
-	require.Equal(t, fallback, tokenTTL(makeJWT(t, time.Now().Add(-time.Minute).Unix())))
-	// A valid-base64 payload that is not JSON, and a token with no usable exp, also fall back.
-	require.Equal(t, fallback, tokenTTL("aGVhZGVy."+base64.RawURLEncoding.EncodeToString([]byte("not json"))+".c2ln"))
-	require.Equal(t, fallback, tokenTTL(makeJWT(t, 0)))
+	// Tokens whose exp cannot be determined fall back to the default TTL (matching the azure provider): a
+	// malformed JWT, a non-JSON payload, and a token with no usable exp claim.
+	require.Equal(t, defaultTokenExpiry, tokenTTL("not-a-jwt"))
+	require.Equal(t, defaultTokenExpiry, tokenTTL("a.b.c"))
+	require.Equal(t, defaultTokenExpiry, tokenTTL("aGVhZGVy."+base64.RawURLEncoding.EncodeToString([]byte("not json"))+".c2ln"))
+	require.Equal(t, defaultTokenExpiry, tokenTTL(makeJWT(t, 0)))
+
+	// An exp that parses but is already in the past yields a non-positive TTL, so the extension refreshes
+	// immediately instead of masking the expired token behind the fallback.
+	require.Negative(t, tokenTTL(makeJWT(t, time.Now().Add(-time.Minute).Unix())))
 }
