@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package oidctokenextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension"
+package azure // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider/azure"
 
 import (
 	"context"
@@ -15,22 +15,20 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider"
 )
 
 const (
-	defaultAzureIMDSEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
-	azureIMDSInstancePath    = "/metadata/instance"
-	// azureIMDSAPIVersion is shared by the token and instance-probe requests.
-	// IMDS versions its whole supported-versions list service-wide (not
-	// per-endpoint): 2020-09-01 satisfies the token endpoint's documented
-	// "2018-02-01 or greater" floor and is a supported instance version. It also
-	// matches internal/metadataproviders/azure.
-	azureIMDSAPIVersion     = "2020-09-01"
-	defaultAzureTokenExpiry = 3600
-	// azureIMDSProbeTimeout bounds the availability probe so a blackholed
-	// link-local address cannot stall extension startup for the full
-	// token-fetch timeout.
-	azureIMDSProbeTimeout = 3 * time.Second
+	defaultIMDSEndpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
+	imdsInstancePath    = "/metadata/instance"
+	// imdsAPIVersion is shared by the token and instance-probe requests. IMDS
+	// versions its whole supported-versions list service-wide (not per-endpoint):
+	// 2020-09-01 satisfies the token endpoint's documented "2018-02-01 or greater"
+	// floor and is a supported instance version. It also matches
+	// internal/metadataproviders/azure.
+	imdsAPIVersion     = "2020-09-01"
+	defaultTokenExpiry = 3600
 )
 
 // Azure Resource Manager (ARM) resource identifiers per sovereign cloud. The
@@ -58,6 +56,7 @@ func armResourceForEnvironment(env string) string {
 	}
 }
 
+// azureProvider fetches an OIDC token from Azure VM managed identity (IMDS).
 type azureProvider struct {
 	client   *http.Client
 	endpoint string
@@ -71,17 +70,14 @@ type azureProvider struct {
 	resolvedResource atomic.Value // string
 }
 
-var _ TokenProvider = (*azureProvider)(nil)
+var _ provider.TokenProvider = (*azureProvider)(nil)
 
-func newAzureProvider(resource string) *azureProvider {
-	// IMDS lives at a fixed link-local address; never route metadata requests
-	// through an HTTP(S) proxy. Clone the default transport for sane dial/TLS
-	// defaults, then disable proxy resolution.
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = nil
+// New returns an Azure managed-identity token provider using the given metadata HTTP client. An empty resource
+// means the ARM resource (token audience) is auto-detected from IMDS.
+func New(client *http.Client, resource string) provider.TokenProvider {
 	return &azureProvider{
-		client:             &http.Client{Timeout: 30 * time.Second, Transport: transport},
-		endpoint:           defaultAzureIMDSEndpoint,
+		client:             client,
+		endpoint:           defaultIMDSEndpoint,
 		configuredResource: resource,
 	}
 }
@@ -97,8 +93,8 @@ func (p *azureProvider) instanceMetadataURL(leaf string, extra url.Values) strin
 	if err != nil {
 		return ""
 	}
-	u.Path = azureIMDSInstancePath + leaf
-	q := url.Values{"api-version": {azureIMDSAPIVersion}}
+	u.Path = imdsInstancePath + leaf
+	q := url.Values{"api-version": {imdsAPIVersion}}
 	for k, vs := range extra {
 		for _, v := range vs {
 			q.Set(k, v)
@@ -116,7 +112,7 @@ func (p *azureProvider) instanceMetadataURL(leaf string, extra url.Values) strin
 func (p *azureProvider) IsAvailable(ctx context.Context) bool {
 	// Use a short, independent timeout for the probe so a non-Azure host with a
 	// blackholed IMDS address does not block startup for the token-fetch timeout.
-	ctx, cancel := context.WithTimeout(ctx, azureIMDSProbeTimeout)
+	ctx, cancel := context.WithTimeout(ctx, provider.DefaultMetadataProbeTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
@@ -154,7 +150,7 @@ func (p *azureProvider) resource() string {
 	return armResourcePublic
 }
 
-type azureTokenResponse struct {
+type tokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   string `json:"expires_in"`
 }
@@ -166,7 +162,7 @@ func (p *azureProvider) GetToken(ctx context.Context) (string, time.Duration, er
 	}
 	req.Header.Set("Metadata", "true")
 	q := req.URL.Query()
-	q.Set("api-version", azureIMDSAPIVersion)
+	q.Set("api-version", imdsAPIVersion)
 	q.Set("resource", p.resource())
 	req.URL.RawQuery = q.Encode()
 
@@ -181,8 +177,8 @@ func (p *azureProvider) GetToken(ctx context.Context) (string, time.Duration, er
 		return "", 0, fmt.Errorf("azure: IMDS returned %d: %s", resp.StatusCode, string(body))
 	}
 
-	var tokenResp azureTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	var tokenResp tokenResponse
+	if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
 		return "", 0, fmt.Errorf("azure: decode response: %w", err)
 	}
 	if tokenResp.AccessToken == "" {
@@ -191,7 +187,7 @@ func (p *azureProvider) GetToken(ctx context.Context) (string, time.Duration, er
 
 	expiresIn, _ := strconv.Atoi(tokenResp.ExpiresIn)
 	if expiresIn <= 0 {
-		expiresIn = defaultAzureTokenExpiry
+		expiresIn = defaultTokenExpiry
 	}
 	return tokenResp.AccessToken, time.Duration(expiresIn) * time.Second, nil
 }
