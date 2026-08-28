@@ -2,8 +2,8 @@
 # OIDC Token Extension
 
 This extension provides OIDC token management for authenticating to AWS from
-non-AWS environments (e.g., Azure VMs). It auto-detects the cloud provider,
-fetches OIDC tokens, and writes them to a file for sigv4auth to consume.
+non-AWS environments (e.g., Azure VMs, GCE instances). It auto-detects the cloud
+provider, fetches OIDC tokens, and writes them to a file for sigv4auth to consume.
 
 
 | Status        |           |
@@ -20,13 +20,15 @@ fetches OIDC tokens, and writes them to a file for sigv4auth to consume.
 ## Configuration
 
 * `output_token_file`: **Required**. The path where the extension writes the fetched OIDC token. Point `sigv4auth`'s `web_identity_token_file` to the same path.
-* `provider`: **Optional**. The OIDC token provider. One of `auto` (default; detects the provider from the environment, currently resolving to Azure), `azure`, or `none` (disables token fetching).
-* `audience`: **Optional**. The audience/resource claim requested in the OIDC token. When unset, the Azure provider auto-detects the correct Azure Resource Manager (ARM) resource for the VM's cloud from IMDS `compute.azEnvironment`. Set this only to override auto-detection.
+* `provider`: **Optional**. The OIDC token provider. One of `auto` (default; detects the provider from the environment by probing each cloud's metadata service), `azure`, `gcp`, or `none` (disables token fetching).
+* `audience`: **Optional**. The audience/resource claim requested in the OIDC token. Each provider has its own default (see below). Set this only to override the default.
 
 ### Supported Providers
 
-For Azure, the default audience is the ARM resource of the cloud the VM runs
-in, detected from IMDS `compute.azEnvironment`:
+#### Azure
+
+The Azure provider fetches a managed-identity token from IMDS. When `audience` is unset, it auto-detects the correct
+Azure Resource Manager (ARM) resource for the VM's cloud from IMDS `compute.azEnvironment`:
 
 | Azure environment (`azEnvironment`) | Auto-detected audience                  |
 |-------------------------------------|-----------------------------------------|
@@ -36,12 +38,22 @@ in, detected from IMDS `compute.azEnvironment`:
 
 Unknown or unreadable environments fall back to `https://management.azure.com/`.
 
+#### GCP
+
+The GCP provider fetches a Google-signed identity token (issuer `https://accounts.google.com`) from the GCE metadata
+server's service-account identity endpoint. When `audience` is unset, it defaults to `sts.amazonaws.com`.
+
+GCE service-account tokens set both an `aud` claim (the requested audience) and an `azp` claim (the service account's
+numeric unique ID), and AWS STS uses the `azp` value as the audience. So the requested `audience` is effectively
+cosmetic: the AWS IAM OIDC provider for Google must list the service account's unique ID as a client ID, and the
+role's trust policy `:aud` (and `:sub`) condition must be that unique ID.
+
 ## How It Works
 
 On startup the extension:
 
-1. Auto-detects the cloud provider (currently Azure via IMDS)
-2. Fetches an OIDC token from the provider's metadata service
+1. Auto-detects the cloud provider by probing each cloud's metadata service (Azure IMDS, GCE metadata server)
+2. Fetches an OIDC token from the detected provider's metadata service
 3. Writes the token to a file for `sigv4auth` to consume
 4. Refreshes the token before expiry
 
@@ -80,6 +92,5 @@ service:
 
 ## Notes
 
-* The extension currently supports Azure IMDS as the only auto-detected provider. Support for additional providers may be added in the future.
 * The `oidctoken` extension should be listed before `sigv4auth` in the `extensions` list to ensure the token file is available before SigV4 authentication is configured.
 * On shutdown, the token file the extension wrote is truncated (not deleted) so that `sigv4auth` validation does not fail on the next startup. On startup the extension also truncates any stale token before writing a fresh one.

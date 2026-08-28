@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidctokenextension/internal/provider"
 )
 
 const (
@@ -26,8 +28,8 @@ const (
 type oidcTokenExtension struct {
 	logger        *zap.Logger
 	config        *Config
-	providers     []TokenProvider
-	tokenProvider TokenProvider
+	providers     []provider.TokenProvider
+	tokenProvider provider.TokenProvider
 	done          chan struct{}
 	// refreshCtx is the long-lived parent context for the background refresh
 	// loop. It is derived from context.Background() (not Start's ctx, which may

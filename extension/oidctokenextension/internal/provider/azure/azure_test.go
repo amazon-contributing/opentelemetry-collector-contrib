@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package oidctokenextension
+package azure
 
 import (
 	"encoding/json"
@@ -16,11 +16,11 @@ import (
 
 func TestAzureProviderGetToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Metadata") != "true" || r.URL.Query().Get("api-version") != azureIMDSAPIVersion {
+		if r.Header.Get("Metadata") != "true" || r.URL.Query().Get("api-version") != imdsAPIVersion {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		resp := azureTokenResponse{
+		resp := tokenResponse{
 			AccessToken: "test-token",
 			ExpiresIn:   "3600",
 		}
@@ -66,7 +66,7 @@ func TestAzureProviderIsAvailable(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/compute/azEnvironment") ||
 			r.Header.Get("Metadata") != "true" ||
 			r.URL.Query().Get("format") != "text" ||
-			r.URL.Query().Get("api-version") != azureIMDSAPIVersion {
+			r.URL.Query().Get("api-version") != imdsAPIVersion {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -103,22 +103,22 @@ func TestAzureProviderIsAvailableNotOK(t *testing.T) {
 func TestAzureProviderInstanceMetadataURL(t *testing.T) {
 	provider := &azureProvider{endpoint: "http://169.254.169.254/metadata/identity/oauth2/token"}
 	require.Equal(t,
-		"http://169.254.169.254/metadata/instance?api-version="+azureIMDSAPIVersion,
+		"http://169.254.169.254/metadata/instance?api-version="+imdsAPIVersion,
 		provider.instanceMetadataURL("", nil))
 }
 
 func TestNewAzureProviderDefault(t *testing.T) {
-	provider := newAzureProvider("")
+	provider := New(&http.Client{}, "").(*azureProvider)
 	require.Equal(t, "azure", provider.Name())
 	// With no explicit audience and no successful probe yet, resource() falls
 	// back to the public ARM resource.
 	require.Empty(t, provider.configuredResource)
 	require.Equal(t, armResourcePublic, provider.resource())
-	require.Equal(t, defaultAzureIMDSEndpoint, provider.endpoint)
+	require.Equal(t, defaultIMDSEndpoint, provider.endpoint)
 }
 
 func TestNewAzureProviderWithResource(t *testing.T) {
-	provider := newAzureProvider("https://custom.resource/")
+	provider := New(&http.Client{}, "https://custom.resource/").(*azureProvider)
 	require.Equal(t, "https://custom.resource/", provider.configuredResource)
 }
 
@@ -171,7 +171,7 @@ func TestGetTokenUsesDetectedResource(t *testing.T) {
 			return
 		}
 		gotResource = r.URL.Query().Get("resource")
-		_ = json.NewEncoder(w).Encode(azureTokenResponse{AccessToken: "t", ExpiresIn: "3600"})
+		_ = json.NewEncoder(w).Encode(tokenResponse{AccessToken: "t", ExpiresIn: "3600"})
 	}))
 	defer server.Close()
 
