@@ -42,3 +42,11 @@ func GetPartitionPrimaryRegion(region string) string {
 	}
 	return partitionPrimaryRegions[p.Name]
 }
+
+// GetPartitionDNSSuffixes returns the unique DNS suffixes across all AWS
+// partitions, standard and dual-stack (e.g. "amazonaws.com",
+// "amazonaws.com.cn", "api.aws"). Useful for endpoint validation without
+// hardcoding suffix lists.
+func GetPartitionDNSSuffixes() []string {
+	return awsrulesfn.GetPartitionDNSSuffixes()
+}
