@@ -38,6 +38,10 @@ import (
 
 const (
 	waitForKubeletInterval = 10 * time.Second
+	// A new node runs the kubelet before its serving certificate is signed, so
+	// /pods rejects TLS for the first few seconds.
+	kubeletPollInterval = 2 * time.Second
+	kubeletWaitTimeout  = 30 * time.Second
 )
 
 var _ receiver.Metrics = (*awsContainerInsightReceiver)(nil)
@@ -113,10 +117,10 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 		if err != nil {
 			return fmt.Errorf("cannot initialize kubelet client: %w", err)
 		}
-		// wait for kubelet availability, but don't block on it
+		// wait for kubelet availability
 		if acir.config.RunOnSystemd {
 			go func() {
-				if err = waitForKubelet(ctx, client, acir.settings.Logger); err != nil {
+				if err = waitForKubelet(ctx, client, waitForKubeletInterval, acir.settings.Logger); err != nil {
 					acir.settings.Logger.Error("Unable to connect to kubelet", zap.Error(err))
 					return
 				}
@@ -129,8 +133,10 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 				acir.start(ctx)
 			}()
 		} else {
-			if err = checkKubelet(client); err != nil {
-				return err
+			waitCtx, cancelWait := context.WithTimeout(ctx, kubeletWaitTimeout)
+			defer cancelWait()
+			if err = waitForKubelet(waitCtx, client, kubeletPollInterval, acir.settings.Logger); err != nil {
+				return fmt.Errorf("kubelet did not become available within %s: %w", kubeletWaitTimeout, err)
 			}
 			if err = acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
 				return err
@@ -565,15 +571,15 @@ func (acir *awsContainerInsightReceiver) getK8sAPIServerEndpoint() (string, erro
 	return endpoint, nil
 }
 
-func waitForKubelet(ctx context.Context, client *kubeletutil.KubeletClient, logger *zap.Logger) error {
+func waitForKubelet(ctx context.Context, client *kubeletutil.KubeletClient, interval time.Duration, logger *zap.Logger) error {
 	for {
 		err := checkKubelet(client)
 		if err == nil {
 			return nil
 		}
-		logger.Debug("Kubelet unavailable. Waiting for next interval", zap.Error(err), zap.Stringer("interval", waitForKubeletInterval))
+		logger.Debug("Kubelet unavailable. Waiting for next interval", zap.Error(err), zap.Stringer("interval", interval))
 		select {
-		case <-time.After(waitForKubeletInterval):
+		case <-time.After(interval):
 			continue
 		case <-ctx.Done():
 			return fmt.Errorf("context closed without getting kubelet client: %w", ctx.Err())
