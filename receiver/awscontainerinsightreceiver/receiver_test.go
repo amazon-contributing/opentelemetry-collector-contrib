@@ -6,7 +6,12 @@ package awscontainerinsightreceiver
 import (
 	"context"
 	"errors"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -15,8 +20,12 @@ import (
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.uber.org/zap"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
 )
 
 // Mock cadvisor
@@ -215,4 +224,54 @@ func TestAWSContainerInsightReceiverStart(t *testing.T) {
 	assert.Error(t, err)
 
 	mockHost.AssertCalled(t, "GetExtensions")
+}
+
+func newTestKubeletClient(t *testing.T, handler http.Handler) *kubeletutil.KubeletClient {
+	t.Helper()
+
+	srv := httptest.NewTLSServer(handler)
+	t.Cleanup(srv.Close)
+
+	host, port, err := net.SplitHostPort(srv.Listener.Addr().String())
+	require.NoError(t, err)
+
+	client, err := kubeletutil.NewKubeletClient(host, port, &kubelet.ClientConfig{
+		APIConfig:          k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeTLS},
+		InsecureSkipVerify: true,
+	}, zap.NewNop())
+	require.NoError(t, err)
+
+	return client
+}
+
+func TestWaitForKubelet(t *testing.T) {
+	var attempts atomic.Int32
+	client := newTestKubeletClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// serving certificate not signed yet
+		if attempts.Add(1) <= 2 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[]}`))
+	}))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, waitForKubelet(ctx, client, time.Millisecond, zap.NewNop()))
+	assert.EqualValues(t, 3, attempts.Load())
+}
+
+func TestWaitForKubeletTimeout(t *testing.T) {
+	client := newTestKubeletClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+
+	err := waitForKubelet(ctx, client, time.Millisecond, zap.NewNop())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
