@@ -11,8 +11,8 @@ import (
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/xray"
-	"github.com/aws/smithy-go"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/exporter"
@@ -146,9 +146,12 @@ func extractResourceSpans(config component.Config, logger *zap.Logger, td ptrace
 	return documents
 }
 
+// wrapErrorIfBadRequest marks an error permanent when the service responded
+// with a non-5xx HTTP status. Errors without an HTTP response
+// (network/timeout) stay retryable.
 func wrapErrorIfBadRequest(err error) error {
-	var ae smithy.APIError
-	if errors.As(err, &ae) && ae.ErrorFault() == smithy.FaultClient {
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) && re.HTTPStatusCode() < 500 {
 		return consumererror.NewPermanent(err)
 	}
 

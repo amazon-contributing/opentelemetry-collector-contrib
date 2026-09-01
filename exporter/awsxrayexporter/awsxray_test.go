@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -18,12 +19,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/xray"
+	"github.com/aws/aws-sdk-go-v2/service/xray/types"
+	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exportertest"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -442,4 +446,42 @@ func newSegmentID() pcommon.SpanID {
 		panic(err)
 	}
 	return r
+}
+
+// sdkOperationError builds the error chain the SDK produces for a service
+// response: OperationError → awshttp.ResponseError → APIError.
+func sdkOperationError(status int, apiErr error) error {
+	return &smithy.OperationError{
+		ServiceID:     "XRay",
+		OperationName: "PutTraceSegments",
+		Err: &awshttp.ResponseError{
+			ResponseError: &smithyhttp.ResponseError{
+				Response: &smithyhttp.Response{Response: &http.Response{StatusCode: status}},
+				Err:      apiErr,
+			},
+		},
+	}
+}
+
+func TestWrapErrorIfBadRequest(t *testing.T) {
+	// Unmodeled 4xx (e.g. auth failures the deserializer does not map) → permanent.
+	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusForbidden, &smithy.GenericAPIError{Code: "AccessDeniedException"}))))
+	// Modeled 400 → permanent.
+	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusBadRequest, &types.InvalidRequestException{}))))
+	// 429 throttled → permanent (status < 500).
+	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusTooManyRequests, &types.ThrottledException{}))))
+	// Unmodeled 500 → retryable.
+	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusInternalServerError, &smithy.GenericAPIError{Code: "InternalFailure"}))))
+	// Network error with no HTTP response → retryable.
+	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		&smithy.OperationError{
+			ServiceID: "XRay", OperationName: "PutTraceSegments",
+			Err: errors.New("dial tcp: connection refused"),
+		})))
+	// nil-safe passthrough.
+	assert.NoError(t, wrapErrorIfBadRequest(nil))
 }
