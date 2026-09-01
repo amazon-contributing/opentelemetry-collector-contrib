@@ -17,12 +17,15 @@ import (
 )
 
 const (
-	podNodeField            = "spec.nodeName"
-	ignoreAnnotation string = "opentelemetry.io/k8s-processor/ignore"
-	tagNodeName             = "k8s.node.name"
-	tagStartTime            = "k8s.pod.start_time"
-	tagHostName             = "k8s.pod.hostname"
-	tagClusterUID           = "k8s.cluster.uid"
+	podNodeField               = "spec.nodeName"
+	ignoreAnnotation    string = "opentelemetry.io/k8s-processor/ignore"
+	tagNodeName                = "k8s.node.name"
+	tagStartTime               = "k8s.pod.start_time"
+	tagHostName                = "k8s.pod.hostname"
+	tagClusterUID              = "k8s.cluster.uid"
+	tagRuntimeClassName        = "k8s.pod.runtimeclass"
+	tagOverheadCPU             = "k8s.pod.overhead.cpu"
+	tagOverheadMemory          = "k8s.pod.overhead.memory"
 	// MetadataFromPod is used to specify to extract metadata/labels/annotations from pod
 	MetadataFromPod = "pod"
 	// MetadataFromNamespace is used to specify to extract metadata/labels/annotations from namespace
@@ -232,6 +235,9 @@ type ExtractionRules struct {
 	Node                      bool
 	NodeUID                   bool
 	StartTime                 bool
+	RuntimeClassName          bool
+	OverheadCPU               bool
+	OverheadMemory            bool
 	ContainerName             bool
 	ContainerID               bool
 	ContainerImageName        bool

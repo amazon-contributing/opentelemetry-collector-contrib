@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	apps_v1 "k8s.io/api/apps/v1"
 	api_v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -636,6 +637,7 @@ func TestExtractionRules(t *testing.T) {
 	// Disable saving ip into k8s.pod.ip
 	c.Associations[0].Sources[0].Name = ""
 
+	runtimeClassName := "kata-containers"
 	pod := &api_v1.Pod{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:              "auth-service-abc12-xyz3",
@@ -677,8 +679,13 @@ func TestExtractionRules(t *testing.T) {
 			},
 		},
 		Spec: api_v1.PodSpec{
-			NodeName: "node1",
-			Hostname: "host1",
+			NodeName:         "node1",
+			Hostname:         "host1",
+			RuntimeClassName: &runtimeClassName,
+			Overhead: api_v1.ResourceList{
+				api_v1.ResourceCPU:    resource.MustParse("250m"),
+				api_v1.ResourceMemory: resource.MustParse("256Mi"),
+			},
 		},
 		Status: api_v1.PodStatus{
 			PodIP: "1.1.1.1",
@@ -711,6 +718,26 @@ func TestExtractionRules(t *testing.T) {
 			name:       "no-rules",
 			rules:      ExtractionRules{},
 			attributes: nil,
+		},
+		{
+			name: "runtimeClassName",
+			rules: ExtractionRules{
+				RuntimeClassName: true,
+			},
+			attributes: map[string]string{
+				"k8s.pod.runtimeclass": "kata-containers",
+			},
+		},
+		{
+			name: "overhead",
+			rules: ExtractionRules{
+				OverheadCPU:    true,
+				OverheadMemory: true,
+			},
+			attributes: map[string]string{
+				"k8s.pod.overhead.cpu":    "250",
+				"k8s.pod.overhead.memory": "268435456",
+			},
 		},
 		{
 			name: "deployment",
