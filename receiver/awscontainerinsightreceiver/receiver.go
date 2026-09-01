@@ -34,6 +34,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/prometheusscraper/decoratorconsumer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/stores/kubeletutil"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/summarysupplement"
 )
 
 const (
@@ -49,21 +50,22 @@ type metricsProvider interface {
 
 // awsContainerInsightReceiver implements the receiver.Metrics
 type awsContainerInsightReceiver struct {
-	settings                 component.TelemetrySettings
-	nextConsumer             consumer.Metrics
-	config                   *Config
-	cancel                   context.CancelFunc
-	cancelWg                 sync.WaitGroup
-	decorators               []stores.Decorator
-	containerMetricsProvider metricsProvider
-	k8sapiserver             metricsProvider
-	prometheusScraper        *k8sapiserver.PrometheusScraper
-	podResourcesStore        *stores.PodResourcesStore
-	dcgmScraper              *prometheusscraper.SimplePrometheusScraper
-	nvmeEBSScraper           *prometheusscraper.SimplePrometheusScraper
-	nvmeLISScraper           *prometheusscraper.SimplePrometheusScraper
-	neuronMonitorScraper     *prometheusscraper.SimplePrometheusScraper
-	efaSysfsScraper          *efa.Scraper
+	settings                  component.TelemetrySettings
+	nextConsumer              consumer.Metrics
+	config                    *Config
+	cancel                    context.CancelFunc
+	cancelWg                  sync.WaitGroup
+	decorators                []stores.Decorator
+	containerMetricsProvider  metricsProvider
+	summarySupplementProvider metricsProvider
+	k8sapiserver              metricsProvider
+	prometheusScraper         *k8sapiserver.PrometheusScraper
+	podResourcesStore         *stores.PodResourcesStore
+	dcgmScraper               *prometheusscraper.SimplePrometheusScraper
+	nvmeEBSScraper            *prometheusscraper.SimplePrometheusScraper
+	nvmeLISScraper            *prometheusscraper.SimplePrometheusScraper
+	neuronMonitorScraper      *prometheusscraper.SimplePrometheusScraper
+	efaSysfsScraper           *efa.Scraper
 }
 
 // newAWSContainerInsightReceiver creates the aws container insight receiver with the given parameters.
@@ -208,6 +210,21 @@ func (acir *awsContainerInsightReceiver) initEKS(ctx context.Context, host compo
 			acir.settings.Logger, cadvisor.WithDecorator(localNodeDecorator))
 		if err != nil {
 			return err
+		}
+
+		// VM-isolated pods (e.g. RuntimeClass isolated-sandbox / confidential-sandbox)
+		// have an empty host pod-slice cgroup, so cadvisor emits nothing for them.
+		// When enabled, supplement cadvisor with container-scope metrics for those
+		// pods sourced from the kubelet Summary API. This runs alongside cadvisor and
+		// is disjoint from it by pod, so normal pods are unaffected.
+		if acir.config.EnableIsolatedPodSummaryMetrics && localNodeDecorator != nil {
+			summaryProvider, ssErr := summarysupplement.New(acir.settings.Logger, localNodeDecorator,
+				kubeletClient, hostInfo, acir.config.IsolatedPodRuntimeClasses)
+			if ssErr != nil {
+				acir.settings.Logger.Warn("Unable to start isolated-pod summary supplement provider", zap.Error(ssErr))
+			} else {
+				acir.summarySupplementProvider = summaryProvider
+			}
 		}
 
 		err = acir.initDcgmScraper(ctx, host, hostInfo, localNodeDecorator)
@@ -474,6 +491,9 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 	if acir.containerMetricsProvider != nil {
 		errs = errors.Join(errs, acir.containerMetricsProvider.Shutdown())
 	}
+	if acir.summarySupplementProvider != nil {
+		errs = errors.Join(errs, acir.summarySupplementProvider.Shutdown())
+	}
 	if acir.dcgmScraper != nil {
 		acir.dcgmScraper.Shutdown()
 	}
@@ -514,6 +534,10 @@ func (acir *awsContainerInsightReceiver) collectData(ctx context.Context) error 
 
 	if acir.containerMetricsProvider != nil {
 		mds = append(mds, acir.containerMetricsProvider.GetMetrics()...)
+	}
+
+	if acir.summarySupplementProvider != nil {
+		mds = append(mds, acir.summarySupplementProvider.GetMetrics()...)
 	}
 
 	if acir.k8sapiserver != nil {
