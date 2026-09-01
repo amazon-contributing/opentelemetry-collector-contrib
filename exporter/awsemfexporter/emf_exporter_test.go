@@ -7,12 +7,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"testing"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -34,6 +38,21 @@ const defaultRetryCount = 1
 func init() {
 	os.Setenv("AWS_ACCESS_KEY_ID", "test")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+}
+
+// sdkOperationError builds the error chain the SDK produces for a service
+// response: OperationError → awshttp.ResponseError → APIError.
+func sdkOperationError(status int, apiErr error) error {
+	return &smithy.OperationError{
+		ServiceID:     "CloudWatch Logs",
+		OperationName: "PutLogEvents",
+		Err: &awshttp.ResponseError{
+			ResponseError: &smithyhttp.ResponseError{
+				Response: &smithyhttp.Response{Response: &http.Response{StatusCode: status}},
+				Err:      apiErr,
+			},
+		},
+	}
 }
 
 type mockPusher struct {
@@ -463,20 +482,26 @@ func TestNewExporterWithoutSession(t *testing.T) {
 }
 
 func TestWrapErrorIfBadRequest(t *testing.T) {
-	awsErr := &smithy.GenericAPIError{
-		Code:    "",
-		Message: "",
-		Fault:   smithy.FaultClient,
-	}
-	err := wrapErrorIfBadRequest(awsErr)
-	assert.True(t, consumererror.IsPermanent(err))
-	awsErr = &smithy.GenericAPIError{
-		Code:    "",
-		Message: "",
-		Fault:   smithy.FaultServer,
-	}
-	err = wrapErrorIfBadRequest(awsErr)
-	assert.False(t, consumererror.IsPermanent(err))
+	// Unmodeled 403 auth error → permanent.
+	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusForbidden, &smithy.GenericAPIError{Code: "UnrecognizedClientException"}))))
+	// Modeled 400 → permanent.
+	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusBadRequest, &types.InvalidParameterException{}))))
+	// Unmodeled 500 → retryable (only status < 500 is permanent).
+	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusInternalServerError, &smithy.GenericAPIError{Code: "InternalFailure"}))))
+	// Modeled 503 → retryable.
+	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(http.StatusServiceUnavailable, &types.ServiceUnavailableException{}))))
+	// Network error with no HTTP response → retryable.
+	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		&smithy.OperationError{
+			ServiceID: "CloudWatch Logs", OperationName: "PutLogEvents",
+			Err: errors.New("dial tcp: connection refused"),
+		})))
+	// nil-safe passthrough.
+	assert.NoError(t, wrapErrorIfBadRequest(nil))
 }
 
 // TestNewEmfExporterWithoutConfig — fork variant: factory succeeds (lazy

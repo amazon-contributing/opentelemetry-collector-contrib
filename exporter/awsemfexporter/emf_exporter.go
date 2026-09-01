@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	"github.com/aws/smithy-go"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumererror"
@@ -248,12 +248,13 @@ func (emf *emfExporter) shutdown(ctx context.Context) error {
 	return emf.metricTranslator.Shutdown()
 }
 
+// wrapErrorIfBadRequest marks an error permanent when the service responded
+// with a non-5xx HTTP status. Errors without an HTTP response
+// (network/timeout) stay retryable.
 func wrapErrorIfBadRequest(err error) error {
-	var ae smithy.APIError
-	if errors.As(err, &ae) {
-		if ae.ErrorFault() == smithy.FaultClient || ae.ErrorFault() == smithy.FaultUnknown {
-			return consumererror.NewPermanent(err)
-		}
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) && re.HTTPStatusCode() < 500 {
+		return consumererror.NewPermanent(err)
 	}
 	return err
 }
