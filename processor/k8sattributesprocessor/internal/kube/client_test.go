@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	apps_v1 "k8s.io/api/apps/v1"
 	api_v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -681,6 +682,10 @@ func TestExtractionRules(t *testing.T) {
 			NodeName:         "node1",
 			Hostname:         "host1",
 			RuntimeClassName: &runtimeClassName,
+			Overhead: api_v1.ResourceList{
+				api_v1.ResourceCPU:    resource.MustParse("250m"),
+				api_v1.ResourceMemory: resource.MustParse("256Mi"),
+			},
 		},
 		Status: api_v1.PodStatus{
 			PodIP: "1.1.1.1",
@@ -721,6 +726,17 @@ func TestExtractionRules(t *testing.T) {
 			},
 			attributes: map[string]string{
 				"k8s.pod.runtimeclass": "kata-containers",
+			},
+		},
+		{
+			name: "overhead",
+			rules: ExtractionRules{
+				OverheadCPU:    true,
+				OverheadMemory: true,
+			},
+			attributes: map[string]string{
+				"k8s.pod.overhead.cpu":    "250",
+				"k8s.pod.overhead.memory": "268435456",
 			},
 		},
 		{

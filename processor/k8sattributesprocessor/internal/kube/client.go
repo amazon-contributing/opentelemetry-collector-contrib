@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -550,6 +551,22 @@ func (c *WatchClient) extractPodAttributes(pod *api_v1.Pod) map[string]string {
 		tags[tagRuntimeClassName] = *pod.Spec.RuntimeClassName
 	}
 
+	// pod.Spec.Overhead is the RuntimeClass-declared resource overhead. It is
+	// only set when a pod runs under a RuntimeClass whose overhead.podFixed is
+	// non-empty (typically VM/sandbox runtimes). We only emit the tag when the
+	// overhead is present and non-zero, so the tag's presence signals overhead > 0.
+	if c.Rules.OverheadCPU {
+		if q, ok := pod.Spec.Overhead[api_v1.ResourceCPU]; ok && !q.IsZero() {
+			tags[tagOverheadCPU] = strconv.FormatInt(q.MilliValue(), 10)
+		}
+	}
+
+	if c.Rules.OverheadMemory {
+		if q, ok := pod.Spec.Overhead[api_v1.ResourceMemory]; ok && !q.IsZero() {
+			tags[tagOverheadMemory] = strconv.FormatInt(q.Value(), 10)
+		}
+	}
+
 	if c.Rules.ClusterUID {
 		if val, ok := c.Namespaces["kube-system"]; ok {
 			tags[tagClusterUID] = val.NamespaceUID
@@ -605,6 +622,10 @@ func removeUnnecessaryPodData(pod *api_v1.Pod, rules ExtractionRules) *api_v1.Po
 
 	if rules.RuntimeClassName {
 		transformedPod.Spec.RuntimeClassName = pod.Spec.RuntimeClassName
+	}
+
+	if rules.OverheadCPU || rules.OverheadMemory {
+		transformedPod.Spec.Overhead = pod.Spec.Overhead
 	}
 
 	if needContainerAttributes(rules) {

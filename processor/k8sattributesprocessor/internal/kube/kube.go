@@ -24,6 +24,8 @@ const (
 	tagHostName                = "k8s.pod.hostname"
 	tagClusterUID              = "k8s.cluster.uid"
 	tagRuntimeClassName        = "k8s.pod.runtimeclass"
+	tagOverheadCPU             = "k8s.pod.overhead.cpu"
+	tagOverheadMemory          = "k8s.pod.overhead.memory"
 	// MetadataFromPod is used to specify to extract metadata/labels/annotations from pod
 	MetadataFromPod = "pod"
 	// MetadataFromNamespace is used to specify to extract metadata/labels/annotations from namespace
@@ -234,6 +236,8 @@ type ExtractionRules struct {
 	NodeUID                   bool
 	StartTime                 bool
 	RuntimeClassName          bool
+	OverheadCPU               bool
+	OverheadMemory            bool
 	ContainerName             bool
 	ContainerID               bool
 	ContainerImageName        bool

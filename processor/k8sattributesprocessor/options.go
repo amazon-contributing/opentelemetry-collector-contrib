@@ -28,6 +28,14 @@ const (
 	// metadataPodRuntimeClass extracts pod.spec.runtimeClassName. There is no
 	// semconv attribute for it yet, so a custom key is used.
 	metadataPodRuntimeClass = "k8s.pod.runtimeclass"
+	// metadataPodOverheadCPU and metadataPodOverheadMemory extract the pod's
+	// spec.overhead (the RuntimeClass-declared resource overhead). There is no
+	// semconv attribute for these yet, so custom keys are used. Values are only
+	// set when the pod declares a non-zero overhead for that resource, so the
+	// mere presence of the attribute signals overhead > 0. CPU is reported in
+	// millicores and memory in bytes.
+	metadataPodOverheadCPU    = "k8s.pod.overhead.cpu"
+	metadataPodOverheadMemory = "k8s.pod.overhead.memory"
 	// TODO: use k8s.cluster.uid, container.image.repo_digests
 	// from semconv when available,
 	//   replace clusterUID with conventions.AttributeK8SClusterUID
@@ -157,6 +165,10 @@ func withExtractMetadata(fields ...string) option {
 				p.rules.StartTime = true
 			case metadataPodRuntimeClass:
 				p.rules.RuntimeClassName = true
+			case metadataPodOverheadCPU:
+				p.rules.OverheadCPU = true
+			case metadataPodOverheadMemory:
+				p.rules.OverheadMemory = true
 			case metadataPodIP:
 				p.rules.PodIP = true
 			case conventions.AttributeK8SDeploymentName:
