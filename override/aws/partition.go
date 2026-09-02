@@ -50,3 +50,14 @@ func GetPartitionPrimaryRegion(region string) string {
 func GetPartitionDNSSuffixes() []string {
 	return awsrulesfn.GetPartitionDNSSuffixes()
 }
+
+// GetPartitionDNSSuffix returns the DNS suffix of the partition that contains
+// region (e.g. "amazonaws.com", "amazonaws.com.cn"). Regions that match no
+// known partition resolve to the default "aws" partition.
+func GetPartitionDNSSuffix(region string) string {
+	p := awsrulesfn.GetPartition(region)
+	if p == nil {
+		return ""
+	}
+	return p.DnsSuffix
+}

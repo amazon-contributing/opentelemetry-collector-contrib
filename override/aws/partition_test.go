@@ -57,3 +57,32 @@ func TestGetPartitionPrimaryRegion(t *testing.T) {
 		})
 	}
 }
+
+func TestGetPartitionDNSSuffix(t *testing.T) {
+	tests := map[string]string{
+		"us-east-1":       "amazonaws.com",
+		"eu-west-2":       "amazonaws.com",
+		"cn-north-1":      "amazonaws.com.cn",
+		"us-gov-west-1":   "amazonaws.com",
+		"us-iso-east-1":   "c2s.ic.gov",
+		"us-isob-east-1":  "sc2s.sgov.gov",
+		"eu-isoe-west-1":  "cloud.adc-e.uk",
+		"us-isof-south-1": "csp.hci.ic.gov",
+		"eusc-de-east-1":  "amazonaws.eu",
+		// Unknown patterns resolve to the default "aws" partition's suffix.
+		"":             "amazonaws.com",
+		"not-a-region": "amazonaws.com",
+	}
+	for region, want := range tests {
+		t.Run(region, func(t *testing.T) {
+			assert.Equal(t, want, GetPartitionDNSSuffix(region))
+		})
+	}
+
+	// Every per-region suffix must be a member of the full suffix set, pinning
+	// both exports to the same underlying partition data.
+	suffixes := GetPartitionDNSSuffixes()
+	for region := range tests {
+		assert.Contains(t, suffixes, GetPartitionDNSSuffix(region), "region %q", region)
+	}
+}
