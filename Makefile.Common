@@ -32,7 +32,10 @@ GOTESTARCH?=$(GOARCH)
 # be adopted here yet. They are removed at the next collector module-set bump:
 # - GO-2026-5264, GO-2026-5381, GO-2026-5710: fixed in github.com/prometheus/prometheus v0.311.3.
 # - GO-2026-5343: fixed in go.opentelemetry.io/ebpf-profiler v0.0.202622.
-IGNORED_VULNS = GO-2026-5264 GO-2026-5343 GO-2026-5381 GO-2026-5662 GO-2026-5710
+# - GO-2026-6354, GO-2026-6355: fixed in golang.org/x/crypto v0.56.0, which
+#   requires go >= 1.26 while this repository's floor is 1.25. Adopt when the
+#   Go floor rises.
+IGNORED_VULNS = GO-2026-5264 GO-2026-5343 GO-2026-5381 GO-2026-5662 GO-2026-5710 GO-2026-6354 GO-2026-6355
 
 # Ignore all golang-related vulnerabilities (stdlib, golang.org/x/*, google.golang.org/*, etc.)
 IGNORE_GOLANG_VULNS ?=
