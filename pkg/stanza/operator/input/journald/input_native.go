@@ -283,6 +283,10 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 	// other's checkpoints (see nativeCursorKey).
 	cursorKey := nativeCursorKey(path)
 
+	// start_at:end skips the pre-existing backlog only on the FIRST follow
+	// of a file; a retry re-open must resume and redeliver, not re-skip.
+	firstFollow := operator.markNativeFollowStarted(path)
+
 	// Best-effort cursor resume: if we have a stored cursor and it
 	// belongs to this file, seek to it; otherwise honour StartAt.
 	// SeekToCursor returns ErrCursorSeqnumMismatch when the cursor
@@ -290,24 +294,35 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 	// configs); we ignore those and start from the configured
 	// position. ErrCursorNotFound means the entry was already
 	// archived by the time we got here — same handling.
+	seekApplied := false
 	if cursor, getErr := operator.persister.Get(ctx, cursorKey); getErr == nil && len(cursor) > 0 {
 		if seekErr := r.SeekToCursor(string(cursor)); seekErr != nil {
 			if errors.Is(seekErr, native.ErrCursorSeqnumMismatch) ||
 				errors.Is(seekErr, native.ErrCursorNotFound) ||
 				errors.Is(seekErr, native.ErrCursorMalformed) {
+				// Cursor unusable for this file: fall through to the shared
+				// StartAt handling below instead of leaving the Reader at
+				// the head, which would replay the whole file via Follow.
 				operator.Logger().Debug(
-					"native journald: cursor not applicable to this file, falling back to StartAt",
+					"native journald: cursor not applicable to this file, honoring StartAt",
 					zap.String("path", path),
 					zap.Error(seekErr))
 			} else {
 				return fmt.Errorf("seek %q to cursor: %w", path, seekErr)
 			}
+		} else {
+			seekApplied = true
 		}
-	} else if operator.nativeStartAt == "end" {
-		// "end" means start from the file tail. The simplest portable
-		// way is to drain entries already on disk and discard them;
-		// Reader.Follow will then begin emitting only newly appended
-		// entries.
+	}
+
+	// StartAt handling shared by the no-cursor and unusable-cursor paths.
+	// "end" drains entries already on disk and discards them so Follow
+	// emits only newly appended entries — but only on the first follow of
+	// this file (firstFollow); a retry re-open must resume and redeliver.
+	// "beginning" is the implicit default: leave the Reader cursor at the
+	// file head so Follow's catch-up drain emits every existing entry
+	// before entering the watch loop.
+	if !seekApplied && operator.nativeStartAt == "end" && firstFollow {
 		if drainErr := drainAndDiscard(ctx, r); drainErr != nil {
 			if errors.Is(drainErr, context.Canceled) {
 				return drainErr
@@ -315,9 +330,6 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 			return fmt.Errorf("seek %q to tail: %w", path, drainErr)
 		}
 	}
-	// "beginning" is the implicit default: leave the Reader cursor at
-	// the file head so Follow's catch-up drain emits every existing
-	// entry before entering the watch loop.
 
 	emit := func(e *native.Entry) error {
 		return operator.emitNativeEntry(ctx, r, cursorKey, e)
@@ -334,6 +346,21 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 		return fmt.Errorf("follow %q: %w", path, err)
 	}
 	return nil
+}
+
+// markNativeFollowStarted records that a follow lifecycle has begun for
+// path and reports whether this was the first such call in the current
+// process. It gates the start_at:end backlog drain in followNativeFileOnce
+// so the drain runs only on the first follow of a file: a retry re-open —
+// after a Write failure aborted Follow before any cursor was persisted —
+// must resume and redeliver the failed entry rather than discard it as
+// backlog. The state is in-memory only; across a process restart the
+// persisted cursor is the correct resume point, so nothing needs to
+// survive the restart. Each file is followed by a single goroutine, so the
+// only concurrency is across distinct paths, which sync.Map handles.
+func (operator *Input) markNativeFollowStarted(path string) bool {
+	_, loaded := operator.nativeFollowStarted.LoadOrStore(path, struct{}{})
+	return !loaded
 }
 
 // drainAndDiscard advances the Reader's cursor to EOF without invoking
@@ -463,16 +490,22 @@ func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, cu
 	// point past it on the next start).
 	//
 	// On Write failure we RETURN the error so Reader.Follow aborts the
-	// current follow loop; followNativeFile then backs off and reopens,
-	// and followNativeFileOnce re-seeks to the last *persisted* cursor
-	// (the previous successfully-written entry) via SeekToCursor, whose
-	// resume point is the entry AFTER that cursor — i.e. exactly this
-	// failed entry. That gives genuine at-least-once delivery: without the
-	// return, Follow would advance to the next entry and its successful
-	// Write would persist a cursor past the failed one, permanently
-	// skipping it. (The journalctl path only logs Write failures because
-	// its journalctl subprocess cannot be rewound to an arbitrary entry;
-	// the native Reader can, so it does the stronger thing.)
+	// current follow loop; followNativeFile then backs off and reopens.
+	// On the reopen followNativeFileOnce resumes at the last *persisted*
+	// cursor (the previous successfully-written entry) via SeekToCursor,
+	// whose resume point is the entry AFTER that cursor — i.e. exactly this
+	// failed entry. When NO cursor has been persisted yet (this entry's
+	// Write failed before the first successful persist), there is nothing
+	// to seek to; the retry instead relies on followNativeFileOnce
+	// suppressing the start_at:end backlog drain on a re-open (see
+	// markNativeFollowStarted), so Follow's catch-up drain re-reads from the
+	// file head and redelivers this entry rather than discarding it as
+	// backlog. Either way delivery is at-least-once: without the return,
+	// Follow would advance to the next entry and its successful Write would
+	// persist a cursor past the failed one, permanently skipping it. (The
+	// journalctl path only logs Write failures because its journalctl
+	// subprocess cannot be rewound to an arbitrary entry; the native Reader
+	// can, so it does the stronger thing.)
 	if err := operator.Write(ctx, stanzaEntry); err != nil {
 		operator.Logger().Error("native journald: failed to write entry, aborting follow to retry from last cursor",
 			zap.Uint64("seqnum", e.SeqNum),

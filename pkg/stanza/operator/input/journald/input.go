@@ -85,6 +85,16 @@ type Input struct {
 	// "end" matches the journalctl backend's --follow semantics with
 	// no --no-tail.
 	nativeStartAt string
+
+	// nativeFollowStarted records, keyed by resolved journal file path,
+	// whether a followNativeFileOnce lifecycle has already begun for that
+	// file in this process. The start_at:end backlog drain runs only on
+	// the first follow of a file; a retry re-open (after a Write failure
+	// aborted Follow before any cursor was persisted) must resume and
+	// redeliver rather than re-discard the failed entry. In-memory only:
+	// across a process restart the persisted cursor is the correct resume
+	// point, so this state need not survive the restart.
+	nativeFollowStarted sync.Map
 }
 
 type cmd interface {
