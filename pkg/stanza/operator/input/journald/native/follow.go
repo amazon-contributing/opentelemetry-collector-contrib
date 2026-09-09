@@ -280,7 +280,7 @@ func (r *Reader) followWatch(ctx context.Context, w *fsnotify.Watcher, fn func(*
 			// the active system.journal to an archived name and created a
 			// fresh system.journal at the same path. Handle this
 			// transparently and losslessly rather than aborting (the
-			// previous behaviour stopped the follower and, under
+			// previous behavior stopped the follower and, under
 			// start_at:end re-open, silently dropped the post-rotation
 			// backlog). See handleRotation.
 			if ev.Op&(fsnotify.Rename|fsnotify.Remove) != 0 {

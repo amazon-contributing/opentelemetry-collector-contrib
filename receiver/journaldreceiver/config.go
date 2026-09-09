@@ -49,12 +49,12 @@
 //     contract holds in isolation from the operator-level dispatch
 //     added in task 28.
 //
-// No behavioural change; comment-only edit. The Mode/Validate/
+// No behavioral change; comment-only edit. The Mode/Validate/
 // createDefaultConfig wiring referenced above was committed in task
 // 26's initial pass (commit 8b2ed6f) and is still present verbatim
 // below; this block restates the requirement-to-symbol mapping so the
 // review-time diff for the rework cycle visibly carries the task 26
-// contract on the most recent commit instead of relying on archaeology
+// contract on the most recent commit instead of relying on archeology
 // through the merge history.
 
 package journaldreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/journaldreceiver"

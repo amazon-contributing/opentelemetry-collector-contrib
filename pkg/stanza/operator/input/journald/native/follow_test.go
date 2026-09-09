@@ -65,7 +65,7 @@
 //     CGO_ENABLED=0 go test -run TestFollow -v -count=1 -timeout 60s:
 //     5/5 PASS, no skips on a systemd-equipped host.
 //
-// No behavioural change; comment-only edit. Build, vet, and the follow
+// No behavioral change; comment-only edit. Build, vet, and the follow
 // test suite (TestFollow*) pass with CGO_ENABLED=0.
 
 package native
@@ -158,7 +158,7 @@ var followBootID = [16]byte{
 }
 
 // privateHeaderSize is the on-disk header size used by buildPrivateJournal.
-// We use the minimum supported size so the synthesised file is byte-for-byte
+// We use the minimum supported size so the synthesized file is byte-for-byte
 // reproducible across systemd versions.
 const privateHeaderSize uint64 = 224
 
@@ -198,7 +198,7 @@ func resolveJournalctl(t *testing.T) string {
 	return path
 }
 
-// buildPrivateJournal materialises a non-compact journal file at path
+// buildPrivateJournal materializes a non-compact journal file at path
 // containing the given number of pre-existing ENTRY objects. Each entry
 // has seqnum [seqnumStart .. seqnumStart+entries), realtime starting at
 // realtimeStart with 1-second spacing, monotonic starting at
@@ -816,7 +816,7 @@ func TestFollow_SystemdCat(t *testing.T) {
 	// Detection-latency assertion. appendSystemdCatEntry returns only
 	// after the header patch is f.Sync'd, so this measures inotify
 	// wake + ParseHeader + ParseEntry, NOT the systemd-cat
-	// round-trip (that is amortised before appendStart).
+	// round-trip (that is amortized before appendStart).
 	obs := collector.awaitNext(t, followLatencyBudget)
 	latency := obs.recvAt.Sub(appendStart)
 	if latency > followLatencyBudget {
@@ -983,7 +983,7 @@ func TestFollow_PollFallback(t *testing.T) {
 
 // TestFollow_AppendDetection_NoSystemdCat is the always-on detection
 // regression test. It does NOT spawn systemd-cat — the appended entry
-// is synthesised in pure Go — so it passes on hosts (e.g. minimal
+// is synthesized in pure Go — so it passes on hosts (e.g. minimal
 // containers) where the systemd-cat / journalctl pair is missing. The
 // test still asserts the ≤ 50 ms detection budget so a regression in
 // Follow's wake path is caught regardless of host capabilities.

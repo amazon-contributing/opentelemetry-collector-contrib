@@ -81,14 +81,14 @@
 // Lifecycle / failure-mode coverage:
 //
 //   Build error on unresolvable paths      -> TestNativeBuild_FailsOnUnresolvablePaths
-//   Start error on no-paths-resolved       -> TestNativeStart_NoPaths (defence-in-depth
+//   Start error on no-paths-resolved       -> TestNativeStart_NoPaths (defense-in-depth
 //                                                    for hand-constructed Inputs)
 //   Stop drains follower goroutines        -> TestNativeStart_ContextCancellationStopsFollowers
 //   Probe surfaces missing-file at Start   -> TestNativeFollowerErrorTolerance
 //   dedupSorted helper                     -> TestDedupSorted_EdgeCases (5 cases)
 //   drainAndDiscard smoke                  -> TestDrainAndDiscard_EOF
 //
-// No behavioural change in this comment-only edit; the test
+// No behavioral change in this comment-only edit; the test
 // implementations committed in 499eef9 remain unchanged below.
 
 package journald
@@ -340,7 +340,7 @@ func TestNativeBuild_FailsOnUnresolvablePaths(t *testing.T) {
 	assert.Contains(t, err.Error(), "native journald reader")
 }
 
-// TestNativeStart_NoPaths is a defence-in-depth check: if a caller
+// TestNativeStart_NoPaths is a defense-in-depth check: if a caller
 // constructs Input by hand (skipping Build) and ends up with mode set
 // but nativePaths nil, Start must fail rather than hang or crash.
 func TestNativeStart_NoPaths(t *testing.T) {
@@ -666,7 +666,7 @@ func TestNativeStart_DoesNotLogBackendStartOnProbeFailure(t *testing.T) {
 }
 
 // TestNativeFieldValue pins the convert_message_bytes parity shaping done
-// by nativeFieldValue, mirroring parseJournalEntry's behaviour for the
+// by nativeFieldValue, mirroring parseJournalEntry's behavior for the
 // journalctl backend:
 //
 //   - A valid-UTF-8 value is passed through as a string regardless of the

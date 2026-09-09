@@ -81,7 +81,7 @@ func (c Config) buildArgs() ([]string, error) {
 	// Export logs as JSON
 	args = append(args, "--output=json")
 
-	// Continue watching logs until cancelled
+	// Continue watching logs until canceled
 	args = append(args, "--follow")
 
 	switch c.StartAt {

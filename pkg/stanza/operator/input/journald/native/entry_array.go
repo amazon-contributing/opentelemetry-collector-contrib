@@ -169,7 +169,7 @@ type Option func(*Reader)
 //
 // Both strategies yield the same set of entries for typical single-boot
 // files; choose indexed traversal when correctness across rotation
-// matters or when you need to honour the file's declared head/tail.
+// matters or when you need to honor the file's declared head/tail.
 func WithIndexedTraversal(enabled bool) Option {
 	return func(r *Reader) {
 		r.useIndexedTraversal = enabled
@@ -192,7 +192,7 @@ func WithIndexedTraversal(enabled bool) Option {
 //
 // Cycle detection: every loaded EntryArray.Offset is recorded in
 // r.arrayVisited. If the chain ever points at an offset we have already
-// loaded, ErrEntryArrayCycle is returned. This is defence-in-depth against
+// loaded, ErrEntryArrayCycle is returned. This is defense-in-depth against
 // corrupted or crafted files; systemd never writes a cycle on its own.
 //
 // This method is unexported (it's a private implementation detail of the

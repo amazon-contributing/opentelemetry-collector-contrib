@@ -70,7 +70,7 @@
 //                                              the parity contract is
 //                                              about emit-pipeline shape,
 //                                              not mode validation.
-//                                              Mode=native behaviour is
+//                                              Mode=native behavior is
 //                                              pinned in
 //                                              TestConfigValidate_AcceptsNative.
 //
@@ -127,7 +127,7 @@
 //                                              checklist confirms the
 //                                              PASS line.
 //
-// Defence-against-trivial-pass invariants (TestBackendParity_Fixture
+// Defense-against-trivial-pass invariants (TestBackendParity_Fixture
 // Invariants below): a parity test that compares two empty slices
 // would silently pass even if both backends regressed to "emit
 // nothing". The invariant subtest pins generator-derived facts (entry
@@ -135,7 +135,7 @@
 // window) so a regression that drops all entries — or returns
 // degenerate ones — fails loudly on the same fixture.
 //
-// No behavioural change in this comment-only addition; the
+// No behavioral change in this comment-only addition; the
 // TestBackendParity implementation committed in 326c79b remains
 // unchanged below. The new TestBackendParity_FixtureInvariants is
 // purely additive.
@@ -178,7 +178,7 @@ import (
 // directly. To compare backends we therefore:
 //
 //  1. Run the native backend, collect its emitted *entry.Entry slice.
-//  2. Synthesize a journalctl-style JSON stream by re-marshalling each
+//  2. Synthesize a journalctl-style JSON stream by re-marshaling each
 //     native body together with the __REALTIME_TIMESTAMP that
 //     parseJournalEntry strips into entry.Timestamp. The synthesized
 //     bodies already carry __CURSOR and __MONOTONIC_TIMESTAMP from
@@ -427,7 +427,7 @@ func (c *parityCollector) waitForCount(target int, timeout time.Duration) {
 
 // snapshot returns a copy of the collected entries. Returning a copy
 // rather than the live slice prevents post-Stop() callbacks (none are
-// expected, but defence-in-depth) from mutating the test's view.
+// expected, but defense-in-depth) from mutating the test's view.
 func (c *parityCollector) snapshot() []*entry.Entry {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -559,11 +559,11 @@ func TestBackendParity_FixtureInvariants(t *testing.T) {
 				"got %T", i, cursor)
 		assert.NotEmptyf(t, cursorStr,
 			"fixture invariant: entry %d __CURSOR must be non-empty "+
-				"(serialised journal cursor)", i)
+				"(serialized journal cursor)", i)
 		// systemd cursor wire format starts with 's=' (file_id).
 		// emitNativeEntry uses native.Reader.Cursor() which writes
 		// the same format, so the prefix is a cheap sanity check
-		// that catches accidental serialisation drift.
+		// that catches accidental serialization drift.
 		assert.Truef(t, strings.HasPrefix(cursorStr, "s="),
 			"fixture invariant: entry %d __CURSOR=%q must start "+
 				"with 's=' per systemd cursor wire format",

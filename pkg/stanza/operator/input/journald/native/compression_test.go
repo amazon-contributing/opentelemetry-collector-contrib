@@ -203,7 +203,7 @@ func TestDecompressPayload_XZGarbage(t *testing.T) {
 }
 
 // TestDecompressPayload_ZSTDOverLimit proves the ZSTD DoS guard fires
-// DURING decode rather than after fully materialising the output. We
+// DURING decode rather than after fully materializing the output. We
 // build a single zstd frame whose decompressed size exceeds
 // MaxDecompressedSize (highly compressible zero bytes keep the compressed
 // input tiny) and assert decompressZSTD rejects it with our
@@ -264,7 +264,7 @@ func errOrEmpty(err error) string {
 //
 // If a fixture file is absent (e.g. checked-out tree without the binary
 // blob), the test calls t.Skipf rather than failing — the in-memory
-// round-trip tests above still cover the decoder behaviour.
+// round-trip tests above still cover the decoder behavior.
 
 // compressionFixtureRel is the relative path from the package's test
 // working directory (which `go test` sets to the package directory) to

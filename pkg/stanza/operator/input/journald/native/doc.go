@@ -49,4 +49,4 @@
 // fragments were copied into this tree and are maintained here. See the
 // NOTICE file in this directory for the full attribution and the list of
 // modifications relative to the upstream commit.
-package native
+package native // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/operator/input/journald/native"

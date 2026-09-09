@@ -84,8 +84,8 @@
 //                                              comment + test
 //                                              TestNativeEntryShape
 //
-// No behavioural change in this comment-only edit; the implementation
-// committed in 499eef9 (and the cursor-persist behaviour added there)
+// No behavioral change in this comment-only edit; the implementation
+// committed in 499eef9 (and the cursor-persist behavior added there)
 // remain unchanged below.
 //
 // One additive change in this commit (purely additive, journalctl
@@ -147,7 +147,7 @@ const nativeBackoff = 2 * time.Second
 //   - wg.Add/wg.Wait race: when followers were spawned from the
 //     background goroutine, a Stop() arriving immediately after Start
 //     returned could call wg.Wait() concurrently with a follower's
-//     wg.Add(1) — undefined behaviour for sync.WaitGroup. Doing every
+//     wg.Add(1) — undefined behavior for sync.WaitGroup. Doing every
 //     wg.Add here, before Start returns, establishes a happens-before
 //     edge so the first possible wg.Wait() always observes the final
 //     counter.
@@ -160,7 +160,7 @@ const nativeBackoff = 2 * time.Second
 // here only when operator.mode == ModeNative.
 func (operator *Input) runNative(ctx context.Context) error {
 	if len(operator.nativePaths) == 0 {
-		// Defence in depth: Build resolves paths up front so this
+		// Defense in depth: Build resolves paths up front so this
 		// branch should be unreachable, but a programmatic caller
 		// that constructs Input by hand could skip Build and end up
 		// here. Return a clear error rather than silently doing
@@ -288,7 +288,7 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 	firstFollow := operator.markNativeFollowStarted(path)
 
 	// Best-effort cursor resume: if we have a stored cursor and it
-	// belongs to this file, seek to it; otherwise honour StartAt.
+	// belongs to this file, seek to it; otherwise honor StartAt.
 	// SeekToCursor returns ErrCursorSeqnumMismatch when the cursor
 	// belongs to a different file (rotation, multi-file Files=
 	// configs); we ignore those and start from the configured
@@ -364,7 +364,7 @@ func (operator *Input) markNativeFollowStarted(path string) bool {
 }
 
 // drainAndDiscard advances the Reader's cursor to EOF without invoking
-// any callback. Used to honour StartAt=end semantics without having to
+// any callback. Used to honor StartAt=end semantics without having to
 // expose the Reader's cursor offsetting plumbing through the
 // operator-side wiring. Returns nil on a clean EOF or io.EOF error.
 //
@@ -372,7 +372,7 @@ func (operator *Input) markNativeFollowStarted(path string) bool {
 // large StartAt=end journal returns promptly (with ctx.Err()) instead of
 // blocking shutdown until the whole backlog has been walked to EOF. The
 // returned ctx.Err() wraps context.Canceled, which followNativeFile
-// recognises and treats as a clean follower exit.
+// recognizes and treats as a clean follower exit.
 func drainAndDiscard(ctx context.Context, r *native.Reader) error {
 	for {
 		select {
@@ -404,7 +404,7 @@ func drainAndDiscard(ctx context.Context, r *native.Reader) error {
 //     on cursor presence (e.g. checkpointing in stanza pipelines) keep
 //     working unchanged.
 //   - "__REALTIME_TIMESTAMP" is consumed for entry.Timestamp (matching
-//     parseJournalEntry's behaviour) and removed from the body so the
+//     parseJournalEntry's behavior) and removed from the body so the
 //     downstream shape matches journalctl's exactly — parseJournalEntry
 //     deletes it from body before NewEntry.
 //   - entry.Timestamp = time.Unix(0, realtime_us * 1000), the same
@@ -419,7 +419,7 @@ func drainAndDiscard(ctx context.Context, r *native.Reader) error {
 //
 // Items whose DATA object cannot be resolved (decompression failure,
 // malformed payload) are logged at warn level and excluded from the
-// body. This mirrors the journalctl path's stanza behaviour: a single
+// body. This mirrors the journalctl path's stanza behavior: a single
 // malformed entry is degraded, not fatal.
 func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, cursorKey string, e *native.Entry) error {
 	body := make(map[string]any, len(e.Items)+2)
@@ -438,7 +438,7 @@ func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, cu
 		body[field] = nativeFieldValue(field, value, operator.convertMessageBytes)
 	}
 
-	// Cursor: use the Reader's serialised cursor so the value is
+	// Cursor: use the Reader's serialized cursor so the value is
 	// re-seekable across restarts. Fall back to omitting __CURSOR
 	// when the Reader has no recorded entry yet (would be a
 	// programming bug — Follow only invokes the callback after
@@ -524,7 +524,7 @@ func (operator *Input) emitNativeEntry(ctx context.Context, r *native.Reader, cu
 
 // nativeFieldValue shapes a single FIELD=value pair so the native body
 // matches what the journalctl JSON backend (parseJournalEntry) would put
-// in entry.Body for the same record, honouring convert_message_bytes.
+// in entry.Body for the same record, honoring convert_message_bytes.
 //
 // The journalctl path derives field values from `journalctl --output=json`:
 //   - A value that is valid UTF-8 is emitted as a JSON string and
@@ -576,7 +576,7 @@ func bytesToAnySlice(b []byte) []any {
 //   - Else: error. The native backend does not auto-discover the
 //     default /var/log/journal/<machine-id>/ tree because the user-vs-
 //     persistent-vs-runtime selection is owned by the journalctl flag
-//     surface; matching it here would silently change behaviour
+//     surface; matching it here would silently change behavior
 //     between backends. Operators wanting the default tree must set
 //     Directory= explicitly.
 //
