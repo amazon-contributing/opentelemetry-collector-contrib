@@ -28,7 +28,7 @@ import (
 // TestNativeFollow_UnusableCursorHonorsStartAtEnd is the regression guard
 // for the cursor-seek-failure defect: when a persisted cursor exists but
 // SeekToCursor rejects it (rotation / archived entry / corrupt checkpoint)
-// under start_at:end, followNativeFileOnce must honour start_at by draining
+// under start_at:end, followNativeFileOnce must honor start_at by draining
 // the on-disk backlog rather than falling through to Follow with the Reader
 // still at the file head — which replayed the ENTIRE file.
 //
@@ -82,7 +82,7 @@ func TestNativeFollow_UnusableCursorHonorsStartAtEnd(t *testing.T) {
 	require.NoError(t, op.Start(persister))
 	t.Cleanup(func() { require.NoError(t, op.Stop()) })
 
-	// The follower opens, fails the seek, honours start_at:end, and enters
+	// The follower opens, fails the seek, honors start_at:end, and enters
 	// the watch loop. With the bug the file replays almost immediately, so a
 	// generous settle window makes any replay decisive.
 	time.Sleep(1500 * time.Millisecond)
@@ -155,7 +155,7 @@ func TestNativeFollow_RetryRedeliversWriteFailedEntry(t *testing.T) {
 //
 // Mirrors the native package's buildPrivateJournal / appendPlainEntry
 // (native/follow_test.go) using the native package's exported byte-layout
-// constants, so this operator-side test can materialise an initially-empty
+// constants, so this operator-side test can materialize an initially-empty
 // journal and append a single ENTRY after Follow is watching. The entry
 // carries placeholder item offsets with no backing DATA objects, which is
 // sufficient here: emitNativeEntry logs and skips unresolved items but
@@ -165,14 +165,14 @@ func TestNativeFollow_RetryRedeliversWriteFailedEntry(t *testing.T) {
 // (systemd 187, 224 bytes), matching native.MinHeaderSize.
 const regressionHeaderSize uint64 = 224
 
-// regressionBootID is embedded in the synthesised entry; the value is
+// regressionBootID is embedded in the synthesized entry; the value is
 // arbitrary but distinct from the committed fixtures.
 var regressionBootID = [16]byte{
 	0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7,
 	0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF,
 }
 
-// makeRegressionEntryBytes serialises one non-compact ENTRY object: the
+// makeRegressionEntryBytes serializes one non-compact ENTRY object: the
 // 16-byte common object header, the 48-byte fixed prefix, then 16-byte
 // items (le64 object_offset + le64 hash).
 func makeRegressionEntryBytes(seqnum, realtime, monotonic, xorHash uint64, items []native.EntryItem) []byte {

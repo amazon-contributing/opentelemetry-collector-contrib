@@ -98,7 +98,7 @@ func TestParseObjectHeader_AllTypes(t *testing.T) {
 	}
 }
 
-// TestParseObjectHeader_AtNonZeroOffset confirms ReadAt is honoured and
+// TestParseObjectHeader_AtNonZeroOffset confirms ReadAt is honored and
 // Offset is captured. Constructs a buffer with a sentinel byte before the
 // header to prove the parser is not reading offset 0 by accident.
 func TestParseObjectHeader_AtNonZeroOffset(t *testing.T) {

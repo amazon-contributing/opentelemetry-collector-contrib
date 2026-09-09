@@ -20,7 +20,7 @@ import (
 // real journals never produce a single payload that approaches this cap.
 // Treat it as a denial-of-service guard against crafted journals that claim
 // huge uncompressed sizes. All three paths enforce the cap DURING decode
-// before fully materialising an oversized payload: LZ4 checks its declared
+// before fully materializing an oversized payload: LZ4 checks its declared
 // size prefix before allocating, XZ reads through an io.LimitReader, and
 // ZSTD configures the decoder with WithDecoderMaxMemory.
 const MaxDecompressedSize uint64 = 64 * 1024 * 1024 // 64 MiB
@@ -40,7 +40,7 @@ const LZ4SizePrefixBytes = 8
 var (
 	// ErrCompressionUnknown indicates the supplied compression flag bits
 	// did not match any of the ObjectCompressed* constants. Returned when
-	// a journal advertises a compression algorithm we do not recognise
+	// a journal advertises a compression algorithm we do not recognize
 	// (e.g. a future systemd extension).
 	ErrCompressionUnknown = errors.New("journal data: unknown compression flag")
 	// ErrLZ4PrefixMissing indicates the LZ4 payload was shorter than the
@@ -127,7 +127,7 @@ func decompressLZ4Block(payload []byte) ([]byte, error) {
 // goroutine-free, matching the rest of the package's I/O model.
 //
 // WithDecoderMaxMemory bounds the in-memory decoded size so DecodeAll refuses
-// to materialise more than MaxDecompressedSize bytes for a crafted frame,
+// to materialize more than MaxDecompressedSize bytes for a crafted frame,
 // rather than allocating the full output first and rejecting it only after
 // the fact. This mirrors the LZ4 pre-allocation check and the XZ
 // io.LimitReader: the DoS guard fires DURING decode, not after.

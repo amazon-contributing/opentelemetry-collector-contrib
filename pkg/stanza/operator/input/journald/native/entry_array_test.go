@@ -16,7 +16,7 @@ import (
 // -----------------------------------------------------------------------
 // In-memory fixture builders.
 //
-// These helpers synthesise valid systemd-journal byte sequences in memory
+// These helpers synthesize valid systemd-journal byte sequences in memory
 // so the EntryArray traversal can be exercised without depending on a
 // running systemd. Every helper is local to the test file (lower-case
 // names) and emits non-compact layout unless explicitly told otherwise —
@@ -372,7 +372,7 @@ func TestEntryArray_IteratorWalksMultiArrayChain(t *testing.T) {
 		entryOffsets = append(entryOffsets, off)
 	}
 
-	// Build EA2 first so we know its offset before serialising EA1.
+	// Build EA2 first so we know its offset before serializing EA1.
 	ea2Offset := headerEnd + uint64(len(arena))
 	ea2 := buildEntryArrayBytes(0, []uint64{entryOffsets[2]}, false)
 	arena = append(arena, ea2...)
@@ -464,7 +464,7 @@ func TestEntryArray_IteratorSkipsSparseSlots(t *testing.T) {
 
 // TestEntryArray_IteratorDetectsCycle builds an EntryArray whose
 // NextEntryArrayOffset points at itself and verifies the iterator
-// returns ErrEntryArrayCycle rather than spinning forever. Defence in
+// returns ErrEntryArrayCycle rather than spinning forever. Defense in
 // depth against corrupted or maliciously crafted journals.
 func TestEntryArray_IteratorDetectsCycle(t *testing.T) {
 	const headerEnd = MinHeaderSize
@@ -507,7 +507,7 @@ func TestEntryArray_IteratorDetectsCycle(t *testing.T) {
 
 // TestEntryArray_IteratorRefusesAfterClose verifies that Close +
 // ReadEntry on an indexed-traversal Reader returns ErrReaderClosed,
-// matching the linear-scan strategy's behaviour.
+// matching the linear-scan strategy's behavior.
 func TestEntryArray_IteratorRefusesAfterClose(t *testing.T) {
 	hdr := buildSyntheticHeaderBytes(0, 0, 0, 0, 0, 0, 0)
 	path := writeSyntheticJournal(t, hdr, nil)

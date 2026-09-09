@@ -100,7 +100,7 @@ type Header struct {
 	// ArenaSize is the size of the arena that follows the header.
 	ArenaSize uint64
 	// DataHashTableOffset is the offset of the data hash table within the
-	// arena, or zero if the table has not been initialised.
+	// arena, or zero if the table has not been initialized.
 	DataHashTableOffset uint64
 	// DataHashTableSize is the size of the data hash table in bytes.
 	DataHashTableSize uint64

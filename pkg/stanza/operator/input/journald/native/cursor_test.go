@@ -37,7 +37,7 @@ import (
 //     SeekClosed: the four error paths of SeekToCursor, including the
 //     "reader is reset to head on not-found" recovery contract.
 //   - TestCrashRecovery_PrivateJournal: deterministic crash-recovery
-//     simulation using a synthesised private journal — the
+//     simulation using a synthesized private journal — the
 //     no-systemd-cat path that always runs in CI.
 //   - TestCrashRecovery_SystemdCat: spec-mandated crash-recovery test
 //     that drives every entry through systemd-cat (via the bridge
@@ -151,7 +151,7 @@ func TestCursor_RoundTrip(t *testing.T) {
 				t.Fatalf("ParseCursor(%q): %v", s, err)
 			}
 
-			// FileID is local-only and intentionally NOT serialised
+			// FileID is local-only and intentionally NOT serialized
 			// to the wire format; ParseCursor leaves it zero even
 			// when the source cursor had it populated.
 			var zeroID [16]byte
@@ -179,19 +179,19 @@ func TestCursor_RoundTrip(t *testing.T) {
 				t.Errorf("XorHash: got %d, want %d", parsed.XorHash, c.XorHash)
 			}
 
-			// Re-serialise the parsed cursor; the second string must
+			// Re-serialize the parsed cursor; the second string must
 			// match the first byte-for-byte so cursor equality is
 			// safe to perform via string comparison.
 			s2 := parsed.String()
 			if s2 != s {
-				t.Errorf("re-serialised cursor differs:\n  got  %q\n  want %q", s2, s)
+				t.Errorf("re-serialized cursor differs:\n  got  %q\n  want %q", s2, s)
 			}
 		})
 	}
 }
 
 // TestCursor_ParseAcceptsAnyKeyOrder confirms ParseCursor is tolerant of
-// arbitrary key order, mirroring sd_journal_seek_cursor's behaviour.
+// arbitrary key order, mirroring sd_journal_seek_cursor's behavior.
 func TestCursor_ParseAcceptsAnyKeyOrder(t *testing.T) {
 	c := makeFullCursor()
 

@@ -127,7 +127,7 @@ type Reader struct {
 	// --- Phase 3 cursor / checkpoint state ---
 	//
 	// lastEntry retains the most recently returned ENTRY so that
-	// Cursor() can serialise it into systemd's wire format without an
+	// Cursor() can serialize it into systemd's wire format without an
 	// extra seek. Both iteration strategies (linear scan and indexed
 	// traversal) update this field on every successful ReadEntry.
 	// Nil before the first ReadEntry and after a failing seek.
@@ -159,7 +159,7 @@ var (
 //
 // Open does NOT scan the entire file; the cost is one ParseHeader (256
 // bytes from offset 0) plus the os.Open syscall. Subsequent ReadEntry
-// calls amortise the per-object scan.
+// calls amortize the per-object scan.
 //
 // Options (variadic) configure iteration strategy and other per-Reader
 // settings. See WithIndexedTraversal for the EntryArray-based traversal
@@ -300,7 +300,7 @@ func (r *Reader) Offset() uint64 {
 // When the Reader was opened with WithIndexedTraversal(true), ReadEntry
 // dispatches to iterateViaEntryArray, walking the chain rooted at
 // Header.EntryArrayOffset rather than scanning the arena. The exposed
-// behaviour is identical from the caller's point of view — the only
+// behavior is identical from the caller's point of view — the only
 // observable differences are entry order on rotated/merged files and
 // the value reported by Offset() (which only tracks the linear-scan
 // strategy and remains at HeaderSize when indexed traversal is in use).
@@ -355,7 +355,7 @@ func (r *Reader) ReadEntry() (*Entry, error) {
 		// All journal objects sit on 8-byte boundaries. The header
 		// guarantees the first cursor value (HeaderSize) is aligned,
 		// and we keep it aligned via NextOffset below; this guard is
-		// defence-in-depth in case a caller manipulated the cursor
+		// defense-in-depth in case a caller manipulated the cursor
 		// directly via a future Seek API.
 		aligned := alignUp(r.cursor, ObjectAlignment)
 		if aligned >= r.arenaEnd {

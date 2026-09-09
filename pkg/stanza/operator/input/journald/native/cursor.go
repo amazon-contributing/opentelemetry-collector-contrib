@@ -34,7 +34,7 @@ import (
 //   - x — XorHash, lowercase hex.
 //
 // FileID is recorded for caller-side validation (e.g. asserting a cursor
-// belongs to the same .journal file before seeking) but is NOT serialised
+// belongs to the same .journal file before seeking) but is NOT serialized
 // into the wire format because systemd's cursor is intentionally
 // file-portable: the same SeqnumID space spans multiple rotated files,
 // and a cursor must be resumable on the next file even if the prior one

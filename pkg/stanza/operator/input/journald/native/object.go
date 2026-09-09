@@ -16,7 +16,7 @@ type ObjectType uint8
 
 // Object type values, matching systemd's enum order.
 const (
-	// ObjectUnused marks a deleted or never-initialised object slot.
+	// ObjectUnused marks a deleted or never-initialized object slot.
 	ObjectUnused ObjectType = 0
 	// ObjectData carries a single FIELD=value payload referenced by one
 	// or more entries.

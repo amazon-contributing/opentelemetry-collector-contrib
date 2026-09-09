@@ -214,7 +214,7 @@ func TestParseEntry_CompactSynthetic(t *testing.T) {
 	}
 }
 
-// TestParseEntry_AtNonZeroOffset confirms the parser honours the supplied
+// TestParseEntry_AtNonZeroOffset confirms the parser honors the supplied
 // offset and the resulting Entry.Offset captures it.
 func TestParseEntry_AtNonZeroOffset(t *testing.T) {
 	const startOff uint64 = 256
@@ -364,7 +364,7 @@ func TestEntryParser_M1(t *testing.T) {
 	// Buggy path simulation: parsing the same compact bytes with
 	// compact=false would treat 12 bytes of items as a 16-byte stride,
 	// which fails the M2 divisibility check (12 % 16 != 0). Asserting
-	// this guards against the spike's behaviour ever sneaking back in:
+	// this guards against the spike's behavior ever sneaking back in:
 	// any caller that forgets to pass compact=true on a real AL2023
 	// journal will get a loud error, not silent data corruption.
 	_, err = ParseEntry(bytes.NewReader(objBytes), 0, false)
@@ -433,7 +433,7 @@ func TestEntryParser_M2(t *testing.T) {
 //
 // The current implementation enforces these properties via an explicit
 // uint64-to-int64 bounds check before the cast. This test pins the
-// behaviour so any regression that re-introduces the unsafe direct cast
+// behavior so any regression that re-introduces the unsafe direct cast
 // (or a far-future wrap) is caught.
 func TestEntryParser_M3(t *testing.T) {
 	// (2) usec=0 → zero time, no error.
@@ -477,7 +477,7 @@ func TestEntryParser_M3(t *testing.T) {
 			tm, err := usecToTime(usec)
 			if err != nil {
 				// An explicit overflow error is also an acceptable
-				// way to honour the M3 invariant — it just must not
+				// way to honor the M3 invariant — it just must not
 				// silently return a pre-1970 time.
 				return
 			}
@@ -563,7 +563,7 @@ func TestReadDataField_NonCompact(t *testing.T) {
 }
 
 // TestReadDataField_Compact verifies the compact-mode payload offset
-// (DataCompactPayloadOffset = 72) is honoured. A buggy parser reading at
+// (DataCompactPayloadOffset = 72) is honored. A buggy parser reading at
 // offset 64 would prepend 8 bytes of zero into the field name.
 func TestReadDataField_Compact(t *testing.T) {
 	dataObj := makeDataObjectBytes("PRIORITY", "6", true)

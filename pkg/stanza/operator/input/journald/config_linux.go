@@ -109,7 +109,7 @@ func (c Config) buildArgs() ([]string, error) {
 	args = append(args,
 		"--utc",         // Export logs in UTC time
 		"--output=json", // Export logs as JSON
-		"--follow",      // Continue watching logs until cancelled
+		"--follow",      // Continue watching logs until canceled
 	)
 
 	if c.StartAt == "beginning" {
