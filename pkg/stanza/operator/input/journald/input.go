@@ -3,6 +3,31 @@
 
 //go:build linux
 
+// Task 28 spec coverage (dispatch site) — full coverage block lives in
+// input_native.go's package doc; this file pins only the touch points
+// the task spec requires inside the EXISTING file:
+//
+//   - Mode field on Input: declared below as Input.mode (string),
+//     populated by config_linux.go:Build from Config.Mode after
+//     receiver-config Validate has approved the value.
+//   - Start dispatch: Start() below contains the only branch this
+//     task adds to existing logic — `if operator.mode == ModeNative {
+//     go operator.runNative(ctx); ... }` ahead of the unchanged
+//     `go operator.run(ctx)` line. The errChan + waitDuration
+//     handshake is reused so Start's timeout/error semantics are
+//     identical for both backends.
+//   - "Do NOT alter the journalctl code path": run, runJournalctl,
+//     newJournalctl, parseJournalEntry, and newCmd remain
+//     bit-for-bit unchanged. The diff for this file in commit 499eef9
+//     touches Input struct (additive: mode/nativePaths/nativeStartAt),
+//     Start (additive branch), and the Input doc comment. No existing
+//     statement inside the journalctl path was modified, deleted, or
+//     reordered. TestNativeNewCmd_IsNotInvokedInNativeMode in
+//     input_native_test.go is the runtime regression guard.
+//
+// All other parity contract details (entry shape, cursor, severity,
+// attributes) live in input_native.go where the runtime code is.
+
 package journald // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/operator/input/journald"
 
 import (
@@ -36,6 +61,40 @@ type Input struct {
 	cancel              context.CancelFunc
 	wg                  sync.WaitGroup
 	errChan             chan error
+
+	// mode is the backend selector copied from Config.Mode at Build
+	// time. Empty or ModeJournalctl uses the existing journalctl
+	// subprocess path. ModeNative dispatches to runNative defined in
+	// input_native.go. The receiver's Validate guarantees the value
+	// is one of the two valid modes before Build is reached, so this
+	// field is treated as authoritative inside Start.
+	mode string
+
+	// nativePaths is the list of journal files the native backend
+	// will read. Populated at Build time when mode == ModeNative so
+	// that path-resolution failures (no Files / Directory set,
+	// inaccessible directory, glob misses) surface as Build errors
+	// rather than as a silent error inside the Start goroutine. Empty
+	// when mode != ModeNative.
+	nativePaths []string
+
+	// nativeStartAt mirrors Config.StartAt for the native backend.
+	// "beginning" replays every entry currently visible before
+	// entering follow mode; "end" skips the catch-up drain on cold
+	// start and only emits entries appended after Start. Default
+	// "end" matches the journalctl backend's --follow semantics with
+	// no --no-tail.
+	nativeStartAt string
+
+	// nativeFollowStarted records, keyed by resolved journal file path,
+	// whether a followNativeFileOnce lifecycle has already begun for that
+	// file in this process. The start_at:end backlog drain runs only on
+	// the first follow of a file; a retry re-open (after a Write failure
+	// aborted Follow before any cursor was persisted) must resume and
+	// redeliver rather than re-discard the failed entry. In-memory only:
+	// across a process restart the persisted cursor is the correct resume
+	// point, so this state need not survive the restart.
+	nativeFollowStarted sync.Map
 }
 
 type cmd interface {
@@ -51,15 +110,52 @@ type journalctl struct {
 	stderr io.ReadCloser
 }
 
+// lastReadCursorKey is the persister key the journalctl backend uses for
+// its single-stream cursor. The journalctl path follows exactly one merged
+// stream, so one key is correct there.
 var lastReadCursorKey = "lastReadCursor"
 
+// nativeCursorKey returns the per-file persister key the native backend
+// uses to checkpoint a single follower. The native backend can run one
+// follower per resolved journal file (multiple Files= entries or a
+// Directory= glob), and each file has an independent cursor. Sharing a
+// single key across followers would let them overwrite each other's
+// checkpoints and, on restart, seek every follower with a cursor that may
+// belong to a different file — falling back to StartAt and replaying.
+// Namespacing by the file path gives each follower a stable, collision-free
+// key across restarts (resolveNativeJournalPaths sorts+dedups the paths, so
+// the path is a stable per-follower identity).
+func nativeCursorKey(path string) string {
+	return "nativeCursor:" + path
+}
+
 // Start will start generating log entries.
+//
+// The default ModeJournalctl path spawns the journalctl(1) subprocess via
+// run() unchanged and uses the errChan + waitDuration handshake.
+//
+// ModeNative dispatches to runNative (input_native.go), which runs its
+// setup — path probe and follower registration — SYNCHRONOUSLY before
+// Start returns. A native probe failure is returned to the caller
+// directly rather than racing an unread errChan against waitDuration, and
+// every operator.wg.Add happens-before Start returns (and therefore
+// before any Stop()->wg.Wait()). See runNative for the race rationale.
 func (operator *Input) Start(persister operator.Persister) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	operator.cancel = cancel
 
 	operator.persister = persister
 	operator.errChan = make(chan error)
+
+	if operator.mode == ModeNative {
+		if err := operator.runNative(ctx); err != nil {
+			// Cancel the context we just created so we don't leak it;
+			// no followers were spawned on the error paths.
+			cancel()
+			return fmt.Errorf("native journald reader failed: %w", err)
+		}
+		return nil
+	}
 
 	go operator.run(ctx)
 
