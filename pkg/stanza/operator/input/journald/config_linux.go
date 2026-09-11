@@ -67,6 +67,10 @@ func (c Config) Build(set component.TelemetrySettings) (operator.Operator, error
 			return nil, fmt.Errorf("native journald reader: %w", err)
 		}
 		input.nativePaths = paths
+		// Record whether the paths came from autodiscovery of the
+		// standard journal locations (neither files nor directory set)
+		// so runNative can log that autodiscovery happened.
+		input.nativeAutoDiscovered = len(c.Files) == 0 && (c.Directory == nil || *c.Directory == "")
 	}
 
 	return input, nil

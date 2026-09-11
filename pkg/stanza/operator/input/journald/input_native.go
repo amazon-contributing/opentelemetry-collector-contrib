@@ -187,6 +187,16 @@ func (operator *Input) runNative(ctx context.Context) error {
 		go operator.followNativeFile(ctx, path)
 	}
 
+	// When the paths were autodiscovered (neither files nor directory
+	// configured), emit a dedicated line naming the selected location(s)
+	// so an operator can tell autodiscovery happened rather than guessing
+	// which journal is being read. Explicitly-configured paths skip this.
+	if operator.nativeAutoDiscovered {
+		operator.Logger().Info("native journald reader auto-discovered standard journal location(s)",
+			zap.Strings("paths", operator.nativePaths),
+		)
+	}
+
 	// Emit a single structured "backend ready" log line so operators
 	// can grep their journald-receiver logs and confirm the native
 	// backend actually came up. The journalctl path doesn't have an
@@ -561,6 +571,22 @@ func bytesToAnySlice(b []byte) []any {
 	return out
 }
 
+// Standard systemd journal storage locations, consulted (in this
+// precedence order) when neither Files= nor Directory= is configured.
+// They are package variables rather than constants so tests can point
+// autodiscovery at temp directories instead of the host's real journal.
+//
+//   - defaultPersistentJournalDir is systemd's persistent journal tree,
+//     used under Storage=persistent and under the default Storage=auto
+//     once /var/log/journal exists.
+//   - defaultVolatileJournalDir is systemd's volatile runtime tree, used
+//     under Storage=volatile and under Storage=auto before
+//     /var/log/journal has been created.
+var (
+	defaultPersistentJournalDir = "/var/log/journal"
+	defaultVolatileJournalDir   = "/run/log/journal"
+)
+
 // resolveNativeJournalPaths produces the ordered, deduplicated list of
 // .journal files the native backend will read.
 //
@@ -573,12 +599,16 @@ func bytesToAnySlice(b []byte) []any {
 //     directory are listed (single-level glob, not recursive).
 //     Matches journalctl's --directory semantics for non-namespaced
 //     storage.
-//   - Else: error. The native backend does not auto-discover the
-//     default /var/log/journal/<machine-id>/ tree because the user-vs-
-//     persistent-vs-runtime selection is owned by the journalctl flag
-//     surface; matching it here would silently change behavior
-//     between backends. Operators wanting the default tree must set
-//     Directory= explicitly.
+//   - Else: neither Files= nor Directory= was set. Autodiscover the
+//     standard systemd journal locations, matching the journalctl
+//     backend, which passes no path arguments in this case (see
+//     buildArgs in config_linux.go) and therefore reads the system
+//     journal from its default locations. resolveDefaultJournalPaths
+//     globs the persistent tree (/var/log/journal) first and falls back
+//     to the volatile runtime tree (/run/log/journal); if neither
+//     yields a .journal file it returns a clear error rather than a
+//     silent no-op. This keeps mode: journalctl -> native switches
+//     working on a path-less config instead of hard-erroring.
 //
 // The returned slice is sorted to make iteration order deterministic
 // (so multi-file Files= configs hit followers in the same order across
@@ -620,8 +650,51 @@ func resolveNativeJournalPaths(c Config) ([]string, error) {
 		}
 		return dedupSorted(matches), nil
 	default:
-		return nil, errors.New("native backend requires `files` or `directory` to be set")
+		// Neither Files= nor Directory= configured: autodiscover the
+		// standard systemd journal locations so native mode matches the
+		// journalctl backend's no-path behavior (see doc comment above).
+		return resolveDefaultJournalPaths(defaultPersistentJournalDir, defaultVolatileJournalDir)
 	}
+}
+
+// resolveDefaultJournalPaths discovers the .journal files under the
+// standard systemd journal locations when the operator was configured
+// without explicit Files= or Directory=. It mirrors journalctl's
+// no-argument behavior, which reads the system journal from the
+// persistent tree (/var/log/journal) when it exists and falls back to
+// the volatile runtime tree (/run/log/journal) otherwise.
+//
+// Precedence: persistent is preferred over volatile. Under the default
+// Storage=auto, systemd writes to /var/log/journal once that directory
+// exists and only uses /run/log/journal before it is created (or under
+// Storage=volatile). The persistent tree already contains the records
+// flushed from the runtime tree, so preferring it avoids spawning two
+// followers that would read the same entries twice. Only when the
+// persistent tree yields no .journal file do we fall back to volatile.
+//
+// Journal files live one level below these roots, in a per-machine-id
+// subdirectory (e.g. /var/log/journal/<machine-id>/system.journal), so
+// we glob <root>/*/*.journal rather than <root>/*.journal — the same
+// layout journalctl scans with no --directory/--file argument.
+//
+// Returning an error when neither tree yields any .journal file is
+// deliberate: a native reader that "starts" against zero files looks
+// healthy while collecting nothing, which is worse than a loud startup
+// failure telling the operator to configure Files=/Directory=.
+func resolveDefaultJournalPaths(persistentDir, volatileDir string) ([]string, error) {
+	for _, dir := range []string{persistentDir, volatileDir} {
+		matches, err := filepath.Glob(filepath.Join(dir, "*", "*.journal"))
+		if err != nil {
+			return nil, fmt.Errorf("glob *.journal under %q: %w", dir, err)
+		}
+		if len(matches) > 0 {
+			return dedupSorted(matches), nil
+		}
+	}
+	return nil, fmt.Errorf(
+		"native backend requires `files` or `directory` to be set, or a standard "+
+			"systemd journal present at %q or %q; none were found",
+		persistentDir, volatileDir)
 }
 
 // dedupSorted returns the input slice deduplicated and lexicographically

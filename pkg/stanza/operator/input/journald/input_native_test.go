@@ -303,8 +303,14 @@ func TestResolveNativeJournalPaths_DirectoryEmpty(t *testing.T) {
 
 // TestResolveNativeJournalPaths_NoConfig asserts the
 // no-Files-no-Directory case errors out instead of silently
-// auto-discovering /var/log/journal/.
+// auto-discovering a journal that does not exist. With neither Files=
+// nor Directory= set AND neither standard journal location present, the
+// native backend must still surface a clear, actionable error rather
+// than starting a reader that silently collects nothing. The default
+// locations are pointed at empty temp dirs so the assertion does not
+// depend on the host's real journal.
 func TestResolveNativeJournalPaths_NoConfig(t *testing.T) {
+	setDefaultJournalDirs(t, filepath.Join(t.TempDir(), "no-persistent"), filepath.Join(t.TempDir(), "no-volatile"))
 	c := *NewConfig()
 	_, err := resolveNativeJournalPaths(c)
 	require.Error(t, err)
@@ -325,14 +331,156 @@ func TestResolveNativeJournalPaths_NamespaceUnsupported(t *testing.T) {
 	assert.Contains(t, err.Error(), "namespace")
 }
 
+// setDefaultJournalDirs points the standard-location autodiscovery vars
+// at test-controlled directories and restores them when the test ends,
+// so autodiscovery assertions never depend on the host's real journal.
+func setDefaultJournalDirs(t *testing.T, persistent, volatile string) {
+	t.Helper()
+	origP, origV := defaultPersistentJournalDir, defaultVolatileJournalDir
+	defaultPersistentJournalDir = persistent
+	defaultVolatileJournalDir = volatile
+	t.Cleanup(func() {
+		defaultPersistentJournalDir = origP
+		defaultVolatileJournalDir = origV
+	})
+}
+
+// makeJournalTree materializes a standard systemd layout —
+// <root>/<machineID>/<file>.journal — and returns the absolute paths of
+// the created .journal files, sorted the same way resolveNativeJournalPaths
+// returns them.
+func makeJournalTree(t *testing.T, root, machineID string, files ...string) []string {
+	t.Helper()
+	dir := filepath.Join(root, machineID)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	want := make([]string, 0, len(files))
+	for _, f := range files {
+		p := filepath.Join(dir, f)
+		require.NoError(t, os.WriteFile(p, []byte("x"), 0o600))
+		want = append(want, p)
+	}
+	return dedupSorted(want)
+}
+
+// TestResolveNativeJournalPaths_DefaultPersistentOnly covers the live
+// cluster case: no Files=/Directory= configured and only the persistent
+// tree present. Autodiscovery must glob the machine-id subdirectory under
+// /var/log/journal and return its .journal files (the machine-id
+// ec2b722f4b2cbbafea56b06c59aed5ca mirrors the reported deployment).
+func TestResolveNativeJournalPaths_DefaultPersistentOnly(t *testing.T) {
+	persistent := t.TempDir()
+	want := makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca",
+		"system.journal", "user-1000.journal")
+	// Volatile points at an empty dir so it contributes nothing.
+	setDefaultJournalDirs(t, persistent, filepath.Join(t.TempDir(), "empty-volatile"))
+
+	got, err := resolveNativeJournalPaths(*NewConfig())
+	require.NoError(t, err)
+	assert.Equal(t, want, got,
+		"autodiscovery must return persistent-tree .journal files when only /var/log/journal is present")
+}
+
+// TestResolveNativeJournalPaths_DefaultVolatileOnly covers a host with no
+// persistent storage (Storage=volatile, or Storage=auto before
+// /var/log/journal is created): autodiscovery must fall back to the
+// runtime tree under /run/log/journal.
+func TestResolveNativeJournalPaths_DefaultVolatileOnly(t *testing.T) {
+	volatile := t.TempDir()
+	want := makeJournalTree(t, volatile, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	// Persistent points at an empty dir so the fallback is exercised.
+	setDefaultJournalDirs(t, filepath.Join(t.TempDir(), "empty-persistent"), volatile)
+
+	got, err := resolveNativeJournalPaths(*NewConfig())
+	require.NoError(t, err)
+	assert.Equal(t, want, got,
+		"autodiscovery must fall back to /run/log/journal when the persistent tree is absent")
+}
+
+// TestResolveNativeJournalPaths_DefaultBothPrefersPersistent pins the
+// precedence decision: when BOTH trees are present, autodiscovery selects
+// the persistent tree only and does NOT also open the volatile tree.
+// Rationale (see resolveDefaultJournalPaths): journalctl with default
+// Storage=auto writes to /var/log/journal once it exists and the runtime
+// records are flushed into it, so reading both would double-read the same
+// entries through two followers.
+func TestResolveNativeJournalPaths_DefaultBothPrefersPersistent(t *testing.T) {
+	persistent := t.TempDir()
+	volatile := t.TempDir()
+	want := makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	// Volatile also has files, but persistent must win.
+	makeJournalTree(t, volatile, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal", "user-1000.journal")
+	setDefaultJournalDirs(t, persistent, volatile)
+
+	got, err := resolveNativeJournalPaths(*NewConfig())
+	require.NoError(t, err)
+	assert.Equal(t, want, got,
+		"when both trees are present, autodiscovery must select the persistent tree only")
+}
+
+// TestResolveNativeJournalPaths_ExplicitFilesOverrideDefault guards
+// requirement 4: explicit config must win unchanged. Even when a standard
+// journal is present, an explicit Files= list is returned verbatim and
+// autodiscovery is not consulted.
+func TestResolveNativeJournalPaths_ExplicitFilesOverrideDefault(t *testing.T) {
+	persistent := t.TempDir()
+	// A real default tree exists, but explicit Files= must take precedence.
+	makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	setDefaultJournalDirs(t, persistent, filepath.Join(t.TempDir(), "empty-volatile"))
+
+	c := *NewConfig()
+	c.Files = []string{"/explicit/b.journal", "/explicit/a.journal"}
+	got, err := resolveNativeJournalPaths(c)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"/explicit/a.journal", "/explicit/b.journal"}, got,
+		"explicit Files= must override autodiscovery, unchanged")
+}
+
+// TestNativeBuild_AutoDiscoversDefault verifies the Build-time wiring:
+// with Mode=native and no Files=/Directory=, Build resolves the standard
+// location, populates nativePaths, and marks the operator as
+// auto-discovered so Start can log that autodiscovery happened.
+func TestNativeBuild_AutoDiscoversDefault(t *testing.T) {
+	persistent := t.TempDir()
+	want := makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	setDefaultJournalDirs(t, persistent, filepath.Join(t.TempDir(), "empty-volatile"))
+
+	cfg := NewConfigWithID("native_autodiscover")
+	cfg.OutputIDs = []string{"output"}
+	cfg.Mode = ModeNative
+
+	op, err := cfg.Build(componenttest.NewNopTelemetrySettings())
+	require.NoError(t, err)
+	in := op.(*Input)
+	assert.Equal(t, want, in.nativePaths)
+	assert.True(t, in.nativeAutoDiscovered,
+		"Build must flag autodiscovery when neither files nor directory is set")
+}
+
+// TestResolveNativeJournalPaths_DefaultGlobError covers the defensive
+// glob-error branch: filepath.Glob returns ErrBadPattern when a default
+// location path contains a malformed pattern (e.g. an unclosed character
+// class), and the error must be surfaced rather than swallowed.
+func TestResolveNativeJournalPaths_DefaultGlobError(t *testing.T) {
+	// "[" opens a character class that is never closed, so
+	// filepath.Glob returns filepath.ErrBadPattern.
+	setDefaultJournalDirs(t, filepath.Join(t.TempDir(), "["), filepath.Join(t.TempDir(), "v"))
+	_, err := resolveNativeJournalPaths(*NewConfig())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "glob")
+}
+
 // TestNativeBuild_FailsOnUnresolvablePaths confirms Build surfaces a
 // resolution error rather than letting Start return nil with a
 // silently-broken backend.
 func TestNativeBuild_FailsOnUnresolvablePaths(t *testing.T) {
+	// Point default locations at empty temp dirs so neither Files=,
+	// Directory=, nor autodiscovery can resolve any path.
+	setDefaultJournalDirs(t, filepath.Join(t.TempDir(), "p"), filepath.Join(t.TempDir(), "v"))
 	cfg := NewConfigWithID("native_build_fail")
 	cfg.OutputIDs = []string{"output"}
 	cfg.Mode = ModeNative
-	// Neither Files nor Directory set: resolveNativeJournalPaths errors.
+	// Neither Files nor Directory set and no default journal present:
+	// resolveNativeJournalPaths errors.
 
 	set := componenttest.NewNopTelemetrySettings()
 	_, err := cfg.Build(set)
@@ -630,6 +778,62 @@ func TestNativeStart_LogsBackendStart(t *testing.T) {
 	// zap encodes Int as int64 in the observer's structured map.
 	assert.EqualValues(t, 1, followers,
 		"single-path fixture must report 1 follower; got %v", followers)
+}
+
+// TestNativeStart_LogsAutoDiscovery asserts that when the native backend
+// autodiscovers the standard journal location (neither files nor
+// directory configured), runNative emits the dedicated "auto-discovered"
+// Info line naming the selected path(s), so an operator can tell
+// autodiscovery happened. It copies the committed fixture into a
+// temp persistent tree (<root>/<machine-id>/small.journal) and points
+// autodiscovery there.
+func TestNativeStart_LogsAutoDiscovery(t *testing.T) {
+	data, err := os.ReadFile(fixtureSmallJournal(t))
+	require.NoError(t, err)
+	persistent := t.TempDir()
+	dir := filepath.Join(persistent, "ec2b722f4b2cbbafea56b06c59aed5ca")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	discovered := filepath.Join(dir, "system.journal")
+	require.NoError(t, os.WriteFile(discovered, data, 0o600))
+	setDefaultJournalDirs(t, persistent, filepath.Join(t.TempDir(), "empty-volatile"))
+
+	cfg := NewConfigWithID("native_log_autodiscovery")
+	cfg.OutputIDs = []string{"output"}
+	cfg.Mode = ModeNative
+	cfg.StartAt = "end"
+
+	obs, logs := observer.New(zap.InfoLevel)
+	set := componenttest.NewNopTelemetrySettings()
+	set.Logger = zap.New(obs)
+
+	op, err := cfg.Build(set)
+	require.NoError(t, err)
+
+	mockOutput := testutil.NewMockOperator("output")
+	mockOutput.On("Process", mock.Anything, mock.Anything).Return(nil)
+	require.NoError(t, op.SetOutputs([]operator.Operator{mockOutput}))
+
+	require.NoError(t, op.Start(testutil.NewUnscopedMockPersister()))
+	t.Cleanup(func() { require.NoError(t, op.Stop()) })
+
+	const msg = "native journald reader auto-discovered standard journal location(s)"
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if logs.FilterMessage(msg).Len() > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	matched := logs.FilterMessage(msg).AllUntimed()
+	require.Len(t, matched, 1, "autodiscovery must emit exactly one auto-discovered log line")
+	pathsField, ok := matched[0].ContextMap()["paths"]
+	require.True(t, ok, "auto-discovered log must carry 'paths'")
+	pathsSlice, ok := pathsField.([]any)
+	require.True(t, ok, "'paths' must be a slice; got %T", pathsField)
+	require.Len(t, pathsSlice, 1)
+	assert.Equal(t, discovered, pathsSlice[0],
+		"auto-discovered log must name the discovered journal file")
 }
 
 // TestNativeStart_DoesNotLogBackendStartOnProbeFailure asserts the

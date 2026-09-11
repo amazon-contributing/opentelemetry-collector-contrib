@@ -77,6 +77,14 @@ type Input struct {
 	// when mode != ModeNative.
 	nativePaths []string
 
+	// nativeAutoDiscovered records whether nativePaths were resolved by
+	// autodiscovery of the standard systemd journal locations (neither
+	// Files= nor Directory= was configured) rather than from explicit
+	// config. Set at Build time when mode == ModeNative; runNative logs
+	// a dedicated line when true so an operator can tell autodiscovery
+	// happened rather than guessing. Always false when mode != ModeNative.
+	nativeAutoDiscovered bool
+
 	// nativeStartAt mirrors Config.StartAt for the native backend.
 	// "beginning" replays every entry currently visible before
 	// entering follow mode; "end" skips the catch-up drain on cold
