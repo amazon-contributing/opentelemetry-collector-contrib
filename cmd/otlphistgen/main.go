@@ -125,13 +125,13 @@ func main() {
 		testCases := histograms.TestCases()
 		ticker := time.NewTicker(time.Second * 10)
 		for range ticker.C {
-			for _, tc := range testCases {
+			for i := range testCases {
 				metrics := []metricdata.Metrics{{
-					Name: tc.Name,
+					Name: testCases[i].Name,
 					Data: metricdata.Histogram[float64]{
 						Temporality: metricdata.DeltaTemporality,
 						DataPoints: []metricdata.HistogramDataPoint[float64]{
-							tcToDatapoint(tc, startTime),
+							tcToDatapoint(testCases[i], startTime),
 						},
 					},
 				}}
@@ -150,13 +150,13 @@ func main() {
 	ticker := time.NewTicker(time.Second * 10)
 	testCases := histograms.InvalidTestCases()
 	for range ticker.C {
-		for _, tc := range testCases {
+		for i := range testCases {
 			metrics := []metricdata.Metrics{{
-				Name: tc.Name,
+				Name: testCases[i].Name,
 				Data: metricdata.Histogram[float64]{
 					Temporality: metricdata.DeltaTemporality,
 					DataPoints: []metricdata.HistogramDataPoint[float64]{
-						tcToDatapoint(tc, startTime),
+						tcToDatapoint(testCases[i], startTime),
 					},
 				},
 			}}

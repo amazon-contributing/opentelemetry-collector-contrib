@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math"
 	"runtime"
+	"slices"
 	"sync"
 
 	"go.opentelemetry.io/collector/component"
@@ -59,7 +60,7 @@ func newProcessor(config *Config, nextConsumer consumer.Logs, set component.Tele
 	return p, nil
 }
 
-func (ltp *logsTransformProcessor) Capabilities() consumer.Capabilities {
+func (*logsTransformProcessor) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{MutatesData: true}
 }
 
@@ -67,7 +68,7 @@ func (ltp *logsTransformProcessor) Shutdown(ctx context.Context) error {
 	ltp.set.Logger.Info("Stopping logs transform processor")
 	// We call the shutdown functions in reverse order, so that the last thing we started
 	// is stopped first.
-	for i := len(ltp.shutdownFns) - 1; i >= 0; i-- {
+	for i := range slices.Backward(ltp.shutdownFns) {
 		fn := ltp.shutdownFns[i]
 
 		if err := fn(ctx); err != nil {

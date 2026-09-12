@@ -2,11 +2,12 @@ type: genaiadapterconnector
 
 status:
   class: connector
+  codecov_component_id: connector_genaiadapter
   stability:
     development: [traces_to_traces, traces_to_logs]
   distributions: []
   codeowners:
-    active: [liustve]
+    active: [liustve, jefchien, sky333999]
 
 tests:
   config:

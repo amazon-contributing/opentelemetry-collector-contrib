@@ -10,8 +10,9 @@ import (
 	"fmt"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/xray"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/xray"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/exporter"
@@ -35,28 +36,26 @@ const (
 
 // newTracesExporter creates an exporter.Traces that converts to an X-Ray PutTraceSegments
 // request and then posts the request to the configured region's X-Ray endpoint.
-func newTracesExporter(
-	cfg *Config,
-	set exporter.Settings,
-	cn awsutil.ConnAttr,
-	registry telemetry.Registry,
-) (exporter.Traces, error) {
+func newTracesExporter(ctx context.Context, cfg *Config, set exporter.Settings, registry telemetry.Registry) (exporter.Traces, error) {
+	return newTracesExporterWithClient(ctx, cfg, set, registry, aws.Config{}, nil)
+}
+
+func newTracesExporterWithClient(_ context.Context, cfg *Config, set exporter.Settings, registry telemetry.Registry, awsConfig aws.Config, xrayClient awsxray.XRayClient) (exporter.Traces, error) {
 	typeLog := zap.String("type", set.ID.Type().String())
 	nameLog := zap.String("name", set.ID.String())
 	logger := set.Logger
 
-	var xrayClient awsxray.XRayClient
+	// injectedClient records whether the caller supplied a client (tests). When true, the real
+	// client construction and middleware wiring in Start are skipped.
+	injectedClient := xrayClient != nil
 	sender := telemetry.NewNopSender()
 
-	return exporterhelper.NewTraces(
-		context.TODO(),
-		set,
-		cfg,
-		func(_ context.Context, td ptrace.Traces) error {
+	return exporterhelper.NewTraces(context.Background(), set, cfg,
+		func(ctx context.Context, td ptrace.Traces) error {
 			var err error
 			logger.Debug("TracesExporter", typeLog, nameLog, zap.Int("#spans", td.SpanCount()))
 
-			var documents []*string
+			var documents []string
 			if cfg.TransitSpansInOtlpFormat {
 				documents, err = encodeOtlpAsBase64(td, cfg)
 				if err != nil {
@@ -67,15 +66,10 @@ func newTracesExporter(
 			}
 
 			for offset := 0; offset < len(documents); offset += maxSegmentsPerPut {
-				var nextOffset int
-				if offset+maxSegmentsPerPut > len(documents) {
-					nextOffset = len(documents)
-				} else {
-					nextOffset = offset + maxSegmentsPerPut
-				}
-				input := xray.PutTraceSegmentsInput{TraceSegmentDocuments: documents[offset:nextOffset]}
-				logger.Debug("request: " + input.String())
-				output, localErr := xrayClient.PutTraceSegments(&input)
+				nextOffset := min(offset+maxSegmentsPerPut, len(documents))
+				input := &xray.PutTraceSegmentsInput{TraceSegmentDocuments: documents[offset:nextOffset]}
+				logger.Debug("request: " + fmt.Sprintf("%+v", input))
+				output, localErr := xrayClient.PutTraceSegments(ctx, input)
 				if localErr != nil {
 					logger.Debug("response error", zap.Error(localErr))
 					err = wrapErrorIfBadRequest(localErr) // record error
@@ -84,7 +78,7 @@ func newTracesExporter(
 					sender.RecordSegmentsSent(len(input.TraceSegmentDocuments))
 				}
 				if output != nil {
-					logger.Debug("response: " + output.String())
+					logger.Debug("response: " + fmt.Sprintf("%+v", output))
 				}
 				if err != nil {
 					break
@@ -92,23 +86,28 @@ func newTracesExporter(
 			}
 			return err
 		},
-		exporterhelper.WithStart(func(_ context.Context, host component.Host) error {
-			awsConfig, session, err := awsutil.GetAWSConfigSession(logger, cn, &cfg.AWSSessionSettings)
-			if err != nil {
-				return err
+		exporterhelper.WithStart(func(ctx context.Context, host component.Host) error {
+			if !injectedClient {
+				var err error
+				awsConfig, err = awsutil.GetAWSConfig(ctx, logger, &cfg.AWSSessionSettings)
+				if err != nil {
+					return err
+				}
+				// SDK v2 middleware MUST attach before NewXRayClient is called —
+				// APIOptions are snapshotted at construction.
+				if cfg.MiddlewareID != nil {
+					awsmiddleware.TryConfigure(logger, host, *cfg.MiddlewareID, awsmiddleware.SDKv2(&awsConfig))
+				}
+				xrayClient = awsxray.NewXRayClient(logger, awsConfig, set.BuildInfo)
 			}
-			xrayClient = awsxray.NewXRayClient(logger, awsConfig, set.BuildInfo, session)
 
 			if cfg.TelemetryConfig.Enabled {
-				opts := telemetry.ToOptions(cfg.TelemetryConfig, session, &cfg.AWSSessionSettings)
+				opts := telemetry.ToOptions(ctx, cfg.TelemetryConfig, awsConfig, &cfg.AWSSessionSettings)
 				opts = append(opts, telemetry.WithLogger(set.Logger))
 				sender = registry.Register(set.ID, cfg.TelemetryConfig, xrayClient, opts...)
 			}
 
-			sender.Start()
-			if cfg.MiddlewareID != nil {
-				awsmiddleware.TryConfigure(logger, host, *cfg.MiddlewareID, awsmiddleware.SDKv1(xrayClient.Handlers()))
-			}
+			sender.Start(ctx)
 			return nil
 		}),
 		exporterhelper.WithShutdown(func(context.Context) error {
@@ -119,8 +118,8 @@ func newTracesExporter(
 	)
 }
 
-func extractResourceSpans(config component.Config, logger *zap.Logger, td ptrace.Traces) []*string {
-	documents := make([]*string, 0, td.SpanCount())
+func extractResourceSpans(config component.Config, logger *zap.Logger, td ptrace.Traces) []string {
+	documents := make([]string, 0, td.SpanCount())
 
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
 		rspans := td.ResourceSpans().At(i)
@@ -140,43 +139,40 @@ func extractResourceSpans(config component.Config, logger *zap.Logger, td ptrace
 					continue
 				}
 
-				for l := range documentsForSpan {
-					documents = append(documents, &documentsForSpan[l])
-				}
+				documents = append(documents, documentsForSpan...)
 			}
 		}
 	}
 	return documents
 }
 
+// wrapErrorIfBadRequest marks an error permanent when the service responded
+// with a non-5xx HTTP status. Errors without an HTTP response
+// (network/timeout) stay retryable.
 func wrapErrorIfBadRequest(err error) error {
-	var rfErr awserr.RequestFailure
-	if errors.As(err, &rfErr) && rfErr.StatusCode() < 500 {
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) && re.HTTPStatusCode() < 500 {
 		return consumererror.NewPermanent(err)
 	}
+
 	return err
 }
 
 // encodeOtlpAsBase64 builds bytes from traces and generate base64 value for them
-func encodeOtlpAsBase64(td ptrace.Traces, cfg *Config) ([]*string, error) {
-	var documents []*string
+func encodeOtlpAsBase64(td ptrace.Traces, cfg *Config) ([]string, error) {
+	var documents []string
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
-		// 1. build a new trace with one resource span
 		singleTrace := ptrace.NewTraces()
 		td.ResourceSpans().At(i).CopyTo(singleTrace.ResourceSpans().AppendEmpty())
 
-		// 2. append index configuration to resource span as attributes, such that X-Ray Service build indexes based on them.
 		injectIndexConfigIntoOtlpPayload(singleTrace.ResourceSpans().At(0), cfg)
 
-		// 3. Marshal single trace into proto bytes
 		bytes, err := ptraceotlp.NewExportRequestFromTraces(singleTrace).MarshalProto()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal traces: %w", err)
 		}
 
-		// 4. build bytes into base64 and append with PROTOCOL HEADER at the beginning
-		base64Str := otlpFormatPrefix + base64.StdEncoding.EncodeToString(bytes)
-		documents = append(documents, &base64Str)
+		documents = append(documents, otlpFormatPrefix+base64.StdEncoding.EncodeToString(bytes))
 	}
 
 	return documents, nil

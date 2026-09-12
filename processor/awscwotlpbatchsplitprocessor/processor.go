@@ -33,15 +33,15 @@ type queueItem struct {
 	depth int
 }
 
-func (p *awsCWOTLPBatchLogProcessor) Capabilities() consumer.Capabilities {
+func (*awsCWOTLPBatchLogProcessor) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{MutatesData: true}
 }
 
-func (p *awsCWOTLPBatchLogProcessor) Start(_ context.Context, _ component.Host) error {
+func (*awsCWOTLPBatchLogProcessor) Start(_ context.Context, _ component.Host) error {
 	return nil
 }
 
-func (p *awsCWOTLPBatchLogProcessor) Shutdown(_ context.Context) error {
+func (*awsCWOTLPBatchLogProcessor) Shutdown(_ context.Context) error {
 	return nil
 }
 

@@ -24,6 +24,7 @@ import (
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/testutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal/scraperinttest"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest/pmetrictest"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver/internal/metadata"
@@ -37,8 +38,8 @@ const (
 )
 
 func TestIntegration(t *testing.T) {
-	defer setFeatureGateForTest(t, separateSchemaAttrGate, false)()
-	defer setFeatureGateForTest(t, connectionPoolGate, false)()
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlSeparateSchemaAttrFeatureGate, false)()
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlConnectionPoolFeatureGate, false)()
 	t.Run("single_db", integrationTest("single_db", []string{"otel"}, pre17TestVersion))
 	t.Run("multi_db", integrationTest("multi_db", []string{"otel", "otel2"}, pre17TestVersion))
 	t.Run("all_db", integrationTest("all_db", []string{}, pre17TestVersion))
@@ -47,16 +48,16 @@ func TestIntegration(t *testing.T) {
 }
 
 func TestIntegrationWithSeparateSchemaAttr(t *testing.T) {
-	defer setFeatureGateForTest(t, separateSchemaAttrGate, true)()
-	defer setFeatureGateForTest(t, connectionPoolGate, false)()
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlSeparateSchemaAttrFeatureGate, true)()
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlConnectionPoolFeatureGate, false)()
 	t.Run("single_db_schemaattr", integrationTest("single_db_schemaattr", []string{"otel"}, pre17TestVersion))
 	t.Run("multi_db_schemaattr", integrationTest("multi_db_schemaattr", []string{"otel", "otel2"}, pre17TestVersion))
 	t.Run("all_db_schemaattr", integrationTest("all_db_schemaattr", []string{}, pre17TestVersion))
 }
 
 func TestIntegrationWithConnectionPool(t *testing.T) {
-	defer setFeatureGateForTest(t, separateSchemaAttrGate, false)()
-	defer setFeatureGateForTest(t, connectionPoolGate, true)()
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlSeparateSchemaAttrFeatureGate, false)()
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlConnectionPoolFeatureGate, true)()
 	t.Run("single_db_connpool", integrationTest("single_db_connpool", []string{"otel"}, pre17TestVersion))
 	t.Run("multi_db_connpool", integrationTest("multi_db_connpool", []string{"otel", "otel2"}, pre17TestVersion))
 	t.Run("all_db_connpool", integrationTest("all_db_connpool", []string{}, pre17TestVersion))

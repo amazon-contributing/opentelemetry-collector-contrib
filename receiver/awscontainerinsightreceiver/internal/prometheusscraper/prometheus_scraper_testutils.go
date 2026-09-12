@@ -35,6 +35,34 @@ type ExpectedMetricStruct struct {
 	MetricLabels []MetricLabel
 }
 
+// IsFailedOrStaleScrape reports whether the metrics batch corresponds to a
+// failed or stale scrape (mock prometheus 404 follow-up). Indicators are an
+// `up` metric with value 0, or every series carrying a staleness-marker
+// datapoint (NumberDataPointValueTypeEmpty).
+//
+// Test mockConsumers should skip such batches because they carry no real
+// data and would otherwise trip per-call value/label assertions. Using a
+// content-based check (this helper) instead of a one-shot first-call latch
+// preserves the ability to surface a regressed second successful scrape.
+func IsFailedOrStaleScrape(scopeMetrics pmetric.MetricSlice) bool {
+	allStale := scopeMetrics.Len() > 0
+	for i := 0; i < scopeMetrics.Len(); i++ {
+		metric := scopeMetrics.At(i)
+		if metric.Type() != pmetric.MetricTypeGauge || metric.Gauge().DataPoints().Len() == 0 {
+			allStale = false
+			continue
+		}
+		dp := metric.Gauge().DataPoints().At(0)
+		if metric.Name() == "up" && dp.ValueType() == pmetric.NumberDataPointValueTypeDouble && dp.DoubleValue() == 0 {
+			return true
+		}
+		if dp.ValueType() != pmetric.NumberDataPointValueTypeEmpty {
+			allStale = false
+		}
+	}
+	return allStale
+}
+
 type TestSimplePrometheusEndToEndOpts struct {
 	T                   *testing.T
 	Consumer            consumer.Metrics
@@ -49,7 +77,7 @@ type MockConsumer struct {
 	AdditionalLabels []string
 }
 
-func (m MockConsumer) Capabilities() consumer.Capabilities {
+func (MockConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: false,
 	}
@@ -62,6 +90,13 @@ func (m MockConsumer) ConsumeMetrics(_ context.Context, md pmetric.Metrics) erro
 	assert.Equal(m.T, 1, md.ResourceMetrics().Len())
 
 	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	// The mock prometheus server returns one valid page and a 404 on the
+	// follow-up scrape; the 404 path produces an `up=0` synthetic metric and
+	// staleness markers for every prior series. Skip such calls so they do
+	// not trip the value/label assertions below — they carry no real data.
+	if IsFailedOrStaleScrape(scopeMetrics) {
+		return nil
+	}
 	for i := 0; i < scopeMetrics.Len(); i++ {
 		metric := scopeMetrics.At(i)
 		metricsStruct, ok := m.ExpectedMetrics[metric.Name()]
@@ -121,7 +156,7 @@ func TestSimplePrometheusEndToEnd(opts TestSimplePrometheusEndToEndOpts) {
 		MetricsPath:     cfg.ScrapeConfigs[0].MetricsPath,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			// using dummy static config to avoid service discovery initialization
-			&discovery.StaticConfig{
+			discovery.StaticConfig{
 				{
 					Targets: []model.LabelSet{
 						{

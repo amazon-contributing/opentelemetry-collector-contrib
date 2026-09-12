@@ -7,18 +7,22 @@
 package proxy
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
@@ -26,22 +30,9 @@ import (
 )
 
 const (
-	regionEnvVarName = "AWS_REGION"
+	regionEnvVarName = "AWS_DEFAULT_REGION"
 	regionEnvVar     = "us-west-2"
 )
-
-func logSetup() (*zap.Logger, *observer.ObservedLogs) {
-	core, recorded := observer.New(zapcore.DebugLevel)
-	return zap.New(core), recorded
-}
-
-func setupTestEnv(t *testing.T) (*zap.Logger, *observer.ObservedLogs) {
-	t.Helper()
-	t.Setenv(regionEnvVarName, regionEnvVar)
-	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
-	return logSetup()
-}
 
 func TestHappyCase(t *testing.T) {
 	logger, recordedLogs := logSetup()
@@ -74,7 +65,11 @@ func TestHappyCase(t *testing.T) {
 }
 
 func TestHandlerHappyCase(t *testing.T) {
-	logger, _ := setupTestEnv(t)
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -95,7 +90,11 @@ func TestHandlerHappyCase(t *testing.T) {
 }
 
 func TestHandlerIoReadSeekerCreationFailed(t *testing.T) {
-	logger, recordedLogs := setupTestEnv(t)
+	logger, recordedLogs := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -120,7 +119,11 @@ func TestHandlerIoReadSeekerCreationFailed(t *testing.T) {
 }
 
 func TestHandlerNilBodyIsOk(t *testing.T) {
-	logger, recordedLogs := setupTestEnv(t)
+	logger, recordedLogs := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
 
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
@@ -130,7 +133,7 @@ func TestHandlerNilBodyIsOk(t *testing.T) {
 
 	handler := srv.(*http.Server).Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
-		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", nil)
+		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", http.NoBody)
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
@@ -142,13 +145,25 @@ func TestHandlerNilBodyIsOk(t *testing.T) {
 }
 
 func TestHandlerSignerErrorsOut(t *testing.T) {
-	// Note: this may fail if you have a local credentials file (e.g. ~/.aws/credentials)
 	logger, recordedLogs := logSetup()
 
 	t.Setenv(regionEnvVarName, regionEnvVar)
 
+	credErr := errors.New("mock credential retrieval error")
+	origNewAWSConfig := newAWSConfig
+	newAWSConfig = func(ctx context.Context, settings *awsutil.AWSSessionSettings, log *zap.Logger) (aws.Config, error) {
+		cfg, err := origNewAWSConfig(ctx, settings, log)
+		if err != nil {
+			return cfg, err
+		}
+		cfg.Credentials = aws.CredentialsProviderFunc(func(_ context.Context) (aws.Credentials, error) {
+			return aws.Credentials{}, credErr
+		})
+		return cfg, nil
+	}
+	t.Cleanup(func() { newAWSConfig = origNewAWSConfig })
+
 	cfg := DefaultConfig()
-	cfg.Endpoint = "0.0.0.0:2000"
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	srv, err := NewServer(cfg, logger)
@@ -162,9 +177,9 @@ func TestHandlerSignerErrorsOut(t *testing.T) {
 
 	logs := recordedLogs.All()
 	lastEntry := logs[len(logs)-1]
-	assert.Contains(t, lastEntry.Message, "Unable to sign request", "expected log message")
-	assert.Contains(t, lastEntry.Context[0].Interface.(error).Error(),
-		"NoCredentialProviders", "expected error")
+	assert.Contains(t, lastEntry.Message, "Unable to retrieve credentials", "expected log message")
+	assert.EqualError(t, lastEntry.Context[0].Interface.(error),
+		credErr.Error(), "expected error")
 }
 
 func TestTCPEndpointInvalid(t *testing.T) {
@@ -176,6 +191,28 @@ func TestTCPEndpointInvalid(t *testing.T) {
 	cfg.Endpoint = "invalid\n"
 	_, err := NewServer(cfg, logger)
 	assert.Error(t, err, "NewServer should fail")
+}
+
+func TestCantGetAWSConfigSession(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+
+	origConfig := newAWSConfig
+	defer func() {
+		newAWSConfig = origConfig
+	}()
+
+	expectedErr := errors.New("expected newAWSConfigError")
+	newAWSConfig = func(_ context.Context, _ *awsutil.AWSSessionSettings, _ *zap.Logger) (aws.Config, error) {
+		return aws.Config{}, expectedErr
+	}
+	_, err := NewServer(cfg, logger)
+	assert.EqualError(t, err, expectedErr.Error())
 }
 
 func TestCantGetServiceEndpoint(t *testing.T) {
@@ -222,9 +259,41 @@ func TestCanCreateTransport(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid control character in URL")
 }
 
-func TestGetServiceEndpointInvalidAWSConfig(t *testing.T) {
-	_, err := getServiceEndpoint(&aws.Config{}, "")
-	assert.EqualError(t, err, "unable to generate endpoint from region with nil value")
+func TestGetServiceEndpoint(t *testing.T) {
+	_, err := getServiceEndpoint("", "xray")
+	assert.EqualError(t, err, "invalid region: ")
+
+	endpoint, err := getServiceEndpoint("us-west-2", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.us-west-2.amazonaws.com", endpoint)
+
+	endpoint, err = getServiceEndpoint("cn-north-1", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.cn-north-1.amazonaws.com.cn", endpoint)
+
+	endpoint, err = getServiceEndpoint("us-gov-west-1", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.us-gov-west-1.amazonaws.com", endpoint)
+
+	endpoint, err = getServiceEndpoint("us-iso-east-1", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.us-iso-east-1.c2s.ic.gov", endpoint)
+
+	endpoint, err = getServiceEndpoint("us-isob-east-1", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.us-isob-east-1.sc2s.sgov.gov", endpoint)
+
+	endpoint, err = getServiceEndpoint("eu-isoe-west-1", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.eu-isoe-west-1.cloud.adc-e.uk", endpoint)
+
+	endpoint, err = getServiceEndpoint("us-isof-south-1", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.us-isof-south-1.csp.hci.ic.gov", endpoint)
+
+	endpoint, err = getServiceEndpoint("eusc-de-east-1", "xray")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://xray.eusc-de-east-1.amazonaws.eu", endpoint)
 }
 
 type mockReadCloser struct {
@@ -238,14 +307,319 @@ func (m *mockReadCloser) Read(_ []byte) (n int, err error) {
 	return 0, nil
 }
 
-func (m *mockReadCloser) Close() error {
+func (*mockReadCloser) Close() error {
 	return nil
 }
 
+// TestConsumeBody tests the consumeBody function that reads HTTP body and calculates SHA-256 hash.
+// This is critical for AWS SigV4 signing which requires a payload hash.
+func TestConsumeBody(t *testing.T) {
+	// SHA-256 hash of empty string - used as a constant in AWS SigV4
+	// echo -n "" | sha256sum = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+	const emptyStringHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+	tests := []struct {
+		name      string
+		body      io.ReadCloser
+		wantBytes []byte
+		wantHash  string
+		wantErr   bool
+	}{
+		{
+			name:      "nil body returns empty hash",
+			body:      nil,
+			wantBytes: nil,
+			wantHash:  emptyStringHash,
+			wantErr:   false,
+		},
+		{
+			name:      "empty body returns empty hash",
+			body:      io.NopCloser(strings.NewReader("")),
+			wantBytes: []byte{},
+			wantHash:  emptyStringHash,
+			wantErr:   false,
+		},
+		{
+			name:      "body with JSON content",
+			body:      io.NopCloser(strings.NewReader(`{"NextToken": null}`)),
+			wantBytes: []byte(`{"NextToken": null}`),
+			// echo -n '{"NextToken": null}' | sha256sum
+			wantHash: "0b35b96fcca5659602b9cd486360efd65de22e4e7f8ca337c0a3935be95d8989",
+			wantErr:  false,
+		},
+		{
+			name:      "body with simple content",
+			body:      io.NopCloser(strings.NewReader("hello")),
+			wantBytes: []byte("hello"),
+			// echo -n 'hello' | sha256sum
+			wantHash: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+			wantErr:  false,
+		},
+		{
+			name:    "read error returns error",
+			body:    &mockReadCloser{readErr: errors.New("read failed")},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotBytes, gotHash, err := consumeBody(tt.body)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantBytes, gotBytes, "body bytes should match")
+			assert.Equal(t, tt.wantHash, gotHash, "payload hash should match expected SHA-256")
+		})
+	}
+}
+
+// TestConsumeBodyRestoration verifies that the body can be restored after consumption.
+// This is essential because HTTP body is a stream that can only be read once,
+// but we need to read it for hash calculation and then restore it for forwarding.
+func TestConsumeBodyRestoration(t *testing.T) {
+	originalContent := `{"TraceIds": ["1-abc-123", "1-def-456"]}`
+
+	// Consume the body
+	body, hash, err := consumeBody(io.NopCloser(strings.NewReader(originalContent)))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, hash)
+
+	// Restore the body (as done in server.go)
+	restoredBody := io.NopCloser(bytes.NewReader(body))
+
+	// Read the restored body
+	restoredContent, err := io.ReadAll(restoredBody)
+	assert.NoError(t, err)
+	assert.Equal(t, originalContent, string(restoredContent), "restored body should match original")
+}
+
+// TestSigV4PayloadHashFormat verifies the payload hash format required by AWS SigV4.
+// AWS SigV4 requires the payload hash to be a lowercase hex-encoded SHA-256 hash.
+func TestSigV4PayloadHashFormat(t *testing.T) {
+	testCases := []struct {
+		name    string
+		payload string
+	}{
+		{"empty payload", ""},
+		{"simple payload", "test"},
+		{"json payload", `{"key": "value"}`},
+		{"binary-like payload", "\x00\x01\x02\x03"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, hash, err := consumeBody(io.NopCloser(strings.NewReader(tc.payload)))
+			assert.NoError(t, err)
+
+			// Verify hash format: must be 64 character lowercase hex string
+			assert.Len(t, hash, 64, "SHA-256 hash should be 64 hex characters")
+			assert.Regexp(t, "^[a-f0-9]{64}$", hash, "hash should be lowercase hex only")
+		})
+	}
+}
+
+// TestSignedRequestHasAuthorizationHeader verifies that signed requests contain
+// the Authorization header with AWS SigV4 signature components.
+func TestSignedRequestHasAuthorizationHeader(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	// Create a mock backend server to capture the signed request
+	capturedReqCh := make(chan *http.Request, 1)
+	backend := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		capturedReqCh <- r.Clone(r.Context())
+	}))
+	defer backend.Close()
+
+	// Override the transport to use mock backend
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
+
+	// Save original rewrite and wrap it
+	originalRewrite := proxy.Rewrite
+	proxy.Rewrite = func(r *httputil.ProxyRequest) {
+		originalRewrite(r)
+		// Redirect to mock backend
+		r.Out.URL.Scheme = "http"
+		r.Out.URL.Host = backend.Listener.Addr().String()
+		r.Out.Host = backend.Listener.Addr().String()
+	}
+
+	handler := httpSrv.Handler.ServeHTTP
+	req := httptest.NewRequest(http.MethodPost,
+		"https://xray.us-west-2.amazonaws.com/GetSamplingRules",
+		strings.NewReader(`{"NextToken": null}`))
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	// Verify Authorization header format
+	var capturedReq *http.Request
+	select {
+	case capturedReq = <-capturedReqCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for backend to receive request")
+	}
+	require.NotNil(t, capturedReq, "backend should have received the request")
+	authHeader := capturedReq.Header.Get("Authorization")
+	require.NotEmpty(t, authHeader, "Authorization header should be present")
+	// AWS SigV4 Authorization header format:
+	// AWS4-HMAC-SHA256 Credential=.../aws4_request, SignedHeaders=..., Signature=...
+	assert.Contains(t, authHeader, "AWS4-HMAC-SHA256", "should use AWS4-HMAC-SHA256 algorithm")
+	assert.Contains(t, authHeader, "Credential=", "should contain Credential")
+	assert.Contains(t, authHeader, "SignedHeaders=", "should contain SignedHeaders")
+	assert.Contains(t, authHeader, "Signature=", "should contain Signature")
+	assert.Contains(t, authHeader, "aws4_request", "should contain aws4_request scope terminator")
+}
+
+// TestSignedRequestHasRequiredHeaders verifies that signed requests contain
+// the required headers for AWS SigV4: Host and X-Amz-Date.
+func TestSignedRequestHasRequiredHeaders(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	// Create a mock backend server to capture the signed request
+	capturedReqCh := make(chan *http.Request, 1)
+	backend := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		capturedReqCh <- r.Clone(r.Context())
+	}))
+	defer backend.Close()
+
+	// Override the transport to use mock backend
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
+
+	originalRewrite := proxy.Rewrite
+	proxy.Rewrite = func(r *httputil.ProxyRequest) {
+		originalRewrite(r)
+		r.Out.URL.Scheme = "http"
+		r.Out.URL.Host = backend.Listener.Addr().String()
+		r.Out.Host = backend.Listener.Addr().String()
+	}
+
+	handler := httpSrv.Handler.ServeHTTP
+	req := httptest.NewRequest(http.MethodPost,
+		"https://xray.us-west-2.amazonaws.com/GetSamplingRules",
+		strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	var capturedReq *http.Request
+	select {
+	case capturedReq = <-capturedReqCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for backend to receive request")
+	}
+	require.NotNil(t, capturedReq, "backend should have received the request")
+	// X-Amz-Date header is required for SigV4
+	xAmzDate := capturedReq.Header.Get("X-Amz-Date")
+	require.NotEmpty(t, xAmzDate, "X-Amz-Date header should be present")
+	// Format: 20060102T150405Z (ISO 8601 basic format)
+	assert.Regexp(t, `^\d{8}T\d{6}Z$`, xAmzDate, "X-Amz-Date should be in ISO 8601 basic format")
+}
+
+// TestConnectionHeaderRemovedBeforeSigning verifies that the Connection header
+// is removed before signing. This is important because the reverse proxy removes
+// hop-by-hop headers like Connection, and if we signed it, the signature would
+// be invalid after the header is removed.
+func TestConnectionHeaderRemovedBeforeSigning(t *testing.T) {
+	logger, _ := logSetup()
+
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+
+	cfg := DefaultConfig()
+	tcpAddr := testutil.GetAvailableLocalAddress(t)
+	cfg.Endpoint = tcpAddr
+	srv, err := NewServer(cfg, logger)
+	assert.NoError(t, err, "NewServer should succeed")
+
+	capturedReqCh := make(chan *http.Request, 1)
+	backend := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		capturedReqCh <- r.Clone(r.Context())
+	}))
+	defer backend.Close()
+
+	httpSrv := srv.(*http.Server)
+	proxy := httpSrv.Handler.(*proxyHandler).proxy
+
+	originalRewrite := proxy.Rewrite
+	proxy.Rewrite = func(r *httputil.ProxyRequest) {
+		originalRewrite(r)
+		r.Out.URL.Scheme = "http"
+		r.Out.URL.Host = backend.Listener.Addr().String()
+		r.Out.Host = backend.Listener.Addr().String()
+	}
+
+	handler := httpSrv.Handler.ServeHTTP
+	req := httptest.NewRequest(http.MethodPost,
+		"https://xray.us-west-2.amazonaws.com/GetSamplingRules",
+		strings.NewReader(`{}`))
+	// Add Connection header that should be removed before signing
+	req.Header.Set("Connection", "keep-alive")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	var capturedReq *http.Request
+	select {
+	case capturedReq = <-capturedReqCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for backend to receive request")
+	}
+	require.NotNil(t, capturedReq, "backend should have received the request")
+	authHeader := capturedReq.Header.Get("Authorization")
+	require.NotEmpty(t, authHeader, "Authorization header should be present")
+	// Connection header should NOT be in SignedHeaders
+	assert.NotContains(t, strings.ToLower(authHeader), "connection",
+		"Connection header should not be signed")
+}
+
+func setupTestEnv(t *testing.T) (*zap.Logger, *observer.ObservedLogs) {
+	t.Helper()
+	t.Setenv(regionEnvVarName, regionEnvVar)
+	t.Setenv("AWS_ACCESS_KEY_ID", "fakeAccessKeyID")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "fakeSecretAccessKey")
+	return logSetup()
+}
+
+type mockTransport struct {
+	capturedRequests []*http.Request
+}
+
+func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.capturedRequests = append(m.capturedRequests, req)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       http.NoBody,
+		Header:     make(http.Header),
+	}, nil
+}
+
 func TestBuildRoutingMapsEmpty(t *testing.T) {
-	apiMap, signerMap := buildRoutingMaps(nil, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
+	apiMap, credsByRole := buildRoutingMaps(t.Context(), nil, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Empty(t, apiMap)
-	assert.Empty(t, signerMap)
+	assert.Empty(t, credsByRole)
 }
 
 func TestBuildRoutingMapsValid(t *testing.T) {
@@ -264,12 +638,12 @@ func TestBuildRoutingMapsValid(t *testing.T) {
 		},
 	}
 
-	apiMap, signerMap := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, credsByRole := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 3)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
 	assert.Equal(t, "xray", apiMap["PutTraceSegments"].ServiceName)
-	assert.Empty(t, signerMap)
+	assert.Empty(t, credsByRole)
 }
 
 func TestBuildRoutingMapsInvalidRules(t *testing.T) {
@@ -289,7 +663,7 @@ func TestBuildRoutingMapsInvalidRules(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 
 	// Invalid rule (missing service_name) is mapped to nil
 	assert.Nil(t, apiMap["MissingServiceName"], "missing service_name should map to nil")
@@ -339,7 +713,7 @@ func TestBuildRoutingMapsMissingEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 }
 
@@ -352,7 +726,7 @@ func TestBuildRoutingMapsResolvesEndpointAtStartup(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "endpoint should be resolved at startup")
 }
 
@@ -365,7 +739,7 @@ func TestBuildRoutingMapsFallsBackToDefaultRegion(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.NotNil(t, apiMap["PutLogEvents"])
 	assert.Equal(t, "us-west-2", apiMap["PutLogEvents"].Region, "should fall back to default region")
 }
@@ -379,7 +753,7 @@ func TestBuildRoutingMapsAutoResolvesEndpoint(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "", &awsutil.AWSSessionSettings{}, nil)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "", &awsutil.AWSSessionSettings{}, zap.NewNop())
 	assert.Equal(t, "https://logs.us-east-1.amazonaws.com", apiMap["PutLogEvents"].AWSEndpoint, "should auto-resolve endpoint from service_name and region")
 }
 
@@ -415,7 +789,7 @@ func TestBuildRoutingMapsWithLeadingSlash(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Len(t, apiMap, 2)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName)
 	assert.Equal(t, "logs", apiMap["CreateLogGroup"].ServiceName)
@@ -437,7 +811,7 @@ func TestBuildRoutingMapsDuplicateAPIs(t *testing.T) {
 		},
 	}
 
-	apiMap, _ := buildRoutingMaps(routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
+	apiMap, _ := buildRoutingMaps(t.Context(), routes, "", nil, "us-west-2", &awsutil.AWSSessionSettings{}, logger)
 	assert.Equal(t, "logs", apiMap["PutLogEvents"].ServiceName, "first route should win")
 }
 
@@ -491,19 +865,6 @@ func TestHandlerRoutingWithMultipleServices(t *testing.T) {
 		capturedReq := mockTrans.capturedRequests[0]
 		assert.Equal(t, tc.expectedHost, capturedReq.Host, "API %s should route to %s", tc.apiPath, tc.expectedHost)
 	}
-}
-
-type mockTransport struct {
-	capturedRequests []*http.Request
-}
-
-func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	m.capturedRequests = append(m.capturedRequests, req)
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       http.NoBody,
-		Header:     make(http.Header),
-	}, nil
 }
 
 func TestHandlerRoutingWithAutoResolvedEndpoint(t *testing.T) {

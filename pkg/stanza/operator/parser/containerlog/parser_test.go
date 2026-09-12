@@ -1,4 +1,4 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package containerlog
@@ -336,7 +336,7 @@ func TestProcessBatch(t *testing.T) {
 
 	// ProcessBatchWith is sequential, so received order matches input order.
 	received := make([]*entry.Entry, 0, 3)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		select {
 		case e := <-fake.Received:
 			received = append(received, e)
@@ -580,4 +580,3 @@ func BenchmarkProcess_CRI(b *testing.B) {
 		<-fake.Received
 	}
 }
-

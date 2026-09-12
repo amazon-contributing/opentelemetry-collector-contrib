@@ -44,15 +44,15 @@ const (
 
 type mockHostInfoProvider struct{}
 
-func (m mockHostInfoProvider) GetClusterName() string {
+func (mockHostInfoProvider) GetClusterName() string {
 	return dummyClusterName
 }
 
-func (m mockHostInfoProvider) GetInstanceID() string {
+func (mockHostInfoProvider) GetInstanceID() string {
 	return dummyInstanceID
 }
 
-func (m mockHostInfoProvider) GetInstanceType() string {
+func (mockHostInfoProvider) GetInstanceType() string {
 	return dummyInstanceType
 }
 
@@ -65,7 +65,7 @@ type mockConsumer struct {
 	}
 }
 
-func (m mockConsumer) Capabilities() consumer.Capabilities {
+func (mockConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: false,
 	}
@@ -76,6 +76,13 @@ func (m mockConsumer) ConsumeMetrics(_ context.Context, md pmetric.Metrics) erro
 
 	scrapedMetricCnt := 0
 	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	// Skip the failed-scrape follow-up call (mock prometheus returns 404 on
+	// the second scrape, producing up=0 plus staleness markers for prior
+	// series). They carry no real data and would otherwise trip the
+	// value/label assertions.
+	if prometheusscraper.IsFailedOrStaleScrape(scopeMetrics) {
+		return nil
+	}
 	for i := 0; i < scopeMetrics.Len(); i++ {
 		metric := scopeMetrics.At(i)
 		// skip prometheus metadata metrics including "up"
@@ -174,7 +181,7 @@ func TestNewNVMEScraperEndToEnd(t *testing.T) {
 	}
 	scrapeConfig.ServiceDiscoveryConfigs = discovery.Configs{
 		// using dummy static config to avoid service discovery initialization
-		&discovery.StaticConfig{
+		discovery.StaticConfig{
 			{
 				Targets: []model.LabelSet{
 					{

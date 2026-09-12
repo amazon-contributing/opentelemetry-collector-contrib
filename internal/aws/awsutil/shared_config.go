@@ -18,28 +18,37 @@ const (
 )
 
 // getFallbackSharedConfigFiles follows the same logic as the AWS SDK but takes a getUserHomeDir
-// function.
-func getFallbackSharedConfigFiles(userHomeDirProvider func() string) []string {
+// function. It returns the shared-credentials file list and the shared-config file list
+// separately: the v2 SDK drops format-mismatched sections, so a config-style "[profile foo]"
+// header passed via WithSharedCredentialsFiles is silently ignored (and a credentials-style
+// header passed via WithSharedConfigFiles likewise). The shared config file is consulted only
+// when AWS_SDK_LOAD_CONFIG is set to a truthy value; otherwise configFiles is a non-nil empty
+// list so the SDK does not fall back to loading the default ~/.aws/config.
+func getFallbackSharedConfigFiles(userHomeDirProvider func() string) (credentialsFiles, configFiles []string) {
 	var sharedCredentialsFile, sharedConfigFile string
 	setFromEnvVal(&sharedCredentialsFile, envAwsSharedCredentialsFile)
-	setFromEnvVal(&sharedConfigFile, envAwsSharedConfigFile)
 	if sharedCredentialsFile == "" {
 		sharedCredentialsFile = defaultSharedCredentialsFile(userHomeDirProvider())
 	}
-	if sharedConfigFile == "" {
-		sharedConfigFile = defaultSharedConfig(userHomeDirProvider())
-	}
-	var cfgFiles []string
+	credentialsFiles = []string{sharedCredentialsFile}
+
+	// Non-nil empty result when the gate is off: WithSharedConfigFiles treats
+	// nil as "not set" and the SDK then loads the default ~/.aws/config.
+	configFiles = []string{}
 	enableSharedConfig, _ := strconv.ParseBool(os.Getenv(envAwsSdkLoadConfig))
 	if enableSharedConfig {
-		cfgFiles = append(cfgFiles, sharedConfigFile)
+		setFromEnvVal(&sharedConfigFile, envAwsSharedConfigFile)
+		if sharedConfigFile == "" {
+			sharedConfigFile = defaultSharedConfig(userHomeDirProvider())
+		}
+		configFiles = []string{sharedConfigFile}
 	}
-	return append(cfgFiles, sharedCredentialsFile)
+	return credentialsFiles, configFiles
 }
 
 func setFromEnvVal(dst *string, keys ...string) {
 	for _, k := range keys {
-		if v := os.Getenv(k); len(v) != 0 {
+		if v := os.Getenv(k); v != "" {
 			*dst = v
 			break
 		}
@@ -71,7 +80,7 @@ func currentUserHomeDir() string {
 	var home string
 
 	home = backwardsCompatibleUserHomeDir()
-	if len(home) > 0 {
+	if home != "" {
 		return home
 	}
 

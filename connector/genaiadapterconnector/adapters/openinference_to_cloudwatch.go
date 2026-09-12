@@ -4,12 +4,13 @@
 // Transforms OpenInference spans to OTel GenAI semantic conventions for CloudWatch.
 //
 // OpenInference spec: https://arize-ai.github.io/openinference/spec/semantic_conventions.html
-// OTel GenAI semconv:  https://opentelemetry.io/docs/specs/semconv/gen-ai/
+// OTel GenAI semconv:  https://github.com/open-telemetry/semantic-conventions-genai
 package adapters // import "github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector/adapters"
 
 import (
 	"encoding/json"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,7 +19,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector/adapters/common"
+	adapterutil "github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector/adapters/common"
 )
 
 var (
@@ -207,8 +208,7 @@ func TransformOpenInferenceSpan(span ptrace.Span) {
 	})
 
 	// iterate backwards so top-down order is respected
-	for i := len(attributeMap) - 1; i >= 0; i-- {
-		m := attributeMap[i]
+	for _, m := range slices.Backward(attributeMap) {
 		if val, ok := attrs.Get(m.from); ok {
 			mapAttribute(m.to, val, attrs)
 			toRemove = append(toRemove, m.from)
@@ -220,7 +220,7 @@ func TransformOpenInferenceSpan(span ptrace.Span) {
 	}
 
 	if len(inputMessages) > 0 {
-		if data, err := json.Marshal(common.ParseJSON(convertMessages(inputMessages, false, ""), common.MaxJSONDepth)); err == nil {
+		if data, err := json.Marshal(adapterutil.ParseJSON(convertMessages(inputMessages, false, ""), adapterutil.MaxJSONDepth)); err == nil {
 			attrs.PutStr(string(semconv.GenAIInputMessagesKey), string(data))
 		}
 	}
@@ -229,7 +229,7 @@ func TransformOpenInferenceSpan(span ptrace.Span) {
 		if v, ok := attrs.Get(string(semconv.GenAIResponseFinishReasonsKey)); ok {
 			finishReason = v.AsString()
 		}
-		if data, err := json.Marshal(common.ParseJSON(convertMessages(outputMessages, true, finishReason), common.MaxJSONDepth)); err == nil {
+		if data, err := json.Marshal(adapterutil.ParseJSON(convertMessages(outputMessages, true, finishReason), adapterutil.MaxJSONDepth)); err == nil {
 			attrs.PutStr(string(semconv.GenAIOutputMessagesKey), string(data))
 		}
 	}
@@ -280,9 +280,9 @@ func parseInvocationParams(value string, attrs pcommon.Map) {
 	}
 	for param, otelKey := range invocationParamMap {
 		if v, ok := params[param]; ok {
-			if f, ok := common.ParseFloat(v); ok {
+			if f, ok := adapterutil.ParseFloat(v); ok {
 				attrs.PutDouble(otelKey, f)
-			} else if s, ok := common.ParseStr(v); ok {
+			} else if s, ok := adapterutil.ParseStr(v); ok {
 				attrs.PutStr(otelKey, s)
 			}
 		}
@@ -303,14 +303,14 @@ func parseInputValue(value, spanKind string, attrs pcommon.Map) {
 			return
 		}
 		if toolCall, ok := input["tool_call"].(map[string]any); ok {
-			if name, ok := common.ParseStr(toolCall["name"]); ok {
+			if name, ok := adapterutil.ParseStr(toolCall["name"]); ok {
 				setIfAbsent(attrs, string(semconv.GenAIToolNameKey), pcommon.NewValueStr(name))
 			}
-			if id, ok := common.ParseStr(toolCall["id"]); ok {
+			if id, ok := adapterutil.ParseStr(toolCall["id"]); ok {
 				setIfAbsent(attrs, string(semconv.GenAIToolCallIDKey), pcommon.NewValueStr(id))
 			}
 			if args, ok := toolCall["args"]; ok {
-				if s, ok := common.ParseStr(args); ok {
+				if s, ok := adapterutil.ParseStr(args); ok {
 					setIfAbsent(attrs, string(semconv.GenAIToolCallArgumentsKey), pcommon.NewValueStr(s))
 				}
 			}
@@ -354,20 +354,20 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 				}
 				if ok {
 					if usage, ok := addlKwargs["usage"].(map[string]any); ok {
-						if v, ok := common.ParseInt(usage["prompt_tokens"]); ok {
+						if v, ok := adapterutil.ParseInt(usage["prompt_tokens"]); ok {
 							setIfAbsent(attrs, string(semconv.GenAIUsageInputTokensKey), pcommon.NewValueInt(v))
 						}
-						if v, ok := common.ParseInt(usage["completion_tokens"]); ok {
+						if v, ok := adapterutil.ParseInt(usage["completion_tokens"]); ok {
 							setIfAbsent(attrs, string(semconv.GenAIUsageOutputTokensKey), pcommon.NewValueInt(v))
 						}
 					}
-					if v, ok := common.ParseStr(addlKwargs["model_id"]); ok {
+					if v, ok := adapterutil.ParseStr(addlKwargs["model_id"]); ok {
 						setIfAbsent(attrs, string(semconv.GenAIRequestModelKey), pcommon.NewValueStr(v))
 					}
-					if v, ok := common.ParseStr(addlKwargs["model_name"]); ok {
+					if v, ok := adapterutil.ParseStr(addlKwargs["model_name"]); ok {
 						setIfAbsent(attrs, string(semconv.GenAIResponseModelKey), pcommon.NewValueStr(v))
 					}
-					if v, ok := common.ParseStr(addlKwargs["stop_reason"]); ok {
+					if v, ok := adapterutil.ParseStr(addlKwargs["stop_reason"]); ok {
 						setIfAbsent(attrs, string(semconv.GenAIResponseFinishReasonsKey), pcommon.NewValueStr(v))
 					}
 				}
@@ -385,19 +385,21 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 					}
 					if toolCalls, ok := msgBody["tool_calls"].([]any); ok {
 						for _, tc := range toolCalls {
-							if tcMap, ok := tc.(map[string]any); ok {
-								part := map[string]any{"type": "tool_call"}
-								if name, ok := common.ParseStr(tcMap["name"]); ok {
-									part["name"] = name
-								}
-								if id, ok := common.ParseStr(tcMap["id"]); ok {
-									part["id"] = id
-								}
-								if args, ok := tcMap["args"]; ok {
-									part["arguments"] = args
-								}
-								parts = append(parts, part)
+							tcMap, ok := tc.(map[string]any)
+							if !ok {
+								continue
 							}
+							part := map[string]any{"type": "tool_call"}
+							if name, ok := adapterutil.ParseStr(tcMap["name"]); ok {
+								part["name"] = name
+							}
+							if id, ok := adapterutil.ParseStr(tcMap["id"]); ok {
+								part["id"] = id
+							}
+							if args, ok := tcMap["args"]; ok {
+								part["arguments"] = args
+							}
+							parts = append(parts, part)
 						}
 					}
 					if len(parts) == 0 {
@@ -411,7 +413,7 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 							break
 						}
 					}
-					if data, err := json.Marshal(common.ParseJSON([]map[string]any{otelMsg}, common.MaxJSONDepth)); err == nil {
+					if data, err := json.Marshal(adapterutil.ParseJSON([]map[string]any{otelMsg}, adapterutil.MaxJSONDepth)); err == nil {
 						setIfAbsent(attrs, string(semconv.GenAIOutputMessagesKey), pcommon.NewValueStr(string(data)))
 					}
 				} else if msgType == "tool" {
@@ -450,19 +452,21 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 			}
 			if toolCalls, ok := msgBody["tool_calls"].([]any); ok {
 				for _, tc := range toolCalls {
-					if tcMap, ok := tc.(map[string]any); ok {
-						part := map[string]any{"type": "tool_call"}
-						if name, ok := common.ParseStr(tcMap["name"]); ok {
-							part["name"] = name
-						}
-						if id, ok := common.ParseStr(tcMap["id"]); ok {
-							part["id"] = id
-						}
-						if args, ok := tcMap["args"]; ok {
-							part["arguments"] = args
-						}
-						parts = append(parts, part)
+					tcMap, ok := tc.(map[string]any)
+					if !ok {
+						continue
 					}
+					part := map[string]any{"type": "tool_call"}
+					if name, ok := adapterutil.ParseStr(tcMap["name"]); ok {
+						part["name"] = name
+					}
+					if id, ok := adapterutil.ParseStr(tcMap["id"]); ok {
+						part["id"] = id
+					}
+					if args, ok := tcMap["args"]; ok {
+						part["arguments"] = args
+					}
+					parts = append(parts, part)
 				}
 			}
 			if len(parts) == 0 {
@@ -471,7 +475,7 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 			otelMsg["parts"] = parts
 			converted = append(converted, otelMsg)
 		}
-		if data, err := json.Marshal(common.ParseJSON(converted, common.MaxJSONDepth)); err == nil {
+		if data, err := json.Marshal(adapterutil.ParseJSON(converted, adapterutil.MaxJSONDepth)); err == nil {
 			setIfAbsent(attrs, string(semconv.GenAIInputMessagesKey), pcommon.NewValueStr(string(data)))
 		}
 	}
@@ -483,8 +487,8 @@ func parseChainOutput(value string, attrs pcommon.Map) {
 // (from gen_ai.response.finish_reasons on the span), it is used directly. Otherwise
 // falls back to "tool_call" if tool call parts are present, or "stop".
 //
-// see: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-input-messages.json
-// see: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-output-messages.json
+// see: https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-input-messages.json
+// see: https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-output-messages.json
 func convertMessages(messages map[int]map[string]any, isOutput bool, finishReason string) []map[string]any {
 	keys := make([]int, 0, len(messages))
 	for k := range messages {

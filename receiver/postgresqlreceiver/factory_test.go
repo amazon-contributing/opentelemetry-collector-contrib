@@ -59,6 +59,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	assert.Equal(t, time.Hour, defaultCfg.QueryPlanCacheTTL)
 
 	assert.Equal(t, int64(1000), defaultCfg.QuerySampleCollection.MaxRowsPerQuery)
+	assert.Equal(t, time.Minute, defaultCfg.QuerySampleCollection.CollectionInterval)
 }
 
 func TestCreateLogs(t *testing.T) {

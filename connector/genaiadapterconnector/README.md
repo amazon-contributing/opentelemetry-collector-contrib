@@ -5,7 +5,8 @@
 | ------------- |-----------|
 | Distributions | [] |
 | Issues        | [![Open issues](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-collector-contrib?query=is%3Aissue%20is%3Aopen%20label%3Aconnector%2Fgenaiadapter%20&label=open&color=orange&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues?q=is%3Aopen+is%3Aissue+label%3Aconnector%2Fgenaiadapter) [![Closed issues](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-collector-contrib?query=is%3Aissue%20is%3Aclosed%20label%3Aconnector%2Fgenaiadapter%20&label=closed&color=blue&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues?q=is%3Aclosed+is%3Aissue+label%3Aconnector%2Fgenaiadapter) |
-| [Code Owners](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/CONTRIBUTING.md#becoming-a-code-owner)    | [@liustve](https://www.github.com/liustve) |
+| Code coverage | [![codecov](https://codecov.io/github/open-telemetry/opentelemetry-collector-contrib/graph/main/badge.svg?component=connector_genaiadapter)](https://app.codecov.io/gh/open-telemetry/opentelemetry-collector-contrib/tree/main/?components%5B0%5D=connector_genaiadapter&displayType=list) |
+| [Code Owners](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/CONTRIBUTING.md#becoming-a-code-owner)    | [@liustve](https://www.github.com/liustve), [@jefchien](https://www.github.com/jefchien), [@sky333999](https://www.github.com/sky333999) |
 
 [development]: https://github.com/open-telemetry/opentelemetry-collector/blob/main/docs/component-stability.md#development
 
@@ -23,12 +24,12 @@
 
 ## Overview
 
-The Gen AI Adapter Connector transforms [OpenInference](https://arize-ai.github.io/openinference/spec/semantic_conventions.html) spans from GenAI frameworks (LangChain, Bedrock, LlamaIndex, CrewAI) into [OTel GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/).
+The Gen AI Adapter Connector transforms [OpenInference](https://arize-ai.github.io/openinference/spec/semantic_conventions.html) spans from GenAI frameworks (LangChain, Bedrock, LlamaIndex, CrewAI) into [OTel GenAI semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai).
 
 It supports two pipeline paths:
 
 - **traces-to-traces**: Transforms span attributes from OpenInference format to OTel GenAI semconv (e.g., `llm.model_name` to `gen_ai.request.model`, `llm.token_count.prompt` to `gen_ai.usage.input_tokens`).
-- **traces-to-logs**: Extracts Large Language Object (LLO) content (prompts, completions, tool calls) from span attributes and events, and emits them as Gen AI log events with structured input/output messages in the [OTel semconv parts format](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-input-messages.json).
+- **traces-to-logs**: Extracts Large Language Object (LLO) content (prompts, completions, tool calls) from span attributes and events, and emits them as Gen AI log events with structured input/output messages in the [OTel semconv parts format](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-input-messages.json).
 
 ## Configuration
 

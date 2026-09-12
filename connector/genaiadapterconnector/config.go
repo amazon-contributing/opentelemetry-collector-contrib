@@ -7,6 +7,6 @@ package genaiadapterconnector // import "github.com/open-telemetry/opentelemetry
 type Config struct{}
 
 // Validate checks the connector configuration for errors.
-func (cfg *Config) Validate() error {
+func (*Config) Validate() error {
 	return nil
 }

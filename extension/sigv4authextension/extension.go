@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/collector/extension/extensionauth"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // sigv4Auth is a struct that implements the extensionauth.HTTPClient interface.
@@ -65,23 +65,29 @@ func newSigv4Extension(cfg *Config, credsProvider *aws.CredentialsProvider, awsS
 	}
 }
 
-// resolveCredentialsProvider builds an aws.CredentialsProvider by delegating to awsutilv2.GetAWSConfig
-// which handles shared credentials, web identity, and assume-role.
+// resolveCredentialsProvider builds an aws.CredentialsProvider by delegating to
+// awsutil.GetAWSConfig, which handles the shared-credentials chain, assume-role, and
+// web identity uniformly (including STS regional->partitional fallback and Confused
+// Deputy headers).
 func resolveCredentialsProvider(ctx context.Context, logger *zap.Logger, cfg *Config) (*aws.CredentialsProvider, error) {
 	settings := cfg.AWSSessionSettings
 	settings.Region = cfg.resolvedSTSRegion()
 	settings.RoleARN = cfg.resolvedRoleARN()
+	settings.ExternalID = cfg.resolvedExternalID()
 	settings.WebIdentityTokenFile = cfg.resolvedWebIdentityTokenFile()
-	awscfg, err := awsutilv2.GetAWSConfig(ctx, logger, &settings)
+
+	awscfg, err := awsutil.GetAWSConfig(ctx, logger, &settings)
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve credentials provider: %w", err)
+		return nil, fmt.Errorf("could not retrieve credential provider: %w", err)
 	}
-	// Skip eager Retrieve for web identity: the token may not be available yet at startup
-	// (e.g., projected SA token in Kubernetes) and will be read on first use.
+
+	// Skip the eager Retrieve for web identity: the token may not be available yet at
+	// startup (e.g. a projected Kubernetes service-account token) and is read on first use.
 	if settings.WebIdentityTokenFile == "" {
 		if _, err = awscfg.Credentials.Retrieve(ctx); err != nil {
 			return nil, fmt.Errorf("could not retrieve credentials: %w", err)
 		}
 	}
+
 	return &awscfg.Credentials, nil
 }

@@ -28,7 +28,7 @@ func minimalScrapeConfig(job string) *config.ScrapeConfig {
 		Scheme:          "http",
 		MetricsPath:     "/metrics",
 		ServiceDiscoveryConfigs: discovery.Configs{
-			&discovery.StaticConfig{
+			discovery.StaticConfig{
 				{Targets: []model.LabelSet{{model.AddressLabel: model.LabelValue("127.0.0.1:19999")}}},
 			},
 		},

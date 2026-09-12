@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //go:build !windows
-// +build !windows
 
 package awsefareceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsefareceiver"
 
@@ -39,7 +38,7 @@ type sysFsReader interface {
 	EfaDataExists() (bool, error)
 	ListDevices() ([]string, error)
 	ListPorts(deviceName string) ([]string, error)
-	ReadCounter(deviceName string, port string, counter string) (uint64, error)
+	ReadCounter(deviceName, port, counter string) (uint64, error)
 	ReadGID(deviceName string) (string, error)
 }
 
@@ -133,7 +132,7 @@ func (r *sysfsReaderImpl) ReadGID(deviceName string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func (r *sysfsReaderImpl) ReadCounter(deviceName string, port string, counter string) (uint64, error) {
+func (r *sysfsReaderImpl) ReadCounter(deviceName, port, counter string) (uint64, error) {
 	path := filepath.Join(r.basePath, deviceName, "ports", port, "hw_counters", counter)
 	data, err := os.ReadFile(path)
 	if err != nil {

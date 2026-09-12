@@ -9,7 +9,7 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // Config for the awscloudwatchlogsprovisioner extension.
@@ -19,7 +19,7 @@ import (
 // streams. Headers can be set by the otlphttp exporter (static) or by the
 // headers_setter extension (dynamic, from client.Metadata).
 type Config struct {
-	awsutilv2.AWSSessionSettings `mapstructure:",squash"`
+	awsutil.AWSSessionSettings `mapstructure:",squash"`
 
 	// AdditionalAuth is a reference to the inner auth extension (typically sigv4auth)
 	// that this extension chains with for request signing. Follows the same pattern

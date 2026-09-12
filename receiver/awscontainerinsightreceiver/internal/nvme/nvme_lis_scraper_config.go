@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	configutil "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
@@ -35,7 +36,8 @@ func GetLisScraperConfig(hostInfoProvider hostInfoProvider) *config.ScrapeConfig
 		ScrapeFallbackProtocol: config.PrometheusText0_0_4,
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
-				Role: kubernetes.RoleService,
+				Role:             kubernetes.RoleService,
+				HTTPClientConfig: configutil.DefaultHTTPClientConfig,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
 					Names: []string{lisNamespaceDiscoveryName},
 				},

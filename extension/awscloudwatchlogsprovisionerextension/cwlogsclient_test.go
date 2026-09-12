@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // newStubbedCWLogsClient returns a defaultCWLogsClient whose SDK client sends
@@ -84,7 +84,7 @@ func TestNewDefaultCWLogsClient_CABundle(t *testing.T) {
 	t.Run("FromCertificateFilePath", func(t *testing.T) {
 		certPath := writeSelfSignedCertForTest(t)
 
-		client, err := newDefaultCWLogsClient(t.Context(), zap.NewNop(), &awsutilv2.AWSSessionSettings{
+		client, err := newDefaultCWLogsClient(t.Context(), zap.NewNop(), &awsutil.AWSSessionSettings{
 			Region:              "us-east-1",
 			LocalMode:           true,
 			CertificateFilePath: certPath,
@@ -97,7 +97,7 @@ func TestNewDefaultCWLogsClient_CABundle(t *testing.T) {
 		certPath := writeSelfSignedCertForTest(t)
 		t.Setenv("AWS_CA_BUNDLE", certPath)
 
-		client, err := newDefaultCWLogsClient(t.Context(), zap.NewNop(), &awsutilv2.AWSSessionSettings{
+		client, err := newDefaultCWLogsClient(t.Context(), zap.NewNop(), &awsutil.AWSSessionSettings{
 			Region:    "us-east-1",
 			LocalMode: true,
 		})

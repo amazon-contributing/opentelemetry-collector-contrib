@@ -22,23 +22,23 @@ import (
 // Mock cadvisor
 type mockCadvisor struct{}
 
-func (c *mockCadvisor) GetMetrics() []pmetric.Metrics {
+func (*mockCadvisor) GetMetrics() []pmetric.Metrics {
 	md := pmetric.NewMetrics()
 	return []pmetric.Metrics{md}
 }
 
-func (c *mockCadvisor) Shutdown() error {
+func (*mockCadvisor) Shutdown() error {
 	return nil
 }
 
 // Mock k8sapiserver
 type mockK8sAPIServer struct{}
 
-func (m *mockK8sAPIServer) Shutdown() error {
+func (*mockK8sAPIServer) Shutdown() error {
 	return nil
 }
 
-func (m *mockK8sAPIServer) GetMetrics() []pmetric.Metrics {
+func (*mockK8sAPIServer) GetMetrics() []pmetric.Metrics {
 	md := pmetric.NewMetrics()
 	return []pmetric.Metrics{md}
 }
@@ -76,7 +76,7 @@ func TestCollectData(t *testing.T) {
 	require.NotNil(t, metricsReceiver)
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
-	_ = r.Start(t.Context(), nil)
+	_ = r.Start(t.Context(), componenttest.NewNopHost())
 	ctx := t.Context()
 	r.k8sapiserver = &mockK8sAPIServer{}
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -102,7 +102,7 @@ func TestCollectDataWithErrConsumer(t *testing.T) {
 	require.NotNil(t, metricsReceiver)
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
-	_ = r.Start(t.Context(), nil)
+	_ = r.Start(t.Context(), componenttest.NewNopHost())
 	r.containerMetricsProvider = &mockCadvisor{}
 	r.k8sapiserver = &mockK8sAPIServer{}
 	ctx := t.Context()
@@ -124,7 +124,7 @@ func TestCollectDataWithECS(t *testing.T) {
 	require.NotNil(t, metricsReceiver)
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
-	_ = r.Start(t.Context(), nil)
+	_ = r.Start(t.Context(), componenttest.NewNopHost())
 	ctx := t.Context()
 
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -152,7 +152,7 @@ func TestCollectDataWithSystemd(t *testing.T) {
 	require.NotNil(t, metricsReceiver)
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
-	_ = r.Start(t.Context(), nil)
+	_ = r.Start(t.Context(), componenttest.NewNopHost())
 	ctx := t.Context()
 
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -175,19 +175,25 @@ type MockConfigurer struct {
 	mock.Mock
 }
 
-func (m *MockConfigurer) Start(context.Context, component.Host) error {
+func (*MockConfigurer) Start(context.Context, component.Host) error {
 	return nil
 }
 
-func (m *MockConfigurer) Shutdown(context.Context) error {
+func (*MockConfigurer) Shutdown(context.Context) error {
 	return nil
 }
 
-func (m *MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
+func (*MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factory {
 	return nil
 }
 
 func TestAWSContainerInsightReceiverStart(t *testing.T) {
+	// Static region and credentials so building the AWS config succeeds
+	// without touching IMDS, letting Start reach middleware discovery.
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_ACCESS_KEY_ID", "test")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+
 	// Create a mock host
 	mockHost := new(MockHost)
 	testType, _ := component.NewType("awsmiddleware")
@@ -209,7 +215,7 @@ func TestAWSContainerInsightReceiverStart(t *testing.T) {
 		MiddlewareID:          &statusCodeID,
 	}
 	consumer := consumertest.NewNop()
-	receiver, err := newAWSContainerInsightReceiver(component.TelemetrySettings{}, config, consumer)
+	receiver, err := newAWSContainerInsightReceiver(componenttest.NewNopTelemetrySettings(), config, consumer)
 	assert.NoError(t, err)
 	err = receiver.Start(t.Context(), mockHost)
 	assert.Error(t, err)

@@ -35,4 +35,3 @@ WHERE
     )
     AND pid <> pg_backend_pid()
 LIMIT 30;
-

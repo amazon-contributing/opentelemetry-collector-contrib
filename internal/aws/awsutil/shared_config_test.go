@@ -15,17 +15,23 @@ func TestGetFallbackSharedConfigFiles(t *testing.T) {
 	t.Setenv(envAwsSharedCredentialsFile, "credentials")
 	t.Setenv(envAwsSharedConfigFile, "config")
 
-	got := getFallbackSharedConfigFiles(noOpGetUserHomeDir)
-	assert.Equal(t, []string{"config", "credentials"}, got)
+	credFiles, cfgFiles := getFallbackSharedConfigFiles(noOpGetUserHomeDir)
+	assert.Equal(t, []string{"credentials"}, credFiles)
+	assert.Equal(t, []string{"config"}, cfgFiles)
 
+	// AWS_SDK_LOAD_CONFIG disabled -> empty non-nil config list, so the SDK
+	// does not fall back to loading the default ~/.aws/config.
 	t.Setenv(envAwsSdkLoadConfig, "false")
-	got = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
-	assert.Equal(t, []string{"credentials"}, got)
+	credFiles, cfgFiles = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
+	assert.Equal(t, []string{"credentials"}, credFiles)
+	assert.NotNil(t, cfgFiles)
+	assert.Empty(t, cfgFiles)
 
 	t.Setenv(envAwsSdkLoadConfig, "true")
 	t.Setenv(envAwsSharedCredentialsFile, "")
 	t.Setenv(envAwsSharedConfigFile, "")
 
-	got = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
-	assert.Equal(t, []string{defaultSharedConfig("home"), defaultSharedCredentialsFile("home")}, got)
+	credFiles, cfgFiles = getFallbackSharedConfigFiles(noOpGetUserHomeDir)
+	assert.Equal(t, []string{defaultSharedCredentialsFile("home")}, credFiles)
+	assert.Equal(t, []string{defaultSharedConfig("home")}, cfgFiles)
 }

@@ -17,31 +17,21 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/hashicorp/golang-lru/v2/expirable"
-	"go.opentelemetry.io/collector/featuregate"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/collector/scraper/scrapererror"
-	semconv "go.opentelemetry.io/otel/semconv/v1.38.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/priorityqueue"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver/internal/metadata"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver/internal/priorityqueue"
 )
 
 const (
-	readmeURL            = "https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.88.0/receiver/postgresqlreceiver/README.md"
-	separateSchemaAttrID = "receiver.postgresql.separateSchemaAttr"
-
+	readmeURL                 = "https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.88.0/receiver/postgresqlreceiver/README.md"
 	defaultPostgreSQLDatabase = "postgres"
-)
-
-var separateSchemaAttrGate = featuregate.GlobalRegistry().MustRegister(
-	separateSchemaAttrID,
-	featuregate.StageAlpha,
-	featuregate.WithRegisterDescription("Moves Schema Names into dedicated Attribute"),
-	featuregate.WithRegisterReferenceURL("https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/29559"),
 )
 
 type postgreSQLScraper struct {
@@ -94,11 +84,11 @@ func newPostgreSQLScraper(
 	for _, db := range config.ExcludeDatabases {
 		excludes[db] = struct{}{}
 	}
-	separateSchemaAttr := separateSchemaAttrGate.IsEnabled()
+	separateSchemaAttr := metadata.ReceiverPostgresqlSeparateSchemaAttrFeatureGate.IsEnabled()
 
 	if !separateSchemaAttr {
 		settings.Logger.Warn(
-			fmt.Sprintf("Feature gate %s is not enabled. Please see the README for more information: %s", separateSchemaAttrID, readmeURL),
+			fmt.Sprintf("Feature gate %s is not enabled. Please see the README for more information: %s", metadata.ReceiverPostgresqlSeparateSchemaAttrFeatureGate.ID(), readmeURL),
 		)
 	}
 
@@ -218,6 +208,7 @@ func (p *postgreSQLScraper) scrapeTopQuery(ctx context.Context, maxRowsPerQuery,
 
 func (p *postgreSQLScraper) isCollectionDue(collectionTime time.Time, interval time.Duration) bool {
 	if p.lastExecutionTimestamp.IsZero() {
+		// This is the first collection
 		return true
 	}
 
@@ -292,21 +283,21 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 		finalConverter func(float64) any
 	}
 
-	convertToIntFn := func(f float64) any {
+	convertToInt := func(f float64) any {
 		return int64(f)
 	}
 
 	updatedOnly := map[string]updatedOnlyInfo{
 		totalExecTimeColumnName:     {},
 		totalPlanTimeColumnName:     {},
-		rowsColumnName:              {finalConverter: convertToIntFn},
-		callsColumnName:             {finalConverter: convertToIntFn},
-		sharedBlksDirtiedColumnName: {finalConverter: convertToIntFn},
-		sharedBlksHitColumnName:     {finalConverter: convertToIntFn},
-		sharedBlksReadColumnName:    {finalConverter: convertToIntFn},
-		sharedBlksWrittenColumnName: {finalConverter: convertToIntFn},
-		tempBlksReadColumnName:      {finalConverter: convertToIntFn},
-		tempBlksWrittenColumnName:   {finalConverter: convertToIntFn},
+		rowsColumnName:              {finalConverter: convertToInt},
+		callsColumnName:             {finalConverter: convertToInt},
+		sharedBlksDirtiedColumnName: {finalConverter: convertToInt},
+		sharedBlksHitColumnName:     {finalConverter: convertToInt},
+		sharedBlksReadColumnName:    {finalConverter: convertToInt},
+		sharedBlksWrittenColumnName: {finalConverter: convertToInt},
+		tempBlksReadColumnName:      {finalConverter: convertToInt},
+		tempBlksWrittenColumnName:   {finalConverter: convertToInt},
 	}
 
 	pq := make(priorityqueue.PriorityQueue[map[string]any, float64], 0)
@@ -315,6 +306,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 		queryID := row[dbAttributePrefix+queryidColumnName]
 
 		if queryID == nil {
+			// this should not happen, but in case
 			logger.Error("queryid is nil", zap.Any("atts", row))
 			mux.addPartial(errors.New("queryid is nil"))
 			continue
@@ -362,6 +354,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 		item := heap.Pop(&pq).(*priorityqueue.QueueItem[map[string]any, float64])
 		query := item.Value[string(semconv.DBQueryTextKey)].(string)
 		queryID := item.Value[dbAttributePrefix+queryidColumnName].(string)
+		// Use raw query (with $1, $2 placeholders) for EXPLAIN, not the obfuscated one (with ?)
 		rawQuery, _ := item.Value[dbAttributePrefix+"raw_query"].(string)
 		plan, ok := p.queryPlanCache.Get(queryID + "-plan")
 		// EXPLAIN can fail for superuser-owned queries, which often reference objects the
@@ -375,6 +368,8 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 				if err != nil {
 					logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
 				}
+				// to avoid flood the error message. there are some internal queries meant to not be
+				// explained. we wait for the cache to expire and report the error again.
 				p.queryPlanCache.Add(queryID+"-plan", plan)
 				err = dbClient.Close()
 				if err != nil {
@@ -610,6 +605,17 @@ func (p *postgreSQLScraper) collectDatabaseLocks(
 	}
 }
 
+// allowedSessionStates is the set of pg_stat_activity.state values that the
+// postgresql.sessions metric reports. Other values are dropped.
+var allowedSessionStates = map[string]struct{}{
+	"active":                        {},
+	"idle":                          {},
+	"idle in transaction":           {},
+	"idle in transaction (aborted)": {},
+	"fastpath function call":        {},
+	"disabled":                      {},
+}
+
 func (p *postgreSQLScraper) collectSessionStates(
 	ctx context.Context,
 	now pcommon.Timestamp,
@@ -622,9 +628,10 @@ func (p *postgreSQLScraper) collectSessionStates(
 		return
 	}
 	for state, count := range states {
-		if ss, ok := metadata.MapAttributeSessionState[state]; ok {
-			p.mb.RecordPostgresqlSessionsDataPoint(now, count, ss)
+		if _, ok := allowedSessionStates[state]; !ok {
+			continue
 		}
+		p.mb.RecordPostgresqlSessionsDataPoint(now, count, state)
 	}
 }
 
@@ -657,7 +664,7 @@ func (p *postgreSQLScraper) collectReplicationStats(
 		if rs.pendingBytes >= 0 {
 			p.mb.RecordPostgresqlReplicationDataDelayDataPoint(now, rs.pendingBytes, rs.clientAddr)
 		}
-		if preciseLagMetricsFg.IsEnabled() {
+		if metadata.PostgresqlreceiverPreciselagmetricsFeatureGate.IsEnabled() {
 			if rs.writeLag >= 0 {
 				p.mb.RecordPostgresqlWalDelayDataPoint(now, rs.writeLag, metadata.AttributeWalOperationLagWrite, rs.clientAddr)
 			}
@@ -689,6 +696,7 @@ func (p *postgreSQLScraper) collectWalAge(
 ) {
 	walAge, err := client.getLatestWalAgeSeconds(ctx)
 	if errors.Is(err, errNoLastArchive) {
+		// return no error as there is no last archive to derive the value from
 		return
 	}
 	if err != nil {

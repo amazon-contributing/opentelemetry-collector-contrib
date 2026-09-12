@@ -18,23 +18,33 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sutil"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsekshyperpodreceiver/internal/metadata"
 )
+
+// expectedMetricName maps each HyperPod status to the metric name that should
+// carry value 1 for a node in that status.
+var expectedMetricName = map[string]string{
+	k8sutil.Schedulable.String():                     "hyperpod_node_health_status_schedulable",
+	k8sutil.UnschedulablePendingReplacement.String(): "hyperpod_node_health_status_unschedulable_pending_replacement",
+	k8sutil.UnschedulablePendingReboot.String():      "hyperpod_node_health_status_unschedulable_pending_reboot",
+	k8sutil.Unschedulable.String():                   "hyperpod_node_health_status_unschedulable",
+}
 
 // mockNodeClient implements k8sclient.NodeClient for testing.
 type mockNodeClient struct {
 	nodeToLabelsMap map[string]map[k8sclient.Label]int8
 }
 
-func (m *mockNodeClient) NodeInfos() map[string]*k8sclient.NodeInfo {
+func (*mockNodeClient) NodeInfos() map[string]*k8sclient.NodeInfo {
 	return nil
 }
 
-func (m *mockNodeClient) ClusterFailedNodeCount() int { return 0 }
-func (m *mockNodeClient) ClusterNodeCount() int       { return 0 }
+func (*mockNodeClient) ClusterFailedNodeCount() int { return 0 }
+func (*mockNodeClient) ClusterNodeCount() int       { return 0 }
 
-func (m *mockNodeClient) NodeToCapacityMap() map[string]v1.ResourceList    { return nil }
-func (m *mockNodeClient) NodeToAllocatableMap() map[string]v1.ResourceList { return nil }
-func (m *mockNodeClient) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus {
+func (*mockNodeClient) NodeToCapacityMap() map[string]v1.ResourceList    { return nil }
+func (*mockNodeClient) NodeToAllocatableMap() map[string]v1.ResourceList { return nil }
+func (*mockNodeClient) NodeToConditionsMap() map[string]map[v1.NodeConditionType]v1.ConditionStatus {
 	return nil
 }
 
@@ -49,8 +59,9 @@ func newTestScraper(cfg *Config) *scraper {
 
 func defaultTestConfig() *Config {
 	cfg := &Config{
-		ControllerConfig: scraperhelper.NewDefaultControllerConfig(),
-		ClusterName:      "test-cluster",
+		ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+		MetricsBuilderConfig: metadata.DefaultMetricsBuilderConfig(),
+		ClusterName:          "test-cluster",
 	}
 	cfg.CollectionInterval = 60 * time.Second
 	return cfg
@@ -85,7 +96,7 @@ func TestStatusToMetricName(t *testing.T) {
 	for _, tt := range tests {
 		statusStr := k8sutil.HyperPodConditionType(tt.status).String()
 		t.Run(statusStr, func(t *testing.T) {
-			assert.Equal(t, tt.expected, statusToMetricName[statusStr])
+			assert.Equal(t, tt.expected, expectedMetricName[statusStr])
 		})
 	}
 }
@@ -463,7 +474,7 @@ func TestProperty_MetricEmissionCorrectness(t *testing.T) {
 		nodeToLabelsMap := make(map[string]map[k8sclient.Label]int8)
 		nodeStatuses := make(map[string]int8)
 
-		for i := 0; i < nodeCount; i++ {
+		for range nodeCount {
 			name := genNodeName().Draw(t, "node_name")
 			// Ensure unique node names by appending index.
 			name = name + "-" + rapid.StringMatching(`[0-9]{4}`).Draw(t, "suffix")
@@ -545,16 +556,16 @@ func TestProperty_MetricEmissionCorrectness(t *testing.T) {
 
 			// Verify the metric set to 1 matches the node's status.
 			expectedStatus := k8sutil.HyperPodConditionType(nodeStatuses[nodeName]).String()
-			expectedMetricName := statusToMetricName[expectedStatus]
+			expectedMetricNameForNode := expectedMetricName[expectedStatus]
 			found := false
 			for _, e := range entries {
-				if e.value == 1 && e.name == expectedMetricName {
+				if e.value == 1 && e.name == expectedMetricNameForNode {
 					found = true
 					break
 				}
 			}
 			if !found {
-				t.Fatalf("node %s: expected metric %s to be 1, but it wasn't", nodeName, expectedMetricName)
+				t.Fatalf("node %s: expected metric %s to be 1, but it wasn't", nodeName, expectedMetricNameForNode)
 			}
 		}
 	})

@@ -20,41 +20,34 @@ import (
 
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configtls"
-	"go.opentelemetry.io/collector/featuregate"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.38.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver/internal/metadata"
 )
 
-const (
-	lagMetricsInSecondsFeatureGateID = "postgresqlreceiver.preciselagmetrics"
-	querySampleTraceContextKey       = "_otel_trace_context"
-)
-
-var preciseLagMetricsFg = featuregate.GlobalRegistry().MustRegister(
-	lagMetricsInSecondsFeatureGateID,
-	featuregate.StageBeta,
-	featuregate.WithRegisterDescription("Metric `postgresql.wal.lag` is replaced by more precise `postgresql.wal.delay`."),
-	featuregate.WithRegisterFromVersion("0.89.0"),
-)
+const querySampleTraceContextKey = "_otel_trace_context"
 
 // databaseName is a name that refers to a database so that it can be uniquely referred to later
+// i.e. database1
 type databaseName string
 
 // tableIdentifier is an identifier that contains both the database and table separated by a "|"
+// i.e. database1|table2
 type tableIdentifier string
 
-// indexIdentifier is a unique string that identifies a particular index
+// indexIdentifier is a unique string that identifies a particular index and is separated by the "|" character
 type indexIdentifer string
 
 // functionIdentifier is a unique string that identifies a particular function and is separated by the "|" character
 type functionIdentifer string
 
-// errNoLastArchive is an error that occurs when there is no previous wal archive
+// errNoLastArchive is an error that occurs when there is no previous wal archive, so there is no way to compute the
+// last archived point
 var errNoLastArchive = errors.New("no last archive found, not able to calculate oldest WAL age")
 
 type client interface {
@@ -84,45 +77,61 @@ type postgreSQLClient struct {
 	closeFn func() error
 }
 
+// explainableStatements is a whitelist of SQL statements that PostgreSQL can EXPLAIN.
 var explainableStatements = map[string]struct{}{
-	"SELECT": {}, "TABLE": {}, "DELETE": {}, "INSERT": {},
-	"UPDATE": {}, "WITH": {}, "MERGE": {}, "VALUES": {},
+	"SELECT": {},
+	"TABLE":  {}, // TABLE is shorthand for SELECT * FROM
+	"DELETE": {},
+	"INSERT": {},
+	"UPDATE": {},
+	"WITH":   {}, // CTEs
+	"MERGE":  {}, // PostgreSQL 15+
+	"VALUES": {},
 }
 
-// isExplainableQuery checks if a query can be explained.
-// Only DML statements (SELECT, INSERT, UPDATE, DELETE, etc.) can be explained.
-// This function strips leading SQL comments before checking.
+// isExplainableQuery checks if a query can be explained by PostgreSQL.
+// Uses a whitelist approach, only allows known DML statements.
 func isExplainableQuery(query string) bool {
-	q := strings.TrimSpace(query)
-	// Strip leading SQL comments
+	trimmed := strings.TrimSpace(query)
+
+	// Remove leading comments (both -- and /* */ style)
 	for {
-		if strings.HasPrefix(q, "--") {
-			if idx := strings.Index(q, "\n"); idx >= 0 {
-				q = strings.TrimSpace(q[idx+1:])
-				continue
+		switch {
+		case strings.HasPrefix(trimmed, "--"):
+			idx := strings.Index(trimmed, "\n")
+			if idx == -1 {
+				return false
 			}
-			return false
-		}
-		if strings.HasPrefix(q, "/*") {
-			if idx := strings.Index(q, "*/"); idx >= 0 {
-				q = strings.TrimSpace(q[idx+2:])
-				continue
+			trimmed = strings.TrimSpace(trimmed[idx+1:])
+			continue
+		case strings.HasPrefix(trimmed, "/*"):
+			idx := strings.Index(trimmed, "*/")
+			if idx == -1 {
+				return false
 			}
-			return false
+			trimmed = strings.TrimSpace(trimmed[idx+2:])
+			continue
 		}
 		break
 	}
-	// Extract first word and check against allowlist
-	firstWord := q
-	if idx := strings.IndexAny(q, " \t\n\r("); idx >= 0 {
-		firstWord = q[:idx]
+
+	if trimmed == "" {
+		return false
 	}
+
+	// Extract and uppercase only the first word to check against the whitelist
+	firstWord := trimmed
+	if idx := strings.IndexAny(trimmed, " \t\n("); idx != -1 {
+		firstWord = trimmed[:idx]
+	}
+
 	_, ok := explainableStatements[strings.ToUpper(firstWord)]
 	return ok
 }
 
 // explainQuery implements client.
 func (c *postgreSQLClient) explainQuery(query, queryID string, logger *zap.Logger) (string, error) {
+	// Check if the query is explainable before attempting EXPLAIN
 	if !isExplainableQuery(query) {
 		logger.Debug("skipping EXPLAIN for non-explainable query", zap.String("queryID", queryID))
 		return "", nil
@@ -130,16 +139,21 @@ func (c *postgreSQLClient) explainQuery(query, queryID string, logger *zap.Logge
 
 	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
 
+	// PostgreSQL's pg_stat_statements returns queries with $1, $2 placeholders
 	paramRegex := regexp.MustCompile(`\$\d+`)
 	matches := paramRegex.FindAllString(query, -1)
 
+	// Build nulls array for placeholders
 	nulls := make([]string, len(matches))
 	for i := range nulls {
 		nulls[i] = "null"
 	}
 
-	//nolint:errcheck
-	defer c.client.Exec(fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
+	defer func() {
+		_, _ = c.client.Exec(fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
+	}()
+
+	// if there is no parameter needed, we can not put an empty bracket
 
 	nullsString := ""
 	if len(nulls) > 0 {
@@ -206,6 +220,8 @@ func sslConnectionString(tls configtls.ClientConfig) string {
 }
 
 func (c postgreSQLConfig) ConnectionString() (string, error) {
+	// postgres will assume the supplied user as the database name if none is provided,
+	// so we must specify a database name even when we are just collecting the list of databases.
 	database := defaultPostgreSQLDatabase
 	if c.database != "" {
 		database = c.database
@@ -217,6 +233,7 @@ func (c postgreSQLConfig) ConnectionString() (string, error) {
 	}
 
 	if c.address.Transport == confignet.TransportTypeUnix {
+		// lib/pg expects a unix socket host to start with a "/" and appends the appropriate .s.PGSQL.port internally
 		host = "/" + host
 	}
 
@@ -332,6 +349,7 @@ func (c *postgreSQLClient) getDatabaseLocks(ctx context.Context) ([]databaseLock
 	return dl, multierr.Combine(errs...)
 }
 
+// getBackends returns a map of database names to the number of active connections
 func (c *postgreSQLClient) getBackends(ctx context.Context, databases []string) (map[databaseName]int64, error) {
 	query := filterQueryByDatabases("SELECT datname, count(*) as count from pg_stat_activity", databases, true)
 	rows, err := c.client.QueryContext(ctx, query)
@@ -380,6 +398,7 @@ func (c *postgreSQLClient) getDatabaseSize(ctx context.Context, databases []stri
 	return sizes, errors
 }
 
+// tableStats contains a result for a row of the getDatabaseTableMetrics result
 type tableStats struct {
 	database    string
 	schema      string
@@ -397,9 +416,15 @@ type tableStats struct {
 
 func (c *postgreSQLClient) getDatabaseTableMetrics(ctx context.Context, db string) (map[tableIdentifier]tableStats, error) {
 	query := `SELECT schemaname as schema, relname AS table,
-	n_live_tup AS live, n_dead_tup AS dead, n_tup_ins AS ins, n_tup_upd AS upd,
-	n_tup_del AS del, n_tup_hot_upd AS hot_upd, seq_scan AS seq_scans,
-	pg_relation_size(relid) AS table_size, vacuum_count
+	n_live_tup AS live,
+	n_dead_tup AS dead,
+	n_tup_ins AS ins,
+	n_tup_upd AS upd,
+	n_tup_del AS del,
+	n_tup_hot_upd AS hot_upd,
+	seq_scan AS seq_scans,
+	pg_relation_size(relid) AS table_size,
+	vacuum_count
 	FROM pg_stat_user_tables;`
 
 	ts := map[tableIdentifier]tableStats{}
@@ -417,9 +442,18 @@ func (c *postgreSQLClient) getDatabaseTableMetrics(ctx context.Context, db strin
 			continue
 		}
 		ts[tableKey(db, schema, table)] = tableStats{
-			database: db, schema: schema, table: table, live: live, dead: dead,
-			inserts: ins, upd: upd, del: del, hotUpd: hotUpd, seqScans: seqScans,
-			size: tableSize, vacuumCount: vacuumCount,
+			database:    db,
+			schema:      schema,
+			table:       table,
+			live:        live,
+			dead:        dead,
+			inserts:     ins,
+			upd:         upd,
+			del:         del,
+			hotUpd:      hotUpd,
+			seqScans:    seqScans,
+			size:        tableSize,
+			vacuumCount: vacuumCount,
 		}
 	}
 	return ts, errors
@@ -441,10 +475,14 @@ type tableIOStats struct {
 
 func (c *postgreSQLClient) getBlocksReadByTable(ctx context.Context, db string) (map[tableIdentifier]tableIOStats, error) {
 	query := `SELECT schemaname as schema, relname AS table,
-	coalesce(heap_blks_read, 0) AS heap_read, coalesce(heap_blks_hit, 0) AS heap_hit,
-	coalesce(idx_blks_read, 0) AS idx_read, coalesce(idx_blks_hit, 0) AS idx_hit,
-	coalesce(toast_blks_read, 0) AS toast_read, coalesce(toast_blks_hit, 0) AS toast_hit,
-	coalesce(tidx_blks_read, 0) AS tidx_read, coalesce(tidx_blks_hit, 0) AS tidx_hit
+	coalesce(heap_blks_read, 0) AS heap_read,
+	coalesce(heap_blks_hit, 0) AS heap_hit,
+	coalesce(idx_blks_read, 0) AS idx_read,
+	coalesce(idx_blks_hit, 0) AS idx_hit,
+	coalesce(toast_blks_read, 0) AS toast_read,
+	coalesce(toast_blks_hit, 0) AS toast_hit,
+	coalesce(tidx_blks_read, 0) AS tidx_read,
+	coalesce(tidx_blks_hit, 0) AS tidx_hit
 	FROM pg_statio_user_tables;`
 
 	tios := map[tableIdentifier]tableIOStats{}
@@ -462,9 +500,17 @@ func (c *postgreSQLClient) getBlocksReadByTable(ctx context.Context, db string) 
 			continue
 		}
 		tios[tableKey(db, schema, table)] = tableIOStats{
-			database: db, schema: schema, table: table,
-			heapRead: heapRead, heapHit: heapHit, idxRead: idxRead, idxHit: idxHit,
-			toastRead: toastRead, toastHit: toastHit, tidxRead: tidxRead, tidxHit: tidxHit,
+			database:  db,
+			schema:    schema,
+			table:     table,
+			heapRead:  heapRead,
+			heapHit:   heapHit,
+			idxRead:   idxRead,
+			idxHit:    idxHit,
+			toastRead: toastRead,
+			toastHit:  toastHit,
+			tidxRead:  tidxRead,
+			tidxHit:   tidxHit,
 		}
 	}
 	return tios, errors
@@ -481,10 +527,12 @@ type indexStat struct {
 
 func (c *postgreSQLClient) getIndexStats(ctx context.Context, database string) (map[indexIdentifer]indexStat, error) {
 	query := `SELECT schemaname, relname, indexrelname,
-	pg_relation_size(indexrelid) AS index_size, idx_scan
+	pg_relation_size(indexrelid) AS index_size,
+	idx_scan
 	FROM pg_stat_user_indexes;`
 
 	stats := map[indexIdentifer]indexStat{}
+
 	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -493,16 +541,22 @@ func (c *postgreSQLClient) getIndexStats(ctx context.Context, database string) (
 
 	var errs []error
 	for rows.Next() {
-		var schema, table, index string
-		var indexSize, indexScans int64
+		var (
+			schema, table, index  string
+			indexSize, indexScans int64
+		)
 		err := rows.Scan(&schema, &table, &index, &indexSize, &indexScans)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 		stats[indexKey(database, schema, table, index)] = indexStat{
-			index: index, table: table, schema: schema, database: database,
-			size: indexSize, scans: indexScans,
+			index:    index,
+			table:    table,
+			schema:   schema,
+			database: database,
+			size:     indexSize,
+			scans:    indexScans,
 		}
 	}
 	return stats, multierr.Combine(errs...)
@@ -562,10 +616,6 @@ SELECT s.schemaname,
 	return stats, multierr.Combine(errs...)
 }
 
-func functionKey(database, schema, function string) functionIdentifer {
-	return functionIdentifer(fmt.Sprintf("%s|%s|%s", database, schema, function))
-}
-
 type bgStat struct {
 	checkpointsReq       int64
 	checkpointsScheduled int64
@@ -584,6 +634,7 @@ func (c *postgreSQLClient) getBGWriterStats(ctx context.Context) (*bgStat, error
 	if err != nil {
 		return nil, err
 	}
+
 	major, err := parseMajorVersion(version)
 	if err != nil {
 		return nil, err
@@ -597,39 +648,91 @@ func (c *postgreSQLClient) getBGWriterStats(ctx context.Context) (*bgStat, error
 	)
 
 	if major < 17 {
-		query := `SELECT checkpoints_req, checkpoints_timed, checkpoint_write_time, checkpoint_sync_time,
-		buffers_clean, buffers_backend, buffers_backend_fsync, buffers_checkpoint, buffers_alloc, maxwritten_clean
+		query := `SELECT
+		checkpoints_req AS checkpoint_req,
+		checkpoints_timed AS checkpoint_scheduled,
+		checkpoint_write_time AS checkpoint_duration_write,
+		checkpoint_sync_time AS checkpoint_duration_sync,
+		buffers_clean AS bg_writes,
+		buffers_backend AS backend_writes,
+		buffers_backend_fsync AS buffers_written_fsync,
+		buffers_checkpoint AS buffers_checkpoints,
+		buffers_alloc AS buffers_allocated,
+		maxwritten_clean AS maxwritten_count
 		FROM pg_stat_bgwriter;`
+
 		row := c.client.QueryRowContext(ctx, query)
-		if err := row.Scan(&checkpointsReq, &checkpointsScheduled, &checkpointWriteTime, &checkpointSyncTime,
-			&bgWrites, &bufferBackendWrites, &bufferFsyncWrites, &bufferCheckpoints, &bufferAllocated, &maxWritten); err != nil {
+
+		if err := row.Scan(
+			&checkpointsReq,
+			&checkpointsScheduled,
+			&checkpointWriteTime,
+			&checkpointSyncTime,
+			&bgWrites,
+			&bufferBackendWrites,
+			&bufferFsyncWrites,
+			&bufferCheckpoints,
+			&bufferAllocated,
+			&maxWritten,
+		); err != nil {
 			return nil, err
 		}
 		return &bgStat{
-			checkpointsReq: checkpointsReq, checkpointsScheduled: checkpointsScheduled,
-			checkpointWriteTime: checkpointWriteTime, checkpointSyncTime: checkpointSyncTime,
-			bgWrites: bgWrites, bufferBackendWrites: bufferBackendWrites, bufferFsyncWrites: bufferFsyncWrites,
-			bufferCheckpoints: bufferCheckpoints, buffersAllocated: bufferAllocated, maxWritten: maxWritten,
+			checkpointsReq:       checkpointsReq,
+			checkpointsScheduled: checkpointsScheduled,
+			checkpointWriteTime:  checkpointWriteTime,
+			checkpointSyncTime:   checkpointSyncTime,
+			bgWrites:             bgWrites,
+			bufferBackendWrites:  bufferBackendWrites,
+			bufferFsyncWrites:    bufferFsyncWrites,
+			bufferCheckpoints:    bufferCheckpoints,
+			buffersAllocated:     bufferAllocated,
+			maxWritten:           maxWritten,
 		}, nil
 	}
-	query := `SELECT cp.num_requested, cp.num_timed, cp.write_time, cp.sync_time, cp.buffers_written,
-	bg.buffers_clean, bg.buffers_alloc, bg.maxwritten_clean
-	FROM pg_stat_bgwriter bg, pg_stat_checkpointer cp;`
+	query := `SELECT
+		cp.num_requested AS checkpoint_req,
+		cp.num_timed AS checkpoint_scheduled,
+		cp.write_time AS checkpoint_duration_write,
+		cp.sync_time AS checkpoint_duration_sync,
+		cp.buffers_written AS buffers_checkpoints,
+		bg.buffers_clean AS bg_writes,
+		bg.buffers_alloc AS buffers_allocated,
+		bg.maxwritten_clean AS maxwritten_count
+		FROM pg_stat_bgwriter bg, pg_stat_checkpointer cp;`
+
 	row := c.client.QueryRowContext(ctx, query)
-	if err := row.Scan(&checkpointsReq, &checkpointsScheduled, &checkpointWriteTime, &checkpointSyncTime,
-		&bufferCheckpoints, &bgWrites, &bufferAllocated, &maxWritten); err != nil {
+
+	if err := row.Scan(
+		&checkpointsReq,
+		&checkpointsScheduled,
+		&checkpointWriteTime,
+		&checkpointSyncTime,
+		&bufferCheckpoints,
+		&bgWrites,
+		&bufferAllocated,
+		&maxWritten,
+	); err != nil {
 		return nil, err
 	}
+
 	return &bgStat{
-		checkpointsReq: checkpointsReq, checkpointsScheduled: checkpointsScheduled,
-		checkpointWriteTime: checkpointWriteTime, checkpointSyncTime: checkpointSyncTime,
-		bgWrites: bgWrites, bufferBackendWrites: -1, bufferFsyncWrites: -1,
-		bufferCheckpoints: bufferCheckpoints, buffersAllocated: bufferAllocated, maxWritten: maxWritten,
+		checkpointsReq:       checkpointsReq,
+		checkpointsScheduled: checkpointsScheduled,
+		checkpointWriteTime:  checkpointWriteTime,
+		checkpointSyncTime:   checkpointSyncTime,
+		bgWrites:             bgWrites,
+		bufferBackendWrites:  -1, // Not found in pg17+ tables
+		bufferFsyncWrites:    -1, // Not found in pg17+ tables
+		bufferCheckpoints:    bufferCheckpoints,
+		buffersAllocated:     bufferAllocated,
+		maxWritten:           maxWritten,
 	}, nil
 }
 
 func (c *postgreSQLClient) getMaxConnections(ctx context.Context) (int64, error) {
-	row := c.client.QueryRowContext(ctx, `SHOW max_connections;`)
+	query := `SHOW max_connections;`
+	row := c.client.QueryRowContext(ctx, query)
 	var maxConns int64
 	err := row.Scan(&maxConns)
 	return maxConns, err
@@ -638,21 +741,23 @@ func (c *postgreSQLClient) getMaxConnections(ctx context.Context) (int64, error)
 type replicationStats struct {
 	clientAddr   string
 	pendingBytes int64
-	flushLagInt  int64
-	replayLagInt int64
-	writeLagInt  int64
+	flushLagInt  int64 // Deprecated
+	replayLagInt int64 // Deprecated
+	writeLagInt  int64 // Deprecated
 	flushLag     float64
 	replayLag    float64
 	writeLag     float64
 }
 
 func (c *postgreSQLClient) getDeprecatedReplicationStats(ctx context.Context) ([]replicationStats, error) {
-	query := `SELECT coalesce(cast(client_addr as varchar), 'unix'),
-	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1),
+	query := `SELECT
+	coalesce(cast(client_addr as varchar), 'unix') AS client_addr,
+	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1) AS replication_bytes_pending,
 	extract('epoch' from coalesce(write_lag, '-1 seconds'))::integer,
 	extract('epoch' from coalesce(flush_lag, '-1 seconds'))::integer,
 	extract('epoch' from coalesce(replay_lag, '-1 seconds'))::integer
-	FROM pg_stat_replication;`
+	FROM pg_stat_replication;
+	`
 	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("unable to query pg_stat_replication: %w", err)
@@ -662,30 +767,39 @@ func (c *postgreSQLClient) getDeprecatedReplicationStats(ctx context.Context) ([
 	var errors error
 	for rows.Next() {
 		var client string
-		var replicationBytes, writeLagInt, flushLagInt, replayLagInt int64
-		err = rows.Scan(&client, &replicationBytes, &writeLagInt, &flushLagInt, &replayLagInt)
+		var replicationBytes int64
+		var writeLagInt, flushLagInt, replayLagInt int64
+		err = rows.Scan(&client, &replicationBytes,
+			&writeLagInt, &flushLagInt, &replayLagInt)
 		if err != nil {
 			errors = multierr.Append(errors, err)
 			continue
 		}
 		rs = append(rs, replicationStats{
-			clientAddr: client, pendingBytes: replicationBytes,
-			replayLagInt: replayLagInt, writeLagInt: writeLagInt, flushLagInt: flushLagInt,
+			clientAddr:   client,
+			pendingBytes: replicationBytes,
+			replayLagInt: replayLagInt,
+			writeLagInt:  writeLagInt,
+			flushLagInt:  flushLagInt,
 		})
 	}
+
 	return rs, errors
 }
 
 func (c *postgreSQLClient) getReplicationStats(ctx context.Context) ([]replicationStats, error) {
-	if !preciseLagMetricsFg.IsEnabled() {
+	if !metadata.PostgresqlreceiverPreciselagmetricsFeatureGate.IsEnabled() {
 		return c.getDeprecatedReplicationStats(ctx)
 	}
-	query := `SELECT coalesce(cast(client_addr as varchar), 'unix'),
-	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1),
-	extract('epoch' from coalesce(write_lag, '-1 seconds'))::decimal,
-	extract('epoch' from coalesce(flush_lag, '-1 seconds'))::decimal,
-	extract('epoch' from coalesce(replay_lag, '-1 seconds'))::decimal
-	FROM pg_stat_replication;`
+
+	query := `SELECT
+	coalesce(cast(client_addr as varchar), 'unix') AS client_addr,
+	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1) AS replication_bytes_pending,
+	extract('epoch' from coalesce(write_lag, '-1 seconds'))::decimal AS write_lag_fractional,
+	extract('epoch' from coalesce(flush_lag, '-1 seconds'))::decimal AS flush_lag_fractional,
+	extract('epoch' from coalesce(replay_lag, '-1 seconds'))::decimal AS replay_lag_fractional
+	FROM pg_stat_replication;
+	`
 	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("unable to query pg_stat_replication: %w", err)
@@ -703,45 +817,62 @@ func (c *postgreSQLClient) getReplicationStats(ctx context.Context) ([]replicati
 			continue
 		}
 		rs = append(rs, replicationStats{
-			clientAddr: client, pendingBytes: replicationBytes,
-			replayLag: replayLag, writeLag: writeLag, flushLag: flushLag,
+			clientAddr:   client,
+			pendingBytes: replicationBytes,
+			replayLag:    replayLag,
+			writeLag:     writeLag,
+			flushLag:     flushLag,
 		})
 	}
+
 	return rs, errors
 }
 
 func (c *postgreSQLClient) getLatestWalAgeSeconds(ctx context.Context) (int64, error) {
-	row := c.client.QueryRowContext(ctx, `SELECT coalesce(last_archived_time, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP FROM pg_stat_archiver;`)
+	query := `SELECT
+	coalesce(last_archived_time, CURRENT_TIMESTAMP) AS last_archived_wal,
+	CURRENT_TIMESTAMP
+	FROM pg_stat_archiver;
+	`
+	row := c.client.QueryRowContext(ctx, query)
 	var lastArchivedWal, currentInstanceTime time.Time
 	err := row.Scan(&lastArchivedWal, &currentInstanceTime)
 	if err != nil {
 		return 0, err
 	}
+
 	if lastArchivedWal.Equal(currentInstanceTime) {
 		return 0, errNoLastArchive
 	}
-	return int64(currentInstanceTime.Sub(lastArchivedWal).Seconds()), nil
+
+	age := int64(currentInstanceTime.Sub(lastArchivedWal).Seconds())
+	return age, nil
 }
 
 func (c *postgreSQLClient) listDatabases(ctx context.Context) ([]string, error) {
-	rows, err := c.client.QueryContext(ctx, `SELECT datname FROM pg_database WHERE datistemplate = false;`)
+	query := `SELECT datname FROM pg_database
+	WHERE datistemplate = false;`
+	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var databases []string
 	for rows.Next() {
 		var database string
 		if err := rows.Scan(&database); err != nil {
 			return nil, err
 		}
+
 		databases = append(databases, database)
 	}
 	return databases, nil
 }
 
 func (c *postgreSQLClient) getVersion(ctx context.Context) (string, error) {
-	row := c.client.QueryRowContext(ctx, "SHOW server_version;")
+	query := "SHOW server_version;"
+	row := c.client.QueryRowContext(ctx, query)
 	var version string
 	err := row.Scan(&version)
 	return version, err
@@ -752,6 +883,7 @@ func parseMajorVersion(ver string) (int, error) {
 	if len(parts) < 2 {
 		return 0, fmt.Errorf("unexpected version string: %s", ver)
 	}
+
 	return strconv.Atoi(parts[0])
 }
 
@@ -770,6 +902,7 @@ func filterQueryByDatabases(baseQuery string, databases []string, groupBy bool) 
 	if groupBy {
 		baseQuery += " GROUP BY datname"
 	}
+
 	return baseQuery + ";"
 }
 
@@ -779,6 +912,10 @@ func tableKey(database, schema, table string) tableIdentifier {
 
 func indexKey(database, schema, table, index string) indexIdentifer {
 	return indexIdentifer(fmt.Sprintf("%s|%s|%s|%s", database, schema, table, index))
+}
+
+func functionKey(database, schema, function string) functionIdentifer {
+	return functionIdentifer(fmt.Sprintf("%s|%s|%s", database, schema, function))
 }
 
 func (c *postgreSQLClient) getSessionStates(ctx context.Context) (map[string]int64, error) {
@@ -824,6 +961,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			logger.Error("failed getting log rows", zap.Error(err))
 			return []map[string]any{}, newestQueryTimestamp, fmt.Errorf("getQuerySamples failed getting log rows: %w", err)
 		}
+		// in case the sql returned rows contains null value, we just log a warning and continue
 		logger.Warn("problems encountered getting log rows", zap.Error(err))
 	}
 
@@ -839,17 +977,24 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 		currentAttributes := make(map[string]any)
 		var traceCtx context.Context
 		querySampleSimpleColumns := []string{
-			querySampleColumnClientHostname, querySampleColumnQueryStart,
-			querySampleColumnWaitEventType, querySampleColumnWaitEvent,
-			querySampleColumnQueryID, querySampleColumnState, querySampleColumnApplicationName,
+			querySampleColumnClientHostname,
+			querySampleColumnQueryStart,
+			querySampleColumnWaitEventType,
+			querySampleColumnWaitEvent,
+			querySampleColumnQueryID,
+			querySampleColumnState,
+			querySampleColumnApplicationName,
 		}
 
 		for _, col := range querySampleSimpleColumns {
 			currentAttributes[dbAttributePrefix+col] = row[col]
 			if col == querySampleColumnApplicationName && row[col] != "" {
+				// Use a background context so we don't accidentally inherit cancellation or span context
+				// from the scrape context; the only trace linkage should come from the extracted traceparent.
 				ctxFromQuery := propagator.Extract(context.Background(), propagation.MapCarrier{
 					traceparentCarrierKey: row[col],
 				})
+
 				if trace.SpanContextFromContext(ctxFromQuery).IsValid() {
 					traceCtx = ctxFromQuery
 				}
@@ -895,6 +1040,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			}
 		}
 
+		// TODO: check if the query is truncated.
 		obfuscated, err := obfuscateSQL(row[querySampleColumnQuery])
 		if err != nil {
 			logger.Warn("failed to obfuscate query", zap.String("query", row[querySampleColumnQuery]))
@@ -925,7 +1071,7 @@ func convertMillisecondToSecond(column, value string, logger *zap.Logger) (any, 
 	return result / 1000.0, err
 }
 
-func convertToIntClient(column, value string, logger *zap.Logger) (any, error) {
+func convertToInt(column, value string, logger *zap.Logger) (any, error) {
 	result := 0
 	var err error
 	if value != "" {
@@ -940,11 +1086,17 @@ func convertToIntClient(column, value string, logger *zap.Logger) (any, error) {
 //go:embed templates/topQueryTemplate.tmpl
 var topQueryTemplate string
 
+// getTopQuery implements client.
 func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error) {
 	tmpl := template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
 	buf := bytes.Buffer{}
 
-	if err := tmpl.Execute(&buf, map[string]any{"limit": limit}); err != nil {
+	// TODO: Only get query after the oldest query we got from the previous sample query colelction.
+	// For instance, if from the last sample query we got queries executed between 8:00 ~ 8:15,
+	// in this query, we should only gather query after 8:15
+	if err := tmpl.Execute(&buf, map[string]any{
+		"limit": limit,
+	}); err != nil {
 		logger.Error("failed to execute template", zap.Error(err))
 		return []map[string]any{}, fmt.Errorf("failed executing template: %w", err)
 	}
@@ -957,6 +1109,7 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 			logger.Error("failed getting log rows", zap.Error(err))
 			return []map[string]any{}, fmt.Errorf("getTopQuery failed getting log rows: %w", err)
 		}
+		// in case the sql returned rows contains null value, we just log a warning and continue
 		logger.Warn("problems encountered getting log rows", zap.Error(err))
 	}
 
@@ -970,14 +1123,14 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 		}
 
 		needConversion := map[string]func(string, string, *zap.Logger) (any, error){
-			callsColumnName:             convertToIntClient,
-			rowsColumnName:              convertToIntClient,
-			sharedBlksDirtiedColumnName: convertToIntClient,
-			sharedBlksHitColumnName:     convertToIntClient,
-			sharedBlksReadColumnName:    convertToIntClient,
-			sharedBlksWrittenColumnName: convertToIntClient,
-			tempBlksReadColumnName:      convertToIntClient,
-			tempBlksWrittenColumnName:   convertToIntClient,
+			callsColumnName:             convertToInt,
+			rowsColumnName:              convertToInt,
+			sharedBlksDirtiedColumnName: convertToInt,
+			sharedBlksHitColumnName:     convertToInt,
+			sharedBlksReadColumnName:    convertToInt,
+			sharedBlksWrittenColumnName: convertToInt,
+			tempBlksReadColumnName:      convertToInt,
+			tempBlksWrittenColumnName:   convertToInt,
 			totalExecTimeColumnName:     convertMillisecondToSecond,
 			totalPlanTimeColumnName:     convertMillisecondToSecond,
 		}
@@ -996,10 +1149,12 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 			case ok:
 				val, err = converter(col, row[col], logger)
 				if err != nil {
-					logger.Warn("failed to convert column", zap.String("column", col), zap.Error(err))
+					logger.Warn("failed to convert column to int", zap.String("column", col), zap.Error(err))
 					errs = append(errs, err)
 				}
 			case col == "query":
+				// Obfuscate query for display/logging (converts $1,$2 to ?)
+				// Raw query is already stored separately for EXPLAIN
 				val, err = obfuscateSQL(row[col])
 				if err != nil {
 					logger.Error("failed to obfuscate query", zap.String("query", row[col]))

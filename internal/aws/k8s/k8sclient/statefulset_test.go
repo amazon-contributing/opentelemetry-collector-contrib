@@ -51,7 +51,7 @@ var statefulSetObjects = []runtime.Object{
 func TestStatefulSetClient(t *testing.T) {
 	setOption := statefulSetSyncCheckerOption(&mockReflectorSyncChecker{})
 
-	fakeClientSet := fake.NewSimpleClientset(statefulSetObjects...)
+	fakeClientSet := fake.NewClientset(statefulSetObjects...)
 	client, _ := newStatefulSetClient(fakeClientSet, zap.NewNop(), setOption)
 
 	statefulSets := make([]any, len(statefulSetObjects))

@@ -12,15 +12,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 type defaultCWLogsClient struct {
 	svc *cloudwatchlogs.Client
 }
 
-func newDefaultCWLogsClient(ctx context.Context, logger *zap.Logger, settings *awsutilv2.AWSSessionSettings) (cwLogsClient, error) {
-	cfg, err := awsutilv2.GetAWSConfig(ctx, logger, settings)
+func newDefaultCWLogsClient(ctx context.Context, logger *zap.Logger, settings *awsutil.AWSSessionSettings) (cwLogsClient, error) {
+	cfg, err := awsutil.GetAWSConfig(ctx, logger, settings)
 	if err != nil {
 		return nil, err
 	}

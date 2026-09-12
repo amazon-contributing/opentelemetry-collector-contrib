@@ -38,7 +38,7 @@ func newLogs(logCount int, body pcommon.Value) plog.Logs {
 	sl := rl.ScopeLogs().AppendEmpty()
 	sl.Scope().SetName("test-scope")
 	sl.Scope().SetVersion("1.0.0")
-	for i := 0; i < logCount; i++ {
+	for range logCount {
 		lr := sl.LogRecords().AppendEmpty()
 		body.CopyTo(lr.Body())
 	}
@@ -285,10 +285,10 @@ func TestConsumeLogs_MixedSizes(t *testing.T) {
 	largeBody := strings.Repeat("X", maxSize+1)
 	smallBody := strings.Repeat("x", smallBodySize)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		sl.LogRecords().AppendEmpty().Body().SetStr(largeBody)
 	}
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		sl.LogRecords().AppendEmpty().Body().SetStr(smallBody)
 	}
 
@@ -326,7 +326,7 @@ func TestConsumeLogs_PreservesResourceAndScope(t *testing.T) {
 	sl.Scope().SetName("my-scope")
 	sl.Scope().SetVersion("1.2.3")
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		sl.LogRecords().AppendEmpty().Body().SetStr(strings.Repeat("X", 6000))
 	}
 

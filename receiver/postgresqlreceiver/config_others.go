@@ -1,7 +1,7 @@
-//go:build !linux
-
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
+
+//go:build !linux
 
 package postgresqlreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver"
 

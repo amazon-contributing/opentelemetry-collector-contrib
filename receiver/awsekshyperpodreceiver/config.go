@@ -8,11 +8,14 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsekshyperpodreceiver/internal/metadata"
 )
 
 // Config defines the configuration for the HyperPod health receiver.
 type Config struct {
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
+	metadata.MetricsBuilderConfig  `mapstructure:",squash"`
 
 	// ClusterName is the name of the Kubernetes cluster.
 	// If empty, the cluster_name attribute is omitted from metrics.

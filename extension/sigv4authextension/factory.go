@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/collector/extension"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension/internal/metadata"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // NewFactory creates a factory for the Sigv4 Authenticator extension.
@@ -20,12 +20,14 @@ func NewFactory() extension.Factory {
 	return extension.NewFactory(metadata.Type, createDefaultConfig, createExtension, metadata.ExtensionStability)
 }
 
+// createDefaultConfig() creates a Config struct with default values.
 func createDefaultConfig() component.Config {
 	return &Config{
-		AWSSessionSettings: awsutilv2.CreateDefaultSessionConfig(),
+		AWSSessionSettings: awsutil.CreateDefaultSessionConfig(),
 	}
 }
 
+// createExtension() resolves the credentials provider and creates the extension.
 func createExtension(ctx context.Context, set extension.Settings, cfg component.Config) (extension.Extension, error) {
 	c := cfg.(*Config)
 	credsProvider, err := resolveCredentialsProvider(ctx, set.Logger, c)

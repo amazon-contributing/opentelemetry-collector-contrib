@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/mocks"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/prometheusscraper"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver"
 )
 
@@ -51,7 +52,7 @@ type mockConsumer struct {
 	rpcDurationTotal *bool
 }
 
-func (m mockConsumer) Capabilities() consumer.Capabilities {
+func (mockConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: false,
 	}
@@ -61,10 +62,15 @@ func (m mockConsumer) ConsumeMetrics(_ context.Context, md pmetric.Metrics) erro
 	assert.Equal(m.t, 1, md.ResourceMetrics().Len())
 
 	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
-	fmt.Printf("===== count %d\n", scopeMetrics.Len())
+	// Skip the failed-scrape follow-up call (mock prometheus returns 404 on
+	// the second scrape, producing up=0 plus staleness markers for prior
+	// series). They carry no real data and would otherwise trip the
+	// value/label assertions.
+	if prometheusscraper.IsFailedOrStaleScrape(scopeMetrics) {
+		return nil
+	}
 	for i := 0; i < scopeMetrics.Len(); i++ {
 		metric := scopeMetrics.At(i)
-		fmt.Printf("===== count %v\n", metric.Name())
 		if metric.Name() == "http_connected_total" {
 			assert.Equal(m.t, float64(15), metric.Sum().DataPoints().At(0).DoubleValue())
 			*m.httpConnected = true
@@ -203,7 +209,7 @@ func TestNewPrometheusScraperEndToEnd(t *testing.T) {
 		Scheme:          "http",
 		MetricsPath:     cfg.ScrapeConfigs[0].MetricsPath,
 		ServiceDiscoveryConfigs: discovery.Configs{
-			&discovery.StaticConfig{
+			discovery.StaticConfig{
 				{
 					Targets: []model.LabelSet{
 						{
