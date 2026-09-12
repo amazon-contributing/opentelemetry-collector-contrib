@@ -22,10 +22,9 @@ const ec2MetadataV1DisabledEnvVar = "AWS_EC2_METADATA_V1_DISABLED"
 // and disables IMDSv1 fallback (EnableFallback=FalseTernary), i.e. it is
 // IMDSv2-only. If a call against the strict client fails, the same call is
 // retried against the permissive client, which allows IMDSv1 fallback unless
-// the operator opted out. How the opt-out is resolved depends on the
-// constructor: NewIMDSClientFromConfig honors both AWS_EC2_METADATA_V1_DISABLED
-// and ec2_metadata_v1_disabled in shared config (via the SDK's own resolution),
-// while NewIMDSClient honors only the environment variable.
+// the operator opted out. Both constructors honor AWS_EC2_METADATA_V1_DISABLED
+// from the environment; NewIMDSClientFromConfig additionally honors
+// ec2_metadata_v1_disabled in shared config (via the SDK's own resolution).
 //
 // IMDSClient mirrors the method set of *imds.Client, so it can be used as a
 // drop-in replacement and satisfies the narrow IMDS interfaces some callers
@@ -67,19 +66,15 @@ func NewIMDSClient(logger *zap.Logger, retries int, optFns ...func(*imds.Options
 // underlying clients use the SDK default IMDS HTTP client with its fast-fail
 // timeouts. See NewIMDSClient for the meaning of logger and retries.
 //
-// The permissive client leaves EnableFallback untouched so the SDK's own
-// resolution (imds.NewFromConfig) stands: it consults both
-// AWS_EC2_METADATA_V1_DISABLED and ec2_metadata_v1_disabled in shared config
-// through cfg.ConfigSources. That resolution only works when cfg was built by
-// config.LoadDefaultConfig (which populates ConfigSources), as is the case for
-// all current callers, whose configs come from awsutil. Note that
-// caller-supplied optFns apply after the SDK resolution, so an optFn that sets
-// EnableFallback overrides it.
+// The permissive client's IMDSv1 opt-out is resolved in two layers: the SDK's
+// own resolution reads cfg.ConfigSources, then AWS_EC2_METADATA_V1_DISABLED is
+// read directly from the environment as a floor, honored even when cfg carries
+// no ConfigSources. The floor only ever disables fallback.
 func NewIMDSClientFromConfig(cfg aws.Config, logger *zap.Logger, retries int, optFns ...func(*imds.Options)) *IMDSClient {
 	cfg.HTTPClient = nil
 	return &IMDSClient{
 		strict:     imds.NewFromConfig(cfg, strictOptions(logger, retries, optFns)...),
-		permissive: imds.NewFromConfig(cfg, optFns...),
+		permissive: imds.NewFromConfig(cfg, permissiveOptions(logger, optFns)...),
 		logger:     logger,
 	}
 }
@@ -96,11 +91,10 @@ func strictOptions(logger *zap.Logger, retries int, optFns []func(*imds.Options)
 }
 
 // permissiveOptions returns the caller options followed by an environment
-// resolution of the IMDSv1 opt-out for the options-only construction path:
-// when AWS_EC2_METADATA_V1_DISABLED is set to true, fallback is disabled
-// (FalseTernary); otherwise EnableFallback is left as-is (the zero value,
-// UnknownTernary, means fallback enabled). The trailing entry wins, so callers
-// cannot accidentally re-enable fallback when the operator opted out.
+// resolution of the IMDSv1 opt-out: when AWS_EC2_METADATA_V1_DISABLED is set
+// to true, fallback is disabled (FalseTernary); otherwise EnableFallback is
+// left as-is. The trailing entry wins, so callers cannot accidentally
+// re-enable fallback when the operator opted out.
 func permissiveOptions(logger *zap.Logger, optFns []func(*imds.Options)) []func(*imds.Options) {
 	permissive := func(o *imds.Options) {
 		if ec2MetadataV1Disabled(logger) {

@@ -279,6 +279,21 @@ func TestIMDSClient_V1NotDisabled_FromConfigPath(t *testing.T) {
 	assert.Positive(t, counts.v1Requests, "permissive client should fall back to IMDSv1 when not opted out")
 }
 
+func TestIMDSClient_V1OptOut_FromConfigPath_ZeroConfig(t *testing.T) {
+	enableIMDS(t)
+	t.Setenv(ec2MetadataV1DisabledEnvVar, "true")
+	srv, counts := imdsTestServer(t, true, "us-east-1", nil)
+
+	// A zero aws.Config carries no ConfigSources, so the SDK's own opt-out
+	// resolution finds nothing; the env var must still be honored.
+	c := NewIMDSClientFromConfig(aws.Config{}, nil, 0, fastTestOptions(srv.URL))
+	_, err := c.GetRegion(t.Context(), &imds.GetRegionInput{})
+
+	assert.Error(t, err, "with IMDSv1 disabled and IMDSv2 tokens rejected, the call must fail")
+	assert.Zero(t, counts.v1Requests, "no token-less IMDSv1 request may be sent when the operator opted out")
+	assert.Positive(t, counts.tokenRequests, "IMDSv2 token handshake should still be attempted")
+}
+
 // sentinelHTTPClient counts calls; any use means the config's HTTPClient
 // leaked into an IMDS client.
 type sentinelHTTPClient struct {
