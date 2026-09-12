@@ -10,6 +10,10 @@ import (
 
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestIMDSRetryer_IsErrorRetryable(t *testing.T) {
@@ -106,4 +110,34 @@ func TestGetDefaultRetryNumber(t *testing.T) {
 			assert.Equal(t, tt.want, GetDefaultRetryNumber())
 		})
 	}
+}
+
+func TestIMDSRetryer_LogsNothingWithoutLogger(t *testing.T) {
+	r := NewIMDSRetryer(DefaultIMDSRetries)
+	assert.Nil(t, r.logger)
+	assert.NotPanics(t, func() { r.IsErrorRetryable(errors.New("some error")) })
+}
+
+func TestIMDSRetryer_WithLoggerLogsRetryDecision(t *testing.T) {
+	core, observed := observer.New(zapcore.DebugLevel)
+	r := NewIMDSRetryer(DefaultIMDSRetries).WithLogger(zap.New(core))
+
+	got := r.IsErrorRetryable(&smithyhttp.ResponseError{
+		Response: &smithyhttp.Response{
+			Response: &http.Response{StatusCode: http.StatusForbidden},
+		},
+		Err: errors.New("request to EC2 IMDS failed"),
+	})
+
+	assert.True(t, got)
+	entries := observed.All()
+	require.Len(t, entries, 1)
+	assert.Equal(t, zapcore.DebugLevel, entries[0].Level)
+	assert.Equal(t, true, entries[0].ContextMap()["shouldRetry"])
+}
+
+func TestIMDSRetryer_WithNilLoggerDisablesLogging(t *testing.T) {
+	r := NewIMDSRetryer(DefaultIMDSRetries).WithLogger(nil)
+	assert.Nil(t, r.logger)
+	assert.NotPanics(t, func() { r.IsErrorRetryable(errors.New("some error")) })
 }

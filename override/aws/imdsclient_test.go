@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 // fastTestOptions points the client at a test server and removes the default
@@ -35,8 +36,9 @@ func enableIMDS(t *testing.T) {
 }
 
 func TestStrictOptions(t *testing.T) {
+	logger := zap.NewNop()
 	var o imds.Options
-	for _, fn := range strictOptions(2, nil) {
+	for _, fn := range strictOptions(logger, 2, nil) {
 		fn(&o)
 	}
 	assert.Equal(t, aws.FalseTernary, o.EnableFallback, "strict client must disable IMDSv1 fallback")
@@ -44,6 +46,17 @@ func TestStrictOptions(t *testing.T) {
 	r, ok := o.Retryer.(*IMDSRetryer)
 	require.True(t, ok, "strict client retryer must be *IMDSRetryer")
 	assert.Equal(t, 3, r.MaxAttempts(), "retries=2 → MaxAttempts=3 (v2 counts the first attempt)")
+	assert.Same(t, logger, r.logger, "retryer must carry the client's logger")
+}
+
+func TestStrictOptions_NilLogger(t *testing.T) {
+	var o imds.Options
+	for _, fn := range strictOptions(nil, 0, nil) {
+		fn(&o)
+	}
+	r, ok := o.Retryer.(*IMDSRetryer)
+	require.True(t, ok)
+	assert.Nil(t, r.logger, "nil client logger must leave the retryer silent")
 }
 
 func TestPermissiveOptions(t *testing.T) {
@@ -97,7 +110,7 @@ func TestStrictOptions_CallerOptionsApplyFirst(t *testing.T) {
 		opt.EnableFallback = aws.TrueTernary // caller tries to enable fallback
 		opt.Endpoint = "http://example"
 	}
-	for _, fn := range strictOptions(0, []func(*imds.Options){caller}) {
+	for _, fn := range strictOptions(nil, 0, []func(*imds.Options){caller}) {
 		fn(&o)
 	}
 	assert.Equal(t, "http://example", o.Endpoint, "caller option must flow through")

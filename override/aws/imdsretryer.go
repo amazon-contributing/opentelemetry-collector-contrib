@@ -34,14 +34,17 @@ var _ aws.RetryerV2 = (*IMDSRetryer)(nil)
 // NewIMDSRetryer returns a retryer that retries up to `retries` times
 // in addition to the first attempt.
 func NewIMDSRetryer(retries int) *IMDSRetryer {
-	r := &IMDSRetryer{
+	return &IMDSRetryer{
 		Standard: retry.NewStandard(func(options *retry.StandardOptions) {
 			options.MaxAttempts = retries + 1 // MaxAttempts includes the first attempt
 		}),
 	}
-	if logger, err := zap.NewDevelopment(); err == nil {
-		r.logger = logger
-	}
+}
+
+// WithLogger sets the logger used for retry-decision debug logging. A
+// nil logger disables it.
+func (r *IMDSRetryer) WithLogger(logger *zap.Logger) *IMDSRetryer {
+	r.logger = logger
 	return r
 }
 

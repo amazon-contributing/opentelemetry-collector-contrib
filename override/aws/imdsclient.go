@@ -52,7 +52,7 @@ type IMDSClient struct {
 // whenever the strict client fails and the permissive client is tried.
 func NewIMDSClient(logger *zap.Logger, retries int, optFns ...func(*imds.Options)) *IMDSClient {
 	return &IMDSClient{
-		strict:     imds.New(imds.Options{}, strictOptions(retries, optFns)...),
+		strict:     imds.New(imds.Options{}, strictOptions(logger, retries, optFns)...),
 		permissive: imds.New(imds.Options{}, permissiveOptions(logger, optFns)...),
 		logger:     logger,
 	}
@@ -78,7 +78,7 @@ func NewIMDSClient(logger *zap.Logger, retries int, optFns ...func(*imds.Options
 func NewIMDSClientFromConfig(cfg aws.Config, logger *zap.Logger, retries int, optFns ...func(*imds.Options)) *IMDSClient {
 	cfg.HTTPClient = nil
 	return &IMDSClient{
-		strict:     imds.NewFromConfig(cfg, strictOptions(retries, optFns)...),
+		strict:     imds.NewFromConfig(cfg, strictOptions(logger, retries, optFns)...),
 		permissive: imds.NewFromConfig(cfg, optFns...),
 		logger:     logger,
 	}
@@ -87,9 +87,9 @@ func NewIMDSClientFromConfig(cfg aws.Config, logger *zap.Logger, retries int, op
 // strictOptions returns the caller options followed by the strict-client
 // settings (IMDSRetryer + IMDSv2-only). The trailing entry wins, so callers
 // cannot accidentally re-enable fallback on the strict client.
-func strictOptions(retries int, optFns []func(*imds.Options)) []func(*imds.Options) {
+func strictOptions(logger *zap.Logger, retries int, optFns []func(*imds.Options)) []func(*imds.Options) {
 	strict := func(o *imds.Options) {
-		o.Retryer = NewIMDSRetryer(retries)
+		o.Retryer = NewIMDSRetryer(retries).WithLogger(logger)
 		o.EnableFallback = aws.FalseTernary
 	}
 	return append(append([]func(*imds.Options){}, optFns...), strict)
