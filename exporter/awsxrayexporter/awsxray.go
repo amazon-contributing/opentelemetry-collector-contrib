@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -45,9 +46,6 @@ func newTracesExporterWithClient(_ context.Context, cfg *Config, set exporter.Se
 	nameLog := zap.String("name", set.ID.String())
 	logger := set.Logger
 
-	// injectedClient records whether the caller supplied a client (tests). When true, the real
-	// client construction and middleware wiring in Start are skipped.
-	injectedClient := xrayClient != nil
 	sender := telemetry.NewNopSender()
 
 	return exporterhelper.NewTraces(context.Background(), set, cfg,
@@ -87,7 +85,7 @@ func newTracesExporterWithClient(_ context.Context, cfg *Config, set exporter.Se
 			return err
 		},
 		exporterhelper.WithStart(func(ctx context.Context, host component.Host) error {
-			if !injectedClient {
+			if xrayClient == nil {
 				var err error
 				awsConfig, err = awsutil.GetAWSConfig(ctx, logger, &cfg.AWSSessionSettings)
 				if err != nil {
@@ -151,7 +149,7 @@ func extractResourceSpans(config component.Config, logger *zap.Logger, td ptrace
 // (network/timeout) stay retryable.
 func wrapErrorIfBadRequest(err error) error {
 	var re *awshttp.ResponseError
-	if errors.As(err, &re) && re.HTTPStatusCode() < 500 {
+	if errors.As(err, &re) && re.HTTPStatusCode() < http.StatusInternalServerError {
 		return consumererror.NewPermanent(err)
 	}
 
@@ -162,16 +160,20 @@ func wrapErrorIfBadRequest(err error) error {
 func encodeOtlpAsBase64(td ptrace.Traces, cfg *Config) ([]string, error) {
 	var documents []string
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
+		// 1. build a new trace with one resource span
 		singleTrace := ptrace.NewTraces()
 		td.ResourceSpans().At(i).CopyTo(singleTrace.ResourceSpans().AppendEmpty())
 
+		// 2. append index configuration to resource span as attributes, such that X-Ray Service build indexes based on them.
 		injectIndexConfigIntoOtlpPayload(singleTrace.ResourceSpans().At(0), cfg)
 
+		// 3. Marshal single trace into proto bytes
 		bytes, err := ptraceotlp.NewExportRequestFromTraces(singleTrace).MarshalProto()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal traces: %w", err)
 		}
 
+		// 4. build bytes into base64 and append with PROTOCOL HEADER at the beginning
 		documents = append(documents, otlpFormatPrefix+base64.StdEncoding.EncodeToString(bytes))
 	}
 
