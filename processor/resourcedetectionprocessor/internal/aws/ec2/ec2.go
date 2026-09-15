@@ -5,10 +5,12 @@ package ec2 // import "github.com/open-telemetry/opentelemetry-collector-contrib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
 
+	override "github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -16,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/processor"
-	conventions "go.opentelemetry.io/collector/semconv/v1.6.1"
+	conventions "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.uber.org/zap"
 
 	ec2provider "github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/aws/ec2"
@@ -38,7 +40,7 @@ type ec2ifaceBuilder interface {
 
 type ec2ClientBuilder struct{}
 
-func (e *ec2ClientBuilder) buildClient(ctx context.Context, region string, client *http.Client) (ec2.DescribeTagsAPIClient, error) {
+func (*ec2ClientBuilder) buildClient(ctx context.Context, region string, client *http.Client) (ec2.DescribeTagsAPIClient, error) {
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithHTTPClient(client),
@@ -57,6 +59,7 @@ type Detector struct {
 	rb                    *metadata.ResourceBuilder
 	ec2ClientBuilder      ec2ifaceBuilder
 	failOnMissingMetadata bool
+	tagsFromIMDS          bool
 }
 
 func NewDetector(set processor.Settings, dcfg internal.DetectorConfig) (internal.Detector, error) {
@@ -77,12 +80,17 @@ func NewDetector(set processor.Settings, dcfg internal.DetectorConfig) (internal
 	}
 
 	return &Detector{
-		metadataProvider:      ec2provider.NewProvider(awsConfig),
+		// Strict-then-permissive IMDS client (override/aws): retries transient
+		// IMDS errors and falls back to IMDSv1 on failure.
+		metadataProvider: ec2provider.NewProviderFromClient(
+			override.NewIMDSClientFromConfig(awsConfig, set.Logger, override.GetDefaultRetryNumber()),
+		),
 		tagKeyRegexes:         tagKeyRegexes,
 		logger:                set.Logger,
 		rb:                    metadata.NewResourceBuilder(cfg.ResourceAttributes),
 		ec2ClientBuilder:      &ec2ClientBuilder{},
 		failOnMissingMetadata: cfg.FailOnMissingMetadata,
+		tagsFromIMDS:          cfg.TagsFromIMDS,
 	}, nil
 }
 
@@ -105,8 +113,8 @@ func (d *Detector) Detect(ctx context.Context) (resource pcommon.Resource, schem
 		return pcommon.NewResource(), "", fmt.Errorf("failed getting hostname: %w", err)
 	}
 
-	d.rb.SetCloudProvider(conventions.AttributeCloudProviderAWS)
-	d.rb.SetCloudPlatform(conventions.AttributeCloudPlatformAWSEC2)
+	d.rb.SetCloudProvider(conventions.CloudProviderAWS.Value.AsString())
+	d.rb.SetCloudPlatform(conventions.CloudPlatformAWSEC2.Value.AsString())
 	d.rb.SetCloudRegion(meta.Region)
 	d.rb.SetCloudAccountID(meta.AccountID)
 	d.rb.SetCloudAvailabilityZone(meta.AvailabilityZone)
@@ -117,19 +125,28 @@ func (d *Detector) Detect(ctx context.Context) (resource pcommon.Resource, schem
 	res := d.rb.Emit()
 
 	if len(d.tagKeyRegexes) != 0 {
-		httpClient := getClientConfig(ctx, d.logger)
-		ec2Client, err := d.ec2ClientBuilder.buildClient(ctx, meta.Region, httpClient)
-		if err != nil {
-			d.logger.Warn("failed to build ec2 client", zap.Error(err))
-			return res, conventions.SchemaURL, nil
-		}
-		tags, err := fetchEC2Tags(ctx, ec2Client, meta.InstanceID, d.tagKeyRegexes)
-		if err != nil {
-			d.logger.Warn("failed fetching ec2 instance tags", zap.Error(err))
-		} else {
-			for key, val := range tags {
-				res.Attributes().PutStr(tagPrefix+key, val)
+		var tags map[string]string
+		if d.tagsFromIMDS {
+			// Use IMDS: no IAM permissions needed, requires InstanceMetadataTags=enabled on the instance
+			tags, err = fetchIMDSTags(ctx, d.metadataProvider, d.tagKeyRegexes)
+			if err != nil {
+				d.logger.Warn("failed to fetch tags from IMDS", zap.Error(err))
 			}
+		} else {
+			// Use EC2 DescribeTags API (default): requires ec2:DescribeTags IAM permission
+			httpClient := getClientConfig(ctx, d.logger)
+			ec2Client, err := d.ec2ClientBuilder.buildClient(ctx, meta.Region, httpClient)
+			if err != nil {
+				d.logger.Warn("failed to build ec2 client", zap.Error(err))
+				return res, conventions.SchemaURL, nil
+			}
+			tags, err = fetchEC2Tags(ctx, ec2Client, meta.InstanceID, d.tagKeyRegexes)
+			if err != nil {
+				d.logger.Warn("failed fetching ec2 instance tags", zap.Error(err))
+			}
+		}
+		for key, val := range tags {
+			res.Attributes().PutStr(tagPrefix+key, val)
 		}
 	}
 	return res, conventions.SchemaURL, nil
@@ -162,6 +179,28 @@ func fetchEC2Tags(ctx context.Context, svc ec2.DescribeTagsAPIClient, instanceID
 		}
 	}
 	return tags, nil
+}
+
+func fetchIMDSTags(ctx context.Context, provider ec2provider.Provider, tagKeyRegexes []*regexp.Regexp) (map[string]string, error) {
+	keys, err := provider.Tags(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tags := make(map[string]string)
+	var errs []error
+	for _, key := range keys {
+		if !regexArrayMatch(tagKeyRegexes, key) {
+			continue
+		}
+		val, err := provider.Tag(ctx, key)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to get tag value for key %q: %w", key, err))
+			continue
+		}
+		tags[key] = val
+	}
+	return tags, errors.Join(errs...)
 }
 
 func compileRegexes(cfg Config) ([]*regexp.Regexp, error) {

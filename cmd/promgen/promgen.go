@@ -139,7 +139,8 @@ func main() {
 	}
 
 	testCases := histograms.TestCases()
-	for _, tc := range testCases {
+	for i := range testCases {
+		tc := &testCases[i]
 		tName := "tc_" + strings.ToLower(strings.ReplaceAll(tc.Name, " ", "_"))
 		tMetricDefinition := MetricDefinition{
 			Name: tName,
@@ -237,7 +238,7 @@ func generateDatapoints(in histograms.HistogramInput) []float64 {
 			}
 		}
 
-		for j := uint64(0); j < count; j++ {
+		for range count {
 			dps = append(dps, bucketValue)
 			totalGenerated += bucketValue
 		}

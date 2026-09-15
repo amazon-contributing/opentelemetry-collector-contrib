@@ -603,7 +603,7 @@ func (c *K8sClient) inClusterConfig() (*rest.Config, error) {
 		rootCAFile = filepath.Join(os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"), "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
 	)
 	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
-	if len(host) == 0 || len(port) == 0 {
+	if host == "" || port == "" {
 		return nil, rest.ErrNotInCluster
 	}
 

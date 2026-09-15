@@ -94,8 +94,8 @@ func (nc *nodeCapacity) parseCPU(ctx context.Context) {
 func (nc *nodeCapacity) parseCPUWindows(ctx context.Context) {
 	if cpuInfos, err := nc.cpuInfo(ctx); err == nil {
 		var coreCount int32
-		for _, cpuInfo := range cpuInfos {
-			coreCount += cpuInfo.Cores
+		for i := range cpuInfos {
+			coreCount += cpuInfos[i].Cores
 		}
 		nc.cpuCapacity = int64(coreCount)
 	} else {

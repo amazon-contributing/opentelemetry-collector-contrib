@@ -2,32 +2,32 @@ dist:
   module: github.com/open-telemetry/opentelemetry-collector-contrib/cmd/otelcol-agentcore
   name: otelcol-agentcore
   description: OTel Collector for AgentCore Runtime
-  version: 0.124.1-dev
+  version: 0.150.0-dev
   output_path: ./cmd/otelcol-agentcore
 
 exporters:
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter v0.124.1
-  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v0.124.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter v0.150.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v0.150.0
 
 
 processors:
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributesprocessor v0.124.1
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.124.1
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v0.124.1
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor v0.124.1
-  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.124.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributesprocessor v0.150.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.150.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v0.150.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/awscwotlpbatchsplitprocessor v0.150.0
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.150.0
 
 connectors:
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector v0.124.1
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/genaiadapterconnector v0.150.0
 
 receivers:
-  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.124.0
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.150.0
 
 extensions:
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/awsproxy v0.124.1
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension v0.124.1
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/awsproxy v0.150.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/sigv4authextension v0.150.0
 
 # When using `make genotelcolagentcore`, the `replaces` content is appended to
 # this file before passing it to OCB, to ensure that local versions are used
-# for all Contrib modules.
+# for all Contrib modules, including the fork-namespace modules.
 replaces:

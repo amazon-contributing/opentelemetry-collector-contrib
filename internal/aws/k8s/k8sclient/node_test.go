@@ -394,7 +394,7 @@ func TestNodeClient(t *testing.T) {
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
-			fakeClientSet := fake.NewSimpleClientset()
+			fakeClientSet := fake.NewClientset()
 			client := newNodeClient(fakeClientSet, zap.NewNop(), testCase.options...)
 			assert.NoError(t, client.store.Replace(nodeArray, ""))
 

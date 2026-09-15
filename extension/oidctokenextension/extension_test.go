@@ -139,11 +139,9 @@ func TestShutdownBoundedByContext(t *testing.T) {
 
 		// Start the refresh loop with an already-expired token so it attempts a
 		// refresh immediately; GetToken then blocks, leaving a refresh in flight.
-		ext.wg.Add(1)
-		go func() {
-			defer ext.wg.Done()
+		ext.wg.Go(func() {
 			ext.refreshLoop(time.Now().Add(-time.Hour))
-		}()
+		})
 
 		select {
 		case <-bp.started:
@@ -233,11 +231,9 @@ func TestRefreshLoop(t *testing.T) {
 	defer cancel()
 	ext.refreshCtx, ext.cancel = refreshCtx, cancel
 
-	ext.wg.Add(1)
-	go func() {
-		defer ext.wg.Done()
+	ext.wg.Go(func() {
 		ext.refreshLoop(time.Now().Add(-time.Hour))
-	}()
+	})
 
 	require.Eventually(t, func() bool {
 		data, err := os.ReadFile(tokenFile)
@@ -309,11 +305,9 @@ func TestRefreshLoopError(t *testing.T) {
 	defer cancel()
 	ext.refreshCtx, ext.cancel = refreshCtx, cancel
 
-	ext.wg.Add(1)
-	go func() {
-		defer ext.wg.Done()
+	ext.wg.Go(func() {
 		ext.refreshLoop(time.Now().Add(-time.Hour))
-	}()
+	})
 
 	require.Eventually(t, func() bool { return mp.calls.Load() >= 2 }, 5*time.Second, 10*time.Millisecond)
 

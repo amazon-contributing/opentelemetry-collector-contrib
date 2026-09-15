@@ -104,7 +104,8 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 		MetricsPath:            "/metrics",
 		ServiceDiscoveryConfigs: discovery.Configs{
 			&kubernetes.SDConfig{
-				Role: kubernetes.RoleEndpointSlice,
+				Role:             kubernetes.RoleEndpointSlice,
+				HTTPClientConfig: configutil.DefaultHTTPClientConfig,
 				NamespaceDiscovery: kubernetes.NamespaceDiscovery{
 					Names: []string{kueueNamespace},
 				},
@@ -127,7 +128,7 @@ func NewKueuePrometheusScraper(opts KueuePrometheusScraperOpts) (*KueuePrometheu
 	}
 
 	params := receiver.Settings{
-		ID:                component.MustNewID("prometheus"),
+		ID:                component.MustNewIDWithName("prometheus", "kueue"),
 		TelemetrySettings: opts.TelemetrySettings,
 	}
 

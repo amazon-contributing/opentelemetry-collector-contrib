@@ -21,15 +21,15 @@ type genAIAdapterConnector struct {
 	lloHandler     *lloHandler
 }
 
-func (c *genAIAdapterConnector) Capabilities() consumer.Capabilities {
+func (*genAIAdapterConnector) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{MutatesData: true}
 }
 
-func (c *genAIAdapterConnector) Start(_ context.Context, _ component.Host) error {
+func (*genAIAdapterConnector) Start(_ context.Context, _ component.Host) error {
 	return nil
 }
 
-func (c *genAIAdapterConnector) Shutdown(_ context.Context) error {
+func (*genAIAdapterConnector) Shutdown(_ context.Context) error {
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (c *genAIAdapterConnector) ConsumeTraces(ctx context.Context, td ptrace.Tra
 	return nil
 }
 
-func (c *genAIAdapterConnector) transformTraces(td ptrace.Traces) {
+func (*genAIAdapterConnector) transformTraces(td ptrace.Traces) {
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
 		rs := td.ResourceSpans().At(i)
 		for j := 0; j < rs.ScopeSpans().Len(); j++ {

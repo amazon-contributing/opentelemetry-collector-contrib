@@ -1,0 +1,21 @@
+default:
+all_set:
+  metrics:
+    hyperpod_node_health_status_schedulable:
+      enabled: true
+    hyperpod_node_health_status_unschedulable:
+      enabled: true
+    hyperpod_node_health_status_unschedulable_pending_reboot:
+      enabled: true
+    hyperpod_node_health_status_unschedulable_pending_replacement:
+      enabled: true
+none_set:
+  metrics:
+    hyperpod_node_health_status_schedulable:
+      enabled: false
+    hyperpod_node_health_status_unschedulable:
+      enabled: false
+    hyperpod_node_health_status_unschedulable_pending_reboot:
+      enabled: false
+    hyperpod_node_health_status_unschedulable_pending_replacement:
+      enabled: false

@@ -6,6 +6,7 @@ package awsefareceiver
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"testing"
 
@@ -61,7 +62,7 @@ func (m *mockSysFsReader) ReadGID(deviceName string) (string, error) {
 	return "", fmt.Errorf("no GID for device %s", deviceName)
 }
 
-func (m *mockSysFsReader) ReadCounter(deviceName string, port string, counter string) (uint64, error) {
+func (m *mockSysFsReader) ReadCounter(deviceName, port, counter string) (uint64, error) {
 	if m.counterErr != nil {
 		if dev, ok := m.counterErr[deviceName]; ok {
 			if p, ok := dev[port]; ok {
@@ -102,14 +103,10 @@ func zeroCounters() map[string]uint64 {
 }
 
 // withValues returns a copy of base with the given overrides applied.
-func withValues(base map[string]uint64, overrides map[string]uint64) map[string]uint64 {
+func withValues(base, overrides map[string]uint64) map[string]uint64 {
 	m := make(map[string]uint64, len(base))
-	for k, v := range base {
-		m[k] = v
-	}
-	for k, v := range overrides {
-		m[k] = v
-	}
+	maps.Copy(m, base)
+	maps.Copy(m, overrides)
 	return m
 }
 

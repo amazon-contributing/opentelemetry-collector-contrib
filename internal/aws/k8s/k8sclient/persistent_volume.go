@@ -27,13 +27,13 @@ type PersistentVolumeMetrics struct {
 
 type noOpPersistentVolumeClient struct{}
 
-func (p *noOpPersistentVolumeClient) GetPersistentVolumeMetrics() *PersistentVolumeMetrics {
+func (*noOpPersistentVolumeClient) GetPersistentVolumeMetrics() *PersistentVolumeMetrics {
 	return &PersistentVolumeMetrics{
 		ClusterCount: 0,
 	}
 }
 
-func (p *noOpPersistentVolumeClient) shutdown() {
+func (*noOpPersistentVolumeClient) shutdown() {
 }
 
 type PersistentVolumeClientOption func(*PersistentVolume)

@@ -83,16 +83,6 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
             unit: '{table}'
-          - description: The number of temp files.
-            name: postgresql.temp_files
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "0"
-                  startTimeUnixNano: "1706802467703361527"
-                  timeUnixNano: "1706802526712082422"
-              isMonotonic: true
-            unit: '{temp_file}'
           - description: Total amount of data written to temporary files by queries.
             name: postgresql.temp.io
             sum:
@@ -103,6 +93,16 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: By
+          - description: The number of temp files.
+            name: postgresql.temp_files
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "0"
+                  startTimeUnixNano: "1706802467703361527"
+                  timeUnixNano: "1706802526712082422"
+              isMonotonic: true
+            unit: '{temp_file}'
           - description: Number of rows deleted by queries in the database.
             name: postgresql.tup_deleted
             sum:
@@ -312,7 +312,7 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
               isMonotonic: true
-            unit: '{vacuums}'
+            unit: '{vacuum}'
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver
           version: latest
@@ -472,7 +472,7 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
               isMonotonic: true
-            unit: '{vacuums}'
+            unit: '{vacuum}'
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver
           version: latest
@@ -560,16 +560,6 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
             unit: '{table}'
-          - description: The number of temp files.
-            name: postgresql.temp_files
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "0"
-                  startTimeUnixNano: "1706802467703361527"
-                  timeUnixNano: "1706802526712082422"
-              isMonotonic: true
-            unit: '{temp_file}'
           - description: Total amount of data written to temporary files by queries.
             name: postgresql.temp.io
             sum:
@@ -580,6 +570,16 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: By
+          - description: The number of temp files.
+            name: postgresql.temp_files
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "0"
+                  startTimeUnixNano: "1706802467703361527"
+                  timeUnixNano: "1706802526712082422"
+              isMonotonic: true
+            unit: '{temp_file}'
           - description: Number of rows deleted by queries in the database.
             name: postgresql.tup_deleted
             sum:
@@ -857,7 +857,7 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
               isMonotonic: true
-            unit: '{vacuums}'
+            unit: '{vacuum}'
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver
           version: latest
@@ -1017,7 +1017,7 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
               isMonotonic: true
-            unit: '{vacuums}'
+            unit: '{vacuum}'
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver
           version: latest
@@ -1105,16 +1105,6 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
             unit: '{table}'
-          - description: The number of temp files.
-            name: postgresql.temp_files
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "2"
-                  startTimeUnixNano: "1706802467703361527"
-                  timeUnixNano: "1706802526712082422"
-              isMonotonic: true
-            unit: '{temp_file}'
           - description: Total amount of data written to temporary files by queries.
             name: postgresql.temp.io
             sum:
@@ -1125,6 +1115,16 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: By
+          - description: The number of temp files.
+            name: postgresql.temp_files
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "2"
+                  startTimeUnixNano: "1706802467703361527"
+                  timeUnixNano: "1706802526712082422"
+              isMonotonic: true
+            unit: '{temp_file}'
           - description: Number of rows deleted by queries in the database.
             name: postgresql.tup_deleted
             sum:

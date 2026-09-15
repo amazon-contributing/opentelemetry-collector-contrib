@@ -6,6 +6,7 @@ package awsemfexporter // import "github.com/open-telemetry/opentelemetry-collec
 import (
 	"encoding/json"
 	"math"
+	"slices"
 	"strings"
 
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -183,12 +184,7 @@ func shouldConvertToDistribution(pmd pmetric.Metric, config *Config) bool {
 		return false
 	}
 	// Check if the current metric is in the MetricAsDistribution list
-	for _, name := range config.MetricAsDistribution {
-		if name == pmd.Name() {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(config.MetricAsDistribution, pmd.Name())
 }
 
 func filterAndCalculateDps(dps dataPoints, metricName string, metadata cWMetricMetadata, config *Config, calculators *emfCalculators) []dataPoint {

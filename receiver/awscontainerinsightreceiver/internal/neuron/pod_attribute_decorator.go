@@ -38,7 +38,7 @@ type PodAttributesDecoratorConsumer struct {
 	Logger            *zap.Logger
 }
 
-func (pdc *PodAttributesDecoratorConsumer) Capabilities() consumer.Capabilities {
+func (*PodAttributesDecoratorConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: true,
 	}

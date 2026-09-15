@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/collector/extension"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/awscloudwatchlogsprovisionerextension/internal/metadata"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 func NewFactory() extension.Factory {
@@ -24,7 +24,7 @@ func NewFactory() extension.Factory {
 }
 
 func createDefaultConfig() component.Config {
-	settings := awsutilv2.CreateDefaultSessionConfig()
+	settings := awsutil.CreateDefaultSessionConfig()
 	settings.RequestTimeoutSeconds = 10
 	return &Config{
 		AWSSessionSettings:          settings,

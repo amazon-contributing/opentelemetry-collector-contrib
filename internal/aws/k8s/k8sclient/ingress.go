@@ -27,13 +27,13 @@ type IngressMetrics struct {
 
 type noOpIngressClient struct{}
 
-func (n *noOpIngressClient) GetIngressMetrics() *IngressMetrics {
+func (*noOpIngressClient) GetIngressMetrics() *IngressMetrics {
 	return &IngressMetrics{
 		NamespaceCount: make(map[string]int),
 	}
 }
 
-func (n *noOpIngressClient) shutdown() {
+func (*noOpIngressClient) shutdown() {
 }
 
 type ingressClientOption func(*ingressClient)

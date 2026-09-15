@@ -14,8 +14,8 @@ import (
 )
 
 type eventDbServerQuerySample struct {
-	data   plog.LogRecordSlice
-	config EventConfig
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
 }
 
 func (e *eventDbServerQuerySample) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, userNameAttributeValue string, postgresqlStateAttributeValue string, postgresqlPidAttributeValue int64, postgresqlApplicationNameAttributeValue string, networkPeerAddressAttributeValue string, networkPeerPortAttributeValue int64, postgresqlClientHostnameAttributeValue string, postgresqlQueryStartAttributeValue string, postgresqlWaitEventAttributeValue string, postgresqlWaitEventTypeAttributeValue string, postgresqlQueryIDAttributeValue string, postgresqlTotalExecTimeAttributeValue float64) {
@@ -45,8 +45,10 @@ func (e *eventDbServerQuerySample) recordEvent(ctx context.Context, timestamp pc
 	dp.Attributes().PutStr("postgresql.wait_event_type", postgresqlWaitEventTypeAttributeValue)
 	dp.Attributes().PutStr("postgresql.query_id", postgresqlQueryIDAttributeValue)
 	dp.Attributes().PutDouble("postgresql.total_exec_time", postgresqlTotalExecTimeAttributeValue)
+
 }
 
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
 func (e *eventDbServerQuerySample) emit(lrs plog.LogRecordSlice) {
 	if e.config.Enabled && e.data.Len() > 0 {
 		e.data.MoveAndAppendTo(lrs)
@@ -62,8 +64,8 @@ func newEventDbServerQuerySample(cfg EventConfig) eventDbServerQuerySample {
 }
 
 type eventDbServerTopQuery struct {
-	data   plog.LogRecordSlice
-	config EventConfig
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
 }
 
 func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, postgresqlCallsAttributeValue int64, postgresqlRowsAttributeValue int64, postgresqlSharedBlksDirtiedAttributeValue int64, postgresqlSharedBlksHitAttributeValue int64, postgresqlSharedBlksReadAttributeValue int64, postgresqlSharedBlksWrittenAttributeValue int64, postgresqlTempBlksReadAttributeValue int64, postgresqlTempBlksWrittenAttributeValue int64, postgresqlQueryidAttributeValue string, postgresqlRolnameAttributeValue string, postgresqlTotalExecTimeAttributeValue float64, postgresqlTotalPlanTimeAttributeValue float64, postgresqlQueryPlanAttributeValue string) {
@@ -94,8 +96,10 @@ func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcomm
 	dp.Attributes().PutDouble("postgresql.total_exec_time", postgresqlTotalExecTimeAttributeValue)
 	dp.Attributes().PutDouble("postgresql.total_plan_time", postgresqlTotalPlanTimeAttributeValue)
 	dp.Attributes().PutStr("postgresql.query_plan", postgresqlQueryPlanAttributeValue)
+
 }
 
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
 func (e *eventDbServerTopQuery) emit(lrs plog.LogRecordSlice) {
 	if e.config.Enabled && e.data.Len() > 0 {
 		e.data.MoveAndAppendTo(lrs)
@@ -113,10 +117,10 @@ func newEventDbServerTopQuery(cfg EventConfig) eventDbServerTopQuery {
 // LogsBuilder provides an interface for scrapers to report logs while taking care of all the transformations
 // required to produce log representation defined in metadata and user config.
 type LogsBuilder struct {
-	config                         LogsBuilderConfig
+	config                         LogsBuilderConfig // config of the logs builder.
 	logsBuffer                     plog.Logs
 	logRecordsBuffer               plog.LogRecordSlice
-	buildInfo                      component.BuildInfo
+	buildInfo                      component.BuildInfo // contains version information.
 	resourceAttributeIncludeFilter map[string]filter.Filter
 	resourceAttributeExcludeFilter map[string]filter.Filter
 	eventDbServerQuerySample       eventDbServerQuerySample
@@ -169,29 +173,44 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 	if lbc.ResourceAttributes.ServiceInstanceID.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["service.instance.id"] = filter.CreateFilter(lbc.ResourceAttributes.ServiceInstanceID.EventsExclude)
 	}
+
 	return lb
 }
 
+// NewResourceBuilder returns a new resource builder that should be used to build a resource associated with for the emitted logs.
 func (lb *LogsBuilder) NewResourceBuilder() *ResourceBuilder {
 	return NewResourceBuilder(lb.config.ResourceAttributes)
 }
 
+// ResourceLogsOption applies changes to provided resource logs.
 type ResourceLogsOption interface {
 	apply(plog.ResourceLogs)
 }
 
 type resourceLogsOptionFunc func(plog.ResourceLogs)
 
-func (rlof resourceLogsOptionFunc) apply(rl plog.ResourceLogs) { rlof(rl) }
-
-func WithLogsResource(res pcommon.Resource) ResourceLogsOption {
-	return resourceLogsOptionFunc(func(rl plog.ResourceLogs) { res.CopyTo(rl.Resource()) })
+func (rlof resourceLogsOptionFunc) apply(rl plog.ResourceLogs) {
+	rlof(rl)
 }
 
+// WithLogsResource sets the provided resource on the emitted ResourceLogs.
+// It's recommended to use ResourceBuilder to create the resource.
+func WithLogsResource(res pcommon.Resource) ResourceLogsOption {
+	return resourceLogsOptionFunc(func(rl plog.ResourceLogs) {
+		res.CopyTo(rl.Resource())
+	})
+}
+
+// AppendLogRecord adds a log record to the logs builder.
 func (lb *LogsBuilder) AppendLogRecord(lr plog.LogRecord) {
 	lr.MoveTo(lb.logRecordsBuffer.AppendEmpty())
 }
 
+// EmitForResource saves all the generated logs under a new resource and updates the internal state to be ready for
+// recording another set of log records as part of another resource. This function can be helpful when one scraper
+// needs to emit logs from several resources. Otherwise calling this function is not required,
+// just `Emit` function can be called instead.
+// Resource attributes should be provided as ResourceLogsOption arguments.
 func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	rl := plog.NewResourceLogs()
 	ils := rl.ScopeLogs().AppendEmpty()
@@ -225,6 +244,9 @@ func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	}
 }
 
+// Emit returns all the logs accumulated by the logs builder and updates the internal state to be ready for
+// recording another set of logs. This function will be responsible for applying all the transformations required to
+// produce logs representation defined in metadata and user config.
 func (lb *LogsBuilder) Emit(options ...ResourceLogsOption) plog.Logs {
 	lb.EmitForResource(options...)
 	logs := lb.logsBuffer
@@ -232,10 +254,12 @@ func (lb *LogsBuilder) Emit(options ...ResourceLogsOption) plog.Logs {
 	return logs
 }
 
+// RecordDbServerQuerySampleEvent adds a log record of db.server.query_sample event.
 func (lb *LogsBuilder) RecordDbServerQuerySampleEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, userNameAttributeValue string, postgresqlStateAttributeValue string, postgresqlPidAttributeValue int64, postgresqlApplicationNameAttributeValue string, networkPeerAddressAttributeValue string, networkPeerPortAttributeValue int64, postgresqlClientHostnameAttributeValue string, postgresqlQueryStartAttributeValue string, postgresqlWaitEventAttributeValue string, postgresqlWaitEventTypeAttributeValue string, postgresqlQueryIDAttributeValue string, postgresqlTotalExecTimeAttributeValue float64) {
 	lb.eventDbServerQuerySample.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbQueryTextAttributeValue, userNameAttributeValue, postgresqlStateAttributeValue, postgresqlPidAttributeValue, postgresqlApplicationNameAttributeValue, networkPeerAddressAttributeValue, networkPeerPortAttributeValue, postgresqlClientHostnameAttributeValue, postgresqlQueryStartAttributeValue, postgresqlWaitEventAttributeValue, postgresqlWaitEventTypeAttributeValue, postgresqlQueryIDAttributeValue, postgresqlTotalExecTimeAttributeValue)
 }
 
+// RecordDbServerTopQueryEvent adds a log record of db.server.top_query event.
 func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, postgresqlCallsAttributeValue int64, postgresqlRowsAttributeValue int64, postgresqlSharedBlksDirtiedAttributeValue int64, postgresqlSharedBlksHitAttributeValue int64, postgresqlSharedBlksReadAttributeValue int64, postgresqlSharedBlksWrittenAttributeValue int64, postgresqlTempBlksReadAttributeValue int64, postgresqlTempBlksWrittenAttributeValue int64, postgresqlQueryidAttributeValue string, postgresqlRolnameAttributeValue string, postgresqlTotalExecTimeAttributeValue float64, postgresqlTotalPlanTimeAttributeValue float64, postgresqlQueryPlanAttributeValue string) {
 	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbQueryTextAttributeValue, postgresqlCallsAttributeValue, postgresqlRowsAttributeValue, postgresqlSharedBlksDirtiedAttributeValue, postgresqlSharedBlksHitAttributeValue, postgresqlSharedBlksReadAttributeValue, postgresqlSharedBlksWrittenAttributeValue, postgresqlTempBlksReadAttributeValue, postgresqlTempBlksWrittenAttributeValue, postgresqlQueryidAttributeValue, postgresqlRolnameAttributeValue, postgresqlTotalExecTimeAttributeValue, postgresqlTotalPlanTimeAttributeValue, postgresqlQueryPlanAttributeValue)
 }

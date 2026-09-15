@@ -76,7 +76,7 @@ func SetupMockPrometheus(tds ...*TestData) (*MockPrometheus, *promcfg.Config, er
 	mp := newMockPrometheus(endpoints)
 
 	u, _ := url.Parse(mp.Srv.URL)
-	for i := 0; i < len(tds); i++ {
+	for i := range tds {
 		job := make(map[string]any)
 		job["job_name"] = tds[i].Name
 		job["metrics_path"] = metricPaths[i]

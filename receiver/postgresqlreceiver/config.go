@@ -71,11 +71,9 @@ type ConnectionPool struct {
 
 func (cfg *Config) Validate() error {
 	var err error
-
 	if cfg.Username == "" {
 		err = multierr.Append(err, errors.New(ErrNoUsername))
 	}
-
 	if cfg.Password == "" && cfg.Passfile == "" {
 		err = multierr.Append(err, errors.New(ErrNoPassword))
 	}

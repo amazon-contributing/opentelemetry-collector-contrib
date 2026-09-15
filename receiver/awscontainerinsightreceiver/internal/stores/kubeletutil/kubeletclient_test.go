@@ -28,7 +28,7 @@ type fakeClient struct {
 	endpoint string
 }
 
-func (f *fakeClient) Get(path string) ([]byte, error) {
+func (*fakeClient) Get(path string) ([]byte, error) {
 	return []byte(path), nil
 }
 

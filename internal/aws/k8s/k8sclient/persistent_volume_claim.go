@@ -28,13 +28,13 @@ type PersistentVolumeClaimClient interface {
 
 type noOpPersistentVolumeClaimClient struct{}
 
-func (p *noOpPersistentVolumeClaimClient) GetPersistentVolumeClaimMetrics() *PersistentVolumeClaimMetrics {
+func (*noOpPersistentVolumeClaimClient) GetPersistentVolumeClaimMetrics() *PersistentVolumeClaimMetrics {
 	return &PersistentVolumeClaimMetrics{
 		PersistentVolumeClaimPhases: make(map[string]corev1.PersistentVolumeClaimPhase),
 	}
 }
 
-func (p *noOpPersistentVolumeClaimClient) shutdown() {
+func (*noOpPersistentVolumeClaimClient) shutdown() {
 }
 
 type PersistentVolumeClaimClientOption func(*PersistentVolumeClaim)

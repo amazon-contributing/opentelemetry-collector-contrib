@@ -33,7 +33,7 @@ func newIMDSENIResolver() *imdsENIResolver {
 
 // getToken acquires an IMDSv2 session token.
 func (r *imdsENIResolver) getToken() (string, error) {
-	req, err := http.NewRequest(http.MethodPut, r.baseURL+"/latest/api/token", nil)
+	req, err := http.NewRequest(http.MethodPut, r.baseURL+"/latest/api/token", http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create token request: %w", err)
 	}
@@ -63,7 +63,7 @@ func (r *imdsENIResolver) GetENIID(macAddress string) (string, error) {
 	}
 
 	url := fmt.Sprintf("%s/latest/meta-data/network/interfaces/macs/%s/interface-id", r.baseURL, macAddress)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create IMDS request: %w", err)
 	}

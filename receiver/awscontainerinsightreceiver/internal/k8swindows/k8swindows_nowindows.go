@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //go:build !windows
-// +build !windows
 
 package k8swindows // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows"
 
@@ -22,10 +21,10 @@ func New(_ *zap.Logger, _ *stores.K8sDecorator, _ host.Info) (*K8sWindows, error
 }
 
 // GetMetrics is a dummy function to always returns empty metrics for linux
-func (k *K8sWindows) GetMetrics() []pmetric.Metrics {
+func (*K8sWindows) GetMetrics() []pmetric.Metrics {
 	return []pmetric.Metrics{}
 }
 
-func (k *K8sWindows) Shutdown() error {
+func (*K8sWindows) Shutdown() error {
 	return nil
 }

@@ -161,7 +161,7 @@ func (g *Generator) serveProtobuf(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func (g *Generator) defaultCollector(def MetricDefinition) (prometheus.Collector, error) {
+func (*Generator) defaultCollector(def MetricDefinition) (prometheus.Collector, error) {
 	switch def.Type {
 	case TypeCounter:
 		return prometheus.NewCounterVec(

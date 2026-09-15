@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sync"
 	"testing"
 
@@ -85,7 +86,7 @@ func ValidateArrayItems(t *testing.T, items []map[string]any, schema map[string]
 	}
 }
 
-func ValidateObjectAgainstDef(t *testing.T, obj map[string]any, def map[string]any, schema map[string]any, context string) {
+func ValidateObjectAgainstDef(t *testing.T, obj, def, schema map[string]any, context string) {
 	t.Helper()
 
 	// see: https://json-schema.org/draft/2020-12/json-schema-validation#section-6.5.3
@@ -148,7 +149,7 @@ func ValidateRequired(t *testing.T, obj map[string]any, required []any, context 
 	}
 }
 
-func ValidateType(t *testing.T, value any, expectedType string, context string) {
+func ValidateType(t *testing.T, value any, expectedType, context string) {
 	// see: https://json-schema.org/draft/2020-12/json-schema-validation#section-6.1.1
 	t.Helper()
 	switch expectedType {
@@ -167,10 +168,8 @@ func ValidateType(t *testing.T, value any, expectedType string, context string) 
 func ValidateEnum(t *testing.T, value any, enum []any, context string) {
 	// see: https://json-schema.org/draft/2020-12/json-schema-validation#section-6.1.2
 	t.Helper()
-	for _, e := range enum {
-		if value == e {
-			return
-		}
+	if slices.Contains(enum, value) {
+		return
 	}
 	assert.Fail(t, fmt.Sprintf("%s: value %q not in enum %v", context, value, enum))
 }

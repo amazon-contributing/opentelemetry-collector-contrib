@@ -57,7 +57,7 @@ func New(client *http.Client, audience string) provider.TokenProvider {
 func (*gcpProvider) Name() string { return "gcp" }
 
 // IsAvailable reports whether the host is a GCE instance. Best-effort detection for provider selection.
-func (p *gcpProvider) IsAvailable(ctx context.Context) bool {
+func (*gcpProvider) IsAvailable(ctx context.Context) bool {
 	ctx, cancel := context.WithTimeout(ctx, provider.DefaultMetadataProbeTimeout)
 	defer cancel()
 	return metadata.OnGCEWithContext(ctx)

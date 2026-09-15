@@ -1,4 +1,4 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package containerlog // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/operator/parser/containerlog"
@@ -53,7 +53,7 @@ func (p *Parser) Process(ctx context.Context, e *entry.Entry) error {
 	}
 
 	raw, ok := e.Body.(string)
-	if !ok || len(raw) == 0 {
+	if !ok || raw == "" {
 		return p.Write(ctx, e)
 	}
 
@@ -77,7 +77,7 @@ func (p *Parser) Process(ctx context.Context, e *entry.Entry) error {
 // garbage-collected as soon as parseCRI returns. The copy cost is a few
 // hundred nanoseconds per line; in exchange the operator has no hidden memory
 // pinning regardless of how long downstream buffers the entry.
-func (p *Parser) parseCRI(e *entry.Entry, raw string) error {
+func (*Parser) parseCRI(e *entry.Entry, raw string) error {
 	// Find the three space separators delimiting timestamp / stream / flags / body.
 	// strings.IndexByte(raw[start:], ' ') returns an offset within the slice,
 	// not within raw — translate it back by adding the slice start.
@@ -169,7 +169,7 @@ type dockerLog struct {
 // A non-empty but malformed `time` value is accepted — the body is parsed but
 // Timestamp is left unset (parseTimestamp fails silently). This is acceptable
 // because kubelet does not emit garbage timestamps.
-func (p *Parser) parseDocker(e *entry.Entry, raw string) error {
+func (*Parser) parseDocker(e *entry.Entry, raw string) error {
 	var dl dockerLog
 	if err := json.Unmarshal([]byte(raw), &dl); err != nil {
 		return fmt.Errorf("Docker JSON parse: %w", err)

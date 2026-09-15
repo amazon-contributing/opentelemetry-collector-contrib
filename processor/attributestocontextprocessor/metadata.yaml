@@ -1,8 +1,10 @@
 type: attributestocontext
+display_name: Attributes to Context Processor
 
 status:
   class: processor
   stability:
     alpha: [logs]
+  distributions: []
   codeowners:
-    active: []
+    active: [jj22ee, jefchien, sky333999]

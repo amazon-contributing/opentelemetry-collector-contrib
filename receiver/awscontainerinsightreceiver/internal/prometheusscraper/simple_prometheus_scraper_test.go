@@ -13,15 +13,15 @@ import (
 
 type mockHostInfoProvider struct{}
 
-func (m mockHostInfoProvider) GetClusterName() string {
+func (mockHostInfoProvider) GetClusterName() string {
 	return "cluster-name"
 }
 
-func (m mockHostInfoProvider) GetInstanceID() string {
+func (mockHostInfoProvider) GetInstanceID() string {
 	return "i-000000000"
 }
 
-func (m mockHostInfoProvider) GetInstanceType() string {
+func (mockHostInfoProvider) GetInstanceType() string {
 	return "instance-type"
 }
 

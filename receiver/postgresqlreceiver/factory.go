@@ -71,12 +71,12 @@ func createDefaultConfig() component.Config {
 			CollectionInterval: time.Minute,
 		},
 		TopQueryCollection: TopQueryCollection{
+			CollectionInterval:     time.Minute,
 			TopNQuery:              200,
 			MaxRowsPerQuery:        1000,
 			MaxExplainEachInterval: 1000,
 			QueryPlanCacheSize:     1000,
 			QueryPlanCacheTTL:      time.Hour,
-			CollectionInterval:     time.Minute,
 		},
 	}
 }
@@ -90,7 +90,7 @@ func createMetricsReceiver(
 	cfg := rConf.(*Config)
 
 	var clientFactory postgreSQLClientFactory
-	if connectionPoolGate.IsEnabled() {
+	if metadata.ReceiverPostgresqlConnectionPoolFeatureGate.IsEnabled() {
 		clientFactory = newPoolClientFactory(cfg)
 	} else {
 		clientFactory = newDefaultClientFactory(cfg)
@@ -104,7 +104,7 @@ func createMetricsReceiver(
 
 	return scraperhelper.NewMetricsController(
 		&cfg.ControllerConfig, params, consumer,
-		scraperhelper.AddScraper(metadata.Type, s),
+		scraperhelper.AddMetricsScraper(metadata.Type, s),
 	)
 }
 
@@ -118,7 +118,7 @@ func createLogsReceiver(
 	cfg := receiverCfg.(*Config)
 
 	var clientFactory postgreSQLClientFactory
-	if connectionPoolGate.IsEnabled() {
+	if metadata.ReceiverPostgresqlConnectionPoolFeatureGate.IsEnabled() {
 		clientFactory = newPoolClientFactory(cfg)
 	} else {
 		clientFactory = newDefaultClientFactory(cfg)
@@ -126,7 +126,7 @@ func createLogsReceiver(
 
 	opts := make([]scraperhelper.ControllerOption, 0)
 
-	// Use independent collection interval for logs controller
+	// Use an independent collection interval for the logs controller.
 	logsControllerConfig := cfg.ControllerConfig
 	if cfg.QuerySampleCollection.CollectionInterval > 0 {
 		logsControllerConfig.CollectionInterval = cfg.QuerySampleCollection.CollectionInterval

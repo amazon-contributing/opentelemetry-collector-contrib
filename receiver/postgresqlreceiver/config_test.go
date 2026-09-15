@@ -115,6 +115,86 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestLoadConfig(t *testing.T) {
+	cm, confErr := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
+	require.NoError(t, confErr)
+
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig()
+
+	t.Run("postgresql/minimal", func(t *testing.T) {
+		sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "minimal").String())
+		require.NoError(t, err)
+		require.NoError(t, sub.Unmarshal(cfg))
+
+		expected := factory.CreateDefaultConfig().(*Config)
+		expected.Endpoint = "localhost:5432"
+		expected.Username = "otel"
+		expected.Password = "${env:POSTGRESQL_PASSWORD}"
+		expected.TopNQuery = 1234
+		expected.QueryPlanCacheTTL = time.Second * 123
+		require.Equal(t, expected, cfg)
+	})
+
+	cfg = factory.CreateDefaultConfig()
+
+	t.Run("postgresql/pool", func(t *testing.T) {
+		sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "pool").String())
+		require.NoError(t, err)
+		require.NoError(t, sub.Unmarshal(cfg))
+
+		expected := factory.CreateDefaultConfig().(*Config)
+		expected.Endpoint = "localhost:5432"
+		expected.Transport = confignet.TransportTypeTCP
+		expected.Username = "otel"
+		expected.Password = "${env:POSTGRESQL_PASSWORD}"
+		expected.ConnectionPool = ConnectionPool{
+			MaxIdleTime: ptr(30 * time.Second),
+			MaxIdle:     ptr(5),
+		}
+
+		require.Equal(t, expected, cfg)
+	})
+
+	cfg = factory.CreateDefaultConfig()
+
+	t.Run("postgresql/all", func(t *testing.T) {
+		sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "all").String())
+		require.NoError(t, err)
+		require.NoError(t, sub.Unmarshal(cfg))
+
+		expected := factory.CreateDefaultConfig().(*Config)
+		expected.Endpoint = "localhost:5432"
+		expected.Transport = confignet.TransportTypeTCP
+		expected.Username = "otel"
+		expected.Password = "${env:POSTGRESQL_PASSWORD}"
+		expected.Databases = []string{"otel"}
+		expected.ExcludeDatabases = []string{"template0"}
+		expected.ControllerConfig.CollectionInterval = 10 * time.Second
+		expected.ClientConfig = configtls.ClientConfig{
+			Insecure:           false,
+			InsecureSkipVerify: false,
+			Config: configtls.Config{
+				CAFile:   "/home/otel/authorities.crt",
+				CertFile: "/home/otel/mypostgrescert.crt",
+				KeyFile:  "/home/otel/mypostgreskey.key",
+			},
+		}
+		expected.ConnectionPool = ConnectionPool{
+			MaxIdleTime: ptr(30 * time.Second),
+			MaxLifetime: ptr(time.Minute),
+			MaxIdle:     ptr(5),
+			MaxOpen:     ptr(10),
+		}
+
+		require.Equal(t, expected, cfg)
+	})
+}
+
+func ptr[T any](value T) *T {
+	return &value
+}
+
 func TestPassfileValidation(t *testing.T) {
 	validFile := filepath.Join(t.TempDir(), "pgpass")
 	require.NoError(t, os.WriteFile(validFile, []byte("localhost:5432:testdb:otel:secret\n"), 0o600))
@@ -206,90 +286,10 @@ func TestPassfileValidation(t *testing.T) {
 			if tC.expectError != "" {
 				require.ErrorContains(t, actual, tC.expectError)
 			} else if actual != nil {
-				// May still have unrelated errors (e.g. endpoint), just ensure no password/username errors
+				// May still have unrelated errors (e.g. endpoint), just ensure no password/passfile errors
 				require.NotContains(t, actual.Error(), "password")
-				require.NotContains(t, actual.Error(), "username")
+				require.NotContains(t, actual.Error(), "passfile")
 			}
 		})
 	}
-}
-
-func TestLoadConfig(t *testing.T) {
-	cm, confErr := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
-	require.NoError(t, confErr)
-
-	factory := NewFactory()
-	cfg := factory.CreateDefaultConfig()
-
-	t.Run("postgresql/minimal", func(t *testing.T) {
-		sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "minimal").String())
-		require.NoError(t, err)
-		require.NoError(t, sub.Unmarshal(cfg))
-
-		expected := factory.CreateDefaultConfig().(*Config)
-		expected.Endpoint = "localhost:5432"
-		expected.Username = "otel"
-		expected.Password = "${env:POSTGRESQL_PASSWORD}"
-		//nolint:staticcheck
-		expected.QuerySampleCollection.Enabled = true
-		require.Equal(t, expected, cfg)
-	})
-
-	cfg = factory.CreateDefaultConfig()
-
-	t.Run("postgresql/pool", func(t *testing.T) {
-		sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "pool").String())
-		require.NoError(t, err)
-		require.NoError(t, sub.Unmarshal(cfg))
-
-		expected := factory.CreateDefaultConfig().(*Config)
-		expected.Endpoint = "localhost:5432"
-		expected.Transport = confignet.TransportTypeTCP
-		expected.Username = "otel"
-		expected.Password = "${env:POSTGRESQL_PASSWORD}"
-		expected.ConnectionPool = ConnectionPool{
-			MaxIdleTime: ptr(30 * time.Second),
-			MaxIdle:     ptr(5),
-		}
-
-		require.Equal(t, expected, cfg)
-	})
-
-	cfg = factory.CreateDefaultConfig()
-
-	t.Run("postgresql/all", func(t *testing.T) {
-		sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "all").String())
-		require.NoError(t, err)
-		require.NoError(t, sub.Unmarshal(cfg))
-
-		expected := factory.CreateDefaultConfig().(*Config)
-		expected.Endpoint = "localhost:5432"
-		expected.Transport = confignet.TransportTypeTCP
-		expected.Username = "otel"
-		expected.Password = "${env:POSTGRESQL_PASSWORD}"
-		expected.Databases = []string{"otel"}
-		expected.ExcludeDatabases = []string{"template0"}
-		expected.ControllerConfig.CollectionInterval = 10 * time.Second
-		expected.ClientConfig = configtls.ClientConfig{
-			Insecure:           false,
-			InsecureSkipVerify: false,
-			Config: configtls.Config{
-				CAFile:   "/home/otel/authorities.crt",
-				CertFile: "/home/otel/mypostgrescert.crt",
-				KeyFile:  "/home/otel/mypostgreskey.key",
-			},
-		}
-		expected.ConnectionPool = ConnectionPool{
-			MaxIdleTime: ptr(30 * time.Second),
-			MaxLifetime: ptr(time.Minute),
-			MaxIdle:     ptr(5),
-			MaxOpen:     ptr(10),
-		}
-
-		require.Equal(t, expected, cfg)
-	})
-}
-
-func ptr[T any](value T) *T {
-	return &value
 }

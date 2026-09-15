@@ -54,7 +54,7 @@ var ingressObjects = []runtime.Object{
 
 func TestIngressClient_GetIngressMetrics(t *testing.T) {
 	setOption := ingressSyncCheckerOption(&mockReflectorSyncChecker{})
-	fakeClientSet := fake.NewSimpleClientset(ingressObjects...)
+	fakeClientSet := fake.NewClientset(ingressObjects...)
 	client, err := newIngressClient(fakeClientSet, zap.NewNop(), setOption)
 	assert.NoError(t, err)
 
@@ -76,7 +76,7 @@ func TestIngressClient_GetIngressMetrics(t *testing.T) {
 
 func TestIngressClient_EmptyStore(t *testing.T) {
 	setOption := ingressSyncCheckerOption(&mockReflectorSyncChecker{})
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 	client, err := newIngressClient(fakeClientSet, zap.NewNop(), setOption)
 	assert.NoError(t, err)
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //go:build windows
-// +build windows
 
 package hcsshim // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/hcsshim"
 
@@ -180,7 +179,8 @@ func (hp *HCSStatsProvider) getPodToContainerMap() (map[string]PodKey, error) {
 		hp.logger.Error("failed to get pod list from kubelet provider, ", zap.Error(err))
 		return nil, err
 	}
-	for _, pod := range podList {
+	for i := range podList {
+		pod := &podList[i]
 		podID := string(pod.UID)
 		podKey := PodKey{
 			PodId:        podID,
@@ -191,7 +191,8 @@ func (hp *HCSStatsProvider) getPodToContainerMap() (map[string]PodKey, error) {
 			containerNameToIDMapping[podID] = podKey
 		}
 
-		for _, container := range pod.Status.ContainerStatuses {
+		for j := range pod.Status.ContainerStatuses {
+			container := &pod.Status.ContainerStatuses[j]
 			if strings.Contains(container.ContainerID, "containerd") {
 				cinfo := ContainerInfo{
 					Id:   strings.Split(container.ContainerID, "containerd://")[1],
@@ -214,7 +215,8 @@ func (hp *HCSStatsProvider) getContainerToEndpointMap() (map[string]EndpointInfo
 		return containerToEndpointMap, err
 	}
 
-	for _, endpoint := range endpointList {
+	for i := range endpointList {
+		endpoint := &endpointList[i]
 		for _, container := range endpoint.SharedContainers {
 			containerToEndpointMap[container] = EndpointInfo{Id: endpoint.Id, Name: endpoint.Name}
 		}

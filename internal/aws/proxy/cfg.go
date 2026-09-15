@@ -11,11 +11,6 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/testutil"
 )
 
-const (
-	idleConnTimeout                = 30
-	remoteProxyMaxIdleConnsPerHost = 2
-)
-
 // Config is the configuration for the local TCP proxy server.
 type Config struct {
 	// endpoint is the TCP address and port on which this receiver listens for
@@ -27,9 +22,9 @@ type Config struct {
 	// forwards HTTP requests to AWS X-Ray backend through.
 	ProxyAddress string `mapstructure:"proxy_address"`
 
-	// TLSSetting struct exposes TLS client configuration when forwarding
+	// TLS struct exposes TLS client configuration when forwarding
 	// calls to the AWS X-Ray backend.
-	TLSSetting configtls.ClientConfig `mapstructure:"tls,omitempty"`
+	TLS configtls.ClientConfig `mapstructure:"tls,omitempty"`
 
 	// Region is the AWS region the local TCP server forwards requests to.
 	Region string `mapstructure:"region"`
@@ -53,7 +48,10 @@ type Config struct {
 	// Change the default shared creds file location
 	SharedCredentialsFile []string `mapstructure:"shared_credentials_file"`
 
-	// Add a custom certificates file
+	// CertificateFilePath is accepted for configuration compatibility but
+	// does not affect the proxy's forwarding TLS or STS clients on this
+	// component. Custom CAs for the STS clients come from AWS_CA_BUNDLE;
+	// the forwarding transport trusts system roots only (or tls.insecure).
 	CertificateFilePath string `mapstructure:"certificate_file_path"`
 
 	// How many times should we retry imds v2
@@ -95,7 +93,7 @@ func DefaultConfig() *Config {
 			Endpoint: testutil.EndpointForPort(2000),
 		},
 		ProxyAddress: "",
-		TLSSetting: configtls.ClientConfig{
+		TLS: configtls.ClientConfig{
 			Insecure:   false,
 			ServerName: "",
 		},
@@ -112,11 +110,11 @@ func (cfg *Config) toSessionConfig() *awsutil.AWSSessionSettings {
 	sessionSettings.Endpoint = cfg.AWSEndpoint
 	sessionSettings.IMDSRetries = cfg.IMDSRetries
 	sessionSettings.LocalMode = cfg.LocalMode
-	sessionSettings.MaxRetries = remoteProxyMaxIdleConnsPerHost
+	sessionSettings.MaxRetries = 2
 	sessionSettings.Profile = cfg.Profile
 	sessionSettings.ProxyAddress = cfg.ProxyAddress
 	sessionSettings.Region = cfg.Region
-	sessionSettings.RequestTimeoutSeconds = idleConnTimeout
+	sessionSettings.RequestTimeoutSeconds = 30
 	sessionSettings.RoleARN = cfg.RoleARN
 	sessionSettings.SharedCredentialsFile = cfg.SharedCredentialsFile
 	return &sessionSettings

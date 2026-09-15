@@ -179,7 +179,7 @@ func checkFeasibility(histogramInput HistogramInput) (bool, string) {
 					}
 				}
 				// Apply max value only up to its containing bucket
-				for i := 0; i < lenCounts; i++ {
+				for i := range lenCounts {
 					switch {
 					case i > maxBucket:
 						maxSum += float64(histogramInput.Counts[i]) * *histogramInput.Max
@@ -326,14 +326,14 @@ func visualizeHistogramWithPercentiles(hi HistogramInput) {
 		bar := strings.Repeat("█", barLength)
 
 		// Mark percentile buckets
-		percentileMarkers := ""
+		var percentileMarkers strings.Builder
 		for _, p := range percentiles {
 			if percentilePositions[p] == i {
-				percentileMarkers += fmt.Sprintf(" P%.0f", p*100)
+				percentileMarkers.WriteString(fmt.Sprintf(" P%.0f", p*100))
 			}
 		}
 
-		fmt.Printf("%-30s %4d |%s%s\n", bucketLabel, count, bar, percentileMarkers)
+		fmt.Printf("%-30s %4d |%s%s\n", bucketLabel, count, bar, percentileMarkers.String())
 	}
 
 	fmt.Println("\nCumulative Distribution (CDF):")
@@ -353,14 +353,14 @@ func visualizeHistogramWithPercentiles(hi HistogramInput) {
 		cdfBar := strings.Repeat("▓", cdfBarLength)
 
 		// Add percentile lines
-		percentileLines := ""
+		var percentileLines strings.Builder
 		for _, p := range percentiles {
 			if percentilePositions[p] == i {
-				percentileLines += fmt.Sprintf(" ──P%.0f", p*100)
+				percentileLines.WriteString(fmt.Sprintf(" ──P%.0f", p*100))
 			}
 		}
 
-		fmt.Printf("%-15s %6.1f%% |%s%s\n", bucketLabel, cdfPercent, cdfBar, percentileLines)
+		fmt.Printf("%-15s %6.1f%% |%s%s\n", bucketLabel, cdfPercent, cdfBar, percentileLines.String())
 	}
 
 	// Show percentile ranges

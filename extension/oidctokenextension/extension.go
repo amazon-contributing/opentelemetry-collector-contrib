@@ -79,11 +79,9 @@ func (e *oidcTokenExtension) Start(ctx context.Context, _ component.Host) error 
 	// than Start's ctx: the loop outlives Start, but cancel lets Shutdown
 	// interrupt an in-flight refresh.
 	e.refreshCtx, e.cancel = context.WithCancel(context.Background())
-	e.wg.Add(1)
-	go func() {
-		defer e.wg.Done()
+	e.wg.Go(func() {
 		e.refreshLoop(expiry)
-	}()
+	})
 	return nil
 }
 

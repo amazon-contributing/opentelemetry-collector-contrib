@@ -17,11 +17,11 @@ var _ Decorator = (*MockK8sDecorator)(nil)
 
 type MockK8sDecorator struct{}
 
-func (m *MockK8sDecorator) Decorate(metric stores.CIMetric) stores.CIMetric {
+func (*MockK8sDecorator) Decorate(metric stores.CIMetric) stores.CIMetric {
 	return metric
 }
 
-func (m *MockK8sDecorator) Shutdown() error {
+func (*MockK8sDecorator) Shutdown() error {
 	return nil
 }
 

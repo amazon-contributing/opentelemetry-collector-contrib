@@ -17,9 +17,13 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sclient"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/k8s/k8sutil"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsekshyperpodreceiver/internal/metadata"
 )
 
 const hyperPodPrefix = "hyperpod-"
+
+// clusterNameAttribute is the name of the cluster_name data point attribute.
+const clusterNameAttribute = "cluster_name"
 
 var allStatuses = []k8sutil.HyperPodConditionType{
 	k8sutil.Schedulable,
@@ -28,25 +32,10 @@ var allStatuses = []k8sutil.HyperPodConditionType{
 	k8sutil.Unschedulable,
 }
 
-// statusToMetricName maps each HyperPodConditionType string to its full metric name.
-var statusToMetricName = map[string]string{
-	k8sutil.Schedulable.String():                     "hyperpod_node_health_status_schedulable",
-	k8sutil.UnschedulablePendingReplacement.String(): "hyperpod_node_health_status_unschedulable_pending_replacement",
-	k8sutil.UnschedulablePendingReboot.String():      "hyperpod_node_health_status_unschedulable_pending_reboot",
-	k8sutil.Unschedulable.String():                   "hyperpod_node_health_status_unschedulable",
-}
-
-// statusToDescription maps each HyperPodConditionType string to its metric description.
-var statusToDescription = map[string]string{
-	k8sutil.Schedulable.String():                     "HyperPod node health status: Schedulable",
-	k8sutil.UnschedulablePendingReplacement.String(): "HyperPod node health status: UnschedulablePendingReplacement",
-	k8sutil.UnschedulablePendingReboot.String():      "HyperPod node health status: UnschedulablePendingReboot",
-	k8sutil.Unschedulable.String():                   "HyperPod node health status: Unschedulable",
-}
-
 type scraper struct {
 	config     *Config
 	logger     *zap.Logger
+	mb         *metadata.MetricsBuilder
 	k8sClient  *k8sclient.K8sClient
 	nodeClient k8sclient.NodeClient
 }
@@ -55,6 +44,7 @@ func newScraper(config *Config, settings receiver.Settings) *scraper {
 	return &scraper{
 		config: config,
 		logger: settings.Logger,
+		mb:     metadata.NewMetricsBuilder(config.MetricsBuilderConfig, settings),
 	}
 }
 
@@ -93,26 +83,10 @@ func (s *scraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 		return pmetric.NewMetrics(), nil
 	}
 
-	metrics := pmetric.NewMetrics()
-	rm := metrics.ResourceMetrics().AppendEmpty()
-	sm := rm.ScopeMetrics().AppendEmpty()
-
-	// Pre-create one Metric per status to avoid duplicate metric identities.
-	// Each metric will accumulate data points across all nodes.
-	gauges := make(map[string]pmetric.NumberDataPointSlice, len(allStatuses))
-	for _, status := range allStatuses {
-		statusStr := status.String()
-		metric := sm.Metrics().AppendEmpty()
-		metric.SetName(statusToMetricName[statusStr])
-		metric.SetDescription(statusToDescription[statusStr])
-		metric.SetUnit("1")
-		gauges[statusStr] = metric.SetEmptyGauge().DataPoints()
-	}
-
 	now := pcommon.NewTimestampFromTime(time.Now())
 	nodeCount := 0
 	for nodeName, labelsMap := range nodeToLabelsMap {
-		if s.processNode(nodeName, labelsMap, gauges, now) {
+		if s.processNode(nodeName, labelsMap, now) {
 			nodeCount++
 		}
 	}
@@ -123,10 +97,19 @@ func (s *scraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 		return pmetric.NewMetrics(), nil
 	}
 
+	metrics := s.mb.Emit()
+
+	// cluster_name is config-derived and constant across the scrape. When no
+	// cluster name is configured, omit the attribute entirely rather than
+	// emitting an empty value.
+	if s.config.ClusterName == "" {
+		removeAttributeFromDataPoints(metrics, clusterNameAttribute)
+	}
+
 	return metrics, nil
 }
 
-func (s *scraper) processNode(nodeName string, labelsMap map[k8sclient.Label]int8, gauges map[string]pmetric.NumberDataPointSlice, timestamp pcommon.Timestamp) bool {
+func (s *scraper) processNode(nodeName string, labelsMap map[k8sclient.Label]int8, timestamp pcommon.Timestamp) bool {
 	// Get health status from labels map.
 	healthStatusInt, ok := labelsMap[k8sclient.SageMakerNodeHealthStatus]
 	if !ok {
@@ -152,28 +135,54 @@ func (s *scraper) processNode(nodeName string, labelsMap map[k8sclient.Label]int
 	instanceID := strings.TrimPrefix(nodeName, hyperPodPrefix)
 
 	// Emit data points for all statuses (1 for current, 0 for others).
-	s.emitHealthMetrics(gauges, nodeName, instanceID, healthStatus, timestamp)
+	s.emitHealthMetrics(nodeName, instanceID, healthStatus, timestamp)
 	return true
 }
 
-func (s *scraper) emitHealthMetrics(gauges map[string]pmetric.NumberDataPointSlice, nodeName, instanceID, currentStatus string, timestamp pcommon.Timestamp) {
+// emitHealthMetrics records a one-hot encoding across all statuses: value 1 for
+// the node's current status and 0 for every other status.
+func (s *scraper) emitHealthMetrics(nodeName, instanceID, currentStatus string, timestamp pcommon.Timestamp) {
+	clusterName := s.config.ClusterName
 	for _, status := range allStatuses {
-		statusStr := status.String()
 		value := int64(0)
-		if statusStr == currentStatus {
+		if status.String() == currentStatus {
 			value = 1
 		}
+		s.recordStatus(status, timestamp, value, clusterName, instanceID, nodeName)
+	}
+}
 
-		dp := gauges[statusStr].AppendEmpty()
-		dp.SetTimestamp(timestamp)
-		dp.SetIntValue(value)
+// recordStatus dispatches to the generated MetricsBuilder method for the status.
+func (s *scraper) recordStatus(status k8sutil.HyperPodConditionType, ts pcommon.Timestamp, val int64, clusterName, instanceID, nodeName string) {
+	switch status {
+	case k8sutil.Schedulable:
+		s.mb.RecordHyperpodNodeHealthStatusSchedulableDataPoint(ts, val, clusterName, instanceID, nodeName)
+	case k8sutil.UnschedulablePendingReplacement:
+		s.mb.RecordHyperpodNodeHealthStatusUnschedulablePendingReplacementDataPoint(ts, val, clusterName, instanceID, nodeName)
+	case k8sutil.UnschedulablePendingReboot:
+		s.mb.RecordHyperpodNodeHealthStatusUnschedulablePendingRebootDataPoint(ts, val, clusterName, instanceID, nodeName)
+	case k8sutil.Unschedulable:
+		s.mb.RecordHyperpodNodeHealthStatusUnschedulableDataPoint(ts, val, clusterName, instanceID, nodeName)
+	}
+}
 
-		// Add attributes.
-		attrs := dp.Attributes()
-		attrs.PutStr("node_name", nodeName)
-		attrs.PutStr("instance_id", instanceID)
-		if s.config.ClusterName != "" {
-			attrs.PutStr("cluster_name", s.config.ClusterName)
+// removeAttributeFromDataPoints removes the named attribute from every gauge
+// data point in the metrics.
+func removeAttributeFromDataPoints(metrics pmetric.Metrics, attr string) {
+	rms := metrics.ResourceMetrics()
+	for i := 0; i < rms.Len(); i++ {
+		sms := rms.At(i).ScopeMetrics()
+		for j := 0; j < sms.Len(); j++ {
+			ms := sms.At(j).Metrics()
+			for k := 0; k < ms.Len(); k++ {
+				if ms.At(k).Type() != pmetric.MetricTypeGauge {
+					continue
+				}
+				dps := ms.At(k).Gauge().DataPoints()
+				for l := 0; l < dps.Len(); l++ {
+					dps.At(l).Attributes().Remove(attr)
+				}
+			}
 		}
 	}
 }

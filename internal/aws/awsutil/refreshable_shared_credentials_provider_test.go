@@ -5,41 +5,156 @@ package awsutil
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestSharedCredentialsProviderExpiryWindowIsExpired(t *testing.T) {
-	tmpFile, _ := os.CreateTemp(os.TempDir(), "credential")
-	defer os.Remove(tmpFile.Name())
-	bytes, _ := os.ReadFile("./testdata/credential_original")
-	_ = os.WriteFile(tmpFile.Name(), bytes, 0o600)
-	p := credentials.NewCredentials(&RefreshableSharedCredentialsProvider{
-		sharedCredentialsProvider: &credentials.SharedCredentialsProvider{
-			Filename: tmpFile.Name(),
-			Profile:  "",
-		},
-		ExpiryWindow: 1 * time.Second,
-	})
-	creds, _ := p.Get()
-	assert.Equal(t, "o1rLD3ykKN09", creds.SecretAccessKey)
-	time.Sleep(1 * time.Millisecond)
+const testProfile = "default"
 
-	assert.False(t, p.IsExpired(), "Expect creds not to be expired.")
+func TestSharedCredentialsProvider_MissingFile(t *testing.T) {
+	// With an explicit credentials file the SDK reads only that file (ConfigFiles
+	// is emptied), so a missing file fails loudly even for the default profile
+	// rather than silently resolving empty credentials from elsewhere.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmp := filepath.Join(t.TempDir(), "missing")
+	p := SharedCredentialsProvider{Filename: tmp, Profile: testProfile}
+	_, err := p.Retrieve(t.Context())
+	require.Error(t, err)
+}
 
-	bytesRotate, _ := os.ReadFile("./testdata/credential_rotate")
-	_ = os.WriteFile(tmpFile.Name(), bytesRotate, 0o600)
+func TestRefreshableSharedCredentialsProvider_DefaultsExpiryWindow(t *testing.T) {
+	tmpFile := writeTempCredentials(t, "credential_original")
+	p := RefreshableSharedCredentialsProvider{
+		Provider: SharedCredentialsProvider{Filename: tmpFile, Profile: testProfile},
+		// ExpiryWindow zero → defaultExpiryWindow.
+	}
+	got, err := p.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.True(t, got.CanExpire)
+	expectedMin := time.Now().Add(defaultExpiryWindow - time.Minute)
+	expectedMax := time.Now().Add(defaultExpiryWindow + time.Minute)
+	assert.WithinRange(t, got.Expires, expectedMin, expectedMax)
+}
 
-	time.Sleep(2 * time.Second)
+func TestRefreshableSharedCredentialsProvider_FileRotation(t *testing.T) {
+	// Write fixture 1, retrieve, rotate file, wait past expiry, retrieve
+	// again, verify the rotated value comes through.
+	tmpDir := t.TempDir()
+	tmpFile, err := os.CreateTemp(tmpDir, "credential")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
 
-	assert.True(t, p.IsExpired(), "Expect creds to be expired.")
-	creds, _ = p.Get()
-	assert.Equal(t, "o1rLDaaaccc", creds.SecretAccessKey)
-	assert.False(t, p.IsExpired(), "Expect creds not to be expired.")
+	provider := RefreshableSharedCredentialsProvider{
+		Provider:     SharedCredentialsProvider{Filename: tmpFile.Name(), Profile: testProfile},
+		ExpiryWindow: 500 * time.Millisecond,
+	}
+	cache := aws.NewCredentialsCache(provider)
 
-	time.Sleep(1 * time.Second)
-	assert.True(t, p.IsExpired(), "Expect creds to be expired.")
+	originalContent, err := os.ReadFile(filepath.Join("testdata", "credential_original"))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(tmpFile.Name(), originalContent, 0o600))
+
+	creds, err := cache.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "o1rLD3ykKN09originalSECRETxxxxxxxxxxxxxxxx", creds.SecretAccessKey)
+	assert.False(t, creds.Expired())
+
+	time.Sleep(100 * time.Millisecond)
+	assert.False(t, creds.Expired())
+
+	rotatedContent, err := os.ReadFile(filepath.Join("testdata", "credential_rotate"))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(tmpFile.Name(), rotatedContent, 0o600))
+
+	time.Sleep(500 * time.Millisecond)
+	assert.True(t, creds.Expired())
+
+	creds, err = cache.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "o1rLDaaacccROTATEDsecretxxxxxxxxxxxxxxxxxx", creds.SecretAccessKey)
+	assert.False(t, creds.Expired())
+}
+
+// writeTempCredentials copies a fixture into a temp file and returns its path.
+func writeTempCredentials(t *testing.T, fixtureName string) string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join("testdata", fixtureName))
+	require.NoError(t, err)
+	tmp := filepath.Join(t.TempDir(), "credentials")
+	require.NoError(t, os.WriteFile(tmp, content, 0o600))
+	return tmp
+}
+
+func TestSharedCredentialsProvider_EmptyProfileDefaultsToDefault(t *testing.T) {
+	// An empty Profile must resolve to "default" rather than be passed through
+	// to LoadSharedConfigProfile, which rejects an empty profile name. HOME is
+	// pointed at a temp dir so real ~/.aws files cannot influence the result.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsProfile, "")
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmpFile := writeTempCredentials(t, "credential_original")
+
+	p := SharedCredentialsProvider{Filename: tmpFile, Profile: ""}
+	creds, err := p.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "o1rLD3ykKN09originalSECRETxxxxxxxxxxxxxxxx", creds.SecretAccessKey)
+}
+
+func TestSharedCredentialsProvider_EmptyProfileHonorsAwsProfileEnv(t *testing.T) {
+	// An empty Profile falls back to AWS_PROFILE before "default".
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmp := filepath.Join(t.TempDir(), "credentials")
+	require.NoError(t, os.WriteFile(tmp, []byte("[custom]\naws_access_key_id = AKIDEXAMPLE\naws_secret_access_key = customSecretValue\n"), 0o600))
+	t.Setenv(envAwsProfile, "custom")
+
+	p := SharedCredentialsProvider{Filename: tmp, Profile: ""}
+	creds, err := p.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "customSecretValue", creds.SecretAccessKey)
+}
+
+func TestSharedCredentialsProvider_KeylessProfile(t *testing.T) {
+	// A profile that exists but carries no static keys must fail loudly
+	// instead of returning zero-value credentials.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAwsProfile, "")
+	t.Setenv(envAwsSharedCredentialsFile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmp := filepath.Join(t.TempDir(), "credentials")
+	require.NoError(t, os.WriteFile(tmp, []byte("[default]\nregion = us-west-2\n"), 0o600))
+
+	p := SharedCredentialsProvider{Filename: tmp, Profile: "default"}
+	_, err := p.Retrieve(t.Context())
+	require.ErrorContains(t, err, "does not contain static credentials")
+}
+
+func TestSharedCredentialsProvider_EmptyFilenameHonorsEnvFile(t *testing.T) {
+	// With no explicit Filename, the credentials file resolves from
+	// AWS_SHARED_CREDENTIALS_FILE before the home-dir default, and the
+	// shared config file is never merged.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv(envAwsProfile, "")
+	t.Setenv(envAwsSharedConfigFile, "")
+	tmp := filepath.Join(t.TempDir(), "custom-credentials")
+	require.NoError(t, os.WriteFile(tmp, []byte("[default]\naws_access_key_id = AKIDEXAMPLE\naws_secret_access_key = envFileSecret\n"), 0o600))
+	t.Setenv(envAwsSharedCredentialsFile, tmp)
+	// A decoy default config file that must not be consulted.
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".aws"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".aws", "config"), []byte("[default]\naws_access_key_id = AKIDDECOY\naws_secret_access_key = decoySecret\n"), 0o600))
+
+	p := SharedCredentialsProvider{Profile: "default"}
+	creds, err := p.Retrieve(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "envFileSecret", creds.SecretAccessKey)
 }

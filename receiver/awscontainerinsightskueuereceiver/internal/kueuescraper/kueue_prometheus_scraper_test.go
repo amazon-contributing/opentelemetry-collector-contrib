@@ -39,7 +39,32 @@ type mockKueueConsumer struct {
 	activeWorkloadCount  *bool
 }
 
-func (m mockKueueConsumer) Capabilities() consumer.Capabilities {
+// isFailedOrStaleScrape reports whether the metrics batch corresponds to a
+// failed or stale scrape (mock prometheus 404 follow-up). Indicators are an
+// `up` metric with value 0, or every series carrying a staleness-marker
+// datapoint. Mirrors the helper in
+// awscontainerinsightreceiver/internal/prometheusscraper but is duplicated
+// here to avoid a cross-module dependency.
+func isFailedOrStaleScrape(scopeMetrics pmetric.MetricSlice) bool {
+	allStale := scopeMetrics.Len() > 0
+	for i := 0; i < scopeMetrics.Len(); i++ {
+		metric := scopeMetrics.At(i)
+		if metric.Type() != pmetric.MetricTypeGauge || metric.Gauge().DataPoints().Len() == 0 {
+			allStale = false
+			continue
+		}
+		dp := metric.Gauge().DataPoints().At(0)
+		if metric.Name() == "up" && dp.ValueType() == pmetric.NumberDataPointValueTypeDouble && dp.DoubleValue() == 0 {
+			return true
+		}
+		if dp.ValueType() != pmetric.NumberDataPointValueTypeEmpty {
+			allStale = false
+		}
+	}
+	return allStale
+}
+
+func (mockKueueConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: false,
 	}
@@ -49,6 +74,15 @@ func (m mockKueueConsumer) ConsumeMetrics(_ context.Context, md pmetric.Metrics)
 	assert.Equal(m.t, 1, md.ResourceMetrics().Len())
 
 	scopeMetrics := md.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	// Skip the failed-scrape follow-up call (mock prometheus returns 404 on
+	// the second scrape, producing up=0 plus staleness markers for prior
+	// series). They carry no real data and would otherwise trip the
+	// value/label assertions. Detect via the up=0 signal — robust against
+	// staleness-marker-only batches in the same way as the shared helper in
+	// awscontainerinsightreceiver/internal/prometheusscraper.
+	if isFailedOrStaleScrape(scopeMetrics) {
+		return nil
+	}
 	for i := 0; i < scopeMetrics.Len(); i++ {
 		metric := scopeMetrics.At(i)
 		switch metric.Name() {
@@ -149,7 +183,7 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 		MetricsPath:     cfg.ScrapeConfigs[0].MetricsPath,
 		Scheme:          "http",
 		ServiceDiscoveryConfigs: discovery.Configs{
-			&discovery.StaticConfig{
+			discovery.StaticConfig{
 				{
 					Targets: []model.LabelSet{
 						{
@@ -169,7 +203,7 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 	// create test receiver
 	params := receiver.Settings{
 		TelemetrySettings: settings,
-		ID:                component.NewIDWithName(component.MustNewType("prometheus"), ""),
+		ID:                component.MustNewIDWithName("prometheus", "kueue"),
 	}
 	promReceiver, err := promFactory.CreateMetrics(t.Context(), params, &promConfig, mConsumer)
 	assert.NoError(t, err)

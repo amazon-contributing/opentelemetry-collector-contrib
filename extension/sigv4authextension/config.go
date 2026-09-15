@@ -8,12 +8,12 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // Config stores the configuration for the Sigv4 Authenticator
 type Config struct {
-	awsutilv2.AWSSessionSettings `mapstructure:",squash"`
+	awsutil.AWSSessionSettings `mapstructure:",squash"`
 
 	Service    string     `mapstructure:"service,omitempty"`
 	AssumeRole AssumeRole `mapstructure:"assume_role"`
@@ -25,12 +25,14 @@ type AssumeRole struct {
 	SessionName          string `mapstructure:"session_name,omitempty"`
 	STSRegion            string `mapstructure:"sts_region,omitempty"`
 	WebIdentityTokenFile string `mapstructure:"web_identity_token_file,omitempty"`
+	ExternalID           string `mapstructure:"external_id,omitempty"`
 }
 
 // compile time check that the Config struct satisfies the component.Config interface
 var _ component.Config = (*Config)(nil)
 
-// Validate checks that the configuration is well-formed.
+// Validate checks that the configuration is well-formed. Credential resolution is deferred to
+// extension creation so that configuration validation does not perform AWS calls.
 func (cfg *Config) Validate() error {
 	if cfg.AssumeRole.ARN != "" && cfg.RoleARN != "" {
 		return errors.New("role_arn and assume_role.arn cannot both be set")
@@ -44,7 +46,7 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
-// resolvedRoleARN returns whichever of cfg.RoleARN (top-level) or cfg.AssumeRole.ARN is set.
+// resolvedRoleARN returns whichever of cfg.AssumeRole.ARN or cfg.RoleARN (top-level) is set.
 // Validate guarantees they are not both set; returns "" when neither is set.
 func (cfg *Config) resolvedRoleARN() string {
 	if cfg.AssumeRole.ARN != "" {
@@ -53,20 +55,29 @@ func (cfg *Config) resolvedRoleARN() string {
 	return cfg.RoleARN
 }
 
+// resolvedWebIdentityTokenFile returns whichever of cfg.AssumeRole.WebIdentityTokenFile or the
+// top-level cfg.WebIdentityTokenFile (embedded AWSSessionSettings) is set. Validate guarantees they
+// are not both set; returns "" when neither is set.
+func (cfg *Config) resolvedWebIdentityTokenFile() string {
+	if cfg.AssumeRole.WebIdentityTokenFile != "" {
+		return cfg.AssumeRole.WebIdentityTokenFile
+	}
+	return cfg.WebIdentityTokenFile
+}
+
+// resolvedExternalID returns AssumeRole.ExternalID if set, otherwise falls back to the
+// top-level external_id.
+func (cfg *Config) resolvedExternalID() string {
+	if cfg.AssumeRole.ExternalID != "" {
+		return cfg.AssumeRole.ExternalID
+	}
+	return cfg.ExternalID
+}
+
 // resolvedSTSRegion returns AssumeRole.STSRegion if set, otherwise falls back to Region.
 func (cfg *Config) resolvedSTSRegion() string {
 	if cfg.AssumeRole.STSRegion != "" {
 		return cfg.AssumeRole.STSRegion
 	}
 	return cfg.Region
-}
-
-// resolvedWebIdentityTokenFile returns whichever of cfg.AWSSessionSettings.WebIdentityTokenFile
-// (top-level) or cfg.AssumeRole.WebIdentityTokenFile is set. Validate guarantees they are not
-// both set; returns "" when neither is set.
-func (cfg *Config) resolvedWebIdentityTokenFile() string {
-	if cfg.AssumeRole.WebIdentityTokenFile != "" {
-		return cfg.AssumeRole.WebIdentityTokenFile
-	}
-	return cfg.WebIdentityTokenFile
 }

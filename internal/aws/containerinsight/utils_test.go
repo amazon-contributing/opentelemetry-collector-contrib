@@ -95,6 +95,7 @@ func TestIsContainer(t *testing.T) {
 	assert.True(t, IsContainer(TypeContainerDiskIO))
 	assert.True(t, IsContainer(TypeContainerEFA))
 	assert.True(t, IsContainer(TypeContainerGPU))
+	assert.True(t, IsContainer(TypeContainerNeuron))
 	assert.True(t, IsContainer(TypeContainerFS))
 	assert.False(t, IsContainer(TypePod))
 }

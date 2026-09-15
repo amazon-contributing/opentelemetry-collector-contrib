@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //go:build windows
-// +build windows
 
 package kubelet // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightreceiver/internal/k8swindows/kubelet"
 
@@ -79,7 +78,8 @@ func (sp *SummaryProvider) GetMetrics() ([]*stores.CIMetricImpl, error) {
 func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*stores.CIMetricImpl, error) { //nolint:unparam
 	var metrics []*stores.CIMetricImpl
 
-	for _, container := range pod.Containers {
+	for i := range pod.Containers {
+		container := &pod.Containers[i]
 		tags := map[string]string{}
 
 		tags[ci.PodIDKey] = pod.PodRef.UID
@@ -89,7 +89,7 @@ func (sp *SummaryProvider) getContainerMetrics(pod stats.PodStats) ([]*stores.CI
 		containerID := fmt.Sprintf("%s-%s", pod.PodRef.UID, container.Name)
 		tags[ci.ContainerIDkey] = containerID
 
-		rawMetric := extractors.ConvertContainerToRaw(container, pod)
+		rawMetric := extractors.ConvertContainerToRaw(*container, pod)
 		tags[ci.Timestamp] = strconv.FormatInt(rawMetric.Time.UnixNano(), 10)
 
 		for _, extractor := range sp.metricExtractors {
@@ -113,7 +113,8 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*stores.CIMe
 		return metrics, nil
 	}
 
-	for _, pod := range summary.Pods {
+	for i := range summary.Pods {
+		pod := &summary.Pods[i]
 		var metricsPerPod []*stores.CIMetricImpl
 
 		tags := map[string]string{}
@@ -122,7 +123,7 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*stores.CIMe
 		tags[ci.K8sPodNameKey] = pod.PodRef.Name
 		tags[ci.K8sNamespace] = pod.PodRef.Namespace
 
-		rawMetric := extractors.ConvertPodToRaw(pod)
+		rawMetric := extractors.ConvertPodToRaw(*pod)
 		tags[ci.Timestamp] = strconv.FormatInt(rawMetric.Time.UnixNano(), 10)
 
 		for _, extractor := range sp.metricExtractors {
@@ -135,7 +136,7 @@ func (sp *SummaryProvider) getPodMetrics(summary *stats.Summary) ([]*stores.CIMe
 		}
 		metrics = append(metrics, metricsPerPod...)
 
-		containerMetrics, err := sp.getContainerMetrics(pod)
+		containerMetrics, err := sp.getContainerMetrics(*pod)
 		if err != nil {
 			sp.logger.Error("failed to get container metrics, ", zap.Error(err))
 			return containerMetrics, err

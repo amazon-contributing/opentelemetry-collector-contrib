@@ -23,7 +23,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap/zaptest"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutilv2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 // --- Mock CW Logs client ---
@@ -62,7 +62,7 @@ type mockHTTPClient struct {
 	component.ShutdownFunc
 }
 
-func (m *mockHTTPClient) RoundTripper(base http.RoundTripper) (http.RoundTripper, error) {
+func (*mockHTTPClient) RoundTripper(base http.RoundTripper) (http.RoundTripper, error) {
 	return base, nil
 }
 
@@ -127,7 +127,7 @@ func TestRoundTripper_StaticHeaders(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/static/my-group")
 	req.Header.Set("x-aws-log-stream", "my-stream")
 
@@ -154,7 +154,7 @@ func TestRoundTripper_NoLogGroup_PassesThrough(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	// No x-aws-log-group header
 
 	_, err = rt.RoundTrip(req)
@@ -176,7 +176,7 @@ func TestRoundTripper_MissingStream_SkipsProvisioning(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/my/group")
 	// No x-aws-log-stream header — both required for provisioning
 
@@ -202,7 +202,7 @@ func newTest400RoundTripper(t *testing.T, ext *provisionerExtension, respBody st
 }
 
 func newLogsRequest(logGroup string) *http.Request {
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", logGroup)
 	req.Header.Set("x-aws-log-stream", "default")
 	return req
@@ -354,12 +354,10 @@ func TestEnsureProvisioned_Singleflight(t *testing.T) {
 	ext := newTestExtension(t, &Config{}, mockClient)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			ext.ensure(t.Context(), "/test/singleflight", "default")
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -369,7 +367,7 @@ func TestEnsureProvisioned_Singleflight(t *testing.T) {
 func TestStart_StoresHost(t *testing.T) {
 	authID := component.MustNewID("sigv4auth")
 	cfg := &Config{
-		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
+		AWSSessionSettings: awsutil.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
 		AdditionalAuth:     &authID,
 	}
 	ext := newExtension(zaptest.NewLogger(t), cfg)
@@ -388,7 +386,7 @@ func TestStart_StoresHost(t *testing.T) {
 func TestRoundTripper_MissingAdditionalAuth(t *testing.T) {
 	authID := component.MustNewID("sigv4auth")
 	cfg := &Config{
-		AWSSessionSettings: awsutilv2.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
+		AWSSessionSettings: awsutil.AWSSessionSettings{Region: "us-east-1", LocalMode: true},
 		AdditionalAuth:     &authID,
 	}
 	ext := newExtension(zaptest.NewLogger(t), cfg)
@@ -436,7 +434,7 @@ func TestChainingWithAdditionalAuth(t *testing.T) {
 	rt, err := ext.RoundTripper(base)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", nil)
+	req := httptest.NewRequest(http.MethodPost, "https://logs.us-east-1.amazonaws.com/v1/logs", http.NoBody)
 	req.Header.Set("x-aws-log-group", "/test/my-service")
 	req.Header.Set("x-aws-log-stream", "default")
 
@@ -545,13 +543,12 @@ func TestProvision_CreateLogGroupSingleflighted(t *testing.T) {
 	ext := newTestExtension(t, &Config{}, mockClient)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func(stream string) {
-			defer wg.Done()
+	for i := range 3 {
+		wg.Go(func() {
+			stream := fmt.Sprintf("stream-%d", i)
 			result := ext.ensure(t.Context(), "/test/group", stream)
 			assert.True(t, result)
-		}(fmt.Sprintf("stream-%d", i))
+		})
 	}
 	wg.Wait()
 

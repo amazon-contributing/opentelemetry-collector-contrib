@@ -89,7 +89,7 @@ var lloPatterns = map[string]patternConfig{
 	"llm.prompts":                   {pType: patternDirect, role: roleUser, source: "prompt"},
 	// OTel GenAI Semantic Convention used by the latest Strands SDK
 	// References:
-	// - OTel GenAI SemConv: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
+	// - OTel GenAI SemConv: https://github.com/open-telemetry/semantic-conventions-genai
 	// - Strands SDK PR(introduced in v0.1.9): https://github.com/strands-agents/sdk-python/pull/319
 	"gen_ai.user.message":        {pType: patternDirect, role: roleUser, source: "prompt"},
 	"gen_ai.assistant.message":   {pType: patternDirect, role: roleAssistant, source: "output"},
@@ -193,21 +193,23 @@ func (h *lloHandler) collectAllLLOMessages(attributes map[string]any) []map[stri
 	}
 
 	for attrKey, value := range attributes {
-		if config, ok := h.exactMatchPatterns[attrKey]; ok {
-			role := config.role
-			if role == "" {
-				role = "unknown"
-			}
-			source := config.source
-			if source == "" {
-				source = "unknown"
-			}
-			messages = append(messages, map[string]any{
-				"content": value,
-				"role":    role,
-				"source":  source,
-			})
+		config, ok := h.exactMatchPatterns[attrKey]
+		if !ok {
+			continue
 		}
+		role := config.role
+		if role == "" {
+			role = "unknown"
+		}
+		source := config.source
+		if source == "" {
+			source = "unknown"
+		}
+		messages = append(messages, map[string]any{
+			"content": value,
+			"role":    role,
+			"source":  source,
+		})
 	}
 
 	indexedMessages := h.collectIndexedMessages(attributes)
@@ -340,7 +342,7 @@ func (h *lloHandler) removeLLOAttributes(span ptrace.Span) {
 // groupMessagesByType groups messages into input and output categories based on role and source.
 //
 // Returns a map with "input" and "output" lists of messages.
-func (h *lloHandler) groupMessagesByType(messages []map[string]any) map[string][]map[string]any {
+func (*lloHandler) groupMessagesByType(messages []map[string]any) map[string][]map[string]any {
 	var inputMessages []map[string]any
 	var outputMessages []map[string]any
 

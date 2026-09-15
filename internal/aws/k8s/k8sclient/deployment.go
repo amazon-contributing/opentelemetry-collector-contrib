@@ -24,11 +24,11 @@ type DeploymentClient interface {
 
 type noOpDeploymentClient struct{}
 
-func (nd *noOpDeploymentClient) DeploymentInfos() []*DeploymentInfo {
+func (*noOpDeploymentClient) DeploymentInfos() []*DeploymentInfo {
 	return []*DeploymentInfo{}
 }
 
-func (nd *noOpDeploymentClient) shutdown() {
+func (*noOpDeploymentClient) shutdown() {
 }
 
 type deploymentClientOption func(*deploymentClient)

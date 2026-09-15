@@ -25,7 +25,7 @@ type DecorateConsumer struct {
 	Logger                *zap.Logger
 }
 
-func (dc *DecorateConsumer) Capabilities() consumer.Capabilities {
+func (*DecorateConsumer) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{
 		MutatesData: true,
 	}

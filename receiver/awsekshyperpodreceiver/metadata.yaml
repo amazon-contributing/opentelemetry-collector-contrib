@@ -4,9 +4,54 @@ status:
   class: receiver
   stability:
     alpha: [metrics]
-  distributions: [contrib]
+  distributions: []
   codeowners:
-    active: []
+    active: [sky333999, movence]
+
+attributes:
+  cluster_name:
+    description: The name of the Kubernetes cluster. Omitted when not configured.
+    type: string
+  instance_id:
+    description: The instance ID of the node, derived from the node name.
+    type: string
+  node_name:
+    description: The name of the node.
+    type: string
+
+metrics:
+  hyperpod_node_health_status_schedulable:
+    description: "HyperPod node health status: Schedulable"
+    enabled: true
+    stability: alpha
+    unit: "1"
+    gauge:
+      value_type: int
+    attributes: [cluster_name, instance_id, node_name]
+  hyperpod_node_health_status_unschedulable:
+    description: "HyperPod node health status: Unschedulable"
+    enabled: true
+    stability: alpha
+    unit: "1"
+    gauge:
+      value_type: int
+    attributes: [cluster_name, instance_id, node_name]
+  hyperpod_node_health_status_unschedulable_pending_reboot:
+    description: "HyperPod node health status: UnschedulablePendingReboot"
+    enabled: true
+    stability: alpha
+    unit: "1"
+    gauge:
+      value_type: int
+    attributes: [cluster_name, instance_id, node_name]
+  hyperpod_node_health_status_unschedulable_pending_replacement:
+    description: "HyperPod node health status: UnschedulablePendingReplacement"
+    enabled: true
+    stability: alpha
+    unit: "1"
+    gauge:
+      value_type: int
+    attributes: [cluster_name, instance_id, node_name]
 
 tests:
   skip_lifecycle: true
