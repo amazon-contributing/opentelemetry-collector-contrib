@@ -6,7 +6,6 @@
 package journald
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"os"
@@ -60,7 +59,7 @@ func TestNativeFollow_UnusableCursorHonorsStartAtEnd(t *testing.T) {
 	}).String()
 
 	persister := testutil.NewUnscopedMockPersister()
-	require.NoError(t, persister.Set(context.Background(), nativeCursorKey(dst), []byte(badCursor)))
+	require.NoError(t, persister.Set(t.Context(), nativeCursorKey(dst), []byte(badCursor)))
 
 	cfg := NewConfigWithID("native_unusable_cursor_start_at_end")
 	cfg.OutputIDs = []string{"output"}
@@ -72,10 +71,10 @@ func TestNativeFollow_UnusableCursorHonorsStartAtEnd(t *testing.T) {
 	op, err := cfg.Build(set)
 	require.NoError(t, err)
 
-	var processCalls int64
+	var processCalls atomic.Int64
 	mockOutput := testutil.NewMockOperator("output")
 	mockOutput.On("Process", mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { atomic.AddInt64(&processCalls, 1) }).
+		Run(func(mock.Arguments) { processCalls.Add(1) }).
 		Return(nil)
 	require.NoError(t, op.SetOutputs([]operator.Operator{mockOutput}))
 
@@ -86,7 +85,7 @@ func TestNativeFollow_UnusableCursorHonorsStartAtEnd(t *testing.T) {
 	// the watch loop. With the bug the file replays almost immediately, so a
 	// generous settle window makes any replay decisive.
 	time.Sleep(1500 * time.Millisecond)
-	assert.Equal(t, int64(0), atomic.LoadInt64(&processCalls),
+	assert.Equal(t, int64(0), processCalls.Load(),
 		"start_at:end with an unusable persisted cursor must not replay on-disk entries")
 }
 
@@ -117,13 +116,13 @@ func TestNativeFollow_RetryRedeliversWriteFailedEntry(t *testing.T) {
 	op, err := cfg.Build(set)
 	require.NoError(t, err)
 
-	var writeCount int64
+	var writeCount atomic.Int64
 	mockOutput := testutil.NewMockOperator("output")
 	mockOutput.On("Process", mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { atomic.AddInt64(&writeCount, 1) }).
+		Run(func(mock.Arguments) { writeCount.Add(1) }).
 		Return(errors.New("induced write failure")).Once()
 	mockOutput.On("Process", mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { atomic.AddInt64(&writeCount, 1) }).
+		Run(func(mock.Arguments) { writeCount.Add(1) }).
 		Return(nil)
 	require.NoError(t, op.SetOutputs([]operator.Operator{mockOutput}))
 
@@ -142,12 +141,12 @@ func TestNativeFollow_RetryRedeliversWriteFailedEntry(t *testing.T) {
 	// start_at:end drain and redelivers the entry.
 	deadline := time.Now().Add(nativeBackoff + 5*time.Second)
 	for time.Now().Before(deadline) {
-		if atomic.LoadInt64(&writeCount) >= 2 {
+		if writeCount.Load() >= 2 {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	assert.GreaterOrEqual(t, atomic.LoadInt64(&writeCount), int64(2),
+	assert.GreaterOrEqual(t, writeCount.Load(), int64(2),
 		"a Write-failed entry must be redelivered on retry, not discarded by the start_at:end re-drain")
 }
 
@@ -203,7 +202,7 @@ func writeEmptyRegressionJournal(t *testing.T, path string) {
 	le := binary.LittleEndian
 	copy(buf[0:8], native.Signature[:])
 	buf[16] = native.HeaderStateOnline
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		buf[24+i] = byte(0x10 + i) // FileID
 		buf[40+i] = byte(0x20 + i) // MachineID
 		buf[56+i] = regressionBootID[i]

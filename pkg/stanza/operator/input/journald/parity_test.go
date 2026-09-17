@@ -146,6 +146,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -216,7 +217,7 @@ func TestBackendParity(t *testing.T) {
 
 	// Phase 4: pairwise comparison. zero diff means same count and
 	// per-entry equivalence on timestamp + severity + body + attributes.
-	require.Equal(t, len(nativeEntries), len(jctlEntries),
+	require.Len(t, jctlEntries, len(nativeEntries),
 		"backends must emit the same number of entries; "+
 			"native=%d journalctl=%d",
 		len(nativeEntries), len(jctlEntries))
@@ -247,7 +248,7 @@ func TestBackendParity(t *testing.T) {
 		// concern). Parity means both empty / nil. Use len-based
 		// comparison to absorb any nil-vs-empty-map representation
 		// difference between NewEntry calls.
-		assert.Equal(t, len(n.Attributes), len(j.Attributes),
+		assert.Len(t, j.Attributes, len(n.Attributes),
 			"entry %d attribute count mismatch: native=%d journalctl=%d",
 			i, len(n.Attributes), len(j.Attributes))
 
@@ -356,9 +357,7 @@ func buildJournalctlStream(t *testing.T, entries []*entry.Entry) string {
 				"the journalctl JSON parser; got %T", i, e.Body)
 
 		line := make(map[string]any, len(body)+1)
-		for k, v := range body {
-			line[k] = v
-		}
+		maps.Copy(line, body)
 
 		// time.Unix(0, us*1000) ⇒ us = UnixNano()/1000. Both backends
 		// use this exact conversion; reversing it here produces the
@@ -459,8 +458,8 @@ func newStubCmd(stdout, stderr string) *stubCmd {
 
 func (c *stubCmd) StdoutPipe() (io.ReadCloser, error) { return c.stdout, nil }
 func (c *stubCmd) StderrPipe() (io.ReadCloser, error) { return c.stderr, nil }
-func (c *stubCmd) Start() error                       { return nil }
-func (c *stubCmd) Wait() error                        { return nil }
+func (*stubCmd) Start() error                         { return nil }
+func (*stubCmd) Wait() error                          { return nil }
 
 // stubReadCloser builds an io.ReadCloser over a string. The Close
 // method is a no-op because the underlying reader has no resources to
@@ -475,7 +474,7 @@ func stubReadCloser(s string) io.ReadCloser {
 }
 
 func (s *stubReadCloserT) Read(p []byte) (int, error) { return s.r.Read(p) }
-func (s *stubReadCloserT) Close() error               { return nil }
+func (*stubReadCloserT) Close() error                 { return nil }
 
 // TestBackendParity_FixtureInvariants pins generator-derived facts
 // about the small.journal fixture so a parity regression that
@@ -704,7 +703,6 @@ func TestBackendParity_AllFixtures(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := fixtureForParity(t, tc.fixture)
 
@@ -751,8 +749,8 @@ func TestBackendParity_AllFixtures(t *testing.T) {
 			// assertions as TestBackendParity proper — repeated
 			// here so each subtest is self-contained and the
 			// failure message names the fixture explicitly.
-			require.Equalf(t,
-				len(nativeEntries), len(jctlEntries),
+			require.Lenf(t,
+				jctlEntries, len(nativeEntries),
 				"%s: backend entry counts differ: "+
 					"native=%d journalctl=%d",
 				tc.name, len(nativeEntries), len(jctlEntries))
@@ -770,8 +768,8 @@ func TestBackendParity_AllFixtures(t *testing.T) {
 				assert.Equalf(t, n.SeverityText, j.SeverityText,
 					"%s entry %d severity_text mismatch",
 					tc.name, i)
-				assert.Equalf(t,
-					len(n.Attributes), len(j.Attributes),
+				assert.Lenf(t,
+					j.Attributes, len(n.Attributes),
 					"%s entry %d attribute count mismatch",
 					tc.name, i)
 				assert.Equalf(t, n.Body, j.Body,

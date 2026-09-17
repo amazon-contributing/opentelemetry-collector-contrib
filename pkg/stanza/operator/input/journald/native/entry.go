@@ -214,7 +214,7 @@ func ParseEntry(r io.ReaderAt, offset uint64, compact bool) (*Entry, error) {
 
 	itemCount := itemsBytes / itemSize
 	e.Items = make([]EntryItem, 0, itemCount)
-	for i := uint64(0); i < itemCount; i++ {
+	for i := range itemCount {
 		base := EntryFixedSize + i*itemSize
 		var item EntryItem
 		// FIX(M1): branch on compact to read items at the correct

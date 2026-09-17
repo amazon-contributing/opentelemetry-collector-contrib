@@ -49,7 +49,7 @@ func makeEntryObjectBytes(
 	le.PutUint64(buf[56:64], xorHash)
 
 	// Items[] starts at offset 64 (= ObjectHeaderSize + EntryFixedSize).
-	pos := uint64(ObjectHeaderSize + EntryFixedSize)
+	pos := ObjectHeaderSize + EntryFixedSize
 	for _, item := range items {
 		if compact {
 			le.PutUint32(buf[pos:pos+4], uint32(item.ObjectOffset))
@@ -106,7 +106,8 @@ func placeAt(size, at uint64, src []byte) []byte {
 func stitch(parts []struct {
 	off uint64
 	buf []byte
-}) []byte {
+},
+) []byte {
 	var size uint64
 	for _, p := range parts {
 		end := p.off + uint64(len(p.buf))
@@ -225,7 +226,7 @@ func TestParseEntry_AtNonZeroOffset(t *testing.T) {
 	)
 	buf := placeAt(startOff+uint64(len(objBytes)), startOff, objBytes)
 	// Sentinel bytes before the object so a misread of offset 0 is loud.
-	for i := uint64(0); i < startOff; i++ {
+	for i := range startOff {
 		buf[i] = 0xEE
 	}
 
@@ -474,8 +475,8 @@ func TestEntryParser_M3(t *testing.T) {
 			usec = 9_999_999_999_999_999 // year ~2286
 		}
 		t.Run("no_pre_1970_wrap_"+name, func(t *testing.T) {
-			tm, err := usecToTime(usec)
-			if err != nil {
+			tm, convErr := usecToTime(usec)
+			if convErr != nil {
 				// An explicit overflow error is also an acceptable
 				// way to honor the M3 invariant — it just must not
 				// silently return a pre-1970 time.
@@ -761,12 +762,12 @@ func TestParseEntry_RealFixture(t *testing.T) {
 	const scanLimit = 1024
 	for i := 0; i < scanLimit && offset < fileSize; i++ {
 		offset = (offset + ObjectAlignment - 1) &^ (ObjectAlignment - 1)
-		oh, err := ParseObjectHeader(f, offset)
-		if err != nil {
-			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		oh, parseErr := ParseObjectHeader(f, offset)
+		if parseErr != nil {
+			if errors.Is(parseErr, io.EOF) || errors.Is(parseErr, io.ErrUnexpectedEOF) {
 				break
 			}
-			t.Fatalf("ParseObjectHeader@%d: %v", offset, err)
+			t.Fatalf("ParseObjectHeader@%d: %v", offset, parseErr)
 		}
 		if oh.Size < ObjectHeaderSize || oh.Size > fileSize-offset {
 			break

@@ -111,7 +111,7 @@ func (o *ObjectHeader) PayloadSize() uint64 {
 // NextOffset returns the offset of the next object after this one, aligned
 // upward to ObjectAlignment per the systemd format spec.
 func (o *ObjectHeader) NextOffset() uint64 {
-	return alignUp(o.Offset+o.Size, ObjectAlignment)
+	return alignUp(o.Offset + o.Size)
 }
 
 // IsCompressed reports whether any of the ObjectCompressed* flags are set.
@@ -200,8 +200,8 @@ func (o *ObjectHeader) ValidateKnownType() error {
 	return nil
 }
 
-// alignUp rounds v upward to the next multiple of align. align must be a
-// power of two; ObjectAlignment (8) is the only caller in this package.
-func alignUp(v, align uint64) uint64 {
-	return (v + align - 1) &^ (align - 1)
+// alignUp rounds v upward to the next multiple of ObjectAlignment, which
+// must be (and is) a power of two.
+func alignUp(v uint64) uint64 {
+	return (v + ObjectAlignment - 1) &^ (ObjectAlignment - 1)
 }

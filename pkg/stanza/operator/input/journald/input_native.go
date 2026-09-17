@@ -307,19 +307,18 @@ func (operator *Input) followNativeFileOnce(ctx context.Context, path string) er
 	seekApplied := false
 	if cursor, getErr := operator.persister.Get(ctx, cursorKey); getErr == nil && len(cursor) > 0 {
 		if seekErr := r.SeekToCursor(string(cursor)); seekErr != nil {
-			if errors.Is(seekErr, native.ErrCursorSeqnumMismatch) ||
-				errors.Is(seekErr, native.ErrCursorNotFound) ||
-				errors.Is(seekErr, native.ErrCursorMalformed) {
-				// Cursor unusable for this file: fall through to the shared
-				// StartAt handling below instead of leaving the Reader at
-				// the head, which would replay the whole file via Follow.
-				operator.Logger().Debug(
-					"native journald: cursor not applicable to this file, honoring StartAt",
-					zap.String("path", path),
-					zap.Error(seekErr))
-			} else {
+			if !errors.Is(seekErr, native.ErrCursorSeqnumMismatch) &&
+				!errors.Is(seekErr, native.ErrCursorNotFound) &&
+				!errors.Is(seekErr, native.ErrCursorMalformed) {
 				return fmt.Errorf("seek %q to cursor: %w", path, seekErr)
 			}
+			// Cursor unusable for this file: fall through to the shared
+			// StartAt handling below instead of leaving the Reader at
+			// the head, which would replay the whole file via Follow.
+			operator.Logger().Debug(
+				"native journald: cursor not applicable to this file, honoring StartAt",
+				zap.String("path", path),
+				zap.Error(seekErr))
 		} else {
 			seekApplied = true
 		}

@@ -174,7 +174,7 @@ func ParseCursor(s string) (*Cursor, error) {
 	// is almost certainly a sign of file concatenation or corruption).
 	seen := make(map[byte]bool, 6)
 
-	for _, part := range strings.Split(s, ";") {
+	for part := range strings.SplitSeq(s, ";") {
 		if part == "" {
 			return nil, fmt.Errorf("%w: empty component in %q",
 				ErrCursorMalformed, s)
@@ -205,42 +205,42 @@ func ParseCursor(s string) (*Cursor, error) {
 		case 's':
 			id, err := parseID128(value)
 			if err != nil {
-				return nil, fmt.Errorf("%w: bad seqnum_id %q: %v",
+				return nil, fmt.Errorf("%w: bad seqnum_id %q: %w",
 					ErrCursorMalformed, value, err)
 			}
 			c.SeqnumID = id
 		case 'i':
 			n, err := strconv.ParseUint(value, 16, 64)
 			if err != nil {
-				return nil, fmt.Errorf("%w: bad seqnum %q: %v",
+				return nil, fmt.Errorf("%w: bad seqnum %q: %w",
 					ErrCursorMalformed, value, err)
 			}
 			c.Seqnum = n
 		case 'b':
 			id, err := parseID128(value)
 			if err != nil {
-				return nil, fmt.Errorf("%w: bad boot_id %q: %v",
+				return nil, fmt.Errorf("%w: bad boot_id %q: %w",
 					ErrCursorMalformed, value, err)
 			}
 			c.BootID = id
 		case 'm':
 			n, err := strconv.ParseUint(value, 16, 64)
 			if err != nil {
-				return nil, fmt.Errorf("%w: bad monotonic %q: %v",
+				return nil, fmt.Errorf("%w: bad monotonic %q: %w",
 					ErrCursorMalformed, value, err)
 			}
 			c.Monotonic = n
 		case 't':
 			n, err := strconv.ParseUint(value, 16, 64)
 			if err != nil {
-				return nil, fmt.Errorf("%w: bad realtime %q: %v",
+				return nil, fmt.Errorf("%w: bad realtime %q: %w",
 					ErrCursorMalformed, value, err)
 			}
 			c.Realtime = n
 		case 'x':
 			n, err := strconv.ParseUint(value, 16, 64)
 			if err != nil {
-				return nil, fmt.Errorf("%w: bad xor_hash %q: %v",
+				return nil, fmt.Errorf("%w: bad xor_hash %q: %w",
 					ErrCursorMalformed, value, err)
 			}
 			c.XorHash = n

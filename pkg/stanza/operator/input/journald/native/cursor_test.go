@@ -339,7 +339,7 @@ func TestCursor_SeekMidFixture(t *testing.T) {
 				t.Cleanup(func() { _ = r1.Close() })
 
 				for i := 0; i <= pivot; i++ {
-					if _, err := r1.ReadEntry(); err != nil {
+					if _, err = r1.ReadEntry(); err != nil {
 						t.Fatalf("r1.ReadEntry #%d: %v", i, err)
 					}
 				}
@@ -377,14 +377,14 @@ func TestCursor_SeekMidFixture(t *testing.T) {
 				}
 				t.Cleanup(func() { _ = r2.Close() })
 
-				if err := r2.SeekToCursor(cursor); err != nil {
+				if err = r2.SeekToCursor(cursor); err != nil {
 					t.Fatalf("r2.SeekToCursor: %v", err)
 				}
 
 				// Per the doc contract, r2.Cursor() after a
 				// successful seek must reproduce the input cursor.
-				if got, err := r2.Cursor(); err != nil {
-					t.Errorf("r2.Cursor after seek: %v", err)
+				if got, gotErr := r2.Cursor(); gotErr != nil {
+					t.Errorf("r2.Cursor after seek: %v", gotErr)
 				} else if got != cursor {
 					t.Errorf("r2.Cursor after seek = %q, want %q", got, cursor)
 				}
@@ -472,7 +472,7 @@ func TestCursor_SeekMalformed(t *testing.T) {
 	// Advance two entries so the pre-call position is non-trivial; if
 	// SeekToCursor mutates state on failure, the next ReadEntry will
 	// surface the discrepancy.
-	if _, err := r.ReadEntry(); err != nil {
+	if _, err = r.ReadEntry(); err != nil {
 		t.Fatalf("ReadEntry #1: %v", err)
 	}
 	second, err := r.ReadEntry()
@@ -481,7 +481,7 @@ func TestCursor_SeekMalformed(t *testing.T) {
 	}
 	posBefore := r.Offset()
 
-	if err := r.SeekToCursor("garbage payload no equals"); !errors.Is(err, ErrCursorMalformed) {
+	if err = r.SeekToCursor("garbage payload no equals"); !errors.Is(err, ErrCursorMalformed) {
 		t.Errorf("SeekToCursor(garbage) = %v, want ErrCursorMalformed", err)
 	}
 	if got := r.Offset(); got != posBefore {
@@ -529,7 +529,7 @@ func TestCursor_SeekSeqnumMismatch(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = r.Close() })
 
-	if err := r.SeekToCursor(c.String()); !errors.Is(err, ErrCursorSeqnumMismatch) {
+	if err = r.SeekToCursor(c.String()); !errors.Is(err, ErrCursorSeqnumMismatch) {
 		t.Errorf("SeekToCursor(mismatched) = %v, want ErrCursorSeqnumMismatch", err)
 	}
 
@@ -572,11 +572,11 @@ func TestCursor_SeekNotFound(t *testing.T) {
 
 	// Advance so we can prove the failed seek's reset moves us back
 	// to head and not "leaves us where we were".
-	if _, err := r.ReadEntry(); err != nil {
+	if _, err = r.ReadEntry(); err != nil {
 		t.Fatalf("pre-seek ReadEntry: %v", err)
 	}
 
-	if err := r.SeekToCursor(notFound.String()); !errors.Is(err, ErrCursorNotFound) {
+	if err = r.SeekToCursor(notFound.String()); !errors.Is(err, ErrCursorNotFound) {
 		t.Errorf("SeekToCursor(not-found) = %v, want ErrCursorNotFound", err)
 	}
 
@@ -683,10 +683,10 @@ func TestCrashRecovery_PrivateJournal(t *testing.T) {
 	}
 
 	preCrash := make([]*Entry, 0, preCrashReads)
-	for i := 0; i < preCrashReads; i++ {
-		e, err := r1.ReadEntry()
-		if err != nil {
-			t.Fatalf("r1.ReadEntry #%d: %v", i, err)
+	for i := range preCrashReads {
+		e, readErr := r1.ReadEntry()
+		if readErr != nil {
+			t.Fatalf("r1.ReadEntry #%d: %v", i, readErr)
 		}
 		preCrash = append(preCrash, e)
 	}
@@ -702,7 +702,7 @@ func TestCrashRecovery_PrivateJournal(t *testing.T) {
 	// "SIGKILL" simulation: just Close. The defining property of a
 	// crash for our recovery contract is "no chance to ack what was
 	// not yet processed", which Close models exactly.
-	if err := r1.Close(); err != nil {
+	if err = r1.Close(); err != nil {
 		t.Fatalf("r1.Close: %v", err)
 	}
 
@@ -763,7 +763,7 @@ func TestCrashRecovery_PrivateJournal(t *testing.T) {
 	for _, e := range postRecovery {
 		seen[e.SeqNum]++
 	}
-	for i := 0; i < totalEntries; i++ {
+	for i := range totalEntries {
 		want := seqnumStart + uint64(i)
 		switch seen[want] {
 		case 1:
@@ -830,7 +830,7 @@ func TestCrashRecovery_SystemdCat(t *testing.T) {
 	// ---- Phase 1: write preCrashWrites entries via systemd-cat. ----
 	preCrashIdentifiers := make([]string, preCrashWrites)
 	preCrashMessages := make([]string, preCrashWrites)
-	for i := 0; i < preCrashWrites; i++ {
+	for i := range preCrashWrites {
 		ident := uniqueIdentifier(fmt.Sprintf("native-crash-pre-%d", i))
 		msg := fmt.Sprintf("crash-recovery-pre pid=%d i=%d ident=%s",
 			os.Getpid(), i, ident)
@@ -847,10 +847,10 @@ func TestCrashRecovery_SystemdCat(t *testing.T) {
 	}
 
 	preCrash := make([]*Entry, 0, preCrashReads)
-	for i := 0; i < preCrashReads; i++ {
-		e, err := r1.ReadEntry()
-		if err != nil {
-			t.Fatalf("r1.ReadEntry #%d: %v", i, err)
+	for i := range preCrashReads {
+		e, readErr := r1.ReadEntry()
+		if readErr != nil {
+			t.Fatalf("r1.ReadEntry #%d: %v", i, readErr)
 		}
 		preCrash = append(preCrash, e)
 	}
@@ -859,12 +859,12 @@ func TestCrashRecovery_SystemdCat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("r1.Cursor: %v", err)
 	}
-	if err := r1.Close(); err != nil {
+	if err = r1.Close(); err != nil {
 		t.Fatalf("r1.Close: %v", err)
 	}
 
 	// ---- Phase 3: more writes via systemd-cat AFTER the crash. ----
-	for i := 0; i < postCrashWrites; i++ {
+	for i := range postCrashWrites {
 		ident := uniqueIdentifier(fmt.Sprintf("native-crash-post-%d", i))
 		msg := fmt.Sprintf("crash-recovery-post pid=%d i=%d ident=%s",
 			os.Getpid(), i, ident)
@@ -927,7 +927,7 @@ func TestCrashRecovery_SystemdCat(t *testing.T) {
 	for _, e := range postRecovery {
 		seen[e.SeqNum]++
 	}
-	for i := 0; i < totalWrites; i++ {
+	for i := range totalWrites {
 		want := seqnumStart + uint64(i)
 		switch seen[want] {
 		case 1:

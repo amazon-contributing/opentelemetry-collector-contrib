@@ -338,7 +338,6 @@ func TestCompressionFixtures(t *testing.T) {
 	wantValue := strings.TrimPrefix(fixturePlaintext, wantField+"=")
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			path := resolveCompressionFixture(t, tc.filename)
 

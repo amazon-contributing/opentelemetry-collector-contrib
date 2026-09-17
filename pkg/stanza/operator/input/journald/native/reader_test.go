@@ -134,7 +134,7 @@ func TestReader_OpensSmallJournalFixture(t *testing.T) {
 
 	// Repeated ReadEntry past EOF must keep returning io.EOF without
 	// advancing or panicking.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if _, err := r.ReadEntry(); !errors.Is(err, io.EOF) {
 			t.Errorf("ReadEntry past EOF #%d = %v, want io.EOF", i, err)
 		}
@@ -400,10 +400,7 @@ func TestReader_RealFixture(t *testing.T) {
 	// We tolerate up to a 1% short-read against the header-declared
 	// count to account for crashed-writer tail objects, but anything
 	// worse than that signals a real Reader bug.
-	tolerance := expected / 100
-	if tolerance < 1 {
-		tolerance = 1
-	}
+	tolerance := max(expected/100, 1)
 	if got+tolerance < expected {
 		t.Errorf("walked %d entries, header declares %d (tolerance ±%d) — Reader missed entries",
 			got, expected, tolerance)

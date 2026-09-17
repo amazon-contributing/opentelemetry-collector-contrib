@@ -108,7 +108,7 @@ func TestParseObjectHeader_AtNonZeroOffset(t *testing.T) {
 	copy(buf[startOffset:], header)
 	// Pre-fill the slot before the header with a non-zero sentinel; if the
 	// parser accidentally reads offset 0 it will see this and decode wrong.
-	for i := uint64(0); i < startOffset; i++ {
+	for i := range startOffset {
 		buf[i] = 0xEE
 	}
 
@@ -271,14 +271,14 @@ func TestParseObjectHeader_CompressionFlags(t *testing.T) {
 // need access to the raw bytes to decide policy.
 func TestParseObjectHeader_ReservedBytesPreserved(t *testing.T) {
 	buf := padToSize(makeObjectHeaderBytes(ObjectData, 0, 32), 32)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		buf[2+i] = byte(0x10 + i)
 	}
 	o, err := ParseObjectHeader(bytes.NewReader(buf), 0)
 	if err != nil {
 		t.Fatalf("ParseObjectHeader: %v", err)
 	}
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		if o.Reserved[i] != byte(0x10+i) {
 			t.Errorf("Reserved[%d] = 0x%x, want 0x%x",
 				i, o.Reserved[i], byte(0x10+i))

@@ -232,11 +232,11 @@ func TestParseHeader_UnknownIncompatibleFlag(t *testing.T) {
 // TestParseHeader_KnownIncompatibleFlagsAccepted is the symmetric positive
 // case: every supported flag combination must parse without error.
 func TestParseHeader_KnownIncompatibleFlagsAccepted(t *testing.T) {
-	flags := uint32(HeaderIncompatibleCompressedXZ |
+	flags := HeaderIncompatibleCompressedXZ |
 		HeaderIncompatibleCompressedLZ4 |
 		HeaderIncompatibleKeyedHash |
 		HeaderIncompatibleCompressedZSTD |
-		HeaderIncompatibleCompact)
+		HeaderIncompatibleCompact
 
 	buf := makeValidHeaderBytes()
 	binary.LittleEndian.PutUint32(buf[12:16], flags)
@@ -252,9 +252,9 @@ func TestParseHeader_KnownIncompatibleFlagsAccepted(t *testing.T) {
 	if !h.IsCompact() {
 		t.Errorf("IsCompact() = false, want true")
 	}
-	wantC := uint32(HeaderIncompatibleCompressedXZ |
+	wantC := HeaderIncompatibleCompressedXZ |
 		HeaderIncompatibleCompressedLZ4 |
-		HeaderIncompatibleCompressedZSTD)
+		HeaderIncompatibleCompressedZSTD
 	if got := h.CompressionFlags(); got != wantC {
 		t.Errorf("CompressionFlags() = 0x%x, want 0x%x", got, wantC)
 	}

@@ -357,7 +357,7 @@ func (r *Reader) ReadEntry() (*Entry, error) {
 		// and we keep it aligned via NextOffset below; this guard is
 		// defense-in-depth in case a caller manipulated the cursor
 		// directly via a future Seek API.
-		aligned := alignUp(r.cursor, ObjectAlignment)
+		aligned := alignUp(r.cursor)
 		if aligned >= r.arenaEnd {
 			r.cursor = r.arenaEnd
 			return nil, io.EOF

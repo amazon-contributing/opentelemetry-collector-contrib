@@ -348,9 +348,10 @@ func setDefaultJournalDirs(t *testing.T, persistent, volatile string) {
 // makeJournalTree materializes a standard systemd layout —
 // <root>/<machineID>/<file>.journal — and returns the absolute paths of
 // the created .journal files, sorted the same way resolveNativeJournalPaths
-// returns them.
-func makeJournalTree(t *testing.T, root, machineID string, files ...string) []string {
+// returns them. machineID is fixed to the reported deployment's value.
+func makeJournalTree(t *testing.T, root string, files ...string) []string {
 	t.Helper()
+	const machineID = "ec2b722f4b2cbbafea56b06c59aed5ca"
 	dir := filepath.Join(root, machineID)
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	want := make([]string, 0, len(files))
@@ -369,7 +370,7 @@ func makeJournalTree(t *testing.T, root, machineID string, files ...string) []st
 // ec2b722f4b2cbbafea56b06c59aed5ca mirrors the reported deployment).
 func TestResolveNativeJournalPaths_DefaultPersistentOnly(t *testing.T) {
 	persistent := t.TempDir()
-	want := makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca",
+	want := makeJournalTree(t, persistent,
 		"system.journal", "user-1000.journal")
 	// Volatile points at an empty dir so it contributes nothing.
 	setDefaultJournalDirs(t, persistent, filepath.Join(t.TempDir(), "empty-volatile"))
@@ -386,7 +387,7 @@ func TestResolveNativeJournalPaths_DefaultPersistentOnly(t *testing.T) {
 // runtime tree under /run/log/journal.
 func TestResolveNativeJournalPaths_DefaultVolatileOnly(t *testing.T) {
 	volatile := t.TempDir()
-	want := makeJournalTree(t, volatile, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	want := makeJournalTree(t, volatile, "system.journal")
 	// Persistent points at an empty dir so the fallback is exercised.
 	setDefaultJournalDirs(t, filepath.Join(t.TempDir(), "empty-persistent"), volatile)
 
@@ -406,9 +407,9 @@ func TestResolveNativeJournalPaths_DefaultVolatileOnly(t *testing.T) {
 func TestResolveNativeJournalPaths_DefaultBothPrefersPersistent(t *testing.T) {
 	persistent := t.TempDir()
 	volatile := t.TempDir()
-	want := makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	want := makeJournalTree(t, persistent, "system.journal")
 	// Volatile also has files, but persistent must win.
-	makeJournalTree(t, volatile, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal", "user-1000.journal")
+	makeJournalTree(t, volatile, "system.journal", "user-1000.journal")
 	setDefaultJournalDirs(t, persistent, volatile)
 
 	got, err := resolveNativeJournalPaths(*NewConfig())
@@ -424,7 +425,7 @@ func TestResolveNativeJournalPaths_DefaultBothPrefersPersistent(t *testing.T) {
 func TestResolveNativeJournalPaths_ExplicitFilesOverrideDefault(t *testing.T) {
 	persistent := t.TempDir()
 	// A real default tree exists, but explicit Files= must take precedence.
-	makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	makeJournalTree(t, persistent, "system.journal")
 	setDefaultJournalDirs(t, persistent, filepath.Join(t.TempDir(), "empty-volatile"))
 
 	c := *NewConfig()
@@ -441,7 +442,7 @@ func TestResolveNativeJournalPaths_ExplicitFilesOverrideDefault(t *testing.T) {
 // auto-discovered so Start can log that autodiscovery happened.
 func TestNativeBuild_AutoDiscoversDefault(t *testing.T) {
 	persistent := t.TempDir()
-	want := makeJournalTree(t, persistent, "ec2b722f4b2cbbafea56b06c59aed5ca", "system.journal")
+	want := makeJournalTree(t, persistent, "system.journal")
 	setDefaultJournalDirs(t, persistent, filepath.Join(t.TempDir(), "empty-volatile"))
 
 	cfg := NewConfigWithID("native_autodiscover")

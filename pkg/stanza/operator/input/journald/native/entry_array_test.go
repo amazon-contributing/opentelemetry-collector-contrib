@@ -35,7 +35,7 @@ const objectAlignmentMask = ObjectAlignment - 1
 func padToAlign(buf []byte) []byte {
 	n := uint64(len(buf))
 	pad := (ObjectAlignment - (n & objectAlignmentMask)) & objectAlignmentMask
-	for i := uint64(0); i < pad; i++ {
+	for range pad {
 		buf = append(buf, 0)
 	}
 	return buf
@@ -341,7 +341,7 @@ func TestEntryArray_IteratorEmptyJournalEOF(t *testing.T) {
 	path := writeSyntheticJournal(t, hdr, nil)
 
 	r := openSyntheticIndexed(t, path)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		e, err := r.ReadEntry()
 		if !errors.Is(err, io.EOF) {
 			t.Fatalf("call %d: err = %v, want io.EOF", i, err)
@@ -363,7 +363,7 @@ func TestEntryArray_IteratorWalksMultiArrayChain(t *testing.T) {
 	var arena []byte
 	var entryOffsets []uint64
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		seq := uint64(2000 + i)
 		off := headerEnd + uint64(len(arena))
 		arena = append(arena, buildEntryBytes(seq, 1_700_000_000_000_000+uint64(i)*1_000_000,
@@ -420,7 +420,7 @@ func TestEntryArray_IteratorSkipsSparseSlots(t *testing.T) {
 	const headerEnd = MinHeaderSize
 	var arena []byte
 	var entryOffsets []uint64
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		seq := uint64(3000 + i)
 		off := headerEnd + uint64(len(arena))
 		arena = append(arena, buildEntryBytes(seq,
@@ -565,7 +565,7 @@ func TestTraversalParity(t *testing.T) {
 
 	var arena []byte
 	var entryOffsets []uint64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		off := headerEnd + uint64(len(arena))
 		seq := baseSeq + uint64(i)
 		rt := baseRT + uint64(i)*1_000_000
@@ -615,7 +615,7 @@ func TestTraversalParity(t *testing.T) {
 		t.Fatalf("indexed count = %d, want %d", len(indexed), n)
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		a, b := linear[i], indexed[i]
 		if a.SeqNum != b.SeqNum {
 			t.Errorf("entry %d SeqNum: linear=%d indexed=%d", i, a.SeqNum, b.SeqNum)

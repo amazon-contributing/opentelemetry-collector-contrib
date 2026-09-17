@@ -80,6 +80,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -227,7 +228,7 @@ func buildPrivateJournal(
 	le.PutUint32(buf[8:12], 0)  // CompatibleFlags
 	le.PutUint32(buf[12:16], 0) // IncompatibleFlags (non-compact, no compression)
 	buf[16] = HeaderStateOnline
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		buf[24+i] = byte(0x10 + i) // FileID
 		buf[40+i] = byte(0x20 + i) // MachineID
 		buf[56+i] = followBootID[i]
@@ -263,7 +264,7 @@ func buildPrivateJournal(
 	le.PutUint64(buf[216:224], 0)                // NFields
 
 	// --- Arena: ENTRY objects, 8-byte aligned ---
-	for i := 0; i < entries; i++ {
+	for i := range entries {
 		seqnum := seqnumStart + uint64(i)
 		realtime := realtimeStart + uint64(i)*1_000_000
 		monotonic := monotonicStart + uint64(i)*1_000_000
@@ -327,7 +328,11 @@ func newPrivateJournalState(path string, entries int, seqnumStart, rtStart, mtSt
 // stamps) for transcoding.
 func runSystemdCat(t *testing.T, systemdCatPath, identifier, message string) error {
 	t.Helper()
-	cmd := exec.Command(systemdCatPath, "--identifier="+identifier)
+	// Pass the identifier as a discrete argument rather than
+	// concatenating it into the flag string: systemd-cat accepts
+	// "--identifier VALUE", and a separate arg keeps the value out of
+	// the command-string construction (gosec G204).
+	cmd := exec.Command(systemdCatPath, "--identifier", identifier)
 	cmd.Stdin = strings.NewReader(message)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -367,12 +372,12 @@ func waitForJournalEntry(t *testing.T, journalctlPath, identifier string) (*syst
 			// journalctl emits one JSON object per line. We want the
 			// most recent one (last non-empty line).
 			lines := strings.Split(strings.TrimRight(string(out), "\n"), "\n")
-			for i := len(lines) - 1; i >= 0; i-- {
-				if strings.TrimSpace(lines[i]) == "" {
+			for _, line := range slices.Backward(lines) {
+				if strings.TrimSpace(line) == "" {
 					continue
 				}
 				var e systemdJournalEntry
-				if jerr := json.Unmarshal([]byte(lines[i]), &e); jerr != nil {
+				if jerr := json.Unmarshal([]byte(line), &e); jerr != nil {
 					return nil, fmt.Errorf("parse journalctl json: %w", jerr)
 				}
 				if e.Message != "" && e.Realtime != "" {
@@ -432,16 +437,16 @@ func appendSystemdCatEntry(
 	dataObjectSize := uint64(len(dataBytes))
 
 	// 8-byte alignment for DATA.
-	dataOffset = alignUp(st.arenaTail, ObjectAlignment)
+	dataOffset = alignUp(st.arenaTail)
 	pad1 := dataOffset - st.arenaTail
 	if pad1 != 0 && pad1 < ObjectAlignment {
 		t.Fatalf("internal: unexpected pre-DATA pad %d", pad1)
 	}
 
 	// ENTRY follows immediately, also aligned to 8.
-	entryItemBytes := uint64(EntryItemSize) // one item, non-compact
+	entryItemBytes := EntryItemSize // one item, non-compact
 	entryObjectSize := ObjectHeaderSize + EntryFixedSize + entryItemBytes
-	entryOffset = alignUp(dataOffset+dataObjectSize, ObjectAlignment)
+	entryOffset = alignUp(dataOffset + dataObjectSize)
 	pad2 := entryOffset - (dataOffset + dataObjectSize)
 
 	seqnum := st.seqnumStart + st.nEntries
@@ -547,7 +552,7 @@ func appendSystemdCatEntry(
 func appendPlainEntry(
 	t *testing.T,
 	st *privateJournalState,
-) (seqnum uint64, entryOffset uint64) {
+) (seqnum uint64) {
 	t.Helper()
 
 	// Build ENTRY with two placeholder items, mirroring the entries
@@ -569,7 +574,7 @@ func appendPlainEntry(
 			len(entryBytes), privateEntrySize)
 	}
 
-	entryOffset = alignUp(st.arenaTail, ObjectAlignment)
+	entryOffset := alignUp(st.arenaTail)
 	pad := entryOffset - st.arenaTail
 	chunk := make([]byte, pad+uint64(len(entryBytes)))
 	copy(chunk[pad:], entryBytes)
@@ -622,7 +627,7 @@ func appendPlainEntry(
 	if err := f.Sync(); err != nil {
 		t.Fatalf("Sync after plain append: %v", err)
 	}
-	return seqnum, entryOffset
+	return seqnum
 }
 
 // parseUint64 parses a decimal string field as uint64, failing the test
@@ -689,17 +694,17 @@ func (c *followCollector) Stop() {
 // expected count or the deadline elapses (which is treated as a fatal
 // test failure since the catch-up is supposed to complete within a few
 // milliseconds on local disk).
-func (c *followCollector) drainCatchUp(t *testing.T, expected int) {
+func (c *followCollector) drainCatchUp(t *testing.T) {
 	t.Helper()
 	deadline := time.NewTimer(2 * time.Second)
 	defer deadline.Stop()
 	got := 0
-	for got < expected {
+	for got < followFixtureEntries {
 		select {
 		case <-c.ch:
 			got++
 		case <-deadline.C:
-			t.Fatalf("catch-up drain stalled after %d/%d entries", got, expected)
+			t.Fatalf("catch-up drain stalled after %d/%d entries", got, followFixtureEntries)
 		}
 	}
 }
@@ -794,13 +799,13 @@ func TestFollow_SystemdCat(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 
 	collector := newFollowCollector()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	followDone := make(chan error, 1)
 	go func() { followDone <- r.Follow(ctx, collector.callback) }()
 
-	collector.drainCatchUp(t, followFixtureEntries)
+	collector.drainCatchUp(t)
 
 	// ---- Bridge: systemd-cat -> journalctl -> private journal ----
 	identifier := uniqueIdentifier("native-follow")
@@ -932,13 +937,13 @@ func TestFollow_PollFallback(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 
 	collector := newFollowCollector()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	followDone := make(chan error, 1)
 	go func() { followDone <- r.Follow(ctx, collector.callback) }()
 
-	collector.drainCatchUp(t, followFixtureEntries)
+	collector.drainCatchUp(t)
 
 	identifier := uniqueIdentifier("native-follow-poll")
 	payload := fmt.Sprintf("native-journald-follow-test-poll pid=%d id=%s",
@@ -1008,16 +1013,16 @@ func TestFollow_AppendDetection_NoSystemdCat(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 
 	collector := newFollowCollector()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	followDone := make(chan error, 1)
 	go func() { followDone <- r.Follow(ctx, collector.callback) }()
 
-	collector.drainCatchUp(t, followFixtureEntries)
+	collector.drainCatchUp(t)
 
 	appendStart := time.Now()
-	wantSeq, _ := appendPlainEntry(t, state)
+	wantSeq := appendPlainEntry(t, state)
 
 	obs := collector.awaitNext(t, followLatencyBudget)
 	latency := obs.recvAt.Sub(appendStart)
@@ -1079,13 +1084,13 @@ func TestFollow_SystemdCat_BurstAppends(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 
 	collector := newFollowCollector()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	followDone := make(chan error, 1)
 	go func() { followDone <- r.Follow(ctx, collector.callback) }()
 
-	collector.drainCatchUp(t, followFixtureEntries)
+	collector.drainCatchUp(t)
 
 	type appendRecord struct {
 		payload     string
@@ -1096,7 +1101,7 @@ func TestFollow_SystemdCat_BurstAppends(t *testing.T) {
 	}
 
 	records := make([]appendRecord, burstSize)
-	for i := 0; i < burstSize; i++ {
+	for i := range burstSize {
 		identifier := uniqueIdentifier(fmt.Sprintf("native-follow-burst-%d", i))
 		payload := fmt.Sprintf(
 			"native-journald-burst-test idx=%d pid=%d ts=%d id=%s",
@@ -1120,7 +1125,7 @@ func TestFollow_SystemdCat_BurstAppends(t *testing.T) {
 	t.Cleanup(func() { _ = rawFile.Close() })
 
 	var prevSeq uint64
-	for i := 0; i < burstSize; i++ {
+	for i := range burstSize {
 		obs := collector.awaitNext(t, followLatencyBudget)
 		latency := obs.recvAt.Sub(records[i].appendStart)
 		if latency > followLatencyBudget {
@@ -1176,7 +1181,7 @@ func TestFollow_NilCallbackAndContext(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = r.Close() })
 
-	if err := r.Follow(context.Background(), nil); err == nil ||
+	if err := r.Follow(t.Context(), nil); err == nil ||
 		!strings.Contains(err.Error(), "nil callback") {
 		t.Errorf("Follow(nil callback) error = %v, want nil-callback error", err)
 	}
@@ -1199,11 +1204,11 @@ func TestFollow_ClosedReader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	if err := r.Close(); err != nil {
+	if err = r.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 
-	err = r.Follow(context.Background(), func(*Entry) error { return nil })
+	err = r.Follow(t.Context(), func(*Entry) error { return nil })
 	if !errors.Is(err, ErrReaderClosed) {
 		t.Errorf("Follow on closed reader: err=%v, want ErrReaderClosed", err)
 	}
@@ -1255,16 +1260,16 @@ func TestFollow_Rotation_NoSystemdCat(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 
 	collector := newFollowCollector()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	followDone := make(chan error, 1)
 	go func() { followDone <- r.Follow(ctx, collector.callback) }()
 
 	// 1. Catch-up.
-	collector.drainCatchUp(t, followFixtureEntries)
+	collector.drainCatchUp(t)
 
 	// 2. One append to the original file, confirm delivery.
-	preSeq, _ := appendPlainEntry(t, oldState)
+	preSeq := appendPlainEntry(t, oldState)
 	obs := collector.awaitNext(t, 2*time.Second)
 	if obs.entry == nil || obs.entry.SeqNum != preSeq {
 		t.Fatalf("pre-rotation entry: got %v, want seqnum %d", obs.entry, preSeq)
@@ -1281,8 +1286,8 @@ func TestFollow_Rotation_NoSystemdCat(t *testing.T) {
 
 	// 4. Append entries to the NEW file.
 	wantNew := make(map[uint64]bool, newFileEntries)
-	for i := 0; i < newFileEntries; i++ {
-		s, _ := appendPlainEntry(t, newState)
+	for range newFileEntries {
+		s := appendPlainEntry(t, newState)
 		wantNew[s] = true
 	}
 
@@ -1339,12 +1344,12 @@ func TestFollow_Rotation_Inotify(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 
 	collector := newFollowCollector()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	followDone := make(chan error, 1)
 	go func() { followDone <- r.Follow(ctx, collector.callback) }()
 
-	collector.drainCatchUp(t, followFixtureEntries)
+	collector.drainCatchUp(t)
 
 	// NOTE: we deliberately do NOT read r.LastFollowStrategy() here. Follow
 	// writes followStrategy on its own goroutine with no happens-before
@@ -1357,7 +1362,7 @@ func TestFollow_Rotation_Inotify(t *testing.T) {
 	// validates losslessness.
 
 	// One append to the original file (inotify Write detection on Linux).
-	preSeq, _ := appendPlainEntry(t, oldState)
+	preSeq := appendPlainEntry(t, oldState)
 	obs := collector.awaitNext(t, 2*time.Second)
 	if obs.entry == nil || obs.entry.SeqNum != preSeq {
 		t.Fatalf("pre-rotation entry: got %v, want seqnum %d", obs.entry, preSeq)
@@ -1372,8 +1377,8 @@ func TestFollow_Rotation_Inotify(t *testing.T) {
 	newState := newPrivateJournalState(path, 0, newSeqStart, newRTStart, newMTStart)
 
 	wantNew := make(map[uint64]bool, newFileEntries)
-	for i := 0; i < newFileEntries; i++ {
-		s, _ := appendPlainEntry(t, newState)
+	for range newFileEntries {
+		s := appendPlainEntry(t, newState)
 		wantNew[s] = true
 	}
 

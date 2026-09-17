@@ -265,10 +265,7 @@ func ParseHeader(r io.ReaderAt) (*Header, error) {
 	// NOT reject it: the extra trailing fields are unknown to us but harmless,
 	// and the arena scan begins at h.HeaderSize. We only require that the
 	// known-layout prefix we actually decode was fully read.
-	mustRead := h.HeaderSize
-	if mustRead > MaxHeaderSize {
-		mustRead = MaxHeaderSize
-	}
+	mustRead := min(h.HeaderSize, MaxHeaderSize)
 	if uint64(n) < mustRead {
 		return nil, fmt.Errorf("read journal header: only %d of %d declared bytes available: %w",
 			n, mustRead, io.ErrUnexpectedEOF)

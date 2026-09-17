@@ -349,7 +349,7 @@ func (r *Reader) handleRotation(w *fsnotify.Watcher, fn func(*Entry) error) erro
 	// 2. Re-open the path (now the fresh file), with a short retry for the
 	// rename->create gap.
 	var reopenErr error
-	for attempt := 0; attempt < rotationReopenAttempts; attempt++ {
+	for range rotationReopenAttempts {
 		if reopenErr = r.reopenSamePath(); reopenErr == nil {
 			break
 		}
@@ -451,7 +451,7 @@ func (r *Reader) handlePollRotation(fn func(*Entry) error) error {
 		}
 	}
 	var reopenErr error
-	for attempt := 0; attempt < rotationReopenAttempts; attempt++ {
+	for range rotationReopenAttempts {
 		if reopenErr = r.reopenSamePath(); reopenErr == nil {
 			break
 		}

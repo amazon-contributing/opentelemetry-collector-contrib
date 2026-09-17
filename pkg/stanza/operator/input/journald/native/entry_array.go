@@ -131,7 +131,7 @@ func ParseEntryArray(r io.ReaderAt, offset uint64, compact bool) (*EntryArray, e
 
 	items := make([]uint64, 0, nItems)
 	cursor := EntryArrayHeaderSize
-	for i := uint64(0); i < nItems; i++ {
+	for range nItems {
 		var v uint64
 		if compact {
 			v = uint64(le.Uint32(body[cursor : cursor+4]))

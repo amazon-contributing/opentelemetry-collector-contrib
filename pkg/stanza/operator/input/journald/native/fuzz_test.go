@@ -5,8 +5,6 @@ package native
 
 import (
 	"bytes"
-	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +23,7 @@ func readSmallFixtureBytes(tb testing.TB) []byte {
 	if err != nil {
 		return nil
 	}
-	if _, err := os.Stat(abs); err != nil {
+	if _, err = os.Stat(abs); err != nil {
 		return nil
 	}
 	data, err := os.ReadFile(abs) //#nosec G304 -- test-only path under repo workspace.
@@ -67,16 +65,16 @@ func FuzzParseHeader(f *testing.F) {
 	f.Add(makeMinHeaderBytes())
 	// Seed 4: real journal bytes if the fixture is available; the
 	// fixture is small enough (704B) to hand to the fuzzer cheaply.
-	if real := readSmallFixtureBytes(f); len(real) > 0 {
-		f.Add(real)
+	if realBytes := readSmallFixtureBytes(f); len(realBytes) > 0 {
+		f.Add(realBytes)
 		// Also seed with just the header region of the real fixture
 		// so the fuzzer has a clean header without arena bytes.
-		if len(real) >= int(MaxHeaderSize) {
-			f.Add(append([]byte{}, real[:MaxHeaderSize]...))
+		if len(realBytes) >= int(MaxHeaderSize) {
+			f.Add(append([]byte{}, realBytes[:MaxHeaderSize]...))
 		}
 	}
 
-	f.Fuzz(func(t *testing.T, data []byte) {
+	f.Fuzz(func(_ *testing.T, data []byte) {
 		// bytes.Reader implements io.ReaderAt without touching disk.
 		// ParseHeader's only mandate under fuzz: do not panic.
 		_, err := ParseHeader(bytes.NewReader(data))
@@ -111,11 +109,11 @@ func FuzzParseObject(f *testing.F) {
 	f.Add(makeObjectHeaderBytes(ObjectData, ObjectCompressedZSTD, ^uint64(0)))
 	// Seed 6: real-fixture object bytes (skip past the 240-byte header
 	// to land on the first object) when available.
-	if real := readSmallFixtureBytes(f); len(real) > 240 {
-		f.Add(append([]byte{}, real[240:]...))
+	if realBytes := readSmallFixtureBytes(f); len(realBytes) > 240 {
+		f.Add(append([]byte{}, realBytes[240:]...))
 	}
 
-	f.Fuzz(func(t *testing.T, data []byte) {
+	f.Fuzz(func(_ *testing.T, data []byte) {
 		// Always parse from offset 0 of the supplied data. The offset
 		// argument is alignment-checked, but 0 is always aligned, so
 		// every fuzz input is exercising header decoding rather than
@@ -149,8 +147,8 @@ func FuzzReadEntry(f *testing.F) {
 	f.Add(makeMinHeaderBytes())
 	// Seed 3: real fixture bytes -- the most fertile seed since the
 	// fuzzer can mutate it to produce realistic-shaped corruption.
-	if real := readSmallFixtureBytes(f); len(real) > 0 {
-		f.Add(real)
+	if realBytes := readSmallFixtureBytes(f); len(realBytes) > 0 {
+		f.Add(realBytes)
 	}
 
 	f.Fuzz(func(t *testing.T, data []byte) {
@@ -179,14 +177,12 @@ func FuzzReadEntry(f *testing.F) {
 		// ObjectHeaderSize, so 1<<14 iterations is generous for any
 		// fuzz input we'll realistically receive.
 		const maxIter = 1 << 14
-		for i := 0; i < maxIter; i++ {
+		for range maxIter {
 			_, err := r.ReadEntry()
 			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					// Any non-EOF error is acceptable; we
-					// just stop iterating. Fall through to
-					// Close.
-				}
+				// Any non-EOF error is acceptable; we just stop
+				// iterating and fall through to Close. io.EOF is the
+				// normal end-of-file signal and is handled the same way.
 				break
 			}
 		}
