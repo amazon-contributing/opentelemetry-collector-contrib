@@ -169,7 +169,7 @@ import (
 // the same fixture run through both backends produces equivalent log
 // records (timestamp, severity, body, attributes).
 //
-// Strategy
+// # Strategy
 //
 // The parity test runs the native backend against the small.journal
 // fixture committed under receiver/journaldreceiver/testdata/native/.

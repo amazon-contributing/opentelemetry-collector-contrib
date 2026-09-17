@@ -19,12 +19,13 @@ import (
 // cleanly rather than failing.
 //
 // pkg/stanza/operator/input/journald/native/  -> repo root needs 6 ../
-//   1: native -> journald
-//   2: journald -> input
-//   3: input -> operator
-//   4: operator -> stanza
-//   5: stanza -> pkg
-//   6: pkg -> repo root
+//
+//	1: native -> journald
+//	2: journald -> input
+//	3: input -> operator
+//	4: operator -> stanza
+//	5: stanza -> pkg
+//	6: pkg -> repo root
 const smallFixtureRel = "../../../../../../receiver/journaldreceiver/testdata/native/small.journal"
 
 // Expected golden values for small.journal. These mirror the constants

@@ -111,12 +111,12 @@ func buildSyntheticHeaderBytes(arenaSize, nEntries, headSeq, tailSeq, entryArray
 	buf[16] = HeaderStateOnline
 	// 128-bit identifiers at [24,40,56,72] left zero — the Reader does
 	// not validate them.
-	le.PutUint64(buf[88:96], MinHeaderSize)        // HeaderSize
-	le.PutUint64(buf[96:104], arenaSize)           // ArenaSize
-	le.PutUint64(buf[104:112], 0)                  // DataHashTableOffset
-	le.PutUint64(buf[112:120], 0)                  // DataHashTableSize
-	le.PutUint64(buf[120:128], 0)                  // FieldHashTableOffset
-	le.PutUint64(buf[128:136], 0)                  // FieldHashTableSize
+	le.PutUint64(buf[88:96], MinHeaderSize) // HeaderSize
+	le.PutUint64(buf[96:104], arenaSize)    // ArenaSize
+	le.PutUint64(buf[104:112], 0)           // DataHashTableOffset
+	le.PutUint64(buf[112:120], 0)           // DataHashTableSize
+	le.PutUint64(buf[120:128], 0)           // FieldHashTableOffset
+	le.PutUint64(buf[128:136], 0)           // FieldHashTableSize
 	// TailObjectOffset: offset of the last real object. These synthetic
 	// arenas are tightly packed (no preallocated zero tail), so any value
 	// at/after the final object works; using the arena end guarantees the
@@ -124,16 +124,16 @@ func buildSyntheticHeaderBytes(arenaSize, nEntries, headSeq, tailSeq, entryArray
 	// FIRST object (MinHeaderSize) — that makes the tail-object EOF guard
 	// stop the scan after one object. See reader.go ReadEntry.
 	le.PutUint64(buf[136:144], MinHeaderSize+arenaSize-1) // TailObjectOffset (last object)
-	le.PutUint64(buf[144:152], nEntries+1)         // NObjects (entries + 1 EA)
-	le.PutUint64(buf[152:160], nEntries)           // NEntries
-	le.PutUint64(buf[160:168], tailSeq)            // TailEntrySeqnum
-	le.PutUint64(buf[168:176], headSeq)            // HeadEntrySeqnum
-	le.PutUint64(buf[176:184], entryArrayOffset)   // EntryArrayOffset
-	le.PutUint64(buf[184:192], headRT)             // HeadEntryRealtime
-	le.PutUint64(buf[192:200], tailRT)             // TailEntryRealtime
-	le.PutUint64(buf[200:208], tailSeq*1_000)      // TailEntryMonotonic
-	le.PutUint64(buf[208:216], 0)                  // NData
-	le.PutUint64(buf[216:224], 0)                  // NFields
+	le.PutUint64(buf[144:152], nEntries+1)                // NObjects (entries + 1 EA)
+	le.PutUint64(buf[152:160], nEntries)                  // NEntries
+	le.PutUint64(buf[160:168], tailSeq)                   // TailEntrySeqnum
+	le.PutUint64(buf[168:176], headSeq)                   // HeadEntrySeqnum
+	le.PutUint64(buf[176:184], entryArrayOffset)          // EntryArrayOffset
+	le.PutUint64(buf[184:192], headRT)                    // HeadEntryRealtime
+	le.PutUint64(buf[192:200], tailRT)                    // TailEntryRealtime
+	le.PutUint64(buf[200:208], tailSeq*1_000)             // TailEntryMonotonic
+	le.PutUint64(buf[208:216], 0)                         // NData
+	le.PutUint64(buf[216:224], 0)                         // NFields
 	return buf
 }
 

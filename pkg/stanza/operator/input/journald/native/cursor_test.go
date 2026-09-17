@@ -811,9 +811,9 @@ func TestCrashRecovery_SystemdCat(t *testing.T) {
 	}
 
 	const (
-		preCrashWrites  = 3
-		preCrashReads   = 2
-		postCrashWrites = 2
+		preCrashWrites         = 3
+		preCrashReads          = 2
+		postCrashWrites        = 2
 		seqnumStart     uint64 = 7000
 		realtimeStart   uint64 = 1_700_000_500_000_000
 		monotonicStart  uint64 = 400_000_000

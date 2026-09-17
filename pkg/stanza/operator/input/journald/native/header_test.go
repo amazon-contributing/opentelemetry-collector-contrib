@@ -193,7 +193,7 @@ func TestParseHeader_HeaderSizeMismatch(t *testing.T) {
 		// header succeed. Known fields live in the first 256 bytes.
 		buf := append(makeValidHeaderBytes(),
 			make([]byte, onDiskHeaderSize-MinHeaderSize)...)
-		buf = append(buf, make([]byte, 4096)...) // arena
+		buf = append(buf, make([]byte, 4096)...)                    // arena
 		binary.LittleEndian.PutUint64(buf[88:96], onDiskHeaderSize) // HeaderSize
 		h, err := ParseHeader(bytes.NewReader(buf))
 		if err != nil {
