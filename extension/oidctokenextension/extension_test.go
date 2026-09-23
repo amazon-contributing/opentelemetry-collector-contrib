@@ -289,6 +289,25 @@ func TestWriteFileAtomicPermissions(t *testing.T) {
 	require.Equal(t, os.FileMode(tokenFilePerms), info.Mode().Perm())
 }
 
+// TestTruncateThenWriteOverReadOnlyToken checks the upgrade path: a token left read-only
+// by an older version (0o400) must not block a rewrite. Mirrors Start's truncate-then-write.
+func TestTruncateThenWriteOverReadOnlyToken(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenFile := filepath.Join(tmpDir, "token")
+
+	require.NoError(t, os.WriteFile(tokenFile, []byte("old"), 0o600))
+	require.NoError(t, os.Chmod(tokenFile, 0o400))
+
+	e := &oidcTokenExtension{logger: zap.NewNop(), config: &Config{OutputTokenFile: tokenFile}}
+	e.truncateTokenFile()
+
+	require.NoError(t, writeFileAtomic(tokenFile, []byte("new-token")))
+
+	data, err := os.ReadFile(tokenFile)
+	require.NoError(t, err)
+	require.Equal(t, "new-token", string(data))
+}
+
 func TestRefreshLoopError(t *testing.T) {
 	tmpDir := t.TempDir()
 	tokenFile := filepath.Join(tmpDir, "oidc-token")
