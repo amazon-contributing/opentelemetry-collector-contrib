@@ -22,7 +22,7 @@ import (
 const (
 	refreshBuffer      = 5 * time.Minute
 	minRefreshInterval = 1 * time.Minute
-	tokenFilePerms     = 0o400
+	tokenFilePerms     = 0o600
 )
 
 type oidcTokenExtension struct {
@@ -121,6 +121,10 @@ func (e *oidcTokenExtension) Shutdown(ctx context.Context) error {
 }
 
 func (e *oidcTokenExtension) truncateTokenFile() {
+	// A prior version may have left the token read-only (0o400). Clear that so Windows can truncate/replace it.
+	if err := os.Chmod(e.config.OutputTokenFile, tokenFilePerms); err != nil && !os.IsNotExist(err) {
+		e.logger.Warn("Failed to make token file writable", zap.Error(err))
+	}
 	if err := os.Truncate(e.config.OutputTokenFile, 0); err != nil && !os.IsNotExist(err) {
 		e.logger.Warn("Failed to truncate token file", zap.Error(err))
 	}
