@@ -12,6 +12,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,6 +105,28 @@ func TestNewDefaultCWLogsClient_CABundle(t *testing.T) {
 		require.NoError(t, err)
 		assertHTTPClientHasRootCAs(t, client)
 	})
+}
+
+func TestNewDefaultCWLogsClient_EndpointWithFIPSOrDualStack(t *testing.T) {
+	for name, envKey := range map[string]string{"FIPS": "AWS_USE_FIPS_ENDPOINT", "DualStack": "AWS_USE_DUALSTACK_ENDPOINT"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("AWS_ACCESS_KEY_ID", "test")
+			t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+			t.Setenv(envKey, "true")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer server.Close()
+			client, err := newDefaultCWLogsClient(t.Context(), zap.NewNop(), &awsutil.AWSSessionSettings{
+				Region:    "us-east-1",
+				LocalMode: true,
+				Endpoint:  server.URL,
+			})
+			require.NoError(t, err)
+			require.NoError(t, client.CreateLogGroup(t.Context(), "/test/group"))
+		})
+	}
 }
 
 // assertHTTPClientHasRootCAs verifies the SDK CW Logs client's HTTP transport has a custom CA pool.

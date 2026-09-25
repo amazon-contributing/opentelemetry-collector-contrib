@@ -6,6 +6,8 @@ package awscloudwatchlogsexporter
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -514,6 +516,30 @@ func TestMiddleware(t *testing.T) {
 	require.NoError(t, exp.shutdown(ctx))
 	handler.AssertCalled(t, "HandleRequest", mock.Anything, mock.Anything)
 	handler.AssertCalled(t, "HandleResponse", mock.Anything, mock.Anything)
+}
+
+func TestStartEndpointWithFIPSOrDualStack(t *testing.T) {
+	for name, envKey := range map[string]string{"FIPS": "AWS_USE_FIPS_ENDPOINT", "DualStack": "AWS_USE_DUALSTACK_ENDPOINT"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(envKey, "true")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer server.Close()
+			expCfg := NewFactory().CreateDefaultConfig().(*Config)
+			expCfg.Region = "us-east-1"
+			expCfg.LogGroupName = "testGroup"
+			expCfg.LogStreamName = "testStream"
+			expCfg.AWSSessionSettings.Endpoint = server.URL
+			expCfg.MaxRetries = 0
+			exp, err := newCwLogsPusher(t.Context(), expCfg, exportertest.NewNopSettings(metadata.Type))
+			require.NoError(t, err)
+			require.NoError(t, exp.start(t.Context(), &mockHost{}))
+			require.NoError(t, exp.svcStructuredLog.CreateStream(t.Context(), aws.String("testGroup"), aws.String("testStream")))
+			require.NoError(t, exp.shutdown(t.Context()))
+		})
+	}
 }
 
 func TestNewExporterWithoutRegionErr(t *testing.T) {

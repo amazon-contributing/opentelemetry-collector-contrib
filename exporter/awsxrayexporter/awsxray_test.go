@@ -167,6 +167,24 @@ func TestMiddleware(t *testing.T) {
 	handler.AssertCalled(t, "HandleResponse", mock.Anything, mock.Anything)
 }
 
+func TestStartEndpointWithFIPSOrDualStack(t *testing.T) {
+	for name, envKey := range map[string]string{"FIPS": "AWS_USE_FIPS_ENDPOINT", "DualStack": "AWS_USE_DUALSTACK_ENDPOINT"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(envKey, "true")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer server.Close()
+			cfg := generateConfig(t)
+			cfg.AWSSessionSettings.Endpoint = server.URL
+			traceExporter := initializeTracesExporter(t, cfg, telemetrytest.NewNopRegistry())
+			require.NoError(t, traceExporter.ConsumeTraces(t.Context(), constructSpanData()))
+			require.NoError(t, traceExporter.Shutdown(t.Context()))
+		})
+	}
+}
+
 func TestTraceExportOtlpFormat(t *testing.T) {
 	config := generateConfig(t)
 	config.TransitSpansInOtlpFormat = true

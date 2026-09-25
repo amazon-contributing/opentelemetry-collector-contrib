@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"sync"
 	"testing"
 
 	"github.com/amazon-contributing/opentelemetry-collector-contrib/extension/awsmiddleware"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/aws/smithy-go"
@@ -561,6 +563,28 @@ func TestMiddleware(t *testing.T) {
 	require.NoError(t, exp.shutdown(ctx))
 	handler.AssertCalled(t, "HandleRequest", mock.Anything, mock.Anything)
 	handler.AssertCalled(t, "HandleResponse", mock.Anything, mock.Anything)
+}
+
+func TestStartEndpointWithFIPSOrDualStack(t *testing.T) {
+	for name, envKey := range map[string]string{"FIPS": "AWS_USE_FIPS_ENDPOINT", "DualStack": "AWS_USE_DUALSTACK_ENDPOINT"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(envKey, "true")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer server.Close()
+			expCfg := NewFactory().CreateDefaultConfig().(*Config)
+			expCfg.Region = "us-east-1"
+			expCfg.AWSSessionSettings.Endpoint = server.URL
+			expCfg.MaxRetries = 0
+			exp, err := newEmfExporter(t.Context(), expCfg, exportertest.NewNopSettings(metadata.Type))
+			require.NoError(t, err)
+			require.NoError(t, exp.start(t.Context(), &mockHost{}))
+			require.NoError(t, exp.svcStructuredLog.CreateStream(t.Context(), aws.String("test-group"), aws.String("test-stream")))
+			require.NoError(t, exp.shutdown(t.Context()))
+		})
+	}
 }
 
 // TestGetPusherConcurrent verifies thread-safe lazy pusher construction.
