@@ -30,7 +30,14 @@ func init() {
 	operator.Register(operatorType, func() operator.Builder { return NewConfig() })
 }
 
-// Build will build a journald input operator from the supplied configuration
+// Build will build a journald input operator from the supplied configuration.
+//
+// The journalctl backend is constructed unconditionally so a config that
+// is later switched to ModeJournalctl (e.g. via config reload) keeps a
+// working newCmd closure. When Mode == ModeNative we additionally
+// resolve the journal file paths up front so any I/O / globbing
+// failure surfaces as a Build error rather than a goroutine error after
+// Start.
 func (c Config) Build(set component.TelemetrySettings) (operator.Operator, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
@@ -46,11 +53,27 @@ func (c Config) Build(set component.TelemetrySettings) (operator.Operator, error
 		return nil, err
 	}
 
-	return &Input{
+	input := &Input{
 		InputOperator:       inputOperator,
 		newCmd:              newCmdFunc,
 		convertMessageBytes: c.ConvertMessageBytes,
-	}, nil
+		mode:                c.Mode,
+		nativeStartAt:       c.StartAt,
+	}
+
+	if c.Mode == ModeNative {
+		paths, err := resolveNativeJournalPaths(c)
+		if err != nil {
+			return nil, fmt.Errorf("native journald reader: %w", err)
+		}
+		input.nativePaths = paths
+		// Record whether the paths came from autodiscovery of the
+		// standard journal locations (neither files nor directory set)
+		// so runNative can log that autodiscovery happened.
+		input.nativeAutoDiscovered = len(c.Files) == 0 && (c.Directory == nil || *c.Directory == "")
+	}
+
+	return input, nil
 }
 
 func (c Config) validate() error {
@@ -90,7 +113,7 @@ func (c Config) buildArgs() ([]string, error) {
 	args = append(args,
 		"--utc",         // Export logs in UTC time
 		"--output=json", // Export logs as JSON
-		"--follow",      // Continue watching logs until cancelled
+		"--follow",      // Continue watching logs until canceled
 	)
 
 	if c.StartAt == "beginning" {

@@ -1,0 +1,70 @@
+opentelemetry-collector-contrib — pkg/stanza/operator/input/journald/native
+Copyright The OpenTelemetry Authors
+
+This package is a pure-Go reader for the systemd journal binary format,
+included in the Amazon-contributing fork of opentelemetry-collector-contrib
+for use by the Amazon CloudWatch Agent. The package is licensed under the
+Apache License, Version 2.0 (see the LICENSE file at the root of this
+repository).
+
+================================================================================
+Third-party attribution: gournal
+================================================================================
+
+Portions of this package are derived from the gournal project:
+
+    Project:  gournal
+    Author:   Dominik Rosiek (sumo-drosiek)
+    Source:   https://github.com/sumo-drosiek/gournal
+    Commit:   6059064 (2024-05-07)
+    License:  Apache License, Version 2.0
+
+Specifically, the systemd journal on-disk format struct definitions, object
+type constants, compression flag constants, and the HEADER_INCOMPATIBLE_COMPACT
+flag layout were used as a reference and partially copied verbatim from
+gournal. The reused code is reproduced and modified under the terms of the
+Apache License, Version 2.0.
+
+This package is NOT a Go module dependency on gournal; the relevant code
+fragments were copied into this tree and are maintained here. No other parts
+of gournal (e.g. its CLI, file walker, decompression logic) are reused.
+
+The gournal NOTICE / Apache-2.0 license header is reproduced below in
+accordance with section 4(c)/4(d) of the Apache License, Version 2.0.
+
+--------------------------------------------------------------------------------
+Apache License, Version 2.0 (excerpt — full text at
+https://www.apache.org/licenses/LICENSE-2.0)
+--------------------------------------------------------------------------------
+
+   Copyright 2024 Dominik Rosiek
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+--------------------------------------------------------------------------------
+
+Modifications relative to gournal commit 6059064:
+
+  * Compact-mode entry item parsing fixed (4-byte offsets when
+    HEADER_INCOMPATIBLE_COMPACT is set, 16-byte otherwise).
+  * EntryArray item walk uses the same compact/non-compact branching.
+  * Microsecond-to-time.Time conversion bounds-checks against
+    math.MaxInt64/1_000 to handle sentinel and far-future values safely.
+  * LZ4 decompression upgraded from github.com/pierrec/lz4/v2 to
+    github.com/pierrec/lz4/v4.
+  * Nil-slice reads in the XZ and LZ4 decompression paths are handled.
+  * EntryArray indexed traversal, compression detection, follow mode,
+    and cursor checkpoint serialization are new in this package and not
+    derived from gournal.
+
+End of NOTICE.

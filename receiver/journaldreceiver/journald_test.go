@@ -68,5 +68,9 @@ func testdataConfigYaml() *JournaldConfig {
 			c.Directory = &dir
 			return *c
 		}(),
+		// Mode is populated by createDefaultConfig (via newFactoryAdapter
+		// -> CreateDefaultConfig) and the testdata YAML does not override
+		// it, so the loaded config carries the documented default.
+		Mode: ModeJournalctl,
 	}
 }
