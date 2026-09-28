@@ -120,8 +120,8 @@ func (client *Client) PutLogEvents(ctx context.Context, input *cloudwatchlogs.Pu
 		if err != nil {
 			var ae smithy.APIError
 			if !errors.As(err, &ae) {
-				// Should never happen
-				client.logger.Error("unexpectedly cannot cast PutLogEvents error into smithy.APIError.", zap.Error(err))
+				// No service response (transport failure, canceled context).
+				client.logger.Warn("cwlog_client: Error occurs in PutLogEvents, will retry the request", zap.Error(err))
 				return err
 			}
 
