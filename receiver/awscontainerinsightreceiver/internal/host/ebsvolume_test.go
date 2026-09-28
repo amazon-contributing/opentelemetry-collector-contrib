@@ -218,6 +218,7 @@ func TestExtractEbsIDsUsedByKubernetes(t *testing.T) {
 func TestNewEBSVolumeUsesDefaultHTTPClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
+	t.Setenv("AWS_CA_BUNDLE", writeSelfSignedCertForTest(t))
 	cfg := aws.Config{
 		HTTPClient:       &sentinelHTTPClient{},
 		BaseEndpoint:     aws.String("https://sentinel.example.com"),
@@ -230,6 +231,9 @@ func TestNewEBSVolumeUsesDefaultHTTPClient(t *testing.T) {
 	opts := provider.(*ebsVolume).client.(*ec2.Client).Options()
 	assert.IsType(t, &awshttp.BuildableClient{}, opts.HTTPClient,
 		"EC2 client must use the SDK default HTTP client, not the config's custom client")
+	tr := opts.HTTPClient.(*awshttp.BuildableClient).GetTransport()
+	assert.True(t, tr.TLSClientConfig != nil && tr.TLSClientConfig.RootCAs != nil,
+		"EC2 client must still honor AWS_CA_BUNDLE")
 	assert.Nil(t, opts.BaseEndpoint,
 		"EC2 client must use the SDK default endpoint resolution, not the config's custom endpoint")
 	assert.Equal(t, 0, opts.RetryMaxAttempts,

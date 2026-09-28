@@ -131,6 +131,27 @@ func TestNewHTTPClient(t *testing.T) {
 	})
 }
 
+func TestDefaultHTTPClient(t *testing.T) {
+	t.Run("NoCABundleEnv", func(t *testing.T) {
+		t.Setenv("AWS_CA_BUNDLE", "")
+		tr := DefaultHTTPClient(zap.NewNop()).(*awshttp.BuildableClient).GetTransport()
+		assert.True(t, tr.TLSClientConfig == nil || tr.TLSClientConfig.RootCAs == nil)
+	})
+
+	t.Run("CABundleEnvSetsRootCAs", func(t *testing.T) {
+		t.Setenv("AWS_CA_BUNDLE", writeSelfSignedCertForTest(t))
+		tr := DefaultHTTPClient(zap.NewNop()).(*awshttp.BuildableClient).GetTransport()
+		require.NotNil(t, tr.TLSClientConfig)
+		assert.NotNil(t, tr.TLSClientConfig.RootCAs)
+	})
+
+	t.Run("InvalidCABundleLogsAndContinues", func(t *testing.T) {
+		t.Setenv("AWS_CA_BUNDLE", filepath.Join(t.TempDir(), "missing"))
+		tr := DefaultHTTPClient(zap.NewNop()).(*awshttp.BuildableClient).GetTransport()
+		assert.True(t, tr.TLSClientConfig == nil || tr.TLSClientConfig.RootCAs == nil)
+	})
+}
+
 // writeSelfSignedCertForTest writes a self-signed cert PEM to a temp file and
 // returns its path.
 func writeSelfSignedCertForTest(t *testing.T) string {

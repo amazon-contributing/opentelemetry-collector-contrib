@@ -5,8 +5,16 @@ package host
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"math/big"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,6 +24,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
@@ -119,6 +128,7 @@ func (*sentinelHTTPClient) Do(*http.Request) (*http.Response, error) {
 func TestNewEC2TagsUsesDefaultHTTPClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
+	t.Setenv("AWS_CA_BUNDLE", writeSelfSignedCertForTest(t))
 	cfg := aws.Config{
 		HTTPClient:       &sentinelHTTPClient{},
 		BaseEndpoint:     aws.String("https://sentinel.example.com"),
@@ -131,10 +141,32 @@ func TestNewEC2TagsUsesDefaultHTTPClient(t *testing.T) {
 	opts := provider.(*ec2Tags).client.(*ec2.Client).Options()
 	assert.IsType(t, &awshttp.BuildableClient{}, opts.HTTPClient,
 		"EC2 client must use the SDK default HTTP client, not the config's custom client")
+	tr := opts.HTTPClient.(*awshttp.BuildableClient).GetTransport()
+	assert.True(t, tr.TLSClientConfig != nil && tr.TLSClientConfig.RootCAs != nil,
+		"EC2 client must still honor AWS_CA_BUNDLE")
 	assert.Nil(t, opts.BaseEndpoint,
 		"EC2 client must use the SDK default endpoint resolution, not the config's custom endpoint")
 	assert.Equal(t, 0, opts.RetryMaxAttempts,
 		"EC2 client must use the SDK default retry attempts, not the config's retry budget")
 	assert.Len(t, opts.APIOptions, 1, "APIOptions (middleware) must be preserved")
 	assert.Equal(t, "us-east-1", opts.Region)
+}
+
+// writeSelfSignedCertForTest writes a self-signed cert PEM to a temp file and
+// returns its path.
+func writeSelfSignedCertForTest(t *testing.T) string {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	require.NoError(t, err)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	f := filepath.Join(t.TempDir(), "ca.pem")
+	require.NoError(t, os.WriteFile(f, pemBytes, 0o600))
+	return f
 }

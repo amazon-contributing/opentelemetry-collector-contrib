@@ -92,6 +92,29 @@ func newHTTPClient(logger *zap.Logger, settings httpClientSettings) (aws.HTTPCli
 	return client, nil
 }
 
+// DefaultHTTPClient returns the SDK default client with the AWS_CA_BUNDLE
+// bundle applied when set, matching what config.LoadDefaultConfig resolves.
+// For clients that must not inherit the component's custom client.
+func DefaultHTTPClient(logger *zap.Logger) aws.HTTPClient {
+	client := awshttp.NewBuildableClient()
+	bundleFile := os.Getenv("AWS_CA_BUNDLE")
+	if bundleFile == "" {
+		return client
+	}
+	rootCAs, err := appendCertPool(nil, bundleFile)
+	if err != nil {
+		logger.Warn("could not append AWS_CA_BUNDLE root ca from",
+			zap.String("file", bundleFile), zap.Error(err))
+		return client
+	}
+	return client.WithTransportOptions(func(t *http.Transport) {
+		if t.TLSClientConfig == nil {
+			t.TLSClientConfig = &tls.Config{}
+		}
+		t.TLSClientConfig.RootCAs = rootCAs
+	})
+}
+
 // GetProxyFunc returns the proxy resolver for an *http.Transport. An
 // empty proxyAddress falls through to http.ProxyFromEnvironment, which
 // honors HTTP_PROXY, HTTPS_PROXY, and NO_PROXY (upper- and lowercase).

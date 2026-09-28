@@ -13,6 +13,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	ci "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/containerinsight"
 )
 
@@ -55,8 +56,8 @@ func newEC2Tags(
 ) ec2TagsProvider {
 	// Customer settings on the config (custom HTTP client, endpoint, retry
 	// budget) are scoped to telemetry data-plane calls; host-metadata EC2 API
-	// calls use the SDK defaults.
-	cfg.HTTPClient = nil
+	// calls use the SDK defaults (with AWS_CA_BUNDLE).
+	cfg.HTTPClient = awsutil.DefaultHTTPClient(logger)
 	cfg.BaseEndpoint = nil
 	cfg.RetryMaxAttempts = 0
 	et := &ec2Tags{
