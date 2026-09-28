@@ -62,6 +62,13 @@ func NewXRayClient(_ *zap.Logger, cfg aws.Config, buildInfo component.BuildInfo)
 		AddToUserAgentHeader("tracing.XRayVersionUserAgentHandler", agentPrefix+getModVersion()+execEnvPrefix+execEnv+osPrefix+osInformation, middleware.After),
 		AddToUserAgentHeader("otel.collector.UserAgentHandler", fmt.Sprintf("%s/%s", buildInfo.Command, buildInfo.Version), middleware.Before),
 		WithTimestampRequestHeader(middleware.Before),
+		func(o *xray.Options) {
+			// SDK v2 rejects a custom endpoint combined with FIPS or dual-stack; the endpoint wins.
+			if cfg.BaseEndpoint != nil {
+				o.EndpointOptions.UseFIPSEndpoint = aws.FIPSEndpointStateDisabled
+				o.EndpointOptions.UseDualStackEndpoint = aws.DualStackEndpointStateDisabled
+			}
+		},
 	)
 }
 

@@ -99,6 +99,13 @@ func NewClient(logger *zap.Logger, awsConfig aws.Config, buildInfo component.Bui
 		handler.WithStructuredLogHeader(middleware.After),
 		handler.WithRequestCompression(awsConfig.DisableRequestCompression, awsConfig.RequestMinCompressSizeBytes),
 		AddToUserAgentHeader("otel.collector.UserAgentHandler", newCollectorUserAgent(buildInfo, logGroupName, componentName, opts...), middleware.Before),
+		func(o *cloudwatchlogs.Options) {
+			// SDK v2 rejects a custom endpoint combined with FIPS or dual-stack; the endpoint wins.
+			if awsConfig.BaseEndpoint != nil {
+				o.EndpointOptions.UseFIPSEndpoint = aws.FIPSEndpointStateDisabled
+				o.EndpointOptions.UseDualStackEndpoint = aws.DualStackEndpointStateDisabled
+			}
+		},
 	)
 
 	return newCloudWatchLogClient(client, logRetention, tags, logger)

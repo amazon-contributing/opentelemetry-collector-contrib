@@ -24,7 +24,13 @@ func newDefaultCWLogsClient(ctx context.Context, logger *zap.Logger, settings *a
 	if err != nil {
 		return nil, err
 	}
-	return &defaultCWLogsClient{svc: cloudwatchlogs.NewFromConfig(cfg)}, nil
+	return &defaultCWLogsClient{svc: cloudwatchlogs.NewFromConfig(cfg, func(o *cloudwatchlogs.Options) {
+		// SDK v2 rejects a custom endpoint combined with FIPS or dual-stack; the endpoint wins.
+		if cfg.BaseEndpoint != nil {
+			o.EndpointOptions.UseFIPSEndpoint = aws.FIPSEndpointStateDisabled
+			o.EndpointOptions.UseDualStackEndpoint = aws.DualStackEndpointStateDisabled
+		}
+	})}, nil
 }
 
 func (c *defaultCWLogsClient) CreateLogGroup(ctx context.Context, logGroupName string) error {
