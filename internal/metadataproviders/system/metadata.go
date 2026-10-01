@@ -168,7 +168,7 @@ func (p systemMetadataProvider) fromOption(ctx context.Context, opt resource.Opt
 	iter := res.Iter()
 	for iter.Next() {
 		if iter.Attribute().Key == attribute.Key(semconv) {
-			v := iter.Attribute().Value.String()
+			v := iter.Attribute().Value.Emit()
 
 			if v == "" {
 				return "", fmt.Errorf("empty %q", semconv)
