@@ -20,8 +20,11 @@ body:
       - cmd/codecovgen
       - cmd/golden
       - cmd/opampsupervisor
+      - cmd/otelcol-agentcore
       - cmd/otelcontribcol
       - cmd/oteltestbedcol
+      - cmd/otlphistgen
+      - cmd/promgen
       - cmd/schemagen
       - cmd/telemetrygen
       - confmap/provider/aesprovider
@@ -32,6 +35,7 @@ body:
       - connector/datadog
       - connector/exceptions
       - connector/failover
+      - connector/genaiadapter
       - connector/grafanacloud
       - connector/metricsaslogs
       - connector/otlpjson
@@ -92,6 +96,8 @@ body:
       - exporter/zipkin
       - extension/ack
       - extension/asapauth
+      - extension/awscloudwatchlogsprovisioner
+      - extension/awsmiddleware
       - extension/awsproxy
       - extension/azureauth
       - extension/basicauth
@@ -127,6 +133,7 @@ body:
       - extension/observer/k8sobserver
       - extension/observer/kafkatopicsobserver
       - extension/oidcauth
+      - extension/oidctoken
       - extension/opamp
       - extension/opampcustommessages
       - extension/pprof
@@ -163,6 +170,8 @@ body:
       - internal/splunk
       - internal/sqlquery
       - internal/tools
+      - override/aws
+      - pkg/aws
       - pkg/batchperresourceattr
       - pkg/batchpersignal
       - pkg/core/xidutils
@@ -253,7 +262,10 @@ body:
       - receiver/apachespark
       - receiver/awscloudwatch
       - receiver/awscontainerinsight
+      - receiver/awscontainerinsightskueue
       - receiver/awsecscontainermetrics
+      - receiver/awsefa
+      - receiver/awsekshyperpod
       - receiver/awsfirehose
       - receiver/awslambda
       - receiver/awss3
