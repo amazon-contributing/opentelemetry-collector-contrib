@@ -104,6 +104,7 @@ extension/healthcheckv2extension extension/healthcheckv2
 extension/httpforwarderextension extension/httpforwarder
 extension/jaegerremotesampling extension/jaegerremotesampling
 extension/k8sleaderelector extension/k8sleaderelector
+extension/mcp extension/mcp
 extension/oauth2clientauthextension extension/oauth2clientauth
 extension/observer extension/observer
 extension/observer/cfgardenobserver extension/observer/cfgardenobserver
@@ -125,6 +126,7 @@ extension/storage/dbstorage extension/storage/dbstorage
 extension/storage/filestorage extension/storage/filestorage
 extension/storage/redisstorageextension extension/storage/redisstorage
 extension/sumologicextension extension/sumologic
+extension/tailstorage/pebbletailstorageextension extension/tailstorage/pebbletailstorage
 internal/aws internal/aws
 internal/collectd internal/collectd
 internal/common internal/common
@@ -189,12 +191,14 @@ processor/attributestocontextprocessor processor/attributestocontext
 processor/awsattributelimitprocessor processor/awsattributelimit
 processor/awscwotlpbatchsplitprocessor processor/awscwotlpbatchsplit
 processor/awsdevicepodcorrelationprocessor processor/awsdevicepodcorrelation
+processor/cardinalityguardianprocessor processor/cardinalityguardian
 processor/coralogixprocessor processor/coralogix
 processor/cumulativetodeltaprocessor processor/cumulativetodelta
 processor/deltatocumulativeprocessor processor/deltatocumulative
 processor/deltatorateprocessor processor/deltatorate
-processor/dnslookupprocessor processor/dnslookup
+processor/drainprocessor processor/drain
 processor/filterprocessor processor/filter
+processor/genainormalizerprocessor processor/genainormalizer
 processor/geoipprocessor processor/geoip
 processor/groupbyattrsprocessor processor/groupbyattrs
 processor/groupbytraceprocessor processor/groupbytrace

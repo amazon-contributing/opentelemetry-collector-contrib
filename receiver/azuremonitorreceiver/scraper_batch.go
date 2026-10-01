@@ -607,8 +607,7 @@ func (s *azureBatchScraper) loadBatchMetricsValues(ctx context.Context, subscrip
 									attributes[name] = value
 								}
 								attributes["timegrain"] = &compositeKey.timeGrain
-								for i := range slices.Backward(timeseriesElement.Data) { // reverse for loop because newest timestamp is at the end of the slice
-									metricValue := timeseriesElement.Data[i]
+								for _, metricValue := range slices.Backward(timeseriesElement.Data) { // reverse for loop because newest timestamp is at the end of the slice
 									if metricValueIsNotEmpty(metricValue) {
 										s.processQueryTimeseriesData(mb, resID, metric, metricValue, attributes)
 										break

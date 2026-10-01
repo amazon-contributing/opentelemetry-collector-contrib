@@ -123,6 +123,7 @@ body:
       - extension/httpforwarder
       - extension/jaegerremotesampling
       - extension/k8sleaderelector
+      - extension/mcp
       - extension/oauth2clientauth
       - extension/observer
       - extension/observer/cfgardenobserver
@@ -144,6 +145,7 @@ body:
       - extension/storage/filestorage
       - extension/storage/redisstorage
       - extension/sumologic
+      - extension/tailstorage/pebbletailstorage
       - internal/aws
       - internal/collectd
       - internal/common
@@ -208,12 +210,14 @@ body:
       - processor/awsattributelimit
       - processor/awscwotlpbatchsplit
       - processor/awsdevicepodcorrelation
+      - processor/cardinalityguardian
       - processor/coralogix
       - processor/cumulativetodelta
       - processor/deltatocumulative
       - processor/deltatorate
-      - processor/dnslookup
+      - processor/drain
       - processor/filter
+      - processor/genainormalizer
       - processor/geoip
       - processor/groupbyattrs
       - processor/groupbytrace
