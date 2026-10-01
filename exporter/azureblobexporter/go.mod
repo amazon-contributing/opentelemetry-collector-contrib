@@ -84,8 +84,8 @@ require (
 )
 
 retract (
-	v0.76.1
 	v0.76.2
+	v0.76.1
 )
 
 replace (

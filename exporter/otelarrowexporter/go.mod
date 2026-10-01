@@ -113,8 +113,8 @@ require (
 )
 
 retract (
-	v0.130.0
 	v0.131.0
+	v0.130.0
 )
 
 replace (

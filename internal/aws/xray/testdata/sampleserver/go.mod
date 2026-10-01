@@ -2,9 +2,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xr
 
 go 1.25.0
 
-require (
-	github.com/aws/aws-xray-sdk-go/v2 v2.0.1
-)
+require github.com/aws/aws-xray-sdk-go/v2 v2.0.1
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
@@ -22,7 +20,7 @@ require (
 )
 
 retract (
-	v0.65.0
-	v0.76.1
 	v0.76.2
+	v0.76.1
+	v0.65.0
 )

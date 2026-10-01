@@ -316,14 +316,12 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-exclude (
-	github.com/DataDog/agent-payload/v5 v5.0.59
-)
+exclude github.com/DataDog/agent-payload/v5 v5.0.59
 
 retract (
-	v0.65.0
-	v0.76.1
 	v0.76.2
+	v0.76.1
+	v0.65.0
 )
 
 replace (

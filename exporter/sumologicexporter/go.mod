@@ -105,11 +105,9 @@ require (
 )
 
 retract (
-	v0.65.0
-	v0.76.1
 	v0.76.2
+	v0.76.1
+	v0.65.0
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/extension/sumologicextension => ../../extension/sumologicextension
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/sumologicextension => ../../extension/sumologicextension

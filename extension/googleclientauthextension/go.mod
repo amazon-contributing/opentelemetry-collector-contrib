@@ -63,6 +63,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-exclude (
-	github.com/knadh/koanf v1.5.0
-)
+exclude github.com/knadh/koanf v1.5.0

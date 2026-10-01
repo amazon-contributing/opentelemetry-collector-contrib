@@ -156,10 +156,8 @@ require (
 )
 
 retract (
-	v0.76.1
 	v0.76.2
+	v0.76.1
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchperresourceattr => ../../pkg/batchperresourceattr
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchperresourceattr => ../../pkg/batchperresourceattr

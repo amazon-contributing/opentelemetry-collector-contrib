@@ -109,14 +109,12 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-exclude (
-	github.com/docker/distribution v2.8.0+incompatible
-)
+exclude github.com/docker/distribution v2.8.0+incompatible
 
 retract (
-	v0.65.0
-	v0.76.1
 	v0.76.2
+	v0.76.1
+	v0.65.0
 )
 
 replace (

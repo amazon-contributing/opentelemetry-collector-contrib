@@ -390,9 +390,7 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-exclude (
-	github.com/DataDog/agent-payload/v5 v5.0.59
-)
+exclude github.com/DataDog/agent-payload/v5 v5.0.59
 
 replace (
 	github.com/open-telemetry/opentelemetry-collector-contrib/connector/datadogconnector => ../../../connector/datadogconnector

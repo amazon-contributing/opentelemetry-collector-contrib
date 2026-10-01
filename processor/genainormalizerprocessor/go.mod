@@ -1,4 +1,4 @@
-module github.com/open-telemetry/opentelemetry-collector-contrib/processor/dnslookupprocessor
+module github.com/open-telemetry/opentelemetry-collector-contrib/processor/genainormalizerprocessor
 
 go 1.25.0
 
