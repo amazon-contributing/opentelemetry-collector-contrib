@@ -1,9 +1,8 @@
 name: Update changelog
 
+# Automatic runs disabled: chlog-update-aws has been broken since the v0.89 bump.
 on:
-  pull_request:
-    types:
-      - closed
+  workflow_dispatch:
 jobs:
   update:
     runs-on: ubuntu-latest

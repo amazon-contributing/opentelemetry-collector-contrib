@@ -35,7 +35,10 @@ GOTESTARCH?=$(GOARCH)
 # - GO-2026-6354, GO-2026-6355: fixed in golang.org/x/crypto v0.56.0, which
 #   requires go >= 1.26 while this repository's floor is 1.25. Adopt when the
 #   Go floor rises.
-IGNORED_VULNS = GO-2026-5264 GO-2026-5343 GO-2026-5381 GO-2026-5662 GO-2026-5710 GO-2026-6354 GO-2026-6355
+# - GO-2026-6508: fixed in go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc
+#   v0.21.0, which requires go.opentelemetry.io/otel v1.45 while this line pins
+#   v1.44. Adopt with the next otel module-set bump.
+IGNORED_VULNS = GO-2026-5264 GO-2026-5343 GO-2026-5381 GO-2026-5662 GO-2026-5710 GO-2026-6354 GO-2026-6355 GO-2026-6508
 
 # Ignore all golang-related vulnerabilities (stdlib, golang.org/x/*, google.golang.org/*, etc.)
 IGNORE_GOLANG_VULNS ?=
