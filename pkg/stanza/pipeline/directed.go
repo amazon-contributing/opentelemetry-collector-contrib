@@ -53,8 +53,8 @@ func (p *DirectedPipeline) Stop() error {
 
 func (p *DirectedPipeline) start(persister operator.Persister) error {
 	sortedNodes, _ := topo.Sort(p.Graph)
-	for i := range slices.Backward(sortedNodes) {
-		op := sortedNodes[i].(OperatorNode).Operator()
+	for _, node := range slices.Backward(sortedNodes) {
+		op := node.(OperatorNode).Operator()
 
 		scopedPersister := operator.NewScopedPersister(op.ID(), persister)
 		op.Logger().Debug("Starting operator")

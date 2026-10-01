@@ -164,8 +164,8 @@ func TestSort(t *testing.T) {
 					assert.Equal(t, tc.expectAscending, result)
 				} else {
 					descending := make([]string, 0, len(tc.expectAscending))
-					for i := range slices.Backward(tc.expectAscending) {
-						descending = append(descending, tc.expectAscending[i])
+					for _, s := range slices.Backward(tc.expectAscending) {
+						descending = append(descending, s)
 					}
 					assert.Equal(t, descending, result)
 				}

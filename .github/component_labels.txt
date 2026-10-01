@@ -2,11 +2,8 @@
 cmd/codecovgen cmd/codecovgen
 cmd/golden cmd/golden
 cmd/opampsupervisor cmd/opampsupervisor
-cmd/otelcol-agentcore cmd/otelcol-agentcore
 cmd/otelcontribcol cmd/otelcontribcol
 cmd/oteltestbedcol cmd/oteltestbedcol
-cmd/otlphistgen cmd/otlphistgen
-cmd/promgen cmd/promgen
 cmd/schemagen cmd/schemagen
 cmd/telemetrygen cmd/telemetrygen
 confmap/provider/aesprovider confmap/provider/aesprovider
@@ -17,7 +14,6 @@ connector/countconnector connector/count
 connector/datadogconnector connector/datadog
 connector/exceptionsconnector connector/exceptions
 connector/failoverconnector connector/failover
-connector/genaiadapterconnector connector/genaiadapter
 connector/grafanacloudconnector connector/grafanacloud
 connector/metricsaslogsconnector connector/metricsaslogs
 connector/otlpjsonconnector connector/otlpjson
@@ -77,8 +73,6 @@ exporter/tinybirdexporter exporter/tinybird
 exporter/zipkinexporter exporter/zipkin
 extension/ackextension extension/ack
 extension/asapauthextension extension/asapauth
-extension/awscloudwatchlogsprovisionerextension extension/awscloudwatchlogsprovisioner
-extension/awsmiddleware extension/awsmiddleware
 extension/awsproxy extension/awsproxy
 extension/azureauthextension extension/azureauth
 extension/basicauthextension extension/basicauth
@@ -104,6 +98,7 @@ extension/healthcheckv2extension extension/healthcheckv2
 extension/httpforwarderextension extension/httpforwarder
 extension/jaegerremotesampling extension/jaegerremotesampling
 extension/k8sleaderelector extension/k8sleaderelector
+extension/mcp extension/mcp
 extension/oauth2clientauthextension extension/oauth2clientauth
 extension/observer extension/observer
 extension/observer/cfgardenobserver extension/observer/cfgardenobserver
@@ -113,7 +108,6 @@ extension/observer/hostobserver extension/observer/hostobserver
 extension/observer/k8sobserver extension/observer/k8sobserver
 extension/observer/kafkatopicsobserver extension/observer/kafkatopicsobserver
 extension/oidcauthextension extension/oidcauth
-extension/oidctokenextension extension/oidctoken
 extension/opampcustommessages extension/opampcustommessages
 extension/opampextension extension/opamp
 extension/pprofextension extension/pprof
@@ -125,6 +119,7 @@ extension/storage/dbstorage extension/storage/dbstorage
 extension/storage/filestorage extension/storage/filestorage
 extension/storage/redisstorageextension extension/storage/redisstorage
 extension/sumologicextension extension/sumologic
+extension/tailstorage/pebbletailstorageextension extension/tailstorage/pebbletailstorage
 internal/aws internal/aws
 internal/collectd internal/collectd
 internal/common internal/common
@@ -149,8 +144,6 @@ internal/sharedcomponent internal/sharedcomponent
 internal/splunk internal/splunk
 internal/sqlquery internal/sqlquery
 internal/tools internal/tools
-override/aws override/aws
-pkg/aws pkg/aws
 pkg/batchperresourceattr pkg/batchperresourceattr
 pkg/batchpersignal pkg/batchpersignal
 pkg/core/xidutils pkg/core/xidutils
@@ -189,12 +182,14 @@ processor/attributestocontextprocessor processor/attributestocontext
 processor/awsattributelimitprocessor processor/awsattributelimit
 processor/awscwotlpbatchsplitprocessor processor/awscwotlpbatchsplit
 processor/awsdevicepodcorrelationprocessor processor/awsdevicepodcorrelation
+processor/cardinalityguardianprocessor processor/cardinalityguardian
 processor/coralogixprocessor processor/coralogix
 processor/cumulativetodeltaprocessor processor/cumulativetodelta
 processor/deltatocumulativeprocessor processor/deltatocumulative
 processor/deltatorateprocessor processor/deltatorate
-processor/dnslookupprocessor processor/dnslookup
+processor/drainprocessor processor/drain
 processor/filterprocessor processor/filter
+processor/genainormalizerprocessor processor/genainormalizer
 processor/geoipprocessor processor/geoip
 processor/groupbyattrsprocessor processor/groupbyattrs
 processor/groupbytraceprocessor processor/groupbytrace
@@ -239,10 +234,7 @@ receiver/apachereceiver receiver/apache
 receiver/apachesparkreceiver receiver/apachespark
 receiver/awscloudwatchreceiver receiver/awscloudwatch
 receiver/awscontainerinsightreceiver receiver/awscontainerinsight
-receiver/awscontainerinsightskueuereceiver receiver/awscontainerinsightskueue
 receiver/awsecscontainermetricsreceiver receiver/awsecscontainermetrics
-receiver/awsefareceiver receiver/awsefa
-receiver/awsekshyperpodreceiver receiver/awsekshyperpod
 receiver/awsfirehosereceiver receiver/awsfirehose
 receiver/awslambdareceiver receiver/awslambda
 receiver/awss3receiver receiver/awss3

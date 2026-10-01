@@ -176,6 +176,7 @@ extension/healthcheckv2extension
 extension/httpforwarderextension
 extension/jaegerremotesampling
 extension/k8sleaderelector
+extension/mcp
 extension/oauth2clientauthextension
 extension/observer
 extension/observer/cfgardenobserver
@@ -196,6 +197,8 @@ extension/sigv4authextension
 extension/solarwindsapmsettingsextension
 extension/storage/dbstorage
 extension/storage/redisstorageextension
+extension/tailstorage/pebbletailstorageextension
+extension/tailstorage/pebbletailstorageextension/integrationtest
 .
 internal/aws/containerinsight
 internal/aws/k8s
@@ -224,11 +227,13 @@ processor/attributestocontextprocessor
 processor/awsattributelimitprocessor
 processor/awscwotlpbatchsplitprocessor
 processor/awsdevicepodcorrelationprocessor
+processor/cardinalityguardianprocessor
 processor/coralogixprocessor
 processor/cumulativetodeltaprocessor
 processor/deltatorateprocessor
-processor/dnslookupprocessor
+processor/drainprocessor
 processor/filterprocessor
+processor/genainormalizerprocessor
 processor/geoipprocessor
 processor/groupbyattrsprocessor
 processor/groupbytraceprocessor
