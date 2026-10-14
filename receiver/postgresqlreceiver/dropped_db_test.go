@@ -50,7 +50,7 @@ var topQueryColsDropDB = []string{
 // so db.namespace ends up absent in the attribute map. A real value (e.g. nil)
 // must NOT go through FromCSVString, which would stringify it to "<nil>".
 // totalExecTime must be > 0 (in ms) so the row survives the delta filter.
-func addTopQueryRow(rows *sqlmock.Rows, datname any, queryID, rolname, rolsuper, calls, totalExecTime string) {
+func addTopQueryRow(rows *sqlmock.Rows, datname any, queryID, rolsuper, calls, totalExecTime string) {
 	rows.AddRow(
 		calls,   // calls
 		datname, // datname (nil => SQL NULL => omitted by the sqlquery layer)
@@ -66,7 +66,7 @@ func addTopQueryRow(rows *sqlmock.Rows, datname any, queryID, rolname, rolsuper,
 		"1116",  // temp_blks_written
 		"select * from pg_stat_activity where id = 32", // query
 		queryID,       // queryid
-		rolname,       // rolname
+		"appuser",     // rolname (constant: any role != the monitor's current_user)
 		rolsuper,      // rolsuper
 		"30",          // rows
 		totalExecTime, // total_exec_time
@@ -145,7 +145,7 @@ func TestScrapeTopQueriesSkipsDroppedDatabaseRows(t *testing.T) {
 			settings := newTopQueryTestSettings(t)
 
 			rows := sqlmock.NewRows(topQueryColsDropDB)
-			addTopQueryRow(rows, nil, "114514", "appuser", tc.rolsuper, "123", "11000")
+			addTopQueryRow(rows, nil, "114514", tc.rolsuper, "123", "11000")
 			mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(rows)
 
 			scraper := newPostgreSQLScraper(settings, newTopQueryDropDBConfig(), factory, newCache(30), newTTLCache[string](1, time.Second))
@@ -174,8 +174,8 @@ func TestScrapeTopQueriesDroppedDatabaseMixedRows(t *testing.T) {
 	settings := newTopQueryTestSettings(t)
 
 	rows := sqlmock.NewRows(topQueryColsDropDB)
-	addTopQueryRow(rows, nil, "orphan-queryid", "appuser", "false", "999", "40000")
-	addTopQueryRow(rows, "app", "live-queryid", "appuser", "false", "123", "11000")
+	addTopQueryRow(rows, nil, "orphan-queryid", "false", "999", "40000")
+	addTopQueryRow(rows, "app", "live-queryid", "false", "123", "11000")
 	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(rows)
 
 	scraper := newPostgreSQLScraper(settings, newTopQueryDropDBConfig(), factory, newCache(30), newTTLCache[string](1, time.Second))
@@ -186,7 +186,7 @@ func TestScrapeTopQueriesDroppedDatabaseMixedRows(t *testing.T) {
 
 	// PATCHED invariant: getClient is never asked for an empty database name.
 	for _, name := range factory.requestedDatabases() {
-		require.NotEqual(t, "", name, "getClient must never be called with an empty database name")
+		require.NotEmpty(t, name, "getClient must never be called with an empty database name")
 	}
 	require.Contains(t, factory.requestedDatabases(), defaultPostgreSQLDatabase)
 }
@@ -205,8 +205,8 @@ func TestScrapeTopQueriesDroppedDatabaseQueryIDCollision(t *testing.T) {
 
 	const sharedQueryID = "shared-queryid"
 	rows := sqlmock.NewRows(topQueryColsDropDB)
-	addTopQueryRow(rows, nil, sharedQueryID, "appuser", "false", "999", "40000")
-	addTopQueryRow(rows, "app", sharedQueryID, "appuser", "false", "123", "11000")
+	addTopQueryRow(rows, nil, sharedQueryID, "false", "999", "40000")
+	addTopQueryRow(rows, "app", sharedQueryID, "false", "123", "11000")
 	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(rows)
 
 	scraper := newPostgreSQLScraper(settings, newTopQueryDropDBConfig(), factory, newCache(30), newTTLCache[string](1, time.Second))
@@ -216,6 +216,6 @@ func TestScrapeTopQueriesDroppedDatabaseQueryIDCollision(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, name := range factory.requestedDatabases() {
-		require.NotEqual(t, "", name, "getClient must never be called with an empty database name")
+		require.NotEmpty(t, name, "getClient must never be called with an empty database name")
 	}
 }

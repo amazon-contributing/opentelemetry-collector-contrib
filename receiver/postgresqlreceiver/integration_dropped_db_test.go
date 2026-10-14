@@ -202,7 +202,8 @@ func queryPG(t *testing.T, db *sql.DB, q string) {
 	t.Helper()
 	rows, err := db.Query(q)
 	require.NoError(t, err)
-	for rows.Next() { //nolint:revive // drain so the statement is fully executed and recorded
+	// drain the result set so the statement is fully executed and recorded
+	for rows.Next() {
 	}
 	require.NoError(t, rows.Err())
 	require.NoError(t, rows.Close())
