@@ -615,7 +615,7 @@ func TestScrapeTopQueries(t *testing.T) {
 	scraper.cache.Add(queryid+tempBlksWrittenColumnName, 1110)
 
 	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(sqlmock.NewRows(expectedRows).FromCSVString(expectedValues[:len(expectedValues)-1]))
-	mock.ExpectQuery(expectedExplain).WillReturnRows(sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow("[{\"Plan\":{\"Node Type\":\"Merge Join\",\"Parallel Aware\":false,\"Async Capable\":false,\"Join Type\":\"Inner\",\"Startup Cost\":0.43,\"Total Cost\":55.27,\"Plan Rows\":290,\"Plan Width\":1675,\"Inner Unique\":\"?\",\"Merge Cond\":\"( e.businessentityid = p.businessentityid )\",\"Plans\":[{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Outer\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Employee_BusinessEntityID\",\"Relation Name\":\"employee\",\"Alias\":\"e\",\"Startup Cost\":0.15,\"Total Cost\":21.5,\"Plan Rows\":290,\"Plan Width\":112},{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Inner\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Person_BusinessEntityID\",\"Relation Name\":\"person\",\"Alias\":\"p\",\"Startup Cost\":0.29,\"Total Cost\":2261.87,\"Plan Rows\":19972,\"Plan Width\":1563}]}}]"))
+	mock.ExpectQuery(expectedExplain).WithArgs(queryid).WillReturnRows(sqlmock.NewRows([]string{"plan"}).AddRow("[{\"Plan\":{\"Node Type\":\"Merge Join\",\"Parallel Aware\":false,\"Async Capable\":false,\"Join Type\":\"Inner\",\"Startup Cost\":0.43,\"Total Cost\":55.27,\"Plan Rows\":290,\"Plan Width\":1675,\"Inner Unique\":\"?\",\"Merge Cond\":\"( e.businessentityid = p.businessentityid )\",\"Plans\":[{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Outer\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Employee_BusinessEntityID\",\"Relation Name\":\"employee\",\"Alias\":\"e\",\"Startup Cost\":0.15,\"Total Cost\":21.5,\"Plan Rows\":290,\"Plan Width\":112},{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Inner\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Person_BusinessEntityID\",\"Relation Name\":\"person\",\"Alias\":\"p\",\"Startup Cost\":0.29,\"Total Cost\":2261.87,\"Plan Rows\":19972,\"Plan Width\":1563}]}}]"))
 	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	assert.NoError(t, err)
 	expectedFile := filepath.Join("testdata", "scraper", "top-query", "expected.yaml")
@@ -707,73 +707,6 @@ func TestScrapeTopQueriesSkipsExplainForSuperuserQueries(t *testing.T) {
 	assert.Empty(t, planAttr.Str())
 }
 
-func TestIsExplainableQuery(t *testing.T) {
-	testCases := []struct {
-		name     string
-		query    string
-		expected bool
-	}{
-		// Explainable queries (whitelist: SELECT, TABLE, DELETE, INSERT, UPDATE, WITH, MERGE, VALUES)
-		{name: "simple SELECT", query: "SELECT * FROM users", expected: true},
-		{name: "SELECT with WHERE", query: "SELECT id, name FROM users WHERE active = true", expected: true},
-		{name: "INSERT", query: "INSERT INTO users (name) VALUES ('test')", expected: true},
-		{name: "UPDATE", query: "UPDATE users SET name = 'test' WHERE id = 1", expected: true},
-		{name: "DELETE", query: "DELETE FROM users WHERE id = 1", expected: true},
-		{name: "SELECT with leading whitespace", query: "   SELECT * FROM users", expected: true},
-		{name: "WITH CTE", query: "WITH cte AS (SELECT * FROM users) SELECT * FROM cte", expected: true},
-		{name: "TABLE shorthand", query: "TABLE users", expected: true},
-		{name: "VALUES", query: "VALUES (1, 'a'), (2, 'b')", expected: true},
-		{name: "MERGE", query: "MERGE INTO target USING source ON target.id = source.id WHEN MATCHED THEN UPDATE SET name = source.name", expected: true},
-		{name: "SELECT after comment", query: "-- comment\nSELECT * FROM users", expected: true},
-		{name: "SELECT after multi-line comment", query: "/* comment */ SELECT * FROM users", expected: true},
-		{name: "SELECT with parenthesis", query: "(SELECT * FROM users)", expected: false}, // Subquery alone - first char is '('
-
-		// Non-explainable queries (anything not in whitelist)
-		{name: "GRANT", query: "GRANT SELECT ON pg_locks TO demo", expected: false},
-		{name: "REVOKE", query: "REVOKE ALL ON FUNCTION pg_stat_statements_reset() FROM PUBLIC", expected: false},
-		{name: "DROP FUNCTION", query: "DROP FUNCTION pg_stat_statements_reset(Oid, Oid, bigint)", expected: false},
-		{name: "DROP TRIGGER", query: "DROP TRIGGER IF EXISTS update_users_updated_at ON users", expected: false},
-		{name: "DROP TABLE", query: "DROP TABLE users", expected: false},
-		{name: "CREATE INDEX", query: "CREATE INDEX idx_users_name ON users(name)", expected: false},
-		{name: "CREATE EXTENSION", query: "CREATE EXTENSION IF NOT EXISTS pg_stat_statements", expected: false},
-		{name: "CREATE FUNCTION", query: "CREATE FUNCTION my_func() RETURNS void AS $$ BEGIN END; $$ LANGUAGE plpgsql", expected: false},
-		{name: "CREATE TRIGGER", query: "CREATE TRIGGER update_users BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at()", expected: false},
-		{name: "CREATE TABLE", query: "CREATE TABLE users (id INT)", expected: false},
-		{name: "CREATE TABLE AS SELECT", query: "CREATE TABLE new_table AS SELECT * FROM old_table", expected: false}, // CREATE not in whitelist
-		{name: "ALTER TABLE", query: "ALTER TABLE users ADD COLUMN email VARCHAR(255)", expected: false},
-		{name: "TRUNCATE", query: "TRUNCATE TABLE users", expected: false},
-		{name: "SET", query: "SET plan_cache_mode = force_generic_plan", expected: false},
-		{name: "COMMENT", query: "COMMENT ON TABLE users IS 'User table'", expected: false},
-		{name: "VACUUM", query: "VACUUM ANALYZE users", expected: false},
-		{name: "ANALYZE", query: "ANALYZE users", expected: false},
-		{name: "BEGIN", query: "BEGIN", expected: false},
-		{name: "COMMIT", query: "COMMIT", expected: false},
-		{name: "ROLLBACK", query: "ROLLBACK", expected: false},
-		{name: "COPY", query: "COPY users FROM '/tmp/data.csv'", expected: false},
-		{name: "EXPLAIN", query: "EXPLAIN SELECT * FROM users", expected: false}, // EXPLAIN itself not in whitelist
-		{name: "PREPARE", query: "PREPARE stmt AS SELECT * FROM users", expected: false},
-		{name: "EXECUTE", query: "EXECUTE stmt", expected: false},
-		{name: "DEALLOCATE", query: "DEALLOCATE stmt", expected: false},
-
-		// DDL with leading comments (should still be detected as non-explainable)
-		{name: "GRANT after comment", query: "-- Grant permissions\nGRANT SELECT ON users TO demo", expected: false},
-		{name: "DROP after multi-line comment", query: "/* cleanup */ DROP TABLE old_table", expected: false},
-		{name: "REVOKE after nested comments", query: "/* comment */ -- another\nREVOKE ALL FROM demo", expected: false},
-
-		// Edge cases
-		{name: "empty query", query: "", expected: false},
-		{name: "only whitespace", query: "   ", expected: false},
-		{name: "only comment", query: "-- just a comment", expected: false},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := isExplainableQuery(tc.query)
-			assert.Equal(t, tc.expected, result, "query: %s", tc.query)
-		})
-	}
-}
-
 func TestScrapeTopQueriesCollectsOnlyWhenIntervalHasElapsed(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Databases = []string{}
@@ -829,68 +762,94 @@ func TestIsCollectionDue(t *testing.T) {
 	assert.False(t, isCollectionDue, "collection_interval is not yet reached since lastExecutionTimestamp, so collection is not due.")
 }
 
+const testCapturedQueryPlanSQL = "/* otel-collector-ignore */ SELECT plan FROM pg_store_plans WHERE queryid::text = $1 ORDER BY calls DESC LIMIT 1"
+
 func TestExplainQuery(t *testing.T) {
 	testCases := []struct {
 		name           string
 		query          string
 		queryID        string
-		expectedSQL    string
 		mockPlanResult string
 	}{
 		{
-			name:           "query with no parameters",
+			name:           "numeric queryID",
 			query:          "SELECT * FROM users",
 			queryID:        "12345",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12345 AS SELECT * FROM users;EXPLAIN(FORMAT JSON) EXECUTE otel_12345;",
 			mockPlanResult: `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"users"}}]`,
 		},
 		{
-			name:           "query with single parameter",
-			query:          "SELECT * FROM users WHERE id = $1",
-			queryID:        "12346",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12346 AS SELECT * FROM users WHERE id = $1;EXPLAIN(FORMAT JSON) EXECUTE otel_12346(null);",
-			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"users"}}]`,
-		},
-		{
-			name:           "query with multiple parameters",
-			query:          "SELECT * FROM orders WHERE user_id = $1 AND status = $2 AND created_at > $3",
+			name:           "parameterized query",
+			query:          "SELECT * FROM orders WHERE user_id = $1",
 			queryID:        "12347",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12347 AS SELECT * FROM orders WHERE user_id = $1 AND status = $2 AND created_at > $3;EXPLAIN(FORMAT JSON) EXECUTE otel_12347(null, null, null);",
 			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"orders"}}]`,
 		},
 		{
-			name:           "query with hyphenated queryID",
+			name:           "hyphenated queryID",
 			query:          "SELECT * FROM products WHERE id = $1",
 			queryID:        "abc-def-123",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_abc_def_123 AS SELECT * FROM products WHERE id = $1;EXPLAIN(FORMAT JSON) EXECUTE otel_abc_def_123(null);",
 			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"products"}}]`,
 		},
 	}
 
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-			require.NoError(t, err)
+			db, mock, dbErr := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			require.NoError(t, dbErr)
 			defer db.Close()
-
-			logger, err := zap.NewProduction()
-			require.NoError(t, err)
 
 			client := &postgreSQLClient{
 				client:  db,
 				closeFn: func() error { return nil },
 			}
 
-			// Expect the EXPLAIN query
-			mock.ExpectQuery(tc.expectedSQL).WillReturnRows(
-				sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(tc.mockPlanResult),
+			mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs(tc.queryID).WillReturnRows(
+				sqlmock.NewRows([]string{"plan"}).AddRow(tc.mockPlanResult),
 			)
 
-			plan, err := client.explainQuery(tc.query, tc.queryID, logger)
-			require.NoError(t, err)
+			plan, planErr := client.explainQuery(tc.query, tc.queryID, logger)
+			require.NoError(t, planErr)
 			assert.Equal(t, tc.mockPlanResult, plan)
+			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
+}
+
+func TestExplainQueryNoPlan(t *testing.T) {
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	t.Run("no rows returns empty plan without error", func(t *testing.T) {
+		db, mock, dbErr := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, dbErr)
+		defer db.Close()
+
+		mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("99999").WillReturnRows(
+			sqlmock.NewRows([]string{"plan"}),
+		)
+
+		c := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+		plan, planErr := c.explainQuery("SELECT 1", "99999", logger)
+		require.NoError(t, planErr)
+		assert.Empty(t, plan)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error returns empty plan without error", func(t *testing.T) {
+		db, mock, dbErr := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, dbErr)
+		defer db.Close()
+
+		mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("99999").WillReturnError(fmt.Errorf("connection reset"))
+
+		c := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+		plan, planErr := c.explainQuery("SELECT 1", "99999", logger)
+		require.NoError(t, planErr)
+		assert.Empty(t, plan)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestCollectSessionStates(t *testing.T) {
