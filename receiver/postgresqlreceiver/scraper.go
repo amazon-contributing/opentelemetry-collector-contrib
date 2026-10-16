@@ -312,6 +312,15 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			continue
 		}
 
+		// A dropped database can leave rows in pg_stat_statements with a NULL
+		// datname; the template's `WHERE datname IS NOT NULL` filters these, but
+		// skip any row whose db.namespace is absent as defense in depth so the
+		// type assertion below cannot panic.
+		if row[string(semconv.DBNamespaceKey)] == nil {
+			logger.Debug("skipping top query row with nil db.namespace (database may have been dropped)")
+			continue
+		}
+
 		for columnName, info := range updatedOnly {
 			var valInAtts float64
 			_val := row[dbAttributePrefix+columnName]
