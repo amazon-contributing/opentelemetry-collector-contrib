@@ -615,7 +615,10 @@ func TestScrapeTopQueries(t *testing.T) {
 	scraper.cache.Add(queryid+tempBlksWrittenColumnName, 1110)
 
 	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(sqlmock.NewRows(expectedRows).FromCSVString(expectedValues[:len(expectedValues)-1]))
+	mock.ExpectBegin()
+	mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery(expectedExplain).WithArgs(queryid).WillReturnRows(sqlmock.NewRows([]string{"plan"}).AddRow("[{\"Plan\":{\"Node Type\":\"Merge Join\",\"Parallel Aware\":false,\"Async Capable\":false,\"Join Type\":\"Inner\",\"Startup Cost\":0.43,\"Total Cost\":55.27,\"Plan Rows\":290,\"Plan Width\":1675,\"Inner Unique\":\"?\",\"Merge Cond\":\"( e.businessentityid = p.businessentityid )\",\"Plans\":[{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Outer\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Employee_BusinessEntityID\",\"Relation Name\":\"employee\",\"Alias\":\"e\",\"Startup Cost\":0.15,\"Total Cost\":21.5,\"Plan Rows\":290,\"Plan Width\":112},{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Inner\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Person_BusinessEntityID\",\"Relation Name\":\"person\",\"Alias\":\"p\",\"Startup Cost\":0.29,\"Total Cost\":2261.87,\"Plan Rows\":19972,\"Plan Width\":1563}]}}]"))
+	mock.ExpectCommit()
 	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	assert.NoError(t, err)
 	expectedFile := filepath.Join("testdata", "scraper", "top-query", "expected.yaml")
@@ -764,6 +767,8 @@ func TestIsCollectionDue(t *testing.T) {
 
 const testCapturedQueryPlanSQL = "/* otel-collector-ignore */ SELECT plan FROM pg_store_plans WHERE queryid::text = $1 ORDER BY calls DESC LIMIT 1"
 
+const testSetPlanFormatSQL = "SET LOCAL pg_store_plans.plan_format = 'json'"
+
 func TestExplainQuery(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -805,9 +810,12 @@ func TestExplainQuery(t *testing.T) {
 				closeFn: func() error { return nil },
 			}
 
+			mock.ExpectBegin()
+			mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 			mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs(tc.queryID).WillReturnRows(
 				sqlmock.NewRows([]string{"plan"}).AddRow(tc.mockPlanResult),
 			)
+			mock.ExpectCommit()
 
 			plan, planErr := client.explainQuery(tc.query, tc.queryID, logger)
 			require.NoError(t, planErr)
@@ -826,9 +834,12 @@ func TestExplainQueryNoPlan(t *testing.T) {
 		require.NoError(t, dbErr)
 		defer db.Close()
 
+		mock.ExpectBegin()
+		mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 		mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("99999").WillReturnRows(
 			sqlmock.NewRows([]string{"plan"}),
 		)
+		mock.ExpectRollback()
 
 		c := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 		plan, planErr := c.explainQuery("SELECT 1", "99999", logger)
@@ -842,7 +853,10 @@ func TestExplainQueryNoPlan(t *testing.T) {
 		require.NoError(t, dbErr)
 		defer db.Close()
 
+		mock.ExpectBegin()
+		mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 		mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("99999").WillReturnError(fmt.Errorf("connection reset"))
+		mock.ExpectRollback()
 
 		c := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 		plan, planErr := c.explainQuery("SELECT 1", "99999", logger)

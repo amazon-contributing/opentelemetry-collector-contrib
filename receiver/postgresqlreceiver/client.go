@@ -101,15 +101,25 @@ func (c *postgreSQLClient) explainQuery(_, queryID string, logger *zap.Logger) (
 }
 
 func (c *postgreSQLClient) capturedQueryPlan(queryID string) (string, error) {
-	var plan string
-	err := c.client.QueryRow(capturedQueryPlanSQL, queryID).Scan(&plan)
+	tx, err := c.client.Begin()
 	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// pg_store_plans renders the plan column at read time; force json so it is parseable regardless of the server default.
+	if _, err := tx.Exec("SET LOCAL pg_store_plans.plan_format = 'json'"); err != nil {
+		return "", err
+	}
+
+	var plan string
+	if err := tx.QueryRow(capturedQueryPlanSQL, queryID).Scan(&plan); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
 		}
 		return "", err
 	}
-	return plan, nil
+	return plan, tx.Commit()
 }
 
 var _ client = (*postgreSQLClient)(nil)
