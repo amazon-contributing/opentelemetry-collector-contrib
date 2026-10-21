@@ -128,6 +128,25 @@ jobs:
       - name: Kind load image
         run: |
           kind load docker-image otelcontribcol:latest --name kind
+      - name: Pre-load resourcedetection e2e images into kind
+        # These images use imagePullPolicy: IfNotPresent, so loading them into the
+        # cluster up front avoids per-pod pulls that are prone to public-registry
+        # rate limiting (HTTP 429) during the test run.
+        if: matrix.component == 'processor/resourcedetectionprocessor'
+        run: |
+          images=(
+            "public.ecr.aws/aws-ec2/amazon-ec2-metadata-mock:v1.13.0"
+            "curlimages/curl:8.6.0"
+            "python:3.13-alpine"
+          )
+          for image in "${images[@]}"; do
+            for attempt in 1 2 3 4 5; do
+              docker pull "$image" && break
+              echo "pull of $image failed (attempt $attempt); retrying"
+              sleep "$((attempt * 15))"
+            done
+            kind load docker-image "$image" --name kind
+          done
       - name: Run e2e tests
         run: |
           cd ${{ matrix.component }}
