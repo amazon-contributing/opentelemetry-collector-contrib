@@ -85,6 +85,12 @@ jobs:
       - run: ./.github/workflows/scripts/check-disk-space.sh
 
   kubernetes-test-matrix:
+    # id-token lets the resourcedetection matrix entry assume the AWS role that
+    # authenticates ECR Public pulls (higher quota than anonymous). Secrets are not
+    # exposed to fork PRs, so those skip auth and fall back to anonymous pulls.
+    permissions:
+      id-token: write
+      contents: read
     env:
       KUBECONFIG: /tmp/kube-config-otelcol-e2e-testing
     strategy:
@@ -128,19 +134,45 @@ jobs:
       - name: Kind load image
         run: |
           kind load docker-image otelcontribcol:latest --name kind
+      # ECR Public anonymous pulls share a per-IP data quota that intermittently 429s
+      # on CI runners. When credentials are available (not on fork PRs), authenticate
+      # so the pull uses the higher authenticated quota.
+      - name: Detect ECR Public auth availability
+        id: ecr_auth
+        if: matrix.component == 'processor/resourcedetectionprocessor'
+        env:
+          ECR_AUTH_ACCOUNT_ID: ${{ secrets.APPLICATION_SIGNALS_E2E_TEST_ACCOUNT_ID }}
+        run: |
+          if [ -n "$ECR_AUTH_ACCOUNT_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Configure AWS credentials for ECR Public
+        if: steps.ecr_auth.outputs.enabled == 'true'
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.APPLICATION_SIGNALS_E2E_TEST_ACCOUNT_ID }}:role/${{ secrets.APPLICATION_SIGNALS_E2E_TEST_ROLE_NAME }}
+          aws-region: us-east-1
       - name: Pre-load resourcedetection e2e images into kind
         # These images use imagePullPolicy: IfNotPresent, so loading them into the
-        # cluster up front avoids per-pod pulls that are prone to public-registry
-        # rate limiting (HTTP 429) during the test run.
+        # cluster up front means no per-pod registry pulls happen during the test run.
         if: matrix.component == 'processor/resourcedetectionprocessor'
         run: |
+          if aws sts get-caller-identity >/dev/null 2>&1; then
+            aws ecr-public get-login-password --region us-east-1 \
+              | docker login --username AWS --password-stdin public.ecr.aws
+          else
+            echo "No AWS credentials available; attempting anonymous pulls."
+          fi
           images=(
             "public.ecr.aws/aws-ec2/amazon-ec2-metadata-mock:v1.13.0"
             "curlimages/curl:8.6.0"
             "python:3.13-alpine"
           )
           for image in "${images[@]}"; do
-            for attempt in 1 2 3 4 5; do
+            for attempt in 1 2 3; do
               docker pull "$image" && break
               echo "pull of $image failed (attempt $attempt); retrying"
               sleep "$((attempt * 15))"
