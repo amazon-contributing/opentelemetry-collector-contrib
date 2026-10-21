@@ -288,7 +288,10 @@ func TestScrapeLogsFromContainer(t *testing.T) {
 		calls, ok := attributes["postgresql.calls"]
 		assert.True(t, ok)
 		assert.Equal(t, int64(1), calls.(int64))
-		assert.NotEmpty(t, attributes["postgresql.query_plan"])
+		// This container loads only pg_stat_statements, not pg_store_plans, so no captured
+		// plan is available and the query is reported without one. End-to-end plan retrieval
+		// from pg_store_plans is covered by TestExplainQueryFromCapturedPlanStore.
+		assert.Empty(t, attributes["postgresql.query_plan"])
 		found = true
 	}
 	assert.True(t, found, "Expected to find a log record with the query text from the first time top query")
