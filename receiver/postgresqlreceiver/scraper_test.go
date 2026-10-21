@@ -855,7 +855,7 @@ func TestExplainQueryNoPlan(t *testing.T) {
 
 		mock.ExpectBegin()
 		mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
-		mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("99999").WillReturnError(fmt.Errorf("connection reset"))
+		mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("99999").WillReturnError(errors.New("connection reset"))
 		mock.ExpectRollback()
 
 		c := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
