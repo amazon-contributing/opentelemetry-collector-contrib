@@ -771,28 +771,32 @@ const testSetPlanFormatSQL = "SET LOCAL pg_store_plans.plan_format = 'json'"
 
 func TestExplainQuery(t *testing.T) {
 	testCases := []struct {
-		name           string
-		query          string
-		queryID        string
-		mockPlanResult string
+		name         string
+		query        string
+		queryID      string
+		capturedPlan string // object form, as pg_store_plans returns it
+		wantPlan     string // array form, as historically emitted
 	}{
 		{
-			name:           "numeric queryID",
-			query:          "SELECT * FROM users",
-			queryID:        "12345",
-			mockPlanResult: `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"users"}}]`,
+			name:         "numeric queryID",
+			query:        "SELECT * FROM users",
+			queryID:      "12345",
+			capturedPlan: `{"Plan":{"Node Type":"Seq Scan","Relation Name":"users"}}`,
+			wantPlan:     `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"users"}}]`,
 		},
 		{
-			name:           "parameterized query",
-			query:          "SELECT * FROM orders WHERE user_id = $1",
-			queryID:        "12347",
-			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"orders"}}]`,
+			name:         "parameterized query",
+			query:        "SELECT * FROM orders WHERE user_id = $1",
+			queryID:      "12347",
+			capturedPlan: `{"Plan":{"Node Type":"Index Scan","Relation Name":"orders"}}`,
+			wantPlan:     `[{"Plan":{"Node Type":"Index Scan","Relation Name":"orders"}}]`,
 		},
 		{
-			name:           "hyphenated queryID",
-			query:          "SELECT * FROM products WHERE id = $1",
-			queryID:        "abc-def-123",
-			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"products"}}]`,
+			name:         "hyphenated queryID",
+			query:        "SELECT * FROM products WHERE id = $1",
+			queryID:      "abc-def-123",
+			capturedPlan: `{"Plan":{"Node Type":"Index Scan","Relation Name":"products"}}`,
+			wantPlan:     `[{"Plan":{"Node Type":"Index Scan","Relation Name":"products"}}]`,
 		},
 	}
 
@@ -813,13 +817,13 @@ func TestExplainQuery(t *testing.T) {
 			mock.ExpectBegin()
 			mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 			mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs(tc.queryID).WillReturnRows(
-				sqlmock.NewRows([]string{"plan"}).AddRow(tc.mockPlanResult),
+				sqlmock.NewRows([]string{"plan"}).AddRow(tc.capturedPlan),
 			)
 			mock.ExpectCommit()
 
 			plan, planErr := client.explainQuery(tc.query, tc.queryID, logger)
 			require.NoError(t, planErr)
-			assert.Equal(t, tc.mockPlanResult, plan)
+			assert.Equal(t, tc.wantPlan, plan)
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -1270,4 +1274,47 @@ func TestGetInstanceId(t *testing.T) {
 	localInstanceID = getInstanceID(hostNameErrorSample, zap.NewNop())
 	assert.NotNil(t, localInstanceID)
 	assert.Equal(t, "unknown:5432", localInstanceID)
+}
+
+// TestExplainQueryObfuscatesCapturedPlanLiterals feeds real pg_store_plans output (object
+// form, with a literal in Sort Key / Group Key) and verifies the literal is obfuscated out
+// and the emitted plan keeps the historical [{...}] array shape.
+func TestExplainQueryObfuscatesCapturedPlanLiterals(t *testing.T) {
+	logger := zap.NewNop()
+	cases := []struct {
+		name    string
+		fixture string
+		literal string
+		key     string
+	}{
+		{"sort key literal", "captured_plan_sort_key.json", "alice.secret@example.com", "Sort Key"},
+		{"group key literal", "captured_plan_group_key.json", "bob.secret@example.com", "Group Key"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join("testdata", "scraper", "top-query", tc.fixture))
+			require.NoError(t, err)
+			require.Contains(t, string(raw), tc.literal, "fixture should contain the literal before obfuscation")
+
+			db, mock, dbErr := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			require.NoError(t, dbErr)
+			defer db.Close()
+
+			mock.ExpectBegin()
+			mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
+			mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("1").WillReturnRows(
+				sqlmock.NewRows([]string{"plan"}).AddRow(string(raw)),
+			)
+			mock.ExpectCommit()
+
+			c := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+			plan, err := c.explainQuery("", "1", logger)
+			require.NoError(t, err)
+			assert.NotEmpty(t, plan)
+			assert.NotContains(t, plan, tc.literal, "captured literal leaked into the emitted plan")
+			assert.True(t, strings.HasPrefix(plan, "["), "emitted plan should keep the array shape")
+			assert.Contains(t, plan, tc.key)
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }

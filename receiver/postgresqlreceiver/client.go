@@ -91,6 +91,11 @@ func (c *postgreSQLClient) explainQuery(_, queryID string, logger *zap.Logger) (
 		return "", nil
 	}
 
+	// pg_store_plans returns a single JSON object; wrap it to keep the historical [{...}] shape
+	if trimmed := strings.TrimSpace(rawPlan); strings.HasPrefix(trimmed, "{") {
+		rawPlan = "[" + trimmed + "]"
+	}
+
 	plan, err := obfuscateSQLExecPlan(rawPlan)
 	if err != nil {
 		logger.Error("failed to obfuscate explain plan", zap.Error(err), zap.String("queryID", queryID))

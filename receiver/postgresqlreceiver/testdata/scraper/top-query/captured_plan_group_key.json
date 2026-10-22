@@ -1,0 +1,29 @@
+{
+  "Plan": {
+    "Node Type": "Aggregate",
+    "Strategy": "Hashed",
+    "Partial Mode": "Simple",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 21.23,
+    "Total Cost": 21.25,
+    "Plan Rows": 2,
+    "Plan Width": 9,
+    "Group Key": ["(relname = 'bob.secret@example.com'::name)"],
+    "Planned Partitions": 0,
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "pg_class",
+        "Alias": "pg_class",
+        "Startup Cost": 0.00,
+        "Total Cost": 19.16,
+        "Plan Rows": 413,
+        "Plan Width": 1
+      }
+    ]
+  }
+}
