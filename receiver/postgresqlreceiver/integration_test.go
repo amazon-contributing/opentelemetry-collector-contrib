@@ -7,6 +7,7 @@ package postgresqlreceiver
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -287,7 +288,10 @@ func TestScrapeLogsFromContainer(t *testing.T) {
 		calls, ok := attributes["postgresql.calls"]
 		assert.True(t, ok)
 		assert.Equal(t, int64(1), calls.(int64))
-		assert.NotEmpty(t, attributes["postgresql.query_plan"])
+		// This container loads only pg_stat_statements, not pg_store_plans, so no captured
+		// plan is available and the query is reported without one. End-to-end plan retrieval
+		// from pg_store_plans is covered by TestExplainQueryFromCapturedPlanStore.
+		assert.Empty(t, attributes["postgresql.query_plan"])
 		found = true
 	}
 	assert.True(t, found, "Expected to find a log record with the query text from the first time top query")
@@ -320,4 +324,71 @@ func TestScrapeLogsFromContainer(t *testing.T) {
 		found = true
 	}
 	assert.True(t, found, "Expected to find a log record with the query text from the first time top query")
+}
+
+// TestExplainQueryFromCapturedPlanStore verifies the receiver reads a captured plan
+// back as parseable JSON even when the server default pg_store_plans.plan_format is text.
+func TestExplainQueryFromCapturedPlanStore(t *testing.T) {
+	ci, err := testcontainers.GenericContainer(
+		t.Context(),
+		testcontainers.GenericContainerRequest{
+			ProviderType: testcontainers.ProviderPodman,
+			ContainerRequest: testcontainers.ContainerRequest{
+				FromDockerfile: testcontainers.FromDockerfile{
+					Context:    filepath.Join("testdata", "integration"),
+					Dockerfile: "Dockerfile.pgstoreplans",
+				},
+				Env: map[string]string{
+					"POSTGRES_USER":     "root",
+					"POSTGRES_PASSWORD": "otel",
+					"POSTGRES_DB":       "otel",
+				},
+				ExposedPorts: []string{postgresqlPort},
+				Cmd: []string{
+					"-c",
+					"shared_preload_libraries=pg_stat_statements,pg_store_plans",
+				},
+				WaitingFor: wait.ForLog(".*port 5432").
+					AsRegexp().
+					WithOccurrence(1),
+			},
+		})
+	assert.NoError(t, err)
+	assert.NoError(t, ci.Start(t.Context()))
+	defer testcontainers.CleanupContainer(t, ci)
+
+	p, err := ci.MappedPort(t.Context(), postgresqlPort)
+	assert.NoError(t, err)
+
+	connStr := fmt.Sprintf("postgres://root:otel@localhost:%s/otel?sslmode=disable", p.Port())
+	db, err := sql.Open("postgres", connStr)
+	assert.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec("CREATE EXTENSION IF NOT EXISTS pg_stat_statements")
+	assert.NoError(t, err)
+	_, err = db.Exec("CREATE EXTENSION IF NOT EXISTS pg_store_plans")
+	assert.NoError(t, err)
+
+	// The server default is text, which is the condition under which plan obfuscation
+	// previously failed and returned an empty plan.
+	var planFormat string
+	assert.NoError(t, db.QueryRow("SHOW pg_store_plans.plan_format").Scan(&planFormat))
+	assert.Equal(t, "text", planFormat)
+
+	// Capture a plan for a distinctive statement.
+	_, err = db.Exec("SELECT count(*) AS pgsp_probe FROM pg_class WHERE relkind = 'r'")
+	assert.NoError(t, err)
+
+	var queryID string
+	err = db.QueryRow(
+		"SELECT sp.queryid::text FROM pg_store_plans sp JOIN pg_stat_statements ss ON ss.queryid = sp.queryid WHERE ss.query LIKE '%pgsp_probe%' ORDER BY sp.calls DESC LIMIT 1",
+	).Scan(&queryID)
+	assert.NoError(t, err)
+
+	client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+	plan, err := client.explainQuery("", queryID, zap.NewNop())
+	assert.NoError(t, err)
+	assert.NotEmpty(t, plan)
+	assert.True(t, json.Valid([]byte(plan)), "expected obfuscated plan to be valid JSON, got: %s", plan)
 }

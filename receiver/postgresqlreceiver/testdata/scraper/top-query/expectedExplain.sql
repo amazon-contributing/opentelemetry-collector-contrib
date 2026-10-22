@@ -1,1 +1,1 @@
-/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_114514 AS select * from pg_stat_activity where id = 32;EXPLAIN(FORMAT JSON) EXECUTE otel_114514;
+/* otel-collector-ignore */ SELECT plan FROM pg_store_plans WHERE queryid::text = $1 ORDER BY calls DESC LIMIT 1
