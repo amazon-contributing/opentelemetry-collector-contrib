@@ -1276,25 +1276,33 @@ func TestGetInstanceId(t *testing.T) {
 	assert.Equal(t, "unknown:5432", localInstanceID)
 }
 
-// TestExplainQueryObfuscatesCapturedPlanLiterals feeds real pg_store_plans output (object
+// TestExplainQueryObfuscatesCapturedPlanLiterals feeds pg_store_plans-style output (object
 // form, with a literal in Sort Key / Group Key) and verifies the literal is obfuscated out
 // and the emitted plan keeps the historical [{...}] array shape.
 func TestExplainQueryObfuscatesCapturedPlanLiterals(t *testing.T) {
 	logger := zap.NewNop()
 	cases := []struct {
-		name    string
-		fixture string
-		literal string
-		key     string
+		name         string
+		capturedPlan string
+		literal      string
+		key          string
 	}{
-		{"sort key literal", "captured_plan_sort_key.json", "alice.secret@example.com", "Sort Key"},
-		{"group key literal", "captured_plan_group_key.json", "bob.secret@example.com", "Group Key"},
+		{
+			name:         "sort key literal",
+			capturedPlan: `{"Plan":{"Node Type":"Sort","Sort Key":["(CASE WHEN (email = 'alice.secret@example.com'::text) THEN 0 ELSE 1 END)","email"],"Plans":[{"Node Type":"Seq Scan","Relation Name":"users"}]}}`,
+			literal:      "alice.secret@example.com",
+			key:          "Sort Key",
+		},
+		{
+			name:         "group key literal",
+			capturedPlan: `{"Plan":{"Node Type":"Aggregate","Group Key":["(email = 'bob.secret@example.com'::text)"],"Plans":[{"Node Type":"Seq Scan","Relation Name":"users"}]}}`,
+			literal:      "bob.secret@example.com",
+			key:          "Group Key",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			raw, err := os.ReadFile(filepath.Join("testdata", "scraper", "top-query", tc.fixture))
-			require.NoError(t, err)
-			require.Contains(t, string(raw), tc.literal, "fixture should contain the literal before obfuscation")
+			require.Contains(t, tc.capturedPlan, tc.literal)
 
 			db, mock, dbErr := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 			require.NoError(t, dbErr)
@@ -1303,14 +1311,13 @@ func TestExplainQueryObfuscatesCapturedPlanLiterals(t *testing.T) {
 			mock.ExpectBegin()
 			mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 			mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("1").WillReturnRows(
-				sqlmock.NewRows([]string{"plan"}).AddRow(string(raw)),
+				sqlmock.NewRows([]string{"plan"}).AddRow(tc.capturedPlan),
 			)
 			mock.ExpectCommit()
 
 			c := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 			plan, err := c.explainQuery("", "1", logger)
 			require.NoError(t, err)
-			assert.NotEmpty(t, plan)
 			assert.NotContains(t, plan, tc.literal, "captured literal leaked into the emitted plan")
 			assert.True(t, strings.HasPrefix(plan, "["), "emitted plan should keep the array shape")
 			assert.Contains(t, plan, tc.key)
