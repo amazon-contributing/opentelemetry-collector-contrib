@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -69,6 +68,7 @@ type client interface {
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	queryPlanStoreAvailable(ctx context.Context) (bool, error)
 	getSessionStates(ctx context.Context) (map[string]int64, error)
 }
 
@@ -77,107 +77,63 @@ type postgreSQLClient struct {
 	closeFn func() error
 }
 
-// explainableStatements is a whitelist of SQL statements that PostgreSQL can EXPLAIN.
-var explainableStatements = map[string]struct{}{
-	"SELECT": {},
-	"TABLE":  {}, // TABLE is shorthand for SELECT * FROM
-	"DELETE": {},
-	"INSERT": {},
-	"UPDATE": {},
-	"WITH":   {}, // CTEs
-	"MERGE":  {}, // PostgreSQL 15+
-	"VALUES": {},
-}
-
-// isExplainableQuery checks if a query can be explained by PostgreSQL.
-// Uses a whitelist approach, only allows known DML statements.
-func isExplainableQuery(query string) bool {
-	trimmed := strings.TrimSpace(query)
-
-	// Remove leading comments (both -- and /* */ style)
-	for {
-		switch {
-		case strings.HasPrefix(trimmed, "--"):
-			idx := strings.Index(trimmed, "\n")
-			if idx == -1 {
-				return false
-			}
-			trimmed = strings.TrimSpace(trimmed[idx+1:])
-			continue
-		case strings.HasPrefix(trimmed, "/*"):
-			idx := strings.Index(trimmed, "*/")
-			if idx == -1 {
-				return false
-			}
-			trimmed = strings.TrimSpace(trimmed[idx+2:])
-			continue
-		}
-		break
-	}
-
-	if trimmed == "" {
-		return false
-	}
-
-	// Extract and uppercase only the first word to check against the whitelist
-	firstWord := trimmed
-	if idx := strings.IndexAny(trimmed, " \t\n("); idx != -1 {
-		firstWord = trimmed[:idx]
-	}
-
-	_, ok := explainableStatements[strings.ToUpper(firstWord)]
-	return ok
-}
+// capturedQueryPlanSQL is the query used to read a recorded plan from pg_store_plans by queryid.
+const capturedQueryPlanSQL = "/* otel-collector-ignore */ SELECT plan FROM pg_store_plans WHERE queryid::text = $1 ORDER BY calls DESC LIMIT 1"
 
 // explainQuery implements client.
-func (c *postgreSQLClient) explainQuery(query, queryID string, logger *zap.Logger) (string, error) {
-	// Check if the query is explainable before attempting EXPLAIN
-	if !isExplainableQuery(query) {
-		logger.Debug("skipping EXPLAIN for non-explainable query", zap.String("queryID", queryID))
+func (c *postgreSQLClient) explainQuery(_, queryID string, logger *zap.Logger) (string, error) {
+	// Read the plan already captured for this query rather than re-planning it here.
+	rawPlan, err := c.capturedQueryPlan(queryID)
+	if err != nil {
+		logger.Debug("could not read captured query plan", zap.String("queryID", queryID), zap.Error(err))
+		return "", nil
+	}
+	if rawPlan == "" {
 		return "", nil
 	}
 
-	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
-
-	// PostgreSQL's pg_stat_statements returns queries with $1, $2 placeholders
-	paramRegex := regexp.MustCompile(`\$\d+`)
-	matches := paramRegex.FindAllString(query, -1)
-
-	// Build nulls array for placeholders
-	nulls := make([]string, len(matches))
-	for i := range nulls {
-		nulls[i] = "null"
+	// pg_store_plans returns a single JSON object; wrap it to keep the historical [{...}] shape
+	if trimmed := strings.TrimSpace(rawPlan); strings.HasPrefix(trimmed, "{") {
+		rawPlan = "[" + trimmed + "]"
 	}
 
-	defer func() {
-		_, _ = c.client.Exec(fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
-	}()
-
-	// if there is no parameter needed, we can not put an empty bracket
-
-	nullsString := ""
-	if len(nulls) > 0 {
-		nullsString = "(" + strings.Join(nulls, ", ") + ")"
-	}
-	setPlanCacheMode := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;"
-	prepareStatement := fmt.Sprintf("PREPARE otel_%s AS %s;", normalizedQueryID, query)
-	explainStatement := fmt.Sprintf("EXPLAIN(FORMAT JSON) EXECUTE otel_%s%s;", normalizedQueryID, nullsString)
-
-	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, setPlanCacheMode+prepareStatement+explainStatement, logger, sqlquery.TelemetryConfig{})
-
-	result, err := wrappedDb.QueryRows(context.Background())
-	if err != nil {
-		logger.Error("failed to explain statement", zap.Error(err))
-		return "", err
-	}
-
-	plan, err := obfuscateSQLExecPlan(result[0]["QUERY PLAN"])
+	plan, err := obfuscateSQLExecPlan(rawPlan)
 	if err != nil {
 		logger.Error("failed to obfuscate explain plan", zap.Error(err), zap.String("queryID", queryID))
 		return "", err
 	}
 
 	return plan, nil
+}
+
+func (c *postgreSQLClient) capturedQueryPlan(queryID string) (string, error) {
+	tx, err := c.client.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// pg_store_plans renders the plan column at read time; force json so it is parseable regardless of the server default.
+	if _, err := tx.Exec("SET LOCAL pg_store_plans.plan_format = 'json'"); err != nil {
+		return "", err
+	}
+
+	var plan string
+	if err := tx.QueryRow(capturedQueryPlanSQL, queryID).Scan(&plan); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return plan, tx.Commit()
+}
+
+// queryPlanStoreAvailable reports whether the pg_store_plans extension is installed in the connected database.
+func (c *postgreSQLClient) queryPlanStoreAvailable(ctx context.Context) (bool, error) {
+	var present bool
+	err := c.client.QueryRowContext(ctx,
+		"SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')").Scan(&present)
+	return present, err
 }
 
 var _ client = (*postgreSQLClient)(nil)

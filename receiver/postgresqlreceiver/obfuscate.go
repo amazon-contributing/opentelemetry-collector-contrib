@@ -42,6 +42,11 @@ var defaultSQLPlanNormalizeSettings = obfuscate.JSONConfig{
 		"Repeatable Seed",
 		"Sampling Parameters",
 		"TID Cond",
+		// these can carry literal values in an actually-executed plan (e.g. pg_store_plans)
+		"Expressions",
+		"Group Key",
+		"Presorted Key",
+		"Sort Key",
 	},
 	KeepValues: []string{
 		// postgres (added)
@@ -75,7 +80,6 @@ var defaultSQLPlanNormalizeSettings = obfuscate.JSONConfig{
 		"Emission",
 		"Exact Heap Blocks",
 		"Execution Time",
-		"Expressions",
 		"Foreign Delete",
 		"Foreign Insert",
 		"Foreign Update",
@@ -84,7 +88,6 @@ var defaultSQLPlanNormalizeSettings = obfuscate.JSONConfig{
 		"Generation",
 		"Group Count",
 		"Grouping Sets",
-		"Group Key",
 		"HashAgg Batches",
 		"Hash Batches",
 		"Hash Buckets",
@@ -111,7 +114,6 @@ var defaultSQLPlanNormalizeSettings = obfuscate.JSONConfig{
 		"Planned Partitions",
 		"Planning Time",
 		"Pre-sorted Groups",
-		"Presorted Key",
 		"Query Identifier",
 		"Relation Name",
 		"Rows Removed by Conflict Filter",
@@ -127,7 +129,6 @@ var defaultSQLPlanNormalizeSettings = obfuscate.JSONConfig{
 		"Shared Read Blocks",
 		"Shared Written Blocks",
 		"Single Copy",
-		"Sort Key",
 		"Sort Method",
 		"Sort Methods Used",
 		"Sort Space Type",
