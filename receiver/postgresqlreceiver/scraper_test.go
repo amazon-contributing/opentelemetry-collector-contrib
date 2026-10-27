@@ -893,7 +893,7 @@ func TestQueryPlanStoreReadyWarnsOnceAndSkips(t *testing.T) {
 	core, logs := observer.New(zap.WarnLevel)
 	p := &postgreSQLScraper{logger: zap.New(core), storePlansMissing: make(map[string]bool)}
 
-	ready := p.queryPlanStoreReady(context.Background(), storeAbsentClient{}, "appdb")
+	ready := p.queryPlanStoreReady(t.Context(), storeAbsentClient{}, "appdb")
 	require.False(t, ready, "plan lookups must be skipped when pg_store_plans is absent")
 	require.True(t, p.storePlansMissing["appdb"], "the database must be marked so later polls skip it")
 	require.Equal(t, 1, logs.Len(), "a missing extension must warn once")
