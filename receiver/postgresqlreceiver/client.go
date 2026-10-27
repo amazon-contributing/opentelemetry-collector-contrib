@@ -68,6 +68,7 @@ type client interface {
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	queryPlanStoreAvailable(ctx context.Context) (bool, error)
 	getSessionStates(ctx context.Context) (map[string]int64, error)
 }
 
@@ -125,6 +126,14 @@ func (c *postgreSQLClient) capturedQueryPlan(queryID string) (string, error) {
 		return "", err
 	}
 	return plan, tx.Commit()
+}
+
+// queryPlanStoreAvailable reports whether the pg_store_plans extension is installed in the connected database.
+func (c *postgreSQLClient) queryPlanStoreAvailable(ctx context.Context) (bool, error) {
+	var present bool
+	err := c.client.QueryRowContext(ctx,
+		"SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')").Scan(&present)
+	return present, err
 }
 
 var _ client = (*postgreSQLClient)(nil)

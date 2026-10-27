@@ -24,6 +24,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/testutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden"
@@ -870,6 +871,34 @@ func TestExplainQueryNoPlan(t *testing.T) {
 	})
 }
 
+func TestLogTopQueryErrOnce(t *testing.T) {
+	core, logs := observer.New(zap.ErrorLevel)
+	p := &postgreSQLScraper{logger: zap.New(core)}
+
+	p.logTopQueryErrOnce("failed to get top query", errors.New("boom"))
+	p.logTopQueryErrOnce("failed to get top query", errors.New("boom"))
+	require.Equal(t, 1, logs.Len(), "the same persistent error must log only once, not every poll")
+
+	p.clearTopQueryErr()
+	p.logTopQueryErrOnce("failed to get top query", errors.New("boom"))
+	require.Equal(t, 2, logs.Len(), "an error after a successful collection must be reported again")
+}
+
+// storeAbsentClient reports pg_store_plans as not installed.
+type storeAbsentClient struct{ *mockClient }
+
+func (storeAbsentClient) queryPlanStoreAvailable(context.Context) (bool, error) { return false, nil }
+
+func TestQueryPlanStoreReadyWarnsOnceAndSkips(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansMissing: make(map[string]bool)}
+
+	ready := p.queryPlanStoreReady(context.Background(), storeAbsentClient{}, "appdb")
+	require.False(t, ready, "plan lookups must be skipped when pg_store_plans is absent")
+	require.True(t, p.storePlansMissing["appdb"], "the database must be marked so later polls skip it")
+	require.Equal(t, 1, logs.Len(), "a missing extension must warn once")
+}
+
 func TestCollectSessionStates(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Metrics.PostgresqlSessions.Enabled = true
@@ -909,6 +938,11 @@ type (
 // explainQuery implements client.
 func (*mockClient) explainQuery(string, string, *zap.Logger) (string, error) {
 	panic("unimplemented")
+}
+
+// queryPlanStoreAvailable implements client.
+func (*mockClient) queryPlanStoreAvailable(context.Context) (bool, error) {
+	return true, nil
 }
 
 // getTopQuery implements client.
