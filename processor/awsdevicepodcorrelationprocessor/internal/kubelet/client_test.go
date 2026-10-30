@@ -10,9 +10,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/podinfo"
 )
 
 // stubListerClient returns an empty ListPodResourcesResponse.
@@ -72,7 +75,7 @@ func TestGetContainerInfo_NoData(t *testing.T) {
 func TestGetContainerInfo_WithData(t *testing.T) {
 	c := NewClient(zap.NewNop())
 	c.mu.Lock()
-	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = ContainerInfo{
+	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = podinfo.ContainerInfo{
 		PodName: "ml-pod", Namespace: "default", ContainerName: "trainer",
 	}
 	c.mu.Unlock()
@@ -87,7 +90,7 @@ func TestGetContainerInfo_WithData(t *testing.T) {
 func TestGetContainerInfo_WrongResource(t *testing.T) {
 	c := NewClient(zap.NewNop())
 	c.mu.Lock()
-	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = ContainerInfo{
+	c.deviceToPod[deviceKey{DeviceID: "0", ResourceName: "nvidia.com/gpu"}] = podinfo.ContainerInfo{
 		PodName: "ml-pod", Namespace: "default", ContainerName: "trainer",
 	}
 	c.mu.Unlock()
@@ -129,4 +132,86 @@ func TestAddResourceName_ConcurrentWithRefresh(t *testing.T) {
 		}
 	}()
 	wg.Wait()
+}
+
+// draListerClient returns a fixed List response for DRA/device-plugin parsing tests.
+type draListerClient struct {
+	resp *podresourcesapi.ListPodResourcesResponse
+}
+
+func (c *draListerClient) List(_ context.Context, _ *podresourcesapi.ListPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.ListPodResourcesResponse, error) {
+	return c.resp, nil
+}
+
+func (*draListerClient) GetAllocatableResources(_ context.Context, _ *podresourcesapi.AllocatableResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.AllocatableResourcesResponse, error) {
+	return nil, nil
+}
+
+func (*draListerClient) Get(_ context.Context, _ *podresourcesapi.GetPodResourcesRequest, _ ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
+	return nil, nil
+}
+
+func draResponse() *podresourcesapi.ListPodResourcesResponse {
+	return &podresourcesapi.ListPodResourcesResponse{
+		PodResources: []*podresourcesapi.PodResources{
+			{
+				Name:      "efa-pod",
+				Namespace: "default",
+				Containers: []*podresourcesapi.ContainerResources{
+					{
+						Name: "app",
+						DynamicResources: []*podresourcesapi.DynamicResource{
+							// A network driver (DRANET) reports the claim with EMPTY
+							// ClaimResources; the binding must still be recorded.
+							{
+								ClaimName:      "efa-claim",
+								ClaimNamespace: "default",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestWithDRA_SetsFlag(t *testing.T) {
+	c := NewClient(zap.NewNop(), WithDRA())
+	assert.True(t, c.draEnabled)
+}
+
+func TestRefresh_DRAParsesDynamicResources(t *testing.T) {
+	c := NewClient(zap.NewNop(), WithDRA())
+	c.listerClient = &draListerClient{resp: draResponse()}
+
+	c.refresh(t.Context())
+
+	devices := c.ListDRADevices()
+	require.Len(t, devices, 1)
+	assert.Equal(t, "efa-claim", devices[0].ClaimName)
+	assert.Equal(t, "default", devices[0].ClaimNamespace)
+	assert.Equal(t, "efa-pod", devices[0].Pod.PodName)
+	assert.Equal(t, "app", devices[0].Pod.ContainerName)
+}
+
+func TestRefresh_DRADisabledIgnoresDynamicResources(t *testing.T) {
+	c := NewClient(zap.NewNop()) // no WithDRA
+	c.listerClient = &draListerClient{resp: draResponse()}
+
+	c.refresh(t.Context())
+
+	assert.Nil(t, c.ListDRADevices(), "DynamicResources must be ignored when DRA is disabled")
+}
+
+func TestListDRADevices_ReturnsCopy(t *testing.T) {
+	c := NewClient(zap.NewNop(), WithDRA())
+	c.listerClient = &draListerClient{resp: draResponse()}
+	c.refresh(t.Context())
+
+	devices := c.ListDRADevices()
+	require.Len(t, devices, 1)
+	devices[0].ClaimName = "mutated"
+
+	again := c.ListDRADevices()
+	assert.Equal(t, "efa-claim", again[0].ClaimName, "caller must not be able to mutate internal state")
 }
