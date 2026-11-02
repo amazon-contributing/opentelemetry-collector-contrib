@@ -99,9 +99,9 @@ func TestIsProtectedDatapoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			got := isProtectedDatapoint(tt.key)
+			got := isProtectedLeaf(tt.key)
 			if got != tt.expected {
-				t.Errorf("isProtectedDatapoint(%q) = %v, want %v", tt.key, got, tt.expected)
+				t.Errorf("isProtectedLeaf(%q) = %v, want %v", tt.key, got, tt.expected)
 			}
 		})
 	}
@@ -310,9 +310,9 @@ func TestClassifyAttribute_Tier10_Datapoint(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, attrSourceDatapoint)
-			if tier != tier10Datapoint {
-				t.Errorf("classifyAttribute(%q, datapoint) = %d, want %d", key, tier, tier10Datapoint)
+			tier := classifyAttribute(key, attrSourceLeaf)
+			if tier != tier10Leaf {
+				t.Errorf("classifyAttribute(%q, datapoint) = %d, want %d", key, tier, tier10Leaf)
 			}
 		})
 	}
@@ -353,7 +353,7 @@ func TestClassifyAttribute_NonLabelResourceAttr(t *testing.T) {
 }
 
 func TestClassifyAttribute_ProtectedDatapointAttrsNotDroppable(t *testing.T) {
-	// These datapoint attributes are in protectedDatapointKeys and should return tierNotDroppable.
+	// These datapoint attributes are in protectedLeafKeys and should return tierNotDroppable.
 	keys := []string{
 		// node_exporter
 		"cpu", "mode", "device", "mountpoint", "fstype",
@@ -368,7 +368,7 @@ func TestClassifyAttribute_ProtectedDatapointAttrsNotDroppable(t *testing.T) {
 	}
 	for _, key := range keys {
 		t.Run(key, func(t *testing.T) {
-			tier := classifyAttribute(key, attrSourceDatapoint)
+			tier := classifyAttribute(key, attrSourceLeaf)
 			if tier != tierNotDroppable {
 				t.Errorf("classifyAttribute(%q, datapoint) = %d, want %d", key, tier, tierNotDroppable)
 			}

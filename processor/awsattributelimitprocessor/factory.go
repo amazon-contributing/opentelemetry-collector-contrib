@@ -9,8 +9,11 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/consumer/xconsumer"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processorhelper"
+	"go.opentelemetry.io/collector/processor/processorhelper/xprocessorhelper"
+	"go.opentelemetry.io/collector/processor/xprocessor"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsattributelimitprocessor/internal/metadata"
 )
@@ -18,11 +21,15 @@ import (
 var processorCapabilities = consumer.Capabilities{MutatesData: true}
 
 // NewFactory creates a new factory for the awsattributelimit processor.
+//
+// It returns an xprocessor.Factory (which also satisfies processor.Factory) so
+// the processor can be wired into both metrics and profiles pipelines.
 func NewFactory() processor.Factory {
-	return processor.NewFactory(
+	return xprocessor.NewFactory(
 		metadata.Type,
 		createDefaultConfig,
-		processor.WithMetrics(createMetricsProcessor, metadata.MetricsStability),
+		xprocessor.WithMetrics(createMetricsProcessor, metadata.MetricsStability),
+		xprocessor.WithProfiles(createProfilesProcessor, metadata.ProfilesStability),
 	)
 }
 
@@ -54,5 +61,30 @@ func createMetricsProcessor(
 		processorhelper.WithStart(p.Start),
 		processorhelper.WithShutdown(p.Shutdown),
 		processorhelper.WithCapabilities(processorCapabilities),
+	)
+}
+
+func createProfilesProcessor(
+	ctx context.Context,
+	set processor.Settings,
+	cfg component.Config,
+	nextConsumer xconsumer.Profiles,
+) (xprocessor.Profiles, error) {
+	processorCfg, ok := cfg.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid configuration type: %T", cfg)
+	}
+
+	p := newProcessor(processorCfg, set.Logger)
+
+	return xprocessorhelper.NewProfiles(
+		ctx,
+		set,
+		cfg,
+		nextConsumer,
+		p.processProfiles,
+		xprocessorhelper.WithStart(p.Start),
+		xprocessorhelper.WithShutdown(p.Shutdown),
+		xprocessorhelper.WithCapabilities(processorCapabilities),
 	)
 }
