@@ -11,28 +11,59 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/kubelet"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/podinfo"
 )
 
 // mockLookup implements deviceLookup for testing.
 type mockLookup struct {
-	data map[string]map[string]*kubelet.ContainerInfo
+	data map[string]map[string]*podinfo.ContainerInfo
 }
 
-func newMockLookup(data map[string]map[string]*kubelet.ContainerInfo) *mockLookup {
+func newMockLookup(data map[string]map[string]*podinfo.ContainerInfo) *mockLookup {
 	return &mockLookup{data: data}
 }
 
-func (m *mockLookup) GetContainerInfo(deviceID, resourceName string) *kubelet.ContainerInfo {
+func (m *mockLookup) GetContainerInfo(deviceID, resourceName string) *podinfo.ContainerInfo {
 	if rn, ok := m.data[deviceID]; ok {
 		return rn[resourceName]
 	}
 	return nil
 }
 
+// mockDRALookup implements draDeviceLookup for testing.
+type mockDRALookup struct {
+	data map[string]map[string]*podinfo.ContainerInfo
+}
+
+func newMockDRALookup(data map[string]map[string]*podinfo.ContainerInfo) *mockDRALookup {
+	return &mockDRALookup{data: data}
+}
+
+func (m *mockDRALookup) GetDRAContainerInfo(deviceID, driverName string) []podinfo.ContainerInfo {
+	if dn, ok := m.data[deviceID]; ok {
+		if info, ok := dn[driverName]; ok && info != nil {
+			return []podinfo.ContainerInfo{*info}
+		}
+	}
+	return nil
+}
+
+// mockDRAMultiLookup returns a fixed owner list regardless of device/driver,
+// for exercising shared-device fan-out.
+type mockDRAMultiLookup struct{ owners []podinfo.ContainerInfo }
+
+func (m *mockDRAMultiLookup) GetDRAContainerInfo(_, _ string) []podinfo.ContainerInfo {
+	return m.owners
+}
+
 // newTestProcessor creates a processor with a mock lookup for testing.
 func newTestProcessor(cfg *Config, lookup deviceLookup) *devicePodCorrelationProcessor {
 	return &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), lookup: lookup}
+}
+
+// newTestProcessorWithDRA creates a processor with both mock lookups for testing.
+func newTestProcessorWithDRA(cfg *Config, lookup deviceLookup, draLookup draDeviceLookup) *devicePodCorrelationProcessor {
+	return &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), lookup: lookup, draLookup: draLookup}
 }
 
 func newTestMetrics(deviceIDKey, deviceIDVal string) pmetric.Metrics {
@@ -56,7 +87,7 @@ func newTestMetricsWithResourceAttr(resourceKey, resourceVal string) pmetric.Met
 }
 
 func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"aws.amazon.com/neurondevice": {PodName: "ml-pod", Namespace: "default", ContainerName: "trainer"}},
 	})
 	cfg := &Config{
@@ -80,7 +111,7 @@ func TestProcessMetrics_CorrelatesDeviceToPod(t *testing.T) {
 }
 
 func TestProcessMetrics_NoMatchLeavesDatapointUnchanged(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{})
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{})
 	cfg := &Config{
 		DeviceTypes: []DeviceTypeConfig{
 			{Name: "neuron", DeviceIDAttribute: "NeuronDevice", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"aws.amazon.com/neurondevice"}},
@@ -97,7 +128,7 @@ func TestProcessMetrics_NoMatchLeavesDatapointUnchanged(t *testing.T) {
 }
 
 func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"aws.amazon.com/neurondevice": {PodName: "should-not-overwrite", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -118,7 +149,7 @@ func TestProcessMetrics_SkipsAlreadyEnrichedDatapoints(t *testing.T) {
 }
 
 func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"efa3": {"vpc.amazonaws.com/efa": {PodName: "efa-pod", Namespace: "prod", ContainerName: "worker"}},
 	})
 	cfg := &Config{
@@ -138,7 +169,7 @@ func TestProcessMetrics_ResourceLevelDeviceID(t *testing.T) {
 }
 
 func TestProcessMetrics_SumMetricType(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"aws.amazon.com/neurondevice": {PodName: "sum-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -164,7 +195,7 @@ func TestProcessMetrics_SumMetricType(t *testing.T) {
 }
 
 func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"aws.amazon.com/neuron": {PodName: "fallback-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -184,7 +215,7 @@ func TestProcessMetrics_FallbackResourceNames(t *testing.T) {
 }
 
 func TestProcessMetrics_HistogramMetricType(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"res": {PodName: "hist-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -236,7 +267,7 @@ func TestStart_CreatesClientAndConnects(t *testing.T) {
 }
 
 func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"res": {PodName: "pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -255,7 +286,7 @@ func TestProcessMetrics_NoDeviceIDAttribute(t *testing.T) {
 }
 
 func TestProcessMetrics_FirstMatchingDeviceTypeWins(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {
 			"res.a": {PodName: "pod-a", Namespace: "ns", ContainerName: "c"},
 			"res.b": {PodName: "pod-b", Namespace: "ns", ContainerName: "c"},
@@ -292,7 +323,7 @@ func TestProcessMetrics_EmptyMetrics(t *testing.T) {
 }
 
 func TestProcessMetrics_ExponentialHistogramMetricType(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"res": {PodName: "exphist-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -318,7 +349,7 @@ func TestProcessMetrics_ExponentialHistogramMetricType(t *testing.T) {
 }
 
 func TestProcessMetrics_SummaryMetricType(t *testing.T) {
-	lookup := newMockLookup(map[string]map[string]*kubelet.ContainerInfo{
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
 		"0": {"res": {PodName: "summary-pod", Namespace: "ns", ContainerName: "c"}},
 	})
 	cfg := &Config{
@@ -341,4 +372,128 @@ func TestProcessMetrics_SummaryMetricType(t *testing.T) {
 	podVal, ok := dpOut.Attributes().Get(k8sPodNameKey)
 	assert.True(t, ok)
 	assert.Equal(t, "summary-pod", podVal.AsString())
+}
+
+// DRA-specific tests
+
+func TestProcessMetrics_DRAFallbackAfterDevicePluginMiss(t *testing.T) {
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{})
+	draLookup := newMockDRALookup(map[string]map[string]*podinfo.ContainerInfo{
+		"0": {"gpu.nvidia.com": {PodName: "dra-pod", Namespace: "ml", ContainerName: "trainer"}},
+	})
+	cfg := &Config{
+		DeviceTypes: []DeviceTypeConfig{
+			{Name: "gpu", DeviceIDAttribute: "gpu_device", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"nvidia.com/gpu"}},
+		},
+		DRADeviceTypes: []DRADeviceTypeConfig{
+			{Name: "gpu-dra", DeviceIDAttribute: "gpu_device", DeviceIDSource: DeviceIDSourceDatapoint, DriverNames: []string{"gpu.nvidia.com"}},
+		},
+	}
+	p := newTestProcessorWithDRA(cfg, lookup, draLookup)
+	md := newTestMetrics("gpu_device", "0")
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
+	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
+	assert.True(t, ok)
+	assert.Equal(t, "dra-pod", podVal.AsString())
+	nsVal, _ := dp.Attributes().Get(k8sNamespaceKey)
+	assert.Equal(t, "ml", nsVal.AsString())
+}
+
+func TestProcessMetrics_DevicePluginWinsOverDRA(t *testing.T) {
+	lookup := newMockLookup(map[string]map[string]*podinfo.ContainerInfo{
+		"0": {"nvidia.com/gpu": {PodName: "dp-pod", Namespace: "ns", ContainerName: "c"}},
+	})
+	draLookup := newMockDRALookup(map[string]map[string]*podinfo.ContainerInfo{
+		"0": {"gpu.nvidia.com": {PodName: "dra-pod", Namespace: "ns", ContainerName: "c"}},
+	})
+	cfg := &Config{
+		DeviceTypes: []DeviceTypeConfig{
+			{Name: "gpu", DeviceIDAttribute: "gpu_device", DeviceIDSource: DeviceIDSourceDatapoint, ResourceNames: []string{"nvidia.com/gpu"}},
+		},
+		DRADeviceTypes: []DRADeviceTypeConfig{
+			{Name: "gpu-dra", DeviceIDAttribute: "gpu_device", DeviceIDSource: DeviceIDSourceDatapoint, DriverNames: []string{"gpu.nvidia.com"}},
+		},
+	}
+	p := newTestProcessorWithDRA(cfg, lookup, draLookup)
+	md := newTestMetrics("gpu_device", "0")
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
+	podVal, _ := dp.Attributes().Get(k8sPodNameKey)
+	assert.Equal(t, "dp-pod", podVal.AsString(), "device-plugin path should take priority")
+}
+
+func TestProcessMetrics_DRAOnlyConfig(t *testing.T) {
+	draLookup := newMockDRALookup(map[string]map[string]*podinfo.ContainerInfo{
+		"0": {"gpu.nvidia.com": {PodName: "dra-only-pod", Namespace: "ns", ContainerName: "c"}},
+	})
+	cfg := &Config{
+		DRADeviceTypes: []DRADeviceTypeConfig{
+			{Name: "gpu-dra", DeviceIDAttribute: "gpu_device", DeviceIDSource: DeviceIDSourceDatapoint, DriverNames: []string{"gpu.nvidia.com"}},
+		},
+	}
+	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), draLookup: draLookup}
+	md := newTestMetrics("gpu_device", "0")
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
+	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
+	assert.True(t, ok)
+	assert.Equal(t, "dra-only-pod", podVal.AsString())
+}
+
+func TestProcessMetrics_DRAFanOutSharedDevice(t *testing.T) {
+	draLookup := &mockDRAMultiLookup{owners: []podinfo.ContainerInfo{
+		{PodName: "pod-a", Namespace: "ns", ContainerName: "c"},
+		{PodName: "pod-b", Namespace: "ns", ContainerName: "c"},
+	}}
+	cfg := &Config{
+		DRADeviceTypes: []DRADeviceTypeConfig{
+			{Name: "gpu-dra", DeviceIDAttribute: "gpu_device", DeviceIDSource: DeviceIDSourceDatapoint, DriverNames: []string{"gpu.nvidia.com"}},
+		},
+	}
+	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), draLookup: draLookup}
+	md := newTestMetrics("gpu_device", "0")
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dps := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints()
+	require.Equal(t, 2, dps.Len(), "a shared device must fan out to one datapoint per pod")
+	var pods []string
+	for i := 0; i < dps.Len(); i++ {
+		attrs := dps.At(i).Attributes()
+		podVal, ok := attrs.Get(k8sPodNameKey)
+		require.True(t, ok)
+		pods = append(pods, podVal.AsString())
+		// each clone keeps the original device attribute and value
+		dev, ok := attrs.Get("gpu_device")
+		require.True(t, ok)
+		assert.Equal(t, "0", dev.AsString())
+	}
+	assert.ElementsMatch(t, []string{"pod-a", "pod-b"}, pods)
+}
+
+func TestProcessMetrics_DRAResourceLevelDeviceID(t *testing.T) {
+	draLookup := newMockDRALookup(map[string]map[string]*podinfo.ContainerInfo{
+		"efa0": {"dra.net": {PodName: "efa-pod", Namespace: "prod", ContainerName: "net"}},
+	})
+	cfg := &Config{
+		DRADeviceTypes: []DRADeviceTypeConfig{
+			{Name: "efa-dra", DeviceIDAttribute: "device", DeviceIDSource: DeviceIDSourceResource, DriverNames: []string{"dra.net"}},
+		},
+	}
+	p := &devicePodCorrelationProcessor{config: cfg, logger: zap.NewNop(), draLookup: draLookup}
+	md := newTestMetricsWithResourceAttr("device", "efa0")
+	result, err := p.processMetrics(t.Context(), md)
+	require.NoError(t, err)
+
+	dp := result.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics().At(0).Gauge().DataPoints().At(0)
+	podVal, ok := dp.Attributes().Get(k8sPodNameKey)
+	assert.True(t, ok)
+	assert.Equal(t, "efa-pod", podVal.AsString())
 }
