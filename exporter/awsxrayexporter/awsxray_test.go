@@ -477,12 +477,12 @@ func TestWrapErrorIfBadRequest(t *testing.T) {
 	// Unmodeled 500 → retryable.
 	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
 		sdkOperationError(http.StatusInternalServerError, &smithy.GenericAPIError{Code: "InternalFailure"}))))
-	// Network error with no HTTP response → retryable.
+	// Transport failure / canceled context: the SDK wraps these in a
+	// ResponseError with a synthesized status 0 response → retryable.
 	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		&smithy.OperationError{
-			ServiceID: "XRay", OperationName: "PutTraceSegments",
-			Err: errors.New("dial tcp: connection refused"),
-		})))
+		sdkOperationError(0, &smithyhttp.RequestSendError{Err: errors.New("dial tcp: connection refused")}))))
+	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(0, &smithy.CanceledError{Err: context.DeadlineExceeded}))))
 	// nil-safe passthrough.
 	assert.NoError(t, wrapErrorIfBadRequest(nil))
 }

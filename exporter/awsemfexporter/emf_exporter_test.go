@@ -494,12 +494,12 @@ func TestWrapErrorIfBadRequest(t *testing.T) {
 	// Modeled 503 → retryable.
 	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
 		sdkOperationError(http.StatusServiceUnavailable, &types.ServiceUnavailableException{}))))
-	// Network error with no HTTP response → retryable.
+	// Transport failure / canceled context: the SDK wraps these in a
+	// ResponseError with a synthesized status 0 response → retryable.
 	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		&smithy.OperationError{
-			ServiceID: "CloudWatch Logs", OperationName: "PutLogEvents",
-			Err: errors.New("dial tcp: connection refused"),
-		})))
+		sdkOperationError(0, &smithyhttp.RequestSendError{Err: errors.New("dial tcp: connection refused")}))))
+	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
+		sdkOperationError(0, &smithy.CanceledError{Err: context.DeadlineExceeded}))))
 	// nil-safe passthrough.
 	assert.NoError(t, wrapErrorIfBadRequest(nil))
 }

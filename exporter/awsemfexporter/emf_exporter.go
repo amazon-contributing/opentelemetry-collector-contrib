@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -250,11 +251,14 @@ func (emf *emfExporter) shutdown(ctx context.Context) error {
 
 // wrapErrorIfBadRequest marks an error permanent when the service responded
 // with a non-5xx HTTP status. Errors without an HTTP response
-// (network/timeout) stay retryable.
+// (network/timeout/canceled) stay retryable; the SDK wraps those in a
+// ResponseError carrying a synthesized response with status code 0.
 func wrapErrorIfBadRequest(err error) error {
 	var re *awshttp.ResponseError
-	if errors.As(err, &re) && re.HTTPStatusCode() < 500 {
-		return consumererror.NewPermanent(err)
+	if errors.As(err, &re) {
+		if code := re.HTTPStatusCode(); code != 0 && code < http.StatusInternalServerError {
+			return consumererror.NewPermanent(err)
+		}
 	}
 	return err
 }
