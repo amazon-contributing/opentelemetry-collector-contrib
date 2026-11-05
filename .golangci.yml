@@ -384,6 +384,11 @@ linters:
       # Setting locale to US will correct the British spelling of 'colour' to 'color'.
       locale: US
 
+    modernize:
+      disable:
+        # `make goporto` adds canonical import path comments, which this analyzer reports.
+        - importcomment
+
     nolintlint:
       require-specific: true
 
