@@ -50,7 +50,7 @@ func Test_GetSliceValue_Invalid(t *testing.T) {
 			name: "first key not an integer",
 			keys: []ottl.Key[any]{
 				&pathtest.Key[any]{
-					S: ottltest.Strp("key"),
+					S: new("key"),
 					G: getSetter,
 				},
 			},
@@ -84,7 +84,7 @@ func Test_GetSliceValue_Invalid(t *testing.T) {
 					G: getSetter,
 				},
 				&pathtest.Key[any]{
-					S: ottltest.Strp("string"),
+					S: new("string"),
 					G: getSetter,
 				},
 			},
@@ -137,7 +137,7 @@ func Test_SetSliceValue_Invalid(t *testing.T) {
 			name: "first key not an integer",
 			keys: []ottl.Key[any]{
 				&pathtest.Key[any]{
-					S: ottltest.Strp("key"),
+					S: new("key"),
 					G: getSetter,
 				},
 			},
@@ -171,7 +171,7 @@ func Test_SetSliceValue_Invalid(t *testing.T) {
 					G: getSetter,
 				},
 				&pathtest.Key[any]{
-					S: ottltest.Strp("string"),
+					S: new("string"),
 					G: getSetter,
 				},
 			},
@@ -227,7 +227,7 @@ func Test_GetCommonTypedSliceValue_Invalid(t *testing.T) {
 			name: "first key not an integer",
 			keys: []ottl.Key[any]{
 				&pathtest.Key[any]{
-					S: ottltest.Strp("key"),
+					S: new("key"),
 					G: getSetter,
 				},
 			},
@@ -261,7 +261,7 @@ func Test_GetCommonTypedSliceValue_Invalid(t *testing.T) {
 					G: getSetter,
 				},
 				&pathtest.Key[any]{
-					S: ottltest.Strp("string"),
+					S: new("string"),
 					G: getSetter,
 				},
 			},
@@ -315,7 +315,7 @@ func Test_SetCommonTypedSliceValue_Invalid(t *testing.T) {
 			name: "first key not an integer",
 			keys: []ottl.Key[any]{
 				&pathtest.Key[any]{
-					S: ottltest.Strp("key"),
+					S: new("key"),
 					G: getSetter,
 				},
 			},
@@ -349,7 +349,7 @@ func Test_SetCommonTypedSliceValue_Invalid(t *testing.T) {
 					G: getSetter,
 				},
 				&pathtest.Key[any]{
-					S: ottltest.Strp("string"),
+					S: new("string"),
 					G: getSetter,
 				},
 			},
@@ -495,7 +495,7 @@ func Test_SetCommonIntSliceValue_Invalid(t *testing.T) {
 			name: "first key not an integer",
 			keys: []ottl.Key[any]{
 				&pathtest.Key[any]{
-					S: ottltest.Strp("key"),
+					S: new("key"),
 					G: getSetter,
 				},
 			},
@@ -529,7 +529,7 @@ func Test_SetCommonIntSliceValue_Invalid(t *testing.T) {
 					G: getSetter,
 				},
 				&pathtest.Key[any]{
-					S: ottltest.Strp("string"),
+					S: new("string"),
 					G: getSetter,
 				},
 			},

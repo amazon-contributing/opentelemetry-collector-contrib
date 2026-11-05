@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
@@ -643,11 +642,11 @@ func newResourceMetricsValuesRequestOptions(
 	top int32,
 ) armmonitor.MetricsClientListOptions {
 	return armmonitor.MetricsClientListOptions{
-		Metricnames: to.Ptr(strings.Join(metrics[start:end], ",")),
-		Interval:    to.Ptr(timeGrain),
-		Timespan:    to.Ptr(timeGrain),
-		Aggregation: to.Ptr(aggregationsStr),
-		Top:         to.Ptr(top),
+		Metricnames: new(strings.Join(metrics[start:end], ",")),
+		Interval:    new(timeGrain),
+		Timespan:    new(timeGrain),
+		Aggregation: new(aggregationsStr),
+		Top:         new(top),
 		Filter:      buildDimensionsFilter(dimensionsStr),
 	}
 }
