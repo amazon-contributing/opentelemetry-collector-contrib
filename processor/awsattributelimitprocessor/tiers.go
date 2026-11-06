@@ -20,7 +20,7 @@ const (
 	tier7KnownPod      = 7  // Known vendor pod labels (batch.kubernetes.io, statefulset.kubernetes.io)
 	tier8CustomerPod   = 8  // Customer pod labels (unknown prefix)
 	tier9Scope         = 9  // Non-protected scope attributes (except cloudwatch.*)
-	tier10Datapoint    = 10 // Non-protected datapoint attributes (last resort)
+	tier10Leaf         = 10 // Non-protected leaf attributes (metric datapoint or profile; last resort)
 )
 
 // protectedResourceKeys contains resource attribute keys that are never dropped.
@@ -56,8 +56,8 @@ var protectedResourceKeys = map[string]struct{}{
 	"k8s.component.name": {},
 }
 
-// protectedDatapointKeys contains datapoint attribute keys that are never dropped.
-var protectedDatapointKeys = map[string]struct{}{
+// protectedLeafKeys contains leaf attribute keys that are never dropped.
+var protectedLeafKeys = map[string]struct{}{
 	// node_exporter
 	"cpu":        {},
 	"mode":       {},
@@ -105,9 +105,9 @@ func isProtectedResource(key string) bool {
 	return false
 }
 
-// isProtectedDatapoint returns true if the key is a protected datapoint attribute.
-func isProtectedDatapoint(key string) bool {
-	_, ok := protectedDatapointKeys[key]
+// isProtectedLeaf returns true if the key is a protected leaf attribute.
+func isProtectedLeaf(key string) bool {
+	_, ok := protectedLeafKeys[key]
 	return ok
 }
 
@@ -166,17 +166,17 @@ const (
 // classifyAttribute returns the tier for a droppable attribute,
 // or 0 (tierNotDroppable) if the attribute is protected or not classifiable.
 //
-// For datapoint attributes, all non-protected keys are tier 10.
+// For leaf attributes (metric datapoint or profile), all non-protected keys are tier 10.
 // For scope attributes, all non-protected keys (except instrumentation.cloudwatch.*) are tier 9.
 // For resource attributes, only K8s label attributes (k8s.node.label.*, k8s.pod.label.*)
 // are subject to tier-based dropping (tiers 1-8). Other resource attrs (e.g. service.name,
 // telemetry.sdk.*) are treated as non-droppable and handled only by force-prune.
 func classifyAttribute(key, attrSource string) int {
-	if attrSource == attrSourceDatapoint {
-		if isProtectedDatapoint(key) {
+	if attrSource == attrSourceLeaf {
+		if isProtectedLeaf(key) {
 			return tierNotDroppable
 		}
-		return tier10Datapoint
+		return tier10Leaf
 	}
 
 	if attrSource == attrSourceScope {

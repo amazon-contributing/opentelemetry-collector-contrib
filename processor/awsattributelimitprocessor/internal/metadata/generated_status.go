@@ -12,5 +12,6 @@ var (
 )
 
 const (
-	MetricsStability = component.StabilityLevelBeta
+	MetricsStability  = component.StabilityLevelBeta
+	ProfilesStability = component.StabilityLevelAlpha
 )
