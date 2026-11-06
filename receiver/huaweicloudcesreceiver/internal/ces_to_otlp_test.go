@@ -161,11 +161,11 @@ func TestConvertCESMetricsToOTLP(t *testing.T) {
 				},
 				Datapoints: []model.Datapoint{
 					{
-						Average:   float64Ptr(0.5),
+						Average:   new(0.5),
 						Timestamp: 1056625610000,
 					},
 					{
-						Average:   float64Ptr(0.7),
+						Average:   new(0.7),
 						Timestamp: 1236625715000,
 					},
 				},
@@ -203,6 +203,7 @@ func TestConvertCESMetricsToOTLP(t *testing.T) {
 	assert.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, got, pmetrictest.IgnoreResourceMetricsOrder()))
 }
 
+//go:fix inline
 func float64Ptr(f float64) *float64 {
-	return &f
+	return new(f)
 }

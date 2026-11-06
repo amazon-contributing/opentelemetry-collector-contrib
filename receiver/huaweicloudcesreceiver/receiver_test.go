@@ -23,12 +23,9 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/huaweicloudcesreceiver/internal/mocks"
 )
 
-func stringPtr(s string) *string {
-	return &s
-}
-
+//go:fix inline
 func float64Ptr(f float64) *float64 {
-	return &f
+	return new(f)
 }
 
 func TestNewReceiver(t *testing.T) {
@@ -102,14 +99,14 @@ func TestListDataPointsForMetricBackOffWIthDefaultConfig(t *testing.T) {
 
 	mockCes.On("ShowMetricData", mock.Anything).Return(nil, errors.New(requestThrottledErrMsg)).Times(3)
 	mockCes.On("ShowMetricData", mock.Anything).Return(&model.ShowMetricDataResponse{
-		MetricName: stringPtr("cpu_util"),
+		MetricName: new("cpu_util"),
 		Datapoints: &[]model.Datapoint{
 			{
-				Average:   float64Ptr(45.67),
+				Average:   new(45.67),
 				Timestamp: 1556625610000,
 			},
 			{
-				Average:   float64Ptr(89.01),
+				Average:   new(89.01),
 				Timestamp: 1556625715000,
 			},
 		},
@@ -182,14 +179,14 @@ func TestPollMetricsAndConsumeSuccess(t *testing.T) {
 	}, nil)
 
 	mockCes.On("ShowMetricData", mock.Anything).Return(&model.ShowMetricDataResponse{
-		MetricName: stringPtr("cpu_util"),
+		MetricName: new("cpu_util"),
 		Datapoints: &[]model.Datapoint{
 			{
-				Average:   float64Ptr(45.67),
+				Average:   new(45.67),
 				Timestamp: 1556625610000,
 			},
 			{
-				Average:   float64Ptr(89.01),
+				Average:   new(89.01),
 				Timestamp: 1556625715000,
 			},
 		},
@@ -228,10 +225,10 @@ func TestStartReadingMetrics(t *testing.T) {
 				}, nil)
 
 				m.On("ShowMetricData", mock.Anything).Return(&model.ShowMetricDataResponse{
-					MetricName: stringPtr("cpu_util"),
+					MetricName: new("cpu_util"),
 					Datapoints: &[]model.Datapoint{
 						{
-							Average:   float64Ptr(45.67),
+							Average:   new(45.67),
 							Timestamp: 1556625610000,
 						},
 					},

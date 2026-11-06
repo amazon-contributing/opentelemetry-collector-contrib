@@ -80,8 +80,7 @@ func Time[K any](inputTime ottl.StringGetter[K], format string, location, locale
 			timestamp, err = timeutils.ParseGotime(gotimeFormat, t, loc)
 		}
 		if err != nil {
-			var timeErr *time.ParseError
-			if errors.As(err, &timeErr) {
+			if timeErr, ok := errors.AsType[*time.ParseError](err); ok {
 				return nil, timeutils.ToStrptimeParseError(timeErr, format, ctimeSubstitutes)
 			}
 			return nil, err

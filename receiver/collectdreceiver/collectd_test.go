@@ -56,8 +56,9 @@ func TestDecodeMetrics(t *testing.T) {
 	assertMetricsEqual(t, metrics)
 }
 
+//go:fix inline
 func createPtrFloat64(v float64) *float64 {
-	return &v
+	return new(v)
 }
 
 func TestStartTimestamp(t *testing.T) {

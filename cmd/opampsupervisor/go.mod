@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/cmd/opampsupervisor
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/google/uuid v1.6.0
@@ -230,7 +230,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
 	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
