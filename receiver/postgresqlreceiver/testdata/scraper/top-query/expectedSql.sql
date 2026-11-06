@@ -13,7 +13,7 @@ SELECT
   temp_blks_written,
   query,
   queryid::TEXT,
-  rolname,
+  COALESCE(rolname, '') AS rolname,
   rolsuper::TEXT,
   rows::TEXT,
   total_exec_time,
@@ -23,7 +23,8 @@ FROM
   LEFT JOIN pg_roles ON pg_stat_statements.userid = pg_roles.oid
   LEFT JOIN pg_database ON pg_stat_statements.dbid = pg_database.oid
 WHERE
-  query != '<insufficient privilege>'
+  datname IS NOT NULL
+  AND query != '<insufficient privilege>'
   AND query NOT LIKE '/* otel-collector-ignore */%'
   AND rolname != current_user
 ORDER BY calls DESC

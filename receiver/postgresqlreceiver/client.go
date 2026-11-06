@@ -171,6 +171,10 @@ func (c *postgreSQLClient) explainQuery(query, queryID string, logger *zap.Logge
 		return "", err
 	}
 
+	if len(result) == 0 {
+		return "", nil
+	}
+
 	plan, err := obfuscateSQLExecPlan(result[0]["QUERY PLAN"])
 	if err != nil {
 		logger.Error("failed to obfuscate explain plan", zap.Error(err), zap.String("queryID", queryID))
