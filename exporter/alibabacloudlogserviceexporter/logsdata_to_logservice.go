@@ -9,7 +9,6 @@ import (
 	"time"
 
 	sls "github.com/aliyun/aliyun-log-go-sdk"
-	"github.com/gogo/protobuf/proto"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	conventions "go.opentelemetry.io/otel/semconv/v1.40.0"
@@ -60,26 +59,28 @@ func resourceToLogContents(resource pcommon.Resource) []*sls.LogContent {
 	logContents := make([]*sls.LogContent, 3)
 	attrs := resource.Attributes()
 	if hostName, ok := attrs.Get(string(conventions.HostNameKey)); ok {
+		host := hostName.AsString()
 		logContents[0] = &sls.LogContent{
-			Key:   proto.String(slsLogHost),
-			Value: proto.String(hostName.AsString()),
+			Key:   new(slsLogHost),
+			Value: &host,
 		}
 	} else {
 		logContents[0] = &sls.LogContent{
-			Key:   proto.String(slsLogHost),
-			Value: proto.String(""),
+			Key:   new(slsLogHost),
+			Value: new(""),
 		}
 	}
 
 	if serviceName, ok := attrs.Get(string(conventions.ServiceNameKey)); ok {
+		service := serviceName.AsString()
 		logContents[1] = &sls.LogContent{
-			Key:   proto.String(slsLogService),
-			Value: proto.String(serviceName.AsString()),
+			Key:   new(slsLogService),
+			Value: &service,
 		}
 	} else {
 		logContents[1] = &sls.LogContent{
-			Key:   proto.String(slsLogService),
-			Value: proto.String(""),
+			Key:   new(slsLogService),
+			Value: new(""),
 		}
 	}
 
@@ -91,9 +92,10 @@ func resourceToLogContents(resource pcommon.Resource) []*sls.LogContent {
 		fields[k] = v.AsString()
 	}
 	attributeBuffer, _ := json.Marshal(fields)
+	attributeStr := string(attributeBuffer)
 	logContents[2] = &sls.LogContent{
-		Key:   proto.String(slsLogResource),
-		Value: proto.String(string(attributeBuffer)),
+		Key:   new(slsLogResource),
+		Value: &attributeStr,
 	}
 
 	return logContents
@@ -102,12 +104,12 @@ func resourceToLogContents(resource pcommon.Resource) []*sls.LogContent {
 func instrumentationScopeToLogContents(instrumentationScope pcommon.InstrumentationScope) []*sls.LogContent {
 	logContents := make([]*sls.LogContent, 2)
 	logContents[0] = &sls.LogContent{
-		Key:   proto.String(slsLogInstrumentationName),
-		Value: proto.String(instrumentationScope.Name()),
+		Key:   new(slsLogInstrumentationName),
+		Value: new(instrumentationScope.Name()),
 	}
 	logContents[1] = &sls.LogContent{
-		Key:   proto.String(slsLogInstrumentationVersion),
-		Value: proto.String(instrumentationScope.Version()),
+		Key:   new(slsLogInstrumentationVersion),
+		Value: new(instrumentationScope.Version()),
 	}
 	return logContents
 }
@@ -131,16 +133,16 @@ func mapLogRecordToLogService(lr plog.LogRecord,
 
 	contentsBuffer = append(contentsBuffer,
 		sls.LogContent{
-			Key:   proto.String(slsLogTimeUnixNano),
-			Value: proto.String(strconv.FormatUint(uint64(lr.Timestamp()), 10)),
+			Key:   new(slsLogTimeUnixNano),
+			Value: new(strconv.FormatUint(uint64(lr.Timestamp()), 10)),
 		},
 		sls.LogContent{
-			Key:   proto.String(slsLogSeverityNumber),
-			Value: proto.String(strconv.FormatInt(int64(lr.SeverityNumber()), 10)),
+			Key:   new(slsLogSeverityNumber),
+			Value: new(strconv.FormatInt(int64(lr.SeverityNumber()), 10)),
 		},
 		sls.LogContent{
-			Key:   proto.String(slsLogSeverityText),
-			Value: proto.String(lr.SeverityText()),
+			Key:   new(slsLogSeverityText),
+			Value: new(lr.SeverityText()),
 		})
 
 	fields := map[string]any{}
@@ -148,26 +150,27 @@ func mapLogRecordToLogService(lr plog.LogRecord,
 		fields[k] = v.AsString()
 	}
 	attributeBuffer, _ := json.Marshal(fields)
+	attributeStr := string(attributeBuffer)
 	contentsBuffer = append(contentsBuffer,
 		sls.LogContent{
-			Key:   proto.String(slsLogAttribute),
-			Value: proto.String(string(attributeBuffer)),
+			Key:   new(slsLogAttribute),
+			Value: &attributeStr,
 		},
 		sls.LogContent{
-			Key:   proto.String(slsLogContent),
-			Value: proto.String(lr.Body().AsString()),
+			Key:   new(slsLogContent),
+			Value: new(lr.Body().AsString()),
 		},
 		sls.LogContent{
-			Key:   proto.String(slsLogFlags),
-			Value: proto.String(strconv.FormatUint(uint64(lr.Flags()), 16)),
+			Key:   new(slsLogFlags),
+			Value: new(strconv.FormatUint(uint64(lr.Flags()), 16)),
 		},
 		sls.LogContent{
-			Key:   proto.String(traceIDField),
-			Value: proto.String(traceutil.TraceIDToHexOrEmptyString(lr.TraceID())),
+			Key:   new(traceIDField),
+			Value: new(traceutil.TraceIDToHexOrEmptyString(lr.TraceID())),
 		},
 		sls.LogContent{
-			Key:   proto.String(spanIDField),
-			Value: proto.String(traceutil.SpanIDToHexOrEmptyString(lr.SpanID())),
+			Key:   new(spanIDField),
+			Value: new(traceutil.SpanIDToHexOrEmptyString(lr.SpanID())),
 		})
 
 	for i := range contentsBuffer {
@@ -176,9 +179,9 @@ func mapLogRecordToLogService(lr plog.LogRecord,
 
 	if lr.Timestamp() > 0 {
 		// convert time nano to time seconds
-		slsLog.Time = proto.Uint32(uint32(lr.Timestamp() / 1000000000))
+		slsLog.Time = new(uint32(lr.Timestamp() / 1000000000))
 	} else {
-		slsLog.Time = proto.Uint32(uint32(time.Now().Unix()))
+		slsLog.Time = new(uint32(time.Now().Unix()))
 	}
 
 	return &slsLog

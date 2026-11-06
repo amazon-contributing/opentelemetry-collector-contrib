@@ -3,18 +3,22 @@
 
 package ottltest // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/ottltest"
 
+//go:fix inline
 func Strp(s string) *string {
-	return &s
+	return new(s)
 }
 
+//go:fix inline
 func Floatp(f float64) *float64 {
-	return &f
+	return new(f)
 }
 
+//go:fix inline
 func Intp(i int64) *int64 {
-	return &i
+	return new(i)
 }
 
+//go:fix inline
 func Boolp(b bool) *bool {
-	return &b
+	return new(b)
 }

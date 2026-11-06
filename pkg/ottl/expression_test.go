@@ -120,7 +120,7 @@ func Test_newGetter(t *testing.T) {
 		{
 			name: "string literal",
 			val: value{
-				String: ottltest.Strp("str"),
+				String: new("str"),
 			},
 			want:        "str",
 			wantLiteral: true,
@@ -129,7 +129,7 @@ func Test_newGetter(t *testing.T) {
 			name: "float literal",
 			val: value{
 				Literal: &mathExprLiteral{
-					Float: ottltest.Floatp(1.2),
+					Float: new(1.2),
 				},
 			},
 			want:        1.2,
@@ -156,7 +156,7 @@ func Test_newGetter(t *testing.T) {
 		{
 			name: "nil literal",
 			val: value{
-				IsNil: (*isNil)(ottltest.Boolp(true)),
+				IsNil: (*isNil)(new(true)),
 			},
 			want:        nil,
 			wantLiteral: true,
@@ -164,7 +164,7 @@ func Test_newGetter(t *testing.T) {
 		{
 			name: "bool literal",
 			val: value{
-				Bool: (*boolean)(ottltest.Boolp(true)),
+				Bool: (*boolean)(new(true)),
 			},
 			want:        true,
 			wantLiteral: true,
@@ -194,10 +194,10 @@ func Test_newGetter(t *testing.T) {
 								Name: "attributes",
 								Keys: []key{
 									{
-										String: ottltest.Strp("foo"),
+										String: new("foo"),
 									},
 									{
-										String: ottltest.Strp("bar"),
+										String: new("bar"),
 									},
 								},
 							},
@@ -226,10 +226,10 @@ func Test_newGetter(t *testing.T) {
 						Function: "PMap",
 						Keys: []key{
 							{
-								String: ottltest.Strp("foo"),
+								String: new("foo"),
 							},
 							{
-								String: ottltest.Strp("bar"),
+								String: new("bar"),
 							},
 						},
 					},
@@ -245,10 +245,10 @@ func Test_newGetter(t *testing.T) {
 						Function: "Map",
 						Keys: []key{
 							{
-								String: ottltest.Strp("foo"),
+								String: new("foo"),
 							},
 							{
-								String: ottltest.Strp("bar"),
+								String: new("bar"),
 							},
 						},
 					},
@@ -392,7 +392,7 @@ func Test_newGetter(t *testing.T) {
 		{
 			name: "enum",
 			val: value{
-				Enum: (*enumSymbol)(ottltest.Strp("TEST_ENUM_ONE")),
+				Enum: (*enumSymbol)(new("TEST_ENUM_ONE")),
 			},
 			want:        int64(1),
 			wantLiteral: true,
@@ -413,10 +413,10 @@ func Test_newGetter(t *testing.T) {
 				List: &list{
 					Values: []value{
 						{
-							String: ottltest.Strp("test0"),
+							String: new("test0"),
 						},
 						{
-							String: ottltest.Strp("test1"),
+							String: new("test1"),
 						},
 					},
 				},
@@ -452,12 +452,12 @@ func Test_newGetter(t *testing.T) {
 					Values: []value{
 						{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.2),
+								Float: new(1.2),
 							},
 						},
 						{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(2.4),
+								Float: new(2.4),
 							},
 						},
 					},
@@ -472,10 +472,10 @@ func Test_newGetter(t *testing.T) {
 				List: &list{
 					Values: []value{
 						{
-							Bool: (*boolean)(ottltest.Boolp(true)),
+							Bool: (*boolean)(new(true)),
 						},
 						{
-							Bool: (*boolean)(ottltest.Boolp(false)),
+							Bool: (*boolean)(new(false)),
 						},
 					},
 				},
@@ -545,10 +545,10 @@ func Test_newGetter(t *testing.T) {
 				List: &list{
 					Values: []value{
 						{
-							IsNil: (*isNil)(ottltest.Boolp(true)),
+							IsNil: (*isNil)(new(true)),
 						},
 						{
-							IsNil: (*isNil)(ottltest.Boolp(true)),
+							IsNil: (*isNil)(new(true)),
 						},
 					},
 				},
@@ -562,7 +562,7 @@ func Test_newGetter(t *testing.T) {
 				List: &list{
 					Values: []value{
 						{
-							String: ottltest.Strp("test0"),
+							String: new("test0"),
 						},
 						{
 							Literal: &mathExprLiteral{
@@ -591,11 +591,11 @@ func Test_newGetter(t *testing.T) {
 				Map: &mapValue{
 					Values: []mapItem{
 						{
-							Key:   ottltest.Strp("stringAttr"),
-							Value: &value{String: ottltest.Strp("value")},
+							Key:   new("stringAttr"),
+							Value: &value{String: new("value")},
 						},
 						{
-							Key: ottltest.Strp("intAttr"),
+							Key: new("intAttr"),
 							Value: &value{
 								Literal: &mathExprLiteral{
 									Int: ottltest.Intp(3),
@@ -603,27 +603,27 @@ func Test_newGetter(t *testing.T) {
 							},
 						},
 						{
-							Key: ottltest.Strp("floatAttr"),
+							Key: new("floatAttr"),
 							Value: &value{
 								Literal: &mathExprLiteral{
-									Float: ottltest.Floatp(2.5),
+									Float: new(2.5),
 								},
 							},
 						},
 						{
-							Key:   ottltest.Strp("boolAttr"),
-							Value: &value{Bool: (*boolean)(ottltest.Boolp(true))},
+							Key:   new("boolAttr"),
+							Value: &value{Bool: (*boolean)(new(true))},
 						},
 						{
-							Key:   ottltest.Strp("byteAttr"),
+							Key:   new("byteAttr"),
 							Value: &value{Bytes: (*byteSlice)(&[]byte{1, 2, 3, 4, 5, 6, 7, 8})},
 						},
 						{
-							Key:   ottltest.Strp("enumAttr"),
-							Value: &value{Enum: (*enumSymbol)(ottltest.Strp("TEST_ENUM_ONE"))},
+							Key:   new("enumAttr"),
+							Value: &value{Enum: (*enumSymbol)(new("TEST_ENUM_ONE"))},
 						},
 						{
-							Key: ottltest.Strp("pathAttr"),
+							Key: new("pathAttr"),
 							Value: &value{
 								Literal: &mathExprLiteral{
 									Path: &path{
@@ -637,30 +637,30 @@ func Test_newGetter(t *testing.T) {
 							},
 						},
 						{
-							Key: ottltest.Strp("mapAttr"),
+							Key: new("mapAttr"),
 							Value: &value{
 								Map: &mapValue{
 									Values: []mapItem{
 										{
-											Key: ottltest.Strp("foo"),
+											Key: new("foo"),
 											Value: &value{
 												Map: &mapValue{
 													Values: []mapItem{
 														{
-															Key:   ottltest.Strp("test"),
-															Value: &value{String: ottltest.Strp("value")},
+															Key:   new("test"),
+															Value: &value{String: new("value")},
 														},
 													},
 												},
 											},
 										},
 										{
-											Key: ottltest.Strp("listAttr"),
+											Key: new("listAttr"),
 											Value: &value{
 												List: &list{
 													Values: []value{
 														{
-															String: ottltest.Strp("test0"),
+															String: new("test0"),
 														},
 														{
 															Literal: &mathExprLiteral{
@@ -671,8 +671,8 @@ func Test_newGetter(t *testing.T) {
 															Map: &mapValue{
 																Values: []mapItem{
 																	{
-																		Key:   ottltest.Strp("stringAttr"),
-																		Value: &value{String: ottltest.Strp("value")},
+																		Key:   new("stringAttr"),
+																		Value: &value{String: new("value")},
 																	},
 																},
 															},
@@ -774,7 +774,7 @@ func Test_exprGetter_Get_Invalid(t *testing.T) {
 						Function: "PMap",
 						Keys: []key{
 							{
-								String: ottltest.Strp("unknown key"),
+								String: new("unknown key"),
 							},
 						},
 					},
@@ -790,7 +790,7 @@ func Test_exprGetter_Get_Invalid(t *testing.T) {
 						Function: "Map",
 						Keys: []key{
 							{
-								String: ottltest.Strp("unknown key"),
+								String: new("unknown key"),
 							},
 						},
 					},
@@ -886,7 +886,7 @@ func Test_exprGetter_Get_Invalid(t *testing.T) {
 						Function: "Hello",
 						Keys: []key{
 							{
-								String: ottltest.Strp("test"),
+								String: new("test"),
 							},
 						},
 					},

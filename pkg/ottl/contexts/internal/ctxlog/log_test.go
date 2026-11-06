@@ -221,7 +221,7 @@ func TestPathGetSetter(t *testing.T) {
 				N: "body",
 				KeySlice: []ottl.Key[*testContext]{
 					&pathtest.Key[*testContext]{
-						S: ottltest.Strp("key"),
+						S: new("key"),
 					},
 				},
 			},
@@ -260,7 +260,7 @@ func TestPathGetSetter(t *testing.T) {
 				N: "attributes",
 				KeySlice: []ottl.Key[*testContext]{
 					&pathtest.Key[*testContext]{
-						S: ottltest.Strp("str"),
+						S: new("str"),
 					},
 				},
 			},

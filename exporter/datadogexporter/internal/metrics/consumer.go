@@ -9,7 +9,6 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/opentelemetry-mapping-go/otlp/attributes"
 	"github.com/DataDog/datadog-agent/pkg/opentelemetry-mapping-go/otlp/metrics"
 	"github.com/DataDog/datadog-agent/pkg/util/quantile"
-	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -114,8 +113,8 @@ func (c *Consumer) ConsumeTimeSeries(
 	met := NewMetric(dims.Name(), dt, timestamp, interval, value, dims.Tags())
 	met.SetResources([]datadogV2.MetricResource{
 		{
-			Name: datadog.PtrString(dims.Host()),
-			Type: datadog.PtrString("host"),
+			Name: new(dims.Host()),
+			Type: new("host"),
 		},
 	})
 	c.ms = append(c.ms, met)
