@@ -37,8 +37,7 @@ func NewDetector(params processor.Settings, dcfg internal.DetectorConfig) (inter
 	provider, err := ecsutil.NewDetectedTaskMetadataProvider(params.TelemetrySettings)
 	if err != nil {
 		// Allow metadata provider to be created in incompatible environments and just have a noop Detect()
-		var errNTMED endpoints.ErrNoTaskMetadataEndpointDetected
-		if errors.As(err, &errNTMED) {
+		if _, ok := errors.AsType[endpoints.ErrNoTaskMetadataEndpointDetected](err); ok {
 			return &Detector{provider: nil}, nil
 		}
 		return nil, fmt.Errorf("unable to create task metadata provider: %w", err)

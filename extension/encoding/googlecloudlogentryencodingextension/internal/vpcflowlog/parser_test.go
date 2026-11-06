@@ -11,8 +11,10 @@ import (
 )
 
 // int64Ptr returns a pointer to the given int64 value
+//
+//go:fix inline
 func int64Ptr(v int64) *int64 {
-	return &v
+	return new(v)
 }
 
 func TestHandleConnection(t *testing.T) {

@@ -65,7 +65,7 @@ func TestHuaweiCloudCESReceiverIntegration(t *testing.T) {
 	}, nil)
 
 	mc.On("ShowMetricData", mock.Anything).Return(&model.ShowMetricDataResponse{
-		MetricName: stringPtr("cpu_util"),
+		MetricName: new("cpu_util"),
 		Datapoints: &[]model.Datapoint{
 			{
 				Average:   float64Ptr(10),
@@ -78,7 +78,7 @@ func TestHuaweiCloudCESReceiverIntegration(t *testing.T) {
 		},
 	}, nil).Times(1)
 	mc.On("ShowMetricData", mock.Anything).Return(&model.ShowMetricDataResponse{
-		MetricName: stringPtr("mem_util"),
+		MetricName: new("mem_util"),
 		Datapoints: &[]model.Datapoint{
 			{
 				Average:   float64Ptr(30),
@@ -91,7 +91,7 @@ func TestHuaweiCloudCESReceiverIntegration(t *testing.T) {
 		},
 	}, nil).Times(1)
 	mc.On("ShowMetricData", mock.Anything).Return(&model.ShowMetricDataResponse{
-		MetricName: stringPtr("upstream_bandwidth_usage"),
+		MetricName: new("upstream_bandwidth_usage"),
 		Datapoints: &[]model.Datapoint{
 			{
 				Average:   float64Ptr(50),

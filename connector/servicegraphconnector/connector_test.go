@@ -859,6 +859,8 @@ func verifyExpDuration(t *testing.T, m pmetric.Metric, expectedDp pmetric.Expone
 }
 
 // ptr returns a pointer to the given value.
+//
+//go:fix inline
 func ptr[T any](value T) *T {
-	return &value
+	return new(value)
 }

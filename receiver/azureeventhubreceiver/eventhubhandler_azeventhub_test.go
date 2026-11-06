@@ -13,7 +13,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -346,7 +345,7 @@ func TestStartPos(t *testing.T) {
 			consumerGroup: "cg",
 			partitionID:   "0",
 
-			expectedOffset: to.Ptr("10"),
+			expectedOffset: new("10"),
 		},
 		{
 			enableStorage: false,
@@ -357,7 +356,7 @@ func TestStartPos(t *testing.T) {
 			consumerGroup: "cg",
 			partitionID:   "0",
 
-			expectedLatest: to.Ptr(true),
+			expectedLatest: new(true),
 		},
 		{
 			enableStorage: false,
@@ -368,7 +367,7 @@ func TestStartPos(t *testing.T) {
 			consumerGroup: "cg",
 			partitionID:   "0",
 
-			expectedLatest: to.Ptr(true),
+			expectedLatest: new(true),
 		},
 		{
 			enableStorage: true,
@@ -379,7 +378,7 @@ func TestStartPos(t *testing.T) {
 			consumerGroup: "cg",
 			partitionID:   "0",
 
-			expectedLatest: to.Ptr(true),
+			expectedLatest: new(true),
 		},
 		{
 			enableStorage: true,
@@ -390,7 +389,7 @@ func TestStartPos(t *testing.T) {
 			consumerGroup: "cg",
 			partitionID:   "0",
 
-			expectedOffset: to.Ptr("10"),
+			expectedOffset: new("10"),
 		},
 		{
 			enableStorage: true,
@@ -406,7 +405,7 @@ func TestStartPos(t *testing.T) {
 				},
 			},
 
-			expectedSeqNumber: to.Ptr(int64(100)),
+			expectedSeqNumber: new(int64(100)),
 		},
 		{
 			enableStorage: true,
@@ -422,7 +421,7 @@ func TestStartPos(t *testing.T) {
 				},
 			},
 
-			expectedSeqNumber: to.Ptr(int64(200)),
+			expectedSeqNumber: new(int64(200)),
 		},
 	}
 

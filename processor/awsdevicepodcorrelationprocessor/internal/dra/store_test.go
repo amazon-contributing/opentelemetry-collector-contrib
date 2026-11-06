@@ -23,9 +23,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/awsdevicepodcorrelationprocessor/internal/podinfo"
 )
 
-func ptrStr(s string) *string { return &s }
-func ptrBool(b bool) *bool    { return &b }
-func ptrInt64(i int64) *int64 { return &i }
+//go:fix inline
+func ptrInt64(i int64) *int64 { return new(i) }
 
 // fakeSource is a static DRABindingLister returning claim-level bindings.
 type fakeSource struct{ bindings []podinfo.DRABinding }
@@ -55,7 +54,7 @@ func sliceDev(driver, device string, attrs map[resourceapi.QualifiedName]resourc
 		Spec: resourceapi.ResourceSliceSpec{
 			Driver:   driver,
 			Pool:     resourceapi.ResourcePool{Name: pool},
-			NodeName: ptrStr("test-node"),
+			NodeName: new("test-node"),
 			Devices: []resourceapi.Device{
 				{Name: device, Attributes: attrs},
 			},
@@ -70,7 +69,7 @@ func allocatedClaim(name, driver, pool, device string, adminAccess bool) *resour
 	const namespace = "default"
 	res := resourceapi.DeviceRequestAllocationResult{Driver: driver, Pool: pool, Device: device, Request: "req"}
 	if adminAccess {
-		res.AdminAccess = ptrBool(true)
+		res.AdminAccess = new(true)
 	}
 	return &resourceapi.ResourceClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -187,7 +186,7 @@ func TestStore_AttributeKeyingString(t *testing.T) {
 	claims := []*resourceapi.ResourceClaim{allocatedClaim("efa-claim", "dra.net", "test-node", "pci-0000-00-1f-0", false)}
 	slices := []*resourceapi.ResourceSlice{
 		sliceDev("dra.net", "pci-0000-00-1f-0", map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
-			"dra.net/rdmaDevice": {StringValue: ptrStr("rdmap0s31")},
+			"dra.net/rdmaDevice": {StringValue: new("rdmap0s31")},
 		}),
 	}
 	configs := []DeviceTypeConfig{{Name: "efa-dra", DriverNames: []string{"dra.net"}, SourceAttribute: "dra.net/rdmaDevice"}}
@@ -234,7 +233,7 @@ func TestStore_AttributeMissingAttrSkips(t *testing.T) {
 	claims := []*resourceapi.ResourceClaim{allocatedClaim("efa-claim", "dra.net", "test-node", "pci-0000-00-1f-0", false)}
 	slices := []*resourceapi.ResourceSlice{
 		sliceDev("dra.net", "pci-0000-00-1f-0", map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
-			"dra.net/pciAddress": {StringValue: ptrStr("0000:00:1f.0")},
+			"dra.net/pciAddress": {StringValue: new("0000:00:1f.0")},
 		}),
 	}
 	configs := []DeviceTypeConfig{{Name: "efa-dra", DriverNames: []string{"dra.net"}, SourceAttribute: "dra.net/rdmaDevice"}}
@@ -358,7 +357,7 @@ func TestStore_MultipleDeviceTypes(t *testing.T) {
 	}
 	slices := []*resourceapi.ResourceSlice{
 		sliceDev("dra.net", "pci-0000-00-1f-0", map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
-			"dra.net/rdmaDevice": {StringValue: ptrStr("rdmap0s31")},
+			"dra.net/rdmaDevice": {StringValue: new("rdmap0s31")},
 		}),
 		sliceDev("neuron.aws.com", "neuron-device-0", map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
 			"deviceId": {IntValue: ptrInt64(0)},
@@ -383,7 +382,7 @@ func TestStore_MultipleDeviceTypes(t *testing.T) {
 // --- attributeToString ---
 
 func TestAttributeToString(t *testing.T) {
-	v, ok := attributeToString(resourceapi.DeviceAttribute{StringValue: ptrStr("rdmap0s31")})
+	v, ok := attributeToString(resourceapi.DeviceAttribute{StringValue: new("rdmap0s31")})
 	assert.True(t, ok)
 	assert.Equal(t, "rdmap0s31", v)
 
@@ -391,11 +390,11 @@ func TestAttributeToString(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "7", v)
 
-	v, ok = attributeToString(resourceapi.DeviceAttribute{VersionValue: ptrStr("1.2.0")})
+	v, ok = attributeToString(resourceapi.DeviceAttribute{VersionValue: new("1.2.0")})
 	assert.True(t, ok)
 	assert.Equal(t, "1.2.0", v)
 
-	v, ok = attributeToString(resourceapi.DeviceAttribute{BoolValue: ptrBool(true)})
+	v, ok = attributeToString(resourceapi.DeviceAttribute{BoolValue: new(true)})
 	assert.True(t, ok)
 	assert.Equal(t, "true", v)
 
@@ -479,7 +478,7 @@ func TestStore_StartStopNoGoroutineLeak(t *testing.T) {
 
 	client := fakeclient.NewSimpleClientset(
 		sliceDev("dra.net", "pci-0000-00-1f-0", map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
-			"dra.net/rdmaDevice": {StringValue: ptrStr("rdmap0s31")},
+			"dra.net/rdmaDevice": {StringValue: new("rdmap0s31")},
 		}),
 	)
 	client.PrependReactor("create", "selfsubjectaccessreviews", func(clienttesting.Action) (bool, runtime.Object, error) {
@@ -515,7 +514,7 @@ func TestStore_AttributeQualifiedNameNormalization(t *testing.T) {
 			claims := []*resourceapi.ResourceClaim{allocatedClaim("nrn-claim", driver, "test-node", "neuron-device-0", false)}
 			slices := []*resourceapi.ResourceSlice{
 				sliceDev(driver, "neuron-device-0", map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
-					resourceapi.QualifiedName(tc.sliceKey): {StringValue: ptrStr("nrn0")},
+					resourceapi.QualifiedName(tc.sliceKey): {StringValue: new("nrn0")},
 				}),
 			}
 			configs := []DeviceTypeConfig{{Name: "neuron-dra", DriverNames: []string{driver}, SourceAttribute: tc.configKey}}

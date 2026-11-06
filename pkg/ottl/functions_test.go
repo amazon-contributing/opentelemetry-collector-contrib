@@ -117,7 +117,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: (ottltest.Strp("SHA256")),
+							String: (new("SHA256")),
 						},
 					},
 				},
@@ -130,7 +130,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: ottltest.Strp("not path"),
+							String: new("not path"),
 						},
 					},
 				},
@@ -143,7 +143,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: ottltest.Strp("not path"),
+							String: new("not path"),
 						},
 					},
 				},
@@ -156,7 +156,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: ottltest.Strp("not path"),
+							String: new("not path"),
 						},
 					},
 				},
@@ -199,7 +199,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 				},
@@ -225,12 +225,12 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 				},
@@ -258,17 +258,17 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 				},
@@ -284,7 +284,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 							List: &list{
 								Values: []value{
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 									{
 										Literal: &mathExprLiteral{
@@ -305,7 +305,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 				},
@@ -332,20 +332,20 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Name: "optional_arg",
 						Value: value{
-							String: ottltest.Strp("test_optional"),
+							String: new("test_optional"),
 						},
 					},
 					{
 						Name: "optional_float_arg",
 						Value: value{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.1),
+								Float: new(1.1),
 							},
 						},
 					},
@@ -372,20 +372,20 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Name: "no_such_name",
 						Value: value{
-							String: ottltest.Strp("test_optional"),
+							String: new("test_optional"),
 						},
 					},
 					{
 						Name: "optional_float_arg",
 						Value: value{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.1),
+								Float: new(1.1),
 							},
 						},
 					},
@@ -405,7 +405,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							Enum: (*enumSymbol)(ottltest.Strp("SYMBOL_NOT_FOUND")),
+							Enum: (*enumSymbol)(new("SYMBOL_NOT_FOUND")),
 						},
 					},
 				},
@@ -417,7 +417,7 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 				Function: "testing_functiongetter",
 				Arguments: []argument{
 					{
-						FunctionName: ottltest.Strp("SHA256"),
+						FunctionName: new("SHA256"),
 					},
 				},
 			},
@@ -514,10 +514,10 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 											Name: "name",
 											Keys: []key{
 												{
-													String: ottltest.Strp("foo"),
+													String: new("foo"),
 												},
 												{
-													String: ottltest.Strp("bar"),
+													String: new("bar"),
 												},
 											},
 										},
@@ -543,10 +543,10 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 											Name: "name",
 											Keys: []key{
 												{
-													String: ottltest.Strp("foo"),
+													String: new("foo"),
 												},
 												{
-													String: ottltest.Strp("bar"),
+													String: new("bar"),
 												},
 											},
 										},
@@ -572,10 +572,10 @@ func Test_NewFunctionCall_invalid(t *testing.T) {
 											Name: "name",
 											Keys: []key{
 												{
-													String: ottltest.Strp("foo"),
+													String: new("foo"),
 												},
 												{
-													String: ottltest.Strp("bar"),
+													String: new("bar"),
 												},
 											},
 										},
@@ -639,13 +639,13 @@ func Test_NewFunctionCall(t *testing.T) {
 							List: &list{
 								Values: []value{
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 								},
 							},
@@ -666,17 +666,17 @@ func Test_NewFunctionCall(t *testing.T) {
 								Values: []value{
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.1),
+											Float: new(1.1),
 										},
 									},
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.2),
+											Float: new(1.2),
 										},
 									},
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.3),
+											Float: new(1.3),
 										},
 									},
 								},
@@ -740,7 +740,7 @@ func Test_NewFunctionCall(t *testing.T) {
 										},
 									},
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 									{
 										Literal: &mathExprLiteral{
@@ -749,23 +749,23 @@ func Test_NewFunctionCall(t *testing.T) {
 									},
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.1),
+											Float: new(1.1),
 										},
 									},
 									{
-										Bool: (*boolean)(ottltest.Boolp(true)),
+										Bool: (*boolean)(new(true)),
 									},
 									{
-										Enum: (*enumSymbol)(ottltest.Strp("TEST_ENUM")),
+										Enum: (*enumSymbol)(new("TEST_ENUM")),
 									},
 									{
 										List: &list{
 											Values: []value{
 												{
-													String: ottltest.Strp("test"),
+													String: new("test"),
 												},
 												{
-													String: ottltest.Strp("test"),
+													String: new("test"),
 												},
 											},
 										},
@@ -774,22 +774,22 @@ func Test_NewFunctionCall(t *testing.T) {
 										List: &list{
 											Values: []value{
 												{
-													String: ottltest.Strp("test"),
+													String: new("test"),
 												},
 												{
 													List: &list{
 														Values: []value{
 															{
-																String: ottltest.Strp("test"),
+																String: new("test"),
 															},
 															{
 																List: &list{
 																	Values: []value{
 																		{
-																			String: ottltest.Strp("test"),
+																			String: new("test"),
 																		},
 																		{
-																			String: ottltest.Strp("test"),
+																			String: new("test"),
 																		},
 																	},
 																},
@@ -840,10 +840,10 @@ func Test_NewFunctionCall(t *testing.T) {
 							List: &list{
 								Values: []value{
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 									{
-										String: ottltest.Strp("also test"),
+										String: new("also test"),
 									},
 								},
 							},
@@ -914,7 +914,7 @@ func Test_NewFunctionCall(t *testing.T) {
 								Values: []value{
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.1),
+											Float: new(1.1),
 										},
 									},
 									{
@@ -1098,7 +1098,7 @@ func Test_NewFunctionCall(t *testing.T) {
 							List: &list{
 								Values: []value{
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 									{
 										Literal: &mathExprLiteral{
@@ -1123,11 +1123,11 @@ func Test_NewFunctionCall(t *testing.T) {
 							List: &list{
 								Values: []value{
 									{
-										String: ottltest.Strp("1.1"),
+										String: new("1.1"),
 									},
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.1),
+											Float: new(1.1),
 										},
 									},
 								},
@@ -1148,11 +1148,11 @@ func Test_NewFunctionCall(t *testing.T) {
 							List: &list{
 								Values: []value{
 									{
-										String: ottltest.Strp("1"),
+										String: new("1"),
 									},
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.1),
+											Float: new(1.1),
 										},
 									},
 								},
@@ -1236,7 +1236,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							IsNil: (*isNil)(ottltest.Boolp(true)),
+							IsNil: (*isNil)(new(true)),
 						},
 					},
 				},
@@ -1253,7 +1253,7 @@ func Test_NewFunctionCall(t *testing.T) {
 							List: &list{
 								Values: []value{
 									{
-										String: ottltest.Strp("test"),
+										String: new("test"),
 									},
 									{
 										Literal: &mathExprLiteral{
@@ -1262,11 +1262,11 @@ func Test_NewFunctionCall(t *testing.T) {
 									},
 									{
 										Literal: &mathExprLiteral{
-											Float: ottltest.Floatp(1.1),
+											Float: new(1.1),
 										},
 									},
 									{
-										Bool: (*boolean)(ottltest.Boolp(true)),
+										Bool: (*boolean)(new(true)),
 									},
 									{
 										Bytes: (*byteSlice)(&[]byte{1, 2, 3, 4, 5, 6, 7, 8}),
@@ -1319,7 +1319,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 				},
@@ -1370,7 +1370,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Function: "testing_functiongetter",
 				Arguments: []argument{
 					{
-						FunctionName: ottltest.Strp("SHA256"),
+						FunctionName: new("SHA256"),
 					},
 				},
 			},
@@ -1382,7 +1382,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Function: "testing_functiongetter",
 				Arguments: []argument{
 					{
-						FunctionName: ottltest.Strp("Sha256"),
+						FunctionName: new("Sha256"),
 					},
 				},
 			},
@@ -1395,7 +1395,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							Bool: (*boolean)(ottltest.Boolp(false)),
+							Bool: (*boolean)(new(false)),
 						},
 					},
 				},
@@ -1410,7 +1410,7 @@ func Test_NewFunctionCall(t *testing.T) {
 					{
 						Value: value{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.1),
+								Float: new(1.1),
 							},
 						},
 					},
@@ -1425,7 +1425,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							Bool: (*boolean)(ottltest.Boolp(false)),
+							Bool: (*boolean)(new(false)),
 						},
 					},
 				},
@@ -1534,7 +1534,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 				},
@@ -1549,7 +1549,7 @@ func Test_NewFunctionCall(t *testing.T) {
 					{
 						Value: value{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.1),
+								Float: new(1.1),
 							},
 						},
 					},
@@ -1580,7 +1580,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							Bool: (*boolean)(ottltest.Boolp(true)),
+							Bool: (*boolean)(new(true)),
 						},
 					},
 				},
@@ -1621,13 +1621,13 @@ func Test_NewFunctionCall(t *testing.T) {
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Value: value{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.1),
+								Float: new(1.1),
 							},
 						},
 					},
@@ -1662,18 +1662,18 @@ func Test_NewFunctionCall(t *testing.T) {
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test_optional"),
+							String: new("test_optional"),
 						},
 					},
 					{
 						Value: value{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.1),
+								Float: new(1.1),
 							},
 						},
 					},
@@ -1701,20 +1701,20 @@ func Test_NewFunctionCall(t *testing.T) {
 					},
 					{
 						Value: value{
-							String: ottltest.Strp("test"),
+							String: new("test"),
 						},
 					},
 					{
 						Name: "optional_arg",
 						Value: value{
-							String: ottltest.Strp("test_optional"),
+							String: new("test_optional"),
 						},
 					},
 					{
 						Name: "optional_float_arg",
 						Value: value{
 							Literal: &mathExprLiteral{
-								Float: ottltest.Floatp(1.1),
+								Float: new(1.1),
 							},
 						},
 					},
@@ -1729,7 +1729,7 @@ func Test_NewFunctionCall(t *testing.T) {
 				Arguments: []argument{
 					{
 						Value: value{
-							Enum: (*enumSymbol)(ottltest.Strp("TEST_ENUM")),
+							Enum: (*enumSymbol)(new("TEST_ENUM")),
 						},
 					},
 				},
@@ -1750,10 +1750,10 @@ func Test_NewFunctionCall(t *testing.T) {
 											Name: "attributes",
 											Keys: []key{
 												{
-													String: ottltest.Strp("foo"),
+													String: new("foo"),
 												},
 												{
-													String: ottltest.Strp("bar"),
+													String: new("bar"),
 												},
 											},
 										},
@@ -1783,7 +1783,7 @@ func Test_NewFunctionCall(t *testing.T) {
 													Int: ottltest.Intp(0),
 												},
 												{
-													String: ottltest.Strp("bar"),
+													String: new("bar"),
 												},
 											},
 										},
@@ -1810,10 +1810,10 @@ func Test_NewFunctionCall(t *testing.T) {
 											Name: "attributes",
 											Keys: []key{
 												{
-													String: ottltest.Strp("foo"),
+													String: new("foo"),
 												},
 												{
-													String: ottltest.Strp("bar"),
+													String: new("bar"),
 												},
 											},
 										},
@@ -1954,18 +1954,18 @@ func Test_ArgumentsNotMutated(t *testing.T) {
 			},
 			{
 				Value: value{
-					String: ottltest.Strp("test"),
+					String: new("test"),
 				},
 			},
 			{
 				Value: value{
-					String: ottltest.Strp("test_optional"),
+					String: new("test_optional"),
 				},
 			},
 			{
 				Value: value{
 					Literal: &mathExprLiteral{
-						Float: ottltest.Floatp(1.1),
+						Float: new(1.1),
 					},
 				},
 			},
@@ -1990,7 +1990,7 @@ func Test_ArgumentsNotMutated(t *testing.T) {
 			},
 			{
 				Value: value{
-					String: ottltest.Strp("test"),
+					String: new("test"),
 				},
 			},
 		},
@@ -2839,7 +2839,7 @@ func Test_newPath(t *testing.T) {
 			Name: "string",
 			Keys: []key{
 				{
-					String: ottltest.Strp("key"),
+					String: new("key"),
 				},
 			},
 		},
@@ -2917,7 +2917,7 @@ func Test_newPath_WithPathContextNames(t *testing.T) {
 						Name: "string",
 						Keys: []key{
 							{
-								String: ottltest.Strp("key"),
+								String: new("key"),
 							},
 						},
 					},
@@ -2970,7 +2970,7 @@ func Test_newPath_WithPathContextNames(t *testing.T) {
 
 func Test_baseKey_String(t *testing.T) {
 	bp := baseKey[any]{
-		s: ottltest.Strp("test"),
+		s: new("test"),
 	}
 	s, err := bp.String(t.Context(), nil)
 	require.NoError(t, err)
@@ -2998,10 +2998,10 @@ func Test_newKey(t *testing.T) {
 	)
 	keys := []key{
 		{
-			String: ottltest.Strp("foo"),
+			String: new("foo"),
 		},
 		{
-			String: ottltest.Strp("bar"),
+			String: new("bar"),
 		},
 	}
 	ks, _ := ps.newKeys(keys)

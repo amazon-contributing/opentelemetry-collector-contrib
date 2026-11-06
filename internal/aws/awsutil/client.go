@@ -17,7 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"go.uber.org/zap"
-	"golang.org/x/net/http2"
 )
 
 var (
@@ -84,9 +83,12 @@ func newHTTPClient(logger *zap.Logger, settings httpClientSettings) (aws.HTTPCli
 				InsecureSkipVerify: settings.NoVerifySSL,
 			}
 			t.Proxy = proxyFunc
-			// Best-effort HTTP/2; safe to ignore the error since the
-			// transport falls back to HTTP/1.1.
-			_ = http2.ConfigureTransport(t)
+			// Enable HTTP/2 alongside HTTP/1.1, as http2.ConfigureTransport did.
+			if t.Protocols == nil {
+				t.Protocols = new(http.Protocols)
+				t.Protocols.SetHTTP1(true)
+			}
+			t.Protocols.SetHTTP2(true)
 		})
 
 	return client, nil
