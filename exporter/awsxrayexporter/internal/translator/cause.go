@@ -17,6 +17,7 @@ import (
 	conventionsv125 "go.opentelemetry.io/otel/semconv/v1.25.0"
 	conventions "go.opentelemetry.io/otel/semconv/v1.40.0"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/metadata"
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 )
 
@@ -154,9 +155,14 @@ func makeCause(span ptrace.Span, attributes map[string]pcommon.Value, resource p
 		}
 	}
 
-	val, ok := span.Attributes().Get(string(conventionsv125.HTTPStatusCodeKey))
-	if !ok {
-		val, ok = span.Attributes().Get(string(conventions.HTTPResponseStatusCodeKey))
+	val, ok := span.Attributes().Get(string(conventions.HTTPResponseStatusCodeKey))
+	// AWS SDK instrumentations (e.g. Python botocore, .NET AWSSDK) still emit only http.status_code,
+	// so it stays supported for AWS SDK spans even when DontEmitV0 is enabled.
+	if !metadata.ExporterAwsxrayDontEmitV0HTTPNetworkConventionsFeatureGate.IsEnabled() || isAwsSdkSpan {
+		if legacy, exists := span.Attributes().Get(string(conventionsv125.HTTPStatusCodeKey)); exists &&
+			(!metadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate.IsEnabled() || !ok) {
+			val, ok = legacy, true
+		}
 	}
 
 	switch {

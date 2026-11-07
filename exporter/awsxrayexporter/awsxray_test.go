@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exportertest"
+	"go.opentelemetry.io/collector/featuregate"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
@@ -72,6 +73,56 @@ func TestTraceExport(t *testing.T) {
 	assert.Error(t, err)
 	err = traceExporter.Shutdown(ctx)
 	assert.NoError(t, err)
+}
+
+func TestNewTracesExporterWithClientRPCGateValidation(t *testing.T) {
+	for testCaseName, tt := range map[string]struct {
+		EmitV1RPCConventions     bool
+		DontEmitV0RPCConventions bool
+		shouldReturnError        bool
+	}{
+		"both gates disabled allows startup": {
+			EmitV1RPCConventions:     false,
+			DontEmitV0RPCConventions: false,
+			shouldReturnError:        false,
+		},
+		"v1 RPC with v0 fallback allows startup": {
+			EmitV1RPCConventions:     true,
+			DontEmitV0RPCConventions: false,
+			shouldReturnError:        false,
+		},
+		"v1 RPC with v0 disabled allows startup": {
+			EmitV1RPCConventions:     true,
+			DontEmitV0RPCConventions: true,
+			shouldReturnError:        false,
+		},
+		"v0 disabled without v1 RPC rejects startup": {
+			EmitV1RPCConventions:     false,
+			DontEmitV0RPCConventions: true,
+			shouldReturnError:        true,
+		},
+	} {
+		t.Run(testCaseName, func(t *testing.T) {
+			setFeatureGate(t, metadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate, tt.EmitV1RPCConventions)
+			setFeatureGate(t, metadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate, tt.DontEmitV0RPCConventions)
+			t.Cleanup(func() {
+				unsetFeatureGate(t, metadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate)
+				unsetFeatureGate(t, metadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate)
+			})
+
+			ctx := t.Context()
+			exp, err := newTracesExporterWithClient(ctx, generateConfig(t), exportertest.NewNopSettings(metadata.Type),
+				telemetrytest.NewNopRegistry(), aws.Config{}, &mockXRayClient{})
+			require.NoError(t, err)
+			err = exp.Start(ctx, componenttest.NewNopHost())
+			if tt.shouldReturnError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.NoError(t, exp.Shutdown(ctx))
+		})
+	}
 }
 
 func TestXraySpanTraceResourceExtraction(t *testing.T) {
@@ -255,6 +306,16 @@ type mockHost struct {
 
 func (*mockHost) GetExtensions() map[component.ID]component.Component {
 	return nil
+}
+
+func setFeatureGate(t *testing.T, gate *featuregate.Gate, enabled bool) {
+	t.Helper()
+	require.NoError(t, featuregate.GlobalRegistry().Set(gate.ID(), enabled))
+}
+
+func unsetFeatureGate(t *testing.T, gate *featuregate.Gate) {
+	t.Helper()
+	setFeatureGate(t, gate, false)
 }
 
 func initializeTracesExporter(tb testing.TB, exporterConfig *Config, registry telemetry.Registry) exporter.Traces {
