@@ -317,7 +317,7 @@ func hostFromURLAttributes(attributes pcommon.Map) string {
 	for _, key := range keys {
 		if value, ok := attributes.Get(key); ok {
 			if parsed, err := url.Parse(value.Str()); err == nil && parsed.Hostname() != "" {
-				return parsed.Hostname()
+				return fixSegmentName(parsed.Hostname())
 			}
 		}
 	}
@@ -451,6 +451,9 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 				if host := databaseHost(attributes); host != "" {
 					name += "@" + host
 				}
+				// db.namespace and server.address values can contain characters X-Ray rejects;
+				// a segment with an invalid name is silently dropped by PutTraceSegments.
+				name = fixSegmentName(name)
 			}
 		}
 		// TODO: Remove old DB key lookups when exporter.awsxray.DontEmitV0DBConventions is removed.
@@ -485,7 +488,7 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 			if system, ok := attributes.Get(string(conventions.RPCSystemNameKey)); ok && system.Str() != "" {
 				if method, ok := attributes.Get(string(conventions.RPCMethodKey)); ok {
 					if service, _, ok := strings.Cut(method.Str(), "/"); ok && service != "" {
-						name = service
+						name = fixSegmentName(service)
 					}
 				}
 			}
@@ -502,8 +505,8 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 
 	if name == "" {
 		if xraymetadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate.IsEnabled() {
-			if addr, ok := attributes.Get(string(conventions.ServerAddressKey)); ok {
-				name = addr.Str()
+			if addr, ok := attributes.Get(string(conventions.ServerAddressKey)); ok && addr.Str() != "" {
+				name = fixSegmentName(addr.Str())
 			}
 		}
 		// TODO: Remove "http.host" lookup when exporter.awsxray.DontEmitV0HTTPNetworkConventions is removed.
@@ -531,11 +534,8 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 	}
 
 	if name == "" {
-		name = span.Name()
+		name = fixSegmentName(span.Name())
 	}
-	// Attribute values (e.g. db.namespace, server.address) can contain characters X-Ray rejects;
-	// a segment with an invalid name is silently dropped by PutTraceSegments.
-	name = fixSegmentName(name)
 	if namespace == "" && (span.Kind() == ptrace.SpanKindClient || span.Kind() == ptrace.SpanKindProducer) {
 		namespace = "remote"
 	}

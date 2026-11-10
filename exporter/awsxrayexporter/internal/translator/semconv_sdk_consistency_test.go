@@ -205,7 +205,9 @@ func TestSegmentNameIsSanitized(t *testing.T) {
 	}{
 		"postgres namespace with schema":                            {emitV1Gates(), map[string]any{"db.system.name": "postgresql", "db.namespace": "orders|public", "server.address": "db"}, "orders@db"},
 		"sql server instance and database":                          {emitV1Gates(), map[string]any{"db.system.name": "microsoft.sql_server", "db.namespace": "MSSQLSERVER|orders", "server.address": "db"}, "orders@db"},
-		"invalid characters from attributes are removed by default": {nil, map[string]any{"peer.service": "bad|peer"}, "badpeer"},
+		"existing name sources are unchanged by default":            {nil, map[string]any{"peer.service": "bad|peer"}, "bad|peer"},
+		"invalid characters from server address are removed":        {emitV1Gates(), map[string]any{"server.address": "[2001:db8::1]"}, "2001:db8::1"},
+		"invalid characters from the url.full hostname are removed": {emitV1Gates(), map[string]any{"url.full": "http://my(host)!/p"}, "myhost"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			setGates(t, tt.gates)
