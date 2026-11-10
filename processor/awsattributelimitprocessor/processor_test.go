@@ -722,7 +722,7 @@ func TestLogging_EvictionAfterFiveMinutes(t *testing.T) {
 	p.mu.Unlock()
 
 	// Trigger a log call to force eviction.
-	p.logDropWarning("new_metric", 1, 1, 1)
+	p.logDropWarning("metric", "new_metric", 1, 1, 1)
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
