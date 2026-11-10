@@ -11,12 +11,9 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 )
 
+//go:fix inline
 func int64Ptr(v int64) *int64 {
-	return &v
-}
-
-func timePtr(t time.Time) *time.Time {
-	return &t
+	return new(v)
 }
 
 func TestHandleConnection(t *testing.T) {
@@ -65,7 +62,7 @@ func TestHandleTimestamps(t *testing.T) {
 	end := time.Date(2025, 11, 17, 22, 21, 57, 500505000, time.UTC)
 
 	attr := pcommon.NewMap()
-	handleTimestamps(timePtr(start), timePtr(end), attr)
+	handleTimestamps(new(start), new(end), attr)
 
 	require.Equal(t, map[string]any{
 		gcpProxyNLBConnectionStartTime: start.Format(time.RFC3339Nano),

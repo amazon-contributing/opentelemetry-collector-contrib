@@ -149,8 +149,7 @@ func extractResourceSpans(config component.Config, logger *zap.Logger, td ptrace
 // (network/timeout/canceled) stay retryable; the SDK wraps those in a
 // ResponseError carrying a synthesized response with status code 0.
 func wrapErrorIfBadRequest(err error) error {
-	var re *awshttp.ResponseError
-	if errors.As(err, &re) {
+	if re, ok := errors.AsType[*awshttp.ResponseError](err); ok {
 		if code := re.HTTPStatusCode(); code != 0 && code < http.StatusInternalServerError {
 			return consumererror.NewPermanent(err)
 		}

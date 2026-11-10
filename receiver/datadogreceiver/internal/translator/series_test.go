@@ -16,9 +16,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
-func strPtr(s string) *string       { return &s }
-func float64Ptr(f float64) *float64 { return &f }
-
 type testPoint struct {
 	Ts    int64
 	Value float64
@@ -27,7 +24,7 @@ type testPoint struct {
 func testPointsToDatadogPoints(points []testPoint) [][]*float64 {
 	datadogPoints := make([][]*float64, len(points))
 	for i, point := range points {
-		datadogPoints[i] = []*float64{float64Ptr(float64(point.Ts)), float64Ptr(point.Value)}
+		datadogPoints[i] = []*float64{new(float64(point.Ts)), new(point.Value)}
 	}
 	return datadogPoints
 }
@@ -103,8 +100,8 @@ func TestTranslateSeriesV1(t *testing.T) {
 				Series: []datadogV1.Series{
 					{
 						Metric: "TestCount",
-						Host:   strPtr("Host1"),
-						Type:   strPtr(TypeCount),
+						Host:   new("Host1"),
+						Type:   new(TypeCount),
 						Tags:   []string{"env:tag1", "version:tag2"},
 						Points: testPointsToDatadogPoints([]testPoint{
 							{
@@ -142,8 +139,8 @@ func TestTranslateSeriesV1(t *testing.T) {
 				Series: []datadogV1.Series{
 					{
 						Metric: "TestGauge",
-						Host:   strPtr("Host1"),
-						Type:   strPtr(TypeGauge),
+						Host:   new("Host1"),
+						Type:   new(TypeGauge),
 						Tags:   []string{"env:tag1", "version:tag2"},
 						Points: testPointsToDatadogPoints([]testPoint{
 							{
@@ -183,8 +180,8 @@ func TestTranslateSeriesV1(t *testing.T) {
 				Series: []datadogV1.Series{
 					{
 						Metric: "TestRate",
-						Host:   strPtr("Host1"),
-						Type:   strPtr(TypeRate),
+						Host:   new("Host1"),
+						Type:   new(TypeRate),
 						Tags:   []string{"env:tag1", "version:tag2"},
 						Points: testPointsToDatadogPoints([]testPoint{
 							{
