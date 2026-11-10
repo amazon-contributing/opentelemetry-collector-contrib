@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/metadata"
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 )
 
@@ -212,6 +213,48 @@ func TestSpanWithNoStatus(t *testing.T) {
 	resource := pcommon.NewResource()
 	segment, _ := MakeSegment(span, resource, nil, false, nil, false)
 	assert.NotNil(t, segment)
+}
+
+func TestClientSpanDBSegmentNameWithEmitV1DB(t *testing.T) {
+	enableGate(t, metadata.ExporterAwsxrayEmitV1DBConventionsFeatureGate)
+
+	tests := []struct {
+		name       string
+		attributes map[string]any
+		want       string
+	}{
+		{
+			name:       "namespace and server address",
+			attributes: map[string]any{"db.system.name": "mysql", "db.namespace": "customers", "server.address": "db.dev.example.com"},
+			want:       "customers@db.dev.example.com",
+		},
+		{
+			name:       "namespace only",
+			attributes: map[string]any{"db.system.name": "mysql", "db.namespace": "customers"},
+			want:       "customers",
+		},
+		{
+			name: "new attributes win over legacy",
+			attributes: map[string]any{
+				"db.system.name": "mysql", "db.namespace": "customers", "server.address": "db.dev.example.com",
+				"db.system": "mysql", "db.name": "legacy", "db.connection_string": "jdbc:mysql://legacy.example.com:3306",
+			},
+			want: "customers@db.dev.example.com",
+		},
+		{
+			name:       "legacy fallback",
+			attributes: map[string]any{"db.system": "mysql", "db.name": "legacy", "db.connection_string": "jdbc:mysql://legacy.example.com:3306"},
+			want:       "legacy@legacy.example.com",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			span := constructClientSpan(newSegmentID(), "SELECT", ptrace.StatusCodeUnset, "OK", tt.attributes)
+			segment, err := MakeSegment(span, constructDefaultResource(), nil, false, nil, false)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, *segment.Name)
+		})
+	}
 }
 
 func TestClientSpanWithDbComponent(t *testing.T) {
@@ -2091,4 +2134,224 @@ func newTraceID() pcommon.TraceID {
 		panic(err)
 	}
 	return r
+}
+
+func TestMakeSegmentDBNameFallsBackToV0ConnectionHost(t *testing.T) {
+	enableGate(t, metadata.ExporterAwsxrayEmitV1DBConventionsFeatureGate)
+	for testCaseName, tt := range map[string]struct {
+		spanAttributes          map[string]any
+		DontEmitV0DBConventions bool
+		expectedSegmentName     string
+	}{
+		"connection_host_fallback":                        {spanAttributes: map[string]any{"db.namespace": "orders", "db.connection_string": "jdbc:postgresql://db.example.com:5432"}, expectedSegmentName: "orders@db.example.com"},
+		"empty_namespace_uses_v0_name_and_v1_host":        {spanAttributes: map[string]any{"db.namespace": "", "db.name": "orders", "server.address": "db.example.com", "db.connection_string": "jdbc:postgresql://legacy.example.com:5432"}, expectedSegmentName: "orders@db.example.com"},
+		"empty_namespace_does_not_produce_host_only_name": {spanAttributes: map[string]any{"db.namespace": "", "server.address": "db.example.com"}, expectedSegmentName: "FallbackService"},
+		"v1_only_ignores_v0_connection":                   {DontEmitV0DBConventions: true, spanAttributes: map[string]any{"db.namespace": "orders", "db.connection_string": "jdbc:postgresql://legacy.example.com:5432"}, expectedSegmentName: "orders"},
+	} {
+		t.Run(testCaseName, func(t *testing.T) {
+			if tt.DontEmitV0DBConventions {
+				enableGate(t, metadata.ExporterAwsxrayDontEmitV0DBConventionsFeatureGate)
+			}
+			span := constructHTTPClientSpan(tt.spanAttributes)
+			span.SetName("FallbackService")
+			segment, err := MakeSegment(span, pcommon.NewResource(), nil, false, nil, false)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedSegmentName, *segment.Name)
+		})
+	}
+}
+
+func TestMakeSegmentMixedRPCConventionsRespectFeatureGates(t *testing.T) {
+	for testCaseName, mode := range map[string]struct {
+		EmitV1RPCConventions     bool
+		DontEmitV0RPCConventions bool
+	}{
+		"default":   {EmitV1RPCConventions: false, DontEmitV0RPCConventions: false},
+		"v0_and_v1": {EmitV1RPCConventions: true, DontEmitV0RPCConventions: false},
+		"v1_only":   {EmitV1RPCConventions: true, DontEmitV0RPCConventions: true},
+	} {
+		t.Run(testCaseName, func(t *testing.T) {
+			if mode.EmitV1RPCConventions {
+				enableGate(t, metadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate)
+			}
+			if mode.DontEmitV0RPCConventions {
+				enableGate(t, metadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate)
+			}
+			for testCaseName, tt := range map[string]struct {
+				reverse bool
+			}{"forward": {}, "reverse": {reverse: true}} {
+				t.Run(testCaseName, func(t *testing.T) {
+					span := constructHTTPClientSpan(nil)
+					putOrderedAttributes(span.Attributes(), map[string]any{
+						"rpc.system": "aws-api", "rpc.service": "LegacyService", "rpc.system.name": "grpc",
+						"rpc.method": "com.example.Inventory/GetItem", "rpc.response.status_code": "OK",
+						"server.address": "rpc.example.com", "server.port": int64(50051),
+					}, tt.reverse)
+					segment, err := MakeSegment(span, pcommon.NewResource(), nil, false, nil, false)
+					require.NoError(t, err)
+					if !mode.EmitV1RPCConventions {
+						assert.Equal(t, "LegacyService", *segment.Name)
+						assert.Equal(t, "aws", *segment.Namespace)
+						assert.NotContains(t, segment.Metadata["default"], "server.address")
+						assert.NotContains(t, segment.Metadata["default"], "server.port")
+					} else {
+						assert.Equal(t, "com.example.Inventory", *segment.Name)
+						assert.Equal(t, "remote", *segment.Namespace)
+						// Shared network attributes are owned by the HTTP/network gate, not the RPC gate.
+						assert.NotContains(t, segment.Metadata["default"], "server.address")
+						assert.NotContains(t, segment.Metadata["default"], "server.port")
+					}
+					assert.Equal(t, "OK", segment.Metadata["default"]["rpc.response.status_code"])
+				})
+			}
+		})
+	}
+}
+
+func TestMakeSegmentRPCNamesRespectV1V0Gates(t *testing.T) {
+	for testCaseName, tt := range map[string]struct {
+		EmitV1RPCConventions, DontEmitV0RPCConventions bool
+		spanAttributes                                 map[string]any
+		expectedSegmentName                            string
+	}{
+		"default_peer_name":              {spanAttributes: map[string]any{"peer.service": "OldPeer", "service.peer.name": "NewPeer"}, expectedSegmentName: "OldPeer"},
+		"v0_and_v1_peer_name":            {EmitV1RPCConventions: true, spanAttributes: map[string]any{"peer.service": "OldPeer", "service.peer.name": "NewPeer"}, expectedSegmentName: "NewPeer"},
+		"v1_only_v0_peer_ignored":        {EmitV1RPCConventions: true, DontEmitV0RPCConventions: true, spanAttributes: map[string]any{"peer.service": "OldPeer"}, expectedSegmentName: "FallbackService"},
+		"v1_only_v1_peer_name":           {EmitV1RPCConventions: true, DontEmitV0RPCConventions: true, spanAttributes: map[string]any{"service.peer.name": "NewPeer"}, expectedSegmentName: "NewPeer"},
+		"v0_and_v1_v0_rpc_service":       {EmitV1RPCConventions: true, spanAttributes: map[string]any{"rpc.system": "grpc", "rpc.service": "LegacyService", "rpc.method": "GetItem"}, expectedSegmentName: "LegacyService"},
+		"v1_only_v0_rpc_service_ignored": {EmitV1RPCConventions: true, DontEmitV0RPCConventions: true, spanAttributes: map[string]any{"rpc.system": "grpc", "rpc.service": "LegacyService", "rpc.method": "GetItem"}, expectedSegmentName: "FallbackService"},
+		"v1_only_v1_rpc_service":         {EmitV1RPCConventions: true, DontEmitV0RPCConventions: true, spanAttributes: map[string]any{"rpc.system.name": "grpc", "rpc.method": "com.example.Inventory/GetItem"}, expectedSegmentName: "com.example.Inventory"},
+	} {
+		t.Run(testCaseName, func(t *testing.T) {
+			if tt.EmitV1RPCConventions {
+				enableGate(t, metadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate)
+			}
+			if tt.DontEmitV0RPCConventions {
+				enableGate(t, metadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate)
+			}
+			span := constructHTTPClientSpan(tt.spanAttributes)
+			span.SetName("FallbackService")
+			segment, err := MakeSegment(span, pcommon.NewResource(), nil, false, nil, false)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedSegmentName, *segment.Name)
+			assert.Equal(t, "remote", *segment.Namespace)
+		})
+	}
+}
+
+func TestMakeSegmentAWSSDKConventionsRemainSupported(t *testing.T) {
+	for testCaseName, mode := range map[string]struct {
+		EmitV1RPCConventions     bool
+		DontEmitV0RPCConventions bool
+	}{
+		"default":   {EmitV1RPCConventions: false, DontEmitV0RPCConventions: false},
+		"v0_and_v1": {EmitV1RPCConventions: true, DontEmitV0RPCConventions: false},
+		"v1_only":   {EmitV1RPCConventions: true, DontEmitV0RPCConventions: true},
+	} {
+		t.Run(testCaseName, func(t *testing.T) {
+			if mode.EmitV1RPCConventions {
+				enableGate(t, metadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate)
+			}
+			if mode.DontEmitV0RPCConventions {
+				enableGate(t, metadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate)
+			}
+			for _, emptyMarker := range []bool{false, true} {
+				t.Run(map[bool]string{false: "documented", true: "empty_new_system"}[emptyMarker], func(t *testing.T) {
+					span := constructHTTPClientSpan(map[string]any{"rpc.system": "aws-api", "rpc.service": "DynamoDB", "rpc.method": "GetItem"})
+					if emptyMarker {
+						span.Attributes().PutStr("rpc.system.name", "")
+					}
+					segment, err := MakeSegment(span, pcommon.NewResource(), nil, false, nil, false)
+					require.NoError(t, err)
+					assert.Equal(t, "DynamoDB", *segment.Name)
+					assert.Equal(t, "aws", *segment.Namespace)
+					assert.Equal(t, "GetItem", *segment.AWS.Operation)
+				})
+			}
+		})
+	}
+}
+
+func TestMakeSegmentMigratedAWSSDKConventionsRespectRPCGate(t *testing.T) {
+	for testCaseName, tt := range map[string]struct {
+		EmitV1RPCConventions bool
+		spanAWSOperation     string
+	}{"default": {}, "opt_in": {EmitV1RPCConventions: true}, "explicit_operation": {EmitV1RPCConventions: true, spanAWSOperation: "PutItem"}} {
+		t.Run(testCaseName, func(t *testing.T) {
+			if tt.EmitV1RPCConventions {
+				enableGate(t, metadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate)
+			}
+			span := constructHTTPClientSpan(map[string]any{"rpc.system.name": "aws-api", "rpc.method": "DynamoDB/GetItem"})
+			span.SetName("FallbackService")
+			if tt.spanAWSOperation != "" {
+				span.Attributes().PutStr("aws.operation", tt.spanAWSOperation)
+			}
+			segment, err := MakeSegment(span, pcommon.NewResource(), nil, false, nil, false)
+			require.NoError(t, err)
+			if tt.EmitV1RPCConventions {
+				assert.Equal(t, "DynamoDB", *segment.Name)
+				assert.Equal(t, "aws", *segment.Namespace)
+				if tt.spanAWSOperation == "" {
+					assert.Equal(t, "GetItem", *segment.AWS.Operation)
+				} else {
+					assert.Equal(t, tt.spanAWSOperation, *segment.AWS.Operation)
+				}
+			} else {
+				assert.Equal(t, "FallbackService", *segment.Name)
+				assert.Equal(t, "remote", *segment.Namespace)
+				assert.Equal(t, "DynamoDB/GetItem", *segment.AWS.Operation)
+			}
+		})
+	}
+}
+
+func TestMakeSegmentHTTPNameAndURLUseSameHost(t *testing.T) {
+	for testCaseName, tt := range map[string]struct {
+		spanServerAddress, expectedSegmentName string
+	}{"v1_host": {spanServerAddress: "new.example.com", expectedSegmentName: "new.example.com"}, "empty_v1_host": {expectedSegmentName: "old.example.com"}} {
+		t.Run(testCaseName, func(t *testing.T) {
+			enableGate(t, metadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate)
+			for _, spanKind := range []ptrace.SpanKind{ptrace.SpanKindClient, ptrace.SpanKindServer} {
+				span := constructHTTPClientSpan(map[string]any{"http.request.method": "GET", "http.host": "old.example.com", "server.address": tt.spanServerAddress, "url.scheme": "https", "url.path": "/p"})
+				span.SetKind(spanKind)
+				segment, err := MakeSegment(span, pcommon.NewResource(), nil, false, nil, false)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedSegmentName, *segment.Name)
+				assert.Equal(t, "https://"+tt.expectedSegmentName+"/p", *segment.HTTP.Request.URL)
+			}
+		})
+	}
+}
+
+func TestMakeSegmentSharedNetworkMetadataRequiresV1Gate(t *testing.T) {
+	for testCaseName, mode := range map[string]struct {
+		EmitV1DBConventions bool
+	}{
+		"default": {EmitV1DBConventions: false},
+		"emitV1":  {EmitV1DBConventions: true},
+	} {
+		t.Run(testCaseName, func(t *testing.T) {
+			if mode.EmitV1DBConventions {
+				enableGate(t, metadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate)
+			}
+			for _, indexAll := range []bool{false, true} {
+				t.Run(map[bool]string{false: "metadata", true: "annotations"}[indexAll], func(t *testing.T) {
+					span := constructHTTPClientSpan(map[string]any{"db.system": "postgresql", "db.name": "orders", "server.address": "db.example.com", "server.port": int64(5432), "net.peer.ip": "192.0.2.1"})
+					segment, err := MakeSegment(span, pcommon.NewResource(), nil, indexAll, nil, false)
+					require.NoError(t, err)
+					for _, key := range []string{"server.address", "server.port", "net.peer.ip"} {
+						switch {
+						case !mode.EmitV1DBConventions:
+							assert.NotContains(t, segment.Metadata["default"], key)
+							assert.NotContains(t, segment.Annotations, fixAnnotationKey(key))
+						case indexAll:
+							assert.Contains(t, segment.Annotations, fixAnnotationKey(key))
+						default:
+							assert.Contains(t, segment.Metadata["default"], key)
+						}
+					}
+				})
+			}
+		})
+	}
 }

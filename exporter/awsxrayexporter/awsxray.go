@@ -22,6 +22,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/translator"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
@@ -77,6 +78,14 @@ func newTracesExporterWithClient(_ context.Context, cfg *Config, set exporter.Se
 				}
 				if output != nil {
 					logger.Debug("response: " + fmt.Sprintf("%+v", output))
+					// X-Ray accepts the request but can still reject individual segments
+					// (e.g. InvalidName); surface them instead of dropping data silently.
+					for _, unprocessed := range output.UnprocessedTraceSegments {
+						logger.Warn("X-Ray rejected trace segment",
+							zap.String("id", aws.ToString(unprocessed.Id)),
+							zap.String("errorCode", aws.ToString(unprocessed.ErrorCode)),
+							zap.String("message", aws.ToString(unprocessed.Message)))
+					}
 				}
 				if err != nil {
 					break
@@ -85,6 +94,18 @@ func newTracesExporterWithClient(_ context.Context, cfg *Config, set exporter.Se
 			return err
 		},
 		exporterhelper.WithStart(func(ctx context.Context, host component.Host) error {
+			if metadata.ExporterAwsxrayDontEmitV0HTTPNetworkConventionsFeatureGate.IsEnabled() &&
+				!metadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate.IsEnabled() {
+				return errors.New("feature gate exporter.awsxray.DontEmitV0HTTPNetworkConventions requires exporter.awsxray.EmitV1HTTPNetworkConventions to also be enabled")
+			}
+			if metadata.ExporterAwsxrayDontEmitV0DBConventionsFeatureGate.IsEnabled() &&
+				!metadata.ExporterAwsxrayEmitV1DBConventionsFeatureGate.IsEnabled() {
+				return errors.New("feature gate exporter.awsxray.DontEmitV0DBConventions requires exporter.awsxray.EmitV1DBConventions to also be enabled")
+			}
+			if metadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate.IsEnabled() &&
+				!metadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate.IsEnabled() {
+				return errors.New("feature gate exporter.awsxray.DontEmitV0RPCConventions requires exporter.awsxray.EmitV1RPCConventions to also be enabled")
+			}
 			if xrayClient == nil {
 				var err error
 				awsConfig, err = awsutil.GetAWSConfig(ctx, logger, &cfg.AWSSessionSettings)

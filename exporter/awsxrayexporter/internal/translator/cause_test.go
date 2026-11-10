@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/metadata"
 )
 
 func TestCauseWithExceptions(t *testing.T) {
@@ -1493,4 +1495,14 @@ created by testing.(*T).Run
 	assert.Equal(t, "/usr/local/Cellar/go/1.16.3/libexec/src/testing/testing.go", *exceptions[0].Stack[10].Path)
 	assert.Equal(t, 1238, *exceptions[0].Stack[10].Line)
 	assert.Equal(t, isRemote, *exceptions[0].Remote)
+}
+
+func TestMakeCauseV0HTTPStatusIgnoredWhenDisabled(t *testing.T) {
+	enableGate(t, metadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate)
+	enableGate(t, metadata.ExporterAwsxrayDontEmitV0HTTPNetworkConventionsFeatureGate)
+	span := constructHTTPClientSpan(map[string]any{"http.status_code": 429})
+	isError, isFault, isThrottle, _, _ := makeCause(span, nil, pcommon.NewResource())
+	assert.False(t, isError)
+	assert.False(t, isFault)
+	assert.False(t, isThrottle)
 }
