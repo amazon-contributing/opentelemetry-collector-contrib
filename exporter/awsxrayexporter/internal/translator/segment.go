@@ -20,8 +20,9 @@ import (
 	"go.opentelemetry.io/collector/featuregate"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	conventionsv112 "go.opentelemetry.io/otel/semconv/v1.12.0"
+	conventions "go.opentelemetry.io/otel/semconv/v1.40.0"
 
+	xraymetadata "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/metadata"
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal/traceutil"
 )
@@ -306,9 +307,32 @@ func MakeDocumentFromSegment(segment *awsxray.Segment) (string, error) {
 	return jsonStr, nil
 }
 
+// hostFromURLAttributes returns the host of url.full, or of the legacy http.url unless
+// DontEmitV0HTTPNetworkConventions is enabled.
+func hostFromURLAttributes(attributes pcommon.Map) string {
+	keys := []string{string(conventions.URLFullKey)}
+	if !xraymetadata.ExporterAwsxrayDontEmitV0HTTPNetworkConventionsFeatureGate.IsEnabled() {
+		keys = append(keys, "http.url")
+	}
+	for _, key := range keys {
+		if value, ok := attributes.Get(key); ok {
+			if parsed, err := url.Parse(value.Str()); err == nil && parsed.Hostname() != "" {
+				return fixSegmentName(parsed.Hostname())
+			}
+		}
+	}
+	return ""
+}
+
 func isAwsSdkSpan(span ptrace.Span) bool {
 	attributes := span.Attributes()
-	if rpcSystem, ok := attributes.Get(string(conventionsv112.RPCSystemKey)); ok {
+	if xraymetadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate.IsEnabled() {
+		// Recognize migrated AWS SDK spans when newer RPC conventions are enabled.
+		if rpcSystem, ok := attributes.Get(string(conventions.RPCSystemNameKey)); ok && rpcSystem.Str() != "" {
+			return rpcSystem.Str() == awsAPIRPCSystem
+		}
+	}
+	if rpcSystem, ok := attributes.Get("rpc.system"); ok {
 		return rpcSystem.Str() == awsAPIRPCSystem
 	}
 	return false
@@ -379,17 +403,23 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 		}
 	}
 
-	// peer.service should always be prioritized for segment names when it set by users and
-	// the new x-ray specific service name attributes are not found
+	// User-provided peer names take priority after X-Ray-specific service names.
 	if name == "" {
-		if peerService, ok := attributes.Get(string(conventionsv112.PeerServiceKey)); ok {
-			name = peerService.Str()
+		if xraymetadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate.IsEnabled() {
+			if peerService, ok := attributes.Get(string(conventions.ServicePeerNameKey)); ok {
+				name = peerService.Str()
+			}
+		}
+		if name == "" && !xraymetadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate.IsEnabled() {
+			if peerService, ok := attributes.Get("peer.service"); ok {
+				name = peerService.Str()
+			}
 		}
 	}
 
 	if namespace == "" {
 		if isAwsSdkSpan(span) {
-			namespace = conventionsv112.CloudProviderAWS.Value.AsString()
+			namespace = conventions.CloudProviderAWS.Value.AsString()
 		}
 	}
 
@@ -400,22 +430,46 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 			name = awsService.Str()
 
 			if namespace == "" {
-				namespace = conventionsv112.CloudProviderAWS.Value.AsString()
+				namespace = conventions.CloudProviderAWS.Value.AsString()
 			}
 		}
 	}
 
 	if name == "" {
-		if dbInstance, ok := attributes.Get(string(conventionsv112.DBNameKey)); ok {
-			// For database queries, the segment name convention is <db name>@<db host>
-			name = dbInstance.Str()
-			if dbURL, ok := attributes.Get(string(conventionsv112.DBConnectionStringKey)); ok {
-				// Trim JDBC connection string if starts with "jdbc:", otherwise no change
-				// jdbc:mysql://db.dev.example.com:3306
-				dbURLStr := strings.TrimPrefix(dbURL.Str(), "jdbc:")
-				if parsed, _ := url.Parse(dbURLStr); parsed != nil {
-					if parsed.Hostname() != "" {
-						name += "@" + parsed.Hostname()
+		// For database queries, the segment name convention is <db name>@<db host>.
+		if xraymetadata.ExporterAwsxrayEmitV1DBConventionsFeatureGate.IsEnabled() {
+			if dbInstance, ok := attributes.Get(string(conventions.DBNamespaceKey)); ok && dbInstance.Str() != "" {
+				system, _ := attributes.Get(string(conventions.DBSystemNameKey))
+				name = databaseName(dbInstance.Str(), system.Str())
+			}
+			if name == "" && !xraymetadata.ExporterAwsxrayDontEmitV0DBConventionsFeatureGate.IsEnabled() {
+				if dbInstance, ok := attributes.Get("db.name"); ok {
+					name = dbInstance.Str()
+				}
+			}
+			if name != "" {
+				if host := databaseHost(attributes); host != "" {
+					name += "@" + host
+				}
+				// db.namespace and server.address values can contain characters X-Ray rejects;
+				// a segment with an invalid name is silently dropped by PutTraceSegments.
+				name = fixSegmentName(name)
+			}
+		}
+		// TODO: Remove old DB key lookups when exporter.awsxray.DontEmitV0DBConventions is removed.
+		if name == "" && !xraymetadata.ExporterAwsxrayEmitV1DBConventionsFeatureGate.IsEnabled() &&
+			!xraymetadata.ExporterAwsxrayDontEmitV0DBConventionsFeatureGate.IsEnabled() {
+			if dbInstance, ok := attributes.Get("db.name"); ok {
+				// For database queries, the segment name convention is <db name>@<db host>
+				name = dbInstance.Str()
+				if dbURL, ok := attributes.Get("db.connection_string"); ok {
+					// Trim JDBC connection string if starts with "jdbc:", otherwise no change
+					// jdbc:mysql://db.dev.example.com:3306
+					dbURLStr := strings.TrimPrefix(dbURL.Str(), "jdbc:")
+					if parsed, _ := url.Parse(dbURLStr); parsed != nil {
+						if parsed.Hostname() != "" {
+							name += "@" + parsed.Hostname()
+						}
 					}
 				}
 			}
@@ -424,27 +478,59 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 
 	if name == "" && span.Kind() == ptrace.SpanKindServer {
 		// Only for a server span, we can use the resource.
-		if service, ok := resource.Attributes().Get(string(conventionsv112.ServiceNameKey)); ok {
+		if service, ok := resource.Attributes().Get(string(conventions.ServiceNameKey)); ok {
 			name = service.Str()
 		}
 	}
 
 	if name == "" {
-		if rpcservice, ok := attributes.Get(string(conventionsv112.RPCServiceKey)); ok {
+		if xraymetadata.ExporterAwsxrayEmitV1RPCConventionsFeatureGate.IsEnabled() {
+			if system, ok := attributes.Get(string(conventions.RPCSystemNameKey)); ok && system.Str() != "" {
+				if method, ok := attributes.Get(string(conventions.RPCMethodKey)); ok {
+					if service, _, ok := strings.Cut(method.Str(), "/"); ok && service != "" {
+						name = fixSegmentName(service)
+					}
+				}
+			}
+		}
+	}
+
+	// AWS SDK still specifies rpc.system=aws-api and rpc.service, so its
+	// documented attributes remain supported during the generic RPC migration.
+	if name == "" && (!xraymetadata.ExporterAwsxrayDontEmitV0RPCConventionsFeatureGate.IsEnabled() || isAwsSdkSpan(span)) {
+		if rpcservice, ok := attributes.Get("rpc.service"); ok {
 			name = rpcservice.Str()
 		}
 	}
 
 	if name == "" {
-		if host, ok := attributes.Get(string(conventionsv112.HTTPHostKey)); ok {
-			name = host.Str()
+		if xraymetadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate.IsEnabled() {
+			if addr, ok := attributes.Get(string(conventions.ServerAddressKey)); ok && addr.Str() != "" {
+				name = fixSegmentName(addr.Str())
+			}
+		}
+		// TODO: Remove "http.host" lookup when exporter.awsxray.DontEmitV0HTTPNetworkConventions is removed.
+		if name == "" && !xraymetadata.ExporterAwsxrayDontEmitV0HTTPNetworkConventionsFeatureGate.IsEnabled() {
+			if host, ok := attributes.Get("http.host"); ok {
+				name = host.Str()
+			}
 		}
 	}
 
 	if name == "" {
-		if peer, ok := attributes.Get(string(conventionsv112.NetPeerNameKey)); ok {
-			name = peer.Str()
+		// TODO: Remove "net.peer.name" lookup when exporter.awsxray.DontEmitV0HTTPNetworkConventions is removed.
+		if !xraymetadata.ExporterAwsxrayDontEmitV0HTTPNetworkConventionsFeatureGate.IsEnabled() {
+			if peer, ok := attributes.Get("net.peer.name"); ok {
+				name = peer.Str()
+			}
 		}
+	}
+
+	if name == "" && xraymetadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate.IsEnabled() &&
+		(span.Kind() == ptrace.SpanKindClient || span.Kind() == ptrace.SpanKindProducer) {
+		// Instrumentations that only report the full URL (e.g. older Python requests) still name
+		// the downstream service by its host, like those that report server.address.
+		name = hostFromURLAttributes(attributes)
 	}
 
 	if name == "" {
@@ -495,34 +581,34 @@ func determineAwsOrigin(resource pcommon.Resource) string {
 		return ""
 	}
 
-	if provider, ok := resource.Attributes().Get(string(conventionsv112.CloudProviderKey)); ok {
-		if provider.Str() != conventionsv112.CloudProviderAWS.Value.AsString() {
+	if provider, ok := resource.Attributes().Get(string(conventions.CloudProviderKey)); ok {
+		if provider.Str() != conventions.CloudProviderAWS.Value.AsString() {
 			return ""
 		}
 	}
 
-	if is, present := resource.Attributes().Get(string(conventionsv112.CloudPlatformKey)); present {
+	if is, present := resource.Attributes().Get(string(conventions.CloudPlatformKey)); present {
 		switch is.Str() {
-		case conventionsv112.CloudPlatformAWSAppRunner.Value.AsString():
+		case conventions.CloudPlatformAWSAppRunner.Value.AsString():
 			return OriginAppRunner
-		case conventionsv112.CloudPlatformAWSEKS.Value.AsString():
+		case conventions.CloudPlatformAWSEKS.Value.AsString():
 			return OriginEKS
-		case conventionsv112.CloudPlatformAWSElasticBeanstalk.Value.AsString():
+		case conventions.CloudPlatformAWSElasticBeanstalk.Value.AsString():
 			return OriginEB
-		case conventionsv112.CloudPlatformAWSECS.Value.AsString():
-			lt, present := resource.Attributes().Get(string(conventionsv112.AWSECSLaunchtypeKey))
+		case conventions.CloudPlatformAWSECS.Value.AsString():
+			lt, present := resource.Attributes().Get(string(conventions.AWSECSLaunchtypeKey))
 			if !present {
 				return OriginECS
 			}
 			switch lt.Str() {
-			case conventionsv112.AWSECSLaunchtypeEC2.Value.AsString():
+			case conventions.AWSECSLaunchtypeEC2.Value.AsString():
 				return OriginECSEC2
-			case conventionsv112.AWSECSLaunchtypeFargate.Value.AsString():
+			case conventions.AWSECSLaunchtypeFargate.Value.AsString():
 				return OriginECSFargate
 			default:
 				return OriginECS
 			}
-		case conventionsv112.CloudPlatformAWSEC2.Value.AsString():
+		case conventions.CloudPlatformAWSEC2.Value.AsString():
 			return OriginEC2
 
 		// If cloud_platform is defined with a non-AWS value, we should not assign it an AWS origin
@@ -616,10 +702,10 @@ func makeXRayAttributes(attributes map[string]pcommon.Value, resource pcommon.Re
 		metadata    = map[string]map[string]any{}
 		user        string
 	)
-	userid, ok := attributes[string(conventionsv112.EnduserIDKey)]
+	userid, ok := attributes[string(conventions.EnduserIDKey)]
 	if ok {
 		user = userid.Str()
-		delete(attributes, string(conventionsv112.EnduserIDKey))
+		delete(attributes, string(conventions.EnduserIDKey))
 	}
 
 	if len(attributes) == 0 && (!storeResource || resource.Attributes().Len() == 0) {
