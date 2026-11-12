@@ -1113,7 +1113,8 @@ func TestExplainQueryFromCapturedPlanStore(t *testing.T) {
 					AsRegexp().
 					WithOccurrence(1),
 			},
-		})
+		},
+	)
 	assert.NoError(t, err)
 	assert.NoError(t, ci.Start(t.Context()))
 	defer testcontainers.CleanupContainer(t, ci)

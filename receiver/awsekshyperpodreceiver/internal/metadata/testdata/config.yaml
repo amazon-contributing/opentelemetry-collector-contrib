@@ -3,19 +3,41 @@ all_set:
   metrics:
     hyperpod_node_health_status_schedulable:
       enabled: true
+      attributes: ["cluster_name","instance_id","node_name"]
     hyperpod_node_health_status_unschedulable:
       enabled: true
+      attributes: ["cluster_name","instance_id","node_name"]
     hyperpod_node_health_status_unschedulable_pending_reboot:
       enabled: true
+      attributes: ["cluster_name","instance_id","node_name"]
     hyperpod_node_health_status_unschedulable_pending_replacement:
       enabled: true
+      attributes: ["cluster_name","instance_id","node_name"]
+reaggregate_set:
+  metrics:
+    hyperpod_node_health_status_schedulable:
+      enabled: true
+      attributes: []
+    hyperpod_node_health_status_unschedulable:
+      enabled: true
+      attributes: []
+    hyperpod_node_health_status_unschedulable_pending_reboot:
+      enabled: true
+      attributes: []
+    hyperpod_node_health_status_unschedulable_pending_replacement:
+      enabled: true
+      attributes: []
 none_set:
   metrics:
     hyperpod_node_health_status_schedulable:
       enabled: false
+      attributes: ["cluster_name","instance_id","node_name"]
     hyperpod_node_health_status_unschedulable:
       enabled: false
+      attributes: ["cluster_name","instance_id","node_name"]
     hyperpod_node_health_status_unschedulable_pending_reboot:
       enabled: false
+      attributes: ["cluster_name","instance_id","node_name"]
     hyperpod_node_health_status_unschedulable_pending_replacement:
       enabled: false
+      attributes: ["cluster_name","instance_id","node_name"]

@@ -20,23 +20,31 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	}{
 		{
 			name: "default",
-			want: DefaultMetricsBuilderConfig(),
+			want: NewDefaultMetricsBuilderConfig(),
 		},
 		{
 			name: "all_set",
 			want: MetricsBuilderConfig{
 				Metrics: MetricsConfig{
-					HyperpodNodeHealthStatusSchedulable: MetricConfig{
-						Enabled: true,
+					HyperpodNodeHealthStatusSchedulable: HyperpodNodeHealthStatusSchedulableMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusSchedulableMetricAttributeKey{HyperpodNodeHealthStatusSchedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyNodeName},
 					},
-					HyperpodNodeHealthStatusUnschedulable: MetricConfig{
-						Enabled: true,
+					HyperpodNodeHealthStatusUnschedulable: HyperpodNodeHealthStatusUnschedulableMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulableMetricAttributeKey{HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyNodeName},
 					},
-					HyperpodNodeHealthStatusUnschedulablePendingReboot: MetricConfig{
-						Enabled: true,
+					HyperpodNodeHealthStatusUnschedulablePendingReboot: HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey{HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyNodeName},
 					},
-					HyperpodNodeHealthStatusUnschedulablePendingReplacement: MetricConfig{
-						Enabled: true,
+					HyperpodNodeHealthStatusUnschedulablePendingReplacement: HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey{HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyNodeName},
 					},
 				},
 			},
@@ -45,17 +53,25 @@ func TestMetricsBuilderConfig(t *testing.T) {
 			name: "none_set",
 			want: MetricsBuilderConfig{
 				Metrics: MetricsConfig{
-					HyperpodNodeHealthStatusSchedulable: MetricConfig{
-						Enabled: false,
+					HyperpodNodeHealthStatusSchedulable: HyperpodNodeHealthStatusSchedulableMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusSchedulableMetricAttributeKey{HyperpodNodeHealthStatusSchedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyNodeName},
 					},
-					HyperpodNodeHealthStatusUnschedulable: MetricConfig{
-						Enabled: false,
+					HyperpodNodeHealthStatusUnschedulable: HyperpodNodeHealthStatusUnschedulableMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulableMetricAttributeKey{HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyNodeName},
 					},
-					HyperpodNodeHealthStatusUnschedulablePendingReboot: MetricConfig{
-						Enabled: false,
+					HyperpodNodeHealthStatusUnschedulablePendingReboot: HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey{HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyNodeName},
 					},
-					HyperpodNodeHealthStatusUnschedulablePendingReplacement: MetricConfig{
-						Enabled: false,
+					HyperpodNodeHealthStatusUnschedulablePendingReplacement: HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey{HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyNodeName},
 					},
 				},
 			},
@@ -64,10 +80,57 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadMetricsBuilderConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(MetricConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(HyperpodNodeHealthStatusSchedulableMetricConfig{}, HyperpodNodeHealthStatusUnschedulableMetricConfig{}, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig{}, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}
+}
+func TestHyperpodNodeHealthStatusSchedulableMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().HyperpodNodeHealthStatusSchedulable
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []HyperpodNodeHealthStatusSchedulableMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric hyperpod_node_health_status_schedulable doesn't have an attribute invalid, valid attributes: [cluster_name, instance_id, node_name]")
+
+	cfg = DefaultMetricsConfig().HyperpodNodeHealthStatusSchedulable
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestHyperpodNodeHealthStatusUnschedulableMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().HyperpodNodeHealthStatusUnschedulable
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []HyperpodNodeHealthStatusUnschedulableMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric hyperpod_node_health_status_unschedulable doesn't have an attribute invalid, valid attributes: [cluster_name, instance_id, node_name]")
+
+	cfg = DefaultMetricsConfig().HyperpodNodeHealthStatusUnschedulable
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestHyperpodNodeHealthStatusUnschedulablePendingRebootMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().HyperpodNodeHealthStatusUnschedulablePendingReboot
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric hyperpod_node_health_status_unschedulable_pending_reboot doesn't have an attribute invalid, valid attributes: [cluster_name, instance_id, node_name]")
+
+	cfg = DefaultMetricsConfig().HyperpodNodeHealthStatusUnschedulablePendingReboot
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestHyperpodNodeHealthStatusUnschedulablePendingReplacementMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().HyperpodNodeHealthStatusUnschedulablePendingReplacement
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric hyperpod_node_health_status_unschedulable_pending_replacement doesn't have an attribute invalid, valid attributes: [cluster_name, instance_id, node_name]")
+
+	cfg = DefaultMetricsConfig().HyperpodNodeHealthStatusUnschedulablePendingReplacement
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
 
 func loadMetricsBuilderConfig(t *testing.T, name string) MetricsBuilderConfig {
@@ -75,7 +138,7 @@ func loadMetricsBuilderConfig(t *testing.T, name string) MetricsBuilderConfig {
 	require.NoError(t, err)
 	sub, err := cm.Sub(name)
 	require.NoError(t, err)
-	cfg := DefaultMetricsBuilderConfig()
+	cfg := NewDefaultMetricsBuilderConfig()
 	require.NoError(t, sub.Unmarshal(&cfg, confmap.WithIgnoreUnused()))
 	return cfg
 }
