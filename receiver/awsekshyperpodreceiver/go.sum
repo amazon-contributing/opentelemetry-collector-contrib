@@ -127,6 +127,8 @@ go.opentelemetry.io/collector/pdata/pprofile v0.165.0 h1:f3ck50XbrrzuYFbQedzVGaS
 go.opentelemetry.io/collector/pdata/pprofile v0.165.0/go.mod h1:Y2cX6KJo98pxqOeLdTeIn1lIbh+FFsIPtp7BUo91zfo=
 go.opentelemetry.io/collector/pdata/testdata v0.165.0 h1:lz/Qz9P/Jpx/wLGBDjyq4VSQDVU2/vouafF2RcWKUds=
 go.opentelemetry.io/collector/pdata/testdata v0.165.0/go.mod h1:JrWyCieu6vo258ZRs8Epqmb9maLWyWHaFcH28DNC+4o=
+go.opentelemetry.io/collector/pdata/xpdata v0.165.0 h1:H3ELfAaxWNHo75YccGqAM3pJ7Mh4wBnFRNqmdmdg0go=
+go.opentelemetry.io/collector/pdata/xpdata v0.165.0/go.mod h1:G5N63Z+Jh15uT2bpxISgQXe+qQrZJFebNdo2Xe0Y8vk=
 go.opentelemetry.io/collector/pipeline v1.71.0 h1:wDBBwg4oxnpZgb+RtpDPgCXfIdVzKBuT16idMk/XLS4=
 go.opentelemetry.io/collector/pipeline v1.71.0/go.mod h1:4S7iD/7hGDNXg4yPi+5es5WTvwo/Uie2OoHio79xokI=
 go.opentelemetry.io/collector/pipeline/xpipeline v0.165.0 h1:XkW35yYLiKh2NcitoXZxh4+D9NYhfmEpDqsAm/4NinY=
