@@ -70,17 +70,19 @@ func TestFromConfigTypes(t *testing.T) {
 	} {
 		t.Run(string(authType), func(t *testing.T) {
 			cfg := k8sconfigtypes.APIConfig{
-				AuthType:     authType,
-				Context:      "custom-context",
-				KubeAPIQPS:   25.5,
-				KubeAPIBurst: 50,
+				AuthType:       authType,
+				KubeConfigPath: "/custom/kubeconfig",
+				Context:        "custom-context",
+				KubeAPIQPS:     25.5,
+				KubeAPIBurst:   50,
 			}
 			converted := FromConfigTypes(cfg)
 			assert.Equal(t, APIConfig{
-				AuthType:     AuthType(authType),
-				Context:      "custom-context",
-				KubeAPIQPS:   25.5,
-				KubeAPIBurst: 50,
+				AuthType:       AuthType(authType),
+				KubeConfigPath: "/custom/kubeconfig",
+				Context:        "custom-context",
+				KubeAPIQPS:     25.5,
+				KubeAPIBurst:   50,
 			}, converted)
 			assert.NoError(t, converted.Validate())
 		})

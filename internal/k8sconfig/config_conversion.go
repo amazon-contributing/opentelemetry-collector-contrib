@@ -9,9 +9,10 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sco
 // client configuration type without changing its identity for other components.
 func FromConfigTypes(cfg k8sconfigtypes.APIConfig) APIConfig {
 	return APIConfig{
-		AuthType:     AuthType(cfg.AuthType),
-		Context:      cfg.Context,
-		KubeAPIQPS:   cfg.KubeAPIQPS,
-		KubeAPIBurst: cfg.KubeAPIBurst,
+		AuthType:       AuthType(cfg.AuthType),
+		KubeConfigPath: cfg.KubeConfigPath,
+		Context:        cfg.Context,
+		KubeAPIQPS:     cfg.KubeAPIQPS,
+		KubeAPIBurst:   cfg.KubeAPIBurst,
 	}
 }
