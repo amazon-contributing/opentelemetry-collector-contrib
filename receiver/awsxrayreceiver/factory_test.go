@@ -39,10 +39,6 @@ func TestCreateTraces(t *testing.T) {
 	// This issue occurs when running: go test -race -parallel 8 -count=10 ./...
 	udpAddr := testutil.GetAvailableLocalNetworkAddress(t, "udp")
 
-	// Use dynamic port to avoid port conflicts when running tests in parallel or with -count > 1
-	// This issue occurs when running: go test -race -parallel 8 -count=10 ./...
-	udpAddr := testutil.GetAvailableLocalNetworkAddress(t, "udp")
-
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.AddrConfig = confignet.AddrConfig{
