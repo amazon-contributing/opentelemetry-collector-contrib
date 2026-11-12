@@ -3704,6 +3704,7 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 // ResourceAttributesConfig provides config for elasticsearch resource attributes.
 type ResourceAttributesConfig struct {
 	ElasticsearchClusterName ResourceAttributeConfig `mapstructure:"elasticsearch.cluster.name"`
+	ElasticsearchClusterUUID ResourceAttributeConfig `mapstructure:"elasticsearch.cluster.uuid"`
 	ElasticsearchIndexName   ResourceAttributeConfig `mapstructure:"elasticsearch.index.name"`
 	ElasticsearchNodeName    ResourceAttributeConfig `mapstructure:"elasticsearch.node.name"`
 	ElasticsearchNodeVersion ResourceAttributeConfig `mapstructure:"elasticsearch.node.version"`
@@ -3713,6 +3714,9 @@ func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 	return ResourceAttributesConfig{
 		ElasticsearchClusterName: ResourceAttributeConfig{
 			Enabled: true,
+		},
+		ElasticsearchClusterUUID: ResourceAttributeConfig{
+			Enabled: false,
 		},
 		ElasticsearchIndexName: ResourceAttributeConfig{
 			Enabled: true,
@@ -3732,7 +3736,7 @@ type MetricsBuilderConfig struct {
 	ResourceAttributes ResourceAttributesConfig `mapstructure:"resource_attributes"`
 }
 
-func DefaultMetricsBuilderConfig() MetricsBuilderConfig {
+func NewDefaultMetricsBuilderConfig() MetricsBuilderConfig {
 	return MetricsBuilderConfig{
 		Metrics:            DefaultMetricsConfig(),
 		ResourceAttributes: DefaultResourceAttributesConfig(),

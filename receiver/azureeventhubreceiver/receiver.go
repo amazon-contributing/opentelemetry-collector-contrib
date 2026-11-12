@@ -40,9 +40,34 @@ type eventTracesUnmarshaler interface {
 	UnmarshalTraces(event *azureEvent) (ptrace.Traces, error)
 }
 
+type encodingLogsUnmarshaler struct {
+	unmarshaler plog.Unmarshaler
+}
+
+func (e encodingLogsUnmarshaler) UnmarshalLogs(event *azureEvent) (plog.Logs, error) {
+	return e.unmarshaler.UnmarshalLogs(event.Data())
+}
+
+type encodingMetricsUnmarshaler struct {
+	unmarshaler pmetric.Unmarshaler
+}
+
+func (e encodingMetricsUnmarshaler) UnmarshalMetrics(event *azureEvent) (pmetric.Metrics, error) {
+	return e.unmarshaler.UnmarshalMetrics(event.Data())
+}
+
+type encodingTracesUnmarshaler struct {
+	unmarshaler ptrace.Unmarshaler
+}
+
+func (e encodingTracesUnmarshaler) UnmarshalTraces(event *azureEvent) (ptrace.Traces, error) {
+	return e.unmarshaler.UnmarshalTraces(event.Data())
+}
+
 type eventhubReceiver struct {
 	eventHandler        *eventhubHandler
 	signal              pipeline.Signal
+	encodingID          *component.ID
 	logger              *zap.Logger
 	logsUnmarshaler     eventLogsUnmarshaler
 	metricsUnmarshaler  eventMetricsUnmarshaler
@@ -54,7 +79,44 @@ type eventhubReceiver struct {
 }
 
 func (receiver *eventhubReceiver) Start(ctx context.Context, host component.Host) error {
+	if receiver.encodingID != nil {
+		if err := receiver.setEncodingUnmarshaler(host); err != nil {
+			return err
+		}
+	}
 	return receiver.eventHandler.run(ctx, host)
+}
+
+func (receiver *eventhubReceiver) setEncodingUnmarshaler(host component.Host) error {
+	ext, ok := host.GetExtensions()[*receiver.encodingID]
+	if !ok {
+		return fmt.Errorf("encoding extension %q not found", receiver.encodingID)
+	}
+
+	switch receiver.signal {
+	case pipeline.SignalLogs:
+		unmarshaler, ok := ext.(plog.Unmarshaler)
+		if !ok {
+			return fmt.Errorf("extension %q is not a logs unmarshaler", receiver.encodingID)
+		}
+		receiver.logsUnmarshaler = encodingLogsUnmarshaler{unmarshaler}
+	case pipeline.SignalMetrics:
+		unmarshaler, ok := ext.(pmetric.Unmarshaler)
+		if !ok {
+			return fmt.Errorf("extension %q is not a metrics unmarshaler", receiver.encodingID)
+		}
+		receiver.metricsUnmarshaler = encodingMetricsUnmarshaler{unmarshaler}
+	case pipeline.SignalTraces:
+		unmarshaler, ok := ext.(ptrace.Unmarshaler)
+		if !ok {
+			return fmt.Errorf("extension %q is not a traces unmarshaler", receiver.encodingID)
+		}
+		receiver.tracesUnmarshaler = encodingTracesUnmarshaler{unmarshaler}
+	default:
+		return fmt.Errorf("invalid data type: %v", receiver.signal)
+	}
+
+	return nil
 }
 
 func (receiver *eventhubReceiver) Shutdown(ctx context.Context) error {
@@ -103,8 +165,10 @@ func (receiver *eventhubReceiver) consumeLogs(ctx context.Context, event *azureE
 	}
 
 	receiver.logger.Debug("Log Records", zap.Any("logs", logs))
+	// Count before handing off: the next consumer may modify the data.
+	numRecords := logs.LogRecordCount()
 	err = receiver.nextLogsConsumer.ConsumeLogs(logsContext, logs)
-	receiver.obsrecv.EndLogsOp(logsContext, metadata.Type.String(), 1, err)
+	receiver.obsrecv.EndLogsOp(logsContext, metadata.Type.String(), numRecords, err)
 
 	return err
 }
@@ -126,9 +190,10 @@ func (receiver *eventhubReceiver) consumeMetrics(ctx context.Context, event *azu
 	}
 
 	receiver.logger.Debug("Metric Records", zap.Any("metrics", metrics))
+	numPoints := metrics.DataPointCount()
 	err = receiver.nextMetricsConsumer.ConsumeMetrics(metricsContext, metrics)
 
-	receiver.obsrecv.EndMetricsOp(metricsContext, metadata.Type.String(), 1, err)
+	receiver.obsrecv.EndMetricsOp(metricsContext, metadata.Type.String(), numPoints, err)
 
 	return err
 }
@@ -150,15 +215,17 @@ func (receiver *eventhubReceiver) consumeTraces(ctx context.Context, event *azur
 	}
 
 	receiver.logger.Debug("traces Records", zap.Any("traces", traces))
+	numSpans := traces.SpanCount()
 	err = receiver.nextTracesConsumer.ConsumeTraces(tracesContext, traces)
 
-	receiver.obsrecv.EndTracesOp(tracesContext, metadata.Type.String(), 1, err)
+	receiver.obsrecv.EndTracesOp(tracesContext, metadata.Type.String(), numSpans, err)
 
 	return err
 }
 
 func newReceiver(
 	signal pipeline.Signal,
+	encodingID *component.ID,
 	logsUnmarshaler eventLogsUnmarshaler,
 	metricsUnmarshaler eventMetricsUnmarshaler,
 	tracesUnmarshaler eventTracesUnmarshaler,
@@ -176,6 +243,7 @@ func newReceiver(
 
 	eventhubReceiver := &eventhubReceiver{
 		signal:             signal,
+		encodingID:         encodingID,
 		eventHandler:       eventHandler,
 		logger:             settings.Logger,
 		logsUnmarshaler:    logsUnmarshaler,

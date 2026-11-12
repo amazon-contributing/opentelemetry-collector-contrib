@@ -277,8 +277,8 @@ func generateConfig(tb testing.TB) *Config {
 	tb.Setenv("AWS_REGION", "us-east-1")
 	factory := NewFactory()
 	exporterConfig := factory.CreateDefaultConfig().(*Config)
-	exporterConfig.Region = "us-east-1"
-	exporterConfig.LocalMode = true
+	exporterConfig.AWSSessionSettings.Region = "us-east-1"
+	exporterConfig.AWSSessionSettings.LocalMode = true
 	return exporterConfig
 }
 
@@ -354,7 +354,7 @@ func constructHTTPClientSpan(traceID pcommon.TraceID) ptrace.Span {
 	attributes := make(map[string]any)
 	attributes["http.method"] = http.MethodGet
 	attributes["http.url"] = "https://api.example.com/users/junit"
-	attributes["http.status_code"] = 200
+	attributes["http.response.status_code"] = 200
 	endTime := time.Now().Round(time.Second)
 	startTime := endTime.Add(-90 * time.Second)
 	spanAttributes := constructSpanAttributes(attributes)
@@ -382,7 +382,7 @@ func constructHTTPServerSpan(traceID pcommon.TraceID) ptrace.Span {
 	attributes["http.method"] = http.MethodGet
 	attributes["http.url"] = "https://api.example.com/users/junit"
 	attributes["http.client_ip"] = "192.168.15.32"
-	attributes["http.status_code"] = 200
+	attributes["http.response.status_code"] = 200
 	endTime := time.Now().Round(time.Second)
 	startTime := endTime.Add(-90 * time.Second)
 	spanAttributes := constructSpanAttributes(attributes)

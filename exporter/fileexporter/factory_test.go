@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/exporter/exportertest"
+	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter/internal/metadata"
 )
@@ -30,7 +31,8 @@ func TestCreateMetricsError(t *testing.T) {
 	e, err := createMetricsExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	require.NoError(t, err)
 	err = e.Start(t.Context(), componenttest.NewNopHost())
 	assert.Error(t, err)
@@ -44,7 +46,8 @@ func TestCreateMetrics(t *testing.T) {
 	exp, err := createMetricsExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	assert.NoError(t, err)
 	require.NotNil(t, exp)
 	assert.NoError(t, exp.Shutdown(t.Context()))
@@ -58,7 +61,8 @@ func TestCreateTraces(t *testing.T) {
 	exp, err := createTracesExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	assert.NoError(t, err)
 	require.NotNil(t, exp)
 	assert.NoError(t, exp.Shutdown(t.Context()))
@@ -71,7 +75,8 @@ func TestCreateTracesError(t *testing.T) {
 	e, err := createTracesExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	require.NoError(t, err)
 	err = e.Start(t.Context(), componenttest.NewNopHost())
 	assert.Error(t, err)
@@ -85,7 +90,8 @@ func TestCreateLogs(t *testing.T) {
 	exp, err := createLogsExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	assert.NoError(t, err)
 	require.NotNil(t, exp)
 	assert.NoError(t, exp.Shutdown(t.Context()))
@@ -98,7 +104,8 @@ func TestCreateLogsError(t *testing.T) {
 	e, err := createLogsExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	require.NoError(t, err)
 	err = e.Start(t.Context(), componenttest.NewNopHost())
 	assert.Error(t, err)
@@ -112,7 +119,8 @@ func TestCreateProfiles(t *testing.T) {
 	exp, err := createProfilesExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	assert.NoError(t, err)
 	require.NotNil(t, exp)
 	assert.NoError(t, exp.Shutdown(t.Context()))
@@ -125,7 +133,8 @@ func TestCreateProfilesError(t *testing.T) {
 	e, err := createProfilesExporter(
 		t.Context(),
 		exportertest.NewNopSettings(metadata.Type),
-		cfg)
+		cfg,
+	)
 	require.NoError(t, err)
 	err = e.Start(t.Context(), componenttest.NewNopHost())
 	assert.Error(t, err)
@@ -196,7 +205,7 @@ func TestNewFileWriter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newFileWriter(tt.args.cfg.Path, tt.args.cfg.Append, tt.args.cfg.Rotation, tt.args.cfg.FlushInterval, nil)
+			got, err := newFileWriter(tt.args.cfg.Path, tt.args.cfg.Append, tt.args.cfg.Rotation, tt.args.cfg.FlushInterval, nil, "", 0, zap.NewNop())
 			defer func() {
 				assert.NoError(t, got.file.Close())
 			}()

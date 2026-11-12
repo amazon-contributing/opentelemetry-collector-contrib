@@ -133,12 +133,17 @@ func writeAttributeSliceKey(builder *strings.Builder, value pcommon.Slice) {
 }
 
 // buildParentGroupKey constructs a parent grouping key from name and status
-// only; attributes are intentionally excluded for parent aggregation.
-func (*spanPruningProcessor) buildParentGroupKey(span ptrace.Span) string {
+// only; attributes are intentionally excluded for parent aggregation. The
+// caller passes the node's tree depth so same-named ancestors at different
+// depths are never grouped together (which would anchor the summary, and any
+// reparented spans, at a non-deterministic depth).
+func (*spanPruningProcessor) buildParentGroupKey(span ptrace.Span, depth int) string {
 	builder := builderPool.Get().(*strings.Builder)
 	builder.Reset()
 	defer builderPool.Put(builder)
 
+	builder.WriteString(strconv.Itoa(depth))
+	builder.WriteByte('|')
 	builder.WriteString(span.Name())
 	builder.WriteString("|kind=")
 	builder.WriteString(span.Kind().String())
@@ -163,10 +168,15 @@ func (p *spanPruningProcessor) buildLeafGroupKey(node *spanNode) string {
 	builder.Reset()
 	defer builderPool.Put(builder)
 
-	// Include parent span name to separate groups by parent
+	// Include parent span name plus tree depth to separate groups by parent.
+	// Depth is required so that same-named parents at different depths (e.g. a
+	// "handler" at depth 1 and another "handler" nested at depth 2) do not
+	// collapse into one group.
 	if node.parent != nil {
 		builder.WriteString("parent=")
 		builder.WriteString(node.parent.span.Name())
+		builder.WriteString("|depth=")
+		builder.WriteString(strconv.Itoa(node.depth()))
 		builder.WriteString("|")
 	}
 

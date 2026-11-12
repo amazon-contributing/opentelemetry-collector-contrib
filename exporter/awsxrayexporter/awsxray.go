@@ -22,6 +22,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter/internal/translator"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	awsxray "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray"
@@ -85,6 +86,14 @@ func newTracesExporterWithClient(_ context.Context, cfg *Config, set exporter.Se
 			return err
 		},
 		exporterhelper.WithStart(func(ctx context.Context, host component.Host) error {
+			if metadata.ExporterAwsxrayDontEmitV0HTTPNetworkConventionsFeatureGate.IsEnabled() &&
+				!metadata.ExporterAwsxrayEmitV1HTTPNetworkConventionsFeatureGate.IsEnabled() {
+				return errors.New("feature gate exporter.awsxray.DontEmitV0HTTPNetworkConventions requires exporter.awsxray.EmitV1HTTPNetworkConventions to also be enabled")
+			}
+			if metadata.ExporterAwsxrayDontEmitV0DBConventionsFeatureGate.IsEnabled() &&
+				!metadata.ExporterAwsxrayEmitV1DBConventionsFeatureGate.IsEnabled() {
+				return errors.New("feature gate exporter.awsxray.DontEmitV0DBConventions requires exporter.awsxray.EmitV1DBConventions to also be enabled")
+			}
 			if xrayClient == nil {
 				var err error
 				awsConfig, err = awsutil.GetAWSConfig(ctx, logger, &cfg.AWSSessionSettings)
@@ -130,7 +139,8 @@ func extractResourceSpans(config component.Config, logger *zap.Logger, td ptrace
 					config.(*Config).IndexedAttributes,
 					config.(*Config).IndexAllAttributes,
 					config.(*Config).LogGroupNames,
-					config.(*Config).skipTimestampValidation)
+					config.(*Config).skipTimestampValidation,
+				)
 
 				if localErr != nil {
 					logger.Debug("Error translating span.", zap.Error(localErr))

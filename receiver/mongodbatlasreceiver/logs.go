@@ -45,13 +45,13 @@ type projectContext struct {
 const collectionInterval = time.Minute * 5
 
 func newMongoDBAtlasLogsReceiver(settings rcvr.Settings, cfg *Config, consumer consumer.Logs) (*logsReceiver, error) {
-	client, err := internal.NewMongoDBAtlasClient(cfg.BaseURL, cfg.PublicKey, string(cfg.PrivateKey), cfg.BackOffConfig, settings.Logger)
+	client, err := internal.NewMongoDBAtlasClient(cfg.BaseURL, cfg.PublicKey, string(cfg.PrivateKey), cfg.BackOffConfig, settings.Logger, settings.BuildInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MongoDB Atlas client for logs receiver: %w", err)
 	}
 
 	for _, p := range cfg.Logs.Projects {
-		p.populateIncludesAndExcludes()
+		p.ProjectConfig.populateIncludesAndExcludes()
 	}
 
 	return &logsReceiver{
@@ -115,9 +115,9 @@ func parseHostNames(s string, logger *zap.Logger) []string {
 // collect spins off functionality of the receiver from the Start function
 func (s *logsReceiver) collect(ctx context.Context) {
 	for _, projectCfg := range s.cfg.Logs.Projects {
-		project, err := s.client.GetProject(ctx, projectCfg.Name)
+		project, err := s.client.GetProject(ctx, projectCfg.ProjectConfig.Name)
 		if err != nil {
-			s.log.Error("Error retrieving project "+projectCfg.Name+":", zap.Error(err))
+			s.log.Error("Error retrieving project "+projectCfg.ProjectConfig.Name+":", zap.Error(err))
 			continue
 		}
 		pc := projectContext{Project: *project}

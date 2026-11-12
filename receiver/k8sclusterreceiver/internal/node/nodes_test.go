@@ -167,7 +167,7 @@ func TestNodeMetrics(t *testing.T) {
 	n := testutils.NewNode("1")
 
 	ts := pcommon.Timestamp(time.Now().UnixNano())
-	mbc := metadata.DefaultMetricsBuilderConfig()
+	mbc := metadata.NewDefaultMetricsBuilderConfig()
 	mbc.Metrics.K8sNodeCondition.Enabled = true
 	mb := metadata.NewMetricsBuilder(mbc, receivertest.NewNopSettings(metadata.Type))
 	RecordMetrics(mb, n, ts)
@@ -229,7 +229,6 @@ func TestTransform(t *testing.T) {
 				OSImage:                 "Ubuntu 22.04.1 LTS",
 				ContainerRuntimeVersion: "containerd://1.6.9",
 				KubeletVersion:          "v1.25.3",
-				KubeProxyVersion:        "v1.25.3",
 				OperatingSystem:         "linux",
 				Architecture:            "amd64",
 			},
