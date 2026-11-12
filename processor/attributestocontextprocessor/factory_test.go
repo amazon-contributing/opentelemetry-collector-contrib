@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/component/componenttest"
-	"go.opentelemetry.io/collector/confmap/xconfmap"
+	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/processor/processortest"
 
@@ -34,7 +34,7 @@ func TestFactory_CreateDefaultConfig(t *testing.T) {
 func TestValidateConfig(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
-	assert.Error(t, xconfmap.Validate(cfg))
+	assert.Error(t, confmap.Validate(cfg))
 }
 
 func TestFactory_CreateLogs(t *testing.T) {
