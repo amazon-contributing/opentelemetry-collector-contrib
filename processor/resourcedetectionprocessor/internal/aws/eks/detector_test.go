@@ -934,6 +934,7 @@ func isolateAWSConfig(t *testing.T) {
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", dir+"/credentials")
 	t.Setenv("AWS_PROFILE", "")
 	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "false")
 }
 
 // TestNewDetector_NonK8sHost guards the fork's non-Kubernetes no-op (fork#227, fork#230):
