@@ -126,6 +126,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => ../../pkg/golden
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => ../../pkg/golden

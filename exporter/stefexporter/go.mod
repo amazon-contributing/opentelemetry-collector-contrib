@@ -94,6 +94,4 @@ require (
 	modernc.org/b/v2 v2.1.11 // indirect
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common => ../../internal/common
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/common => ../../internal/common

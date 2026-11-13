@@ -80,6 +80,4 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/extension/opampcustommessages => ../../extension/opampcustommessages
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/opampcustommessages => ../../extension/opampcustommessages

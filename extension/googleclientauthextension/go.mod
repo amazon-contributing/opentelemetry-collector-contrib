@@ -61,6 +61,4 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-exclude (
-	github.com/knadh/koanf v1.5.0
-)
+exclude github.com/knadh/koanf v1.5.0

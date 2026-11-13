@@ -2,9 +2,7 @@ module github.com/open-telemetry/opentelemetry-collector-contrib/internal/tools
 
 go 1.26.0
 
-require (
-	go.uber.org/goleak v1.3.0
-)
+require go.uber.org/goleak v1.3.0
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.4.0 // indirect
@@ -323,9 +321,9 @@ require (
 )
 
 retract (
-	v0.65.0
-	v0.76.1
 	v0.76.2
+	v0.76.1
+	v0.65.0
 )
 
 tool (

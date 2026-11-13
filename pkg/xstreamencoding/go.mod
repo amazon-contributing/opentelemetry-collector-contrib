@@ -29,6 +29,4 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding => ../../extension/encoding
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding => ../../extension/encoding

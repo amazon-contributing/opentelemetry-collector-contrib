@@ -87,9 +87,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-tool (
-	go.uber.org/mock/mockgen
-)
+tool go.uber.org/mock/mockgen
 
 replace (
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding => ../../extension/encoding

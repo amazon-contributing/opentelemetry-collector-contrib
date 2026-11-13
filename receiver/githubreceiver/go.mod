@@ -166,9 +166,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-tool (
-	github.com/Khan/genqlient
-)
+tool github.com/Khan/genqlient
 
 replace (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => ../../pkg/golden

@@ -65,6 +65,4 @@ require (
 	golang.org/x/tools v0.52.0 // indirect
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer => ../
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer => ../

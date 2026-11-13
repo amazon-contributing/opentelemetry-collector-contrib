@@ -51,6 +51,4 @@ require (
 	google.golang.org/grpc v1.85.0 // indirect
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/skywalking => ../../../pkg/translator/skywalking
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/skywalking => ../../../pkg/translator/skywalking

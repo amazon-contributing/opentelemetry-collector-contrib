@@ -47,6 +47,4 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 )
 
-replace (
-	github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding => ../
-)
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding => ../
