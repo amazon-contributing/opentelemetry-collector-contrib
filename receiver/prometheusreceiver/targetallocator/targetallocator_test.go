@@ -27,7 +27,7 @@ func TestConfigTypeAlias(t *testing.T) {
 	}
 
 	assert.NotNil(t, cfg)
-	assert.Equal(t, "http://test-allocator:8080", cfg.Endpoint)
+	assert.Equal(t, "http://test-allocator:8080", cfg.ClientConfig.Endpoint)
 	assert.Equal(t, 30*time.Second, cfg.Interval)
 	assert.Equal(t, "test-collector", cfg.CollectorID)
 }

@@ -160,7 +160,8 @@ func (le *LeaderElection) init() error {
 			lockNamespace, le.leaderLockName,
 			clientSet.CoreV1(),
 			clientSet.CoordinationV1(),
-			resourceLockConfig)
+			resourceLockConfig,
+		)
 		if err != nil {
 			le.logger.Warn("Failed to create resource lock", zap.Error(err))
 			return err

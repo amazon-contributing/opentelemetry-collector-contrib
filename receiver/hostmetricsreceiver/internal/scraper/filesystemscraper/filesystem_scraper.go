@@ -97,6 +97,11 @@ func (s *filesystemsScraper) scrape(ctx context.Context) (pmetric.Metrics, error
 	seen := map[mountKey]struct{}{}
 
 	for _, partition := range partitions {
+		if partition.Device == "" && partition.Mountpoint == "" {
+			// Workaround until https://github.com/shirou/gopsutil/pull/2187
+			// is merged and "empty" partitions can be returned on Windows
+			continue
+		}
 		key := mountKey{
 			mountpoint: partition.Mountpoint,
 			device:     partition.Device,
@@ -174,5 +179,26 @@ func translateMountpoint(ctx context.Context, rootPath, mountpoint string) strin
 			return mountpoint
 		}
 	}
+
+	// gopsutil first reads <rootPath>/proc/1/mountinfo, and if this fails it reads <rootPath>/proc/self/mountinfo as a fallback.
+	// If the collector process runs in a different mount namespace than PID 1 on the host (e.g. on Kubernetes):
+	//
+	// <rootPath>/proc/1/mountinfo contains the mountpoints from the perspective of PID 1 on the host (without rootPath prefix)
+	// <rootPath>/proc/self/mountinfo contains the mountpoints from the perspective of the collector process (with the rootPath prefix)
+	//
+	// Example on Fedora 43:
+	// $ docker run -v /:/hostfs:ro alpine cat /hostfs/proc/1/mountinfo | grep ext4
+	// 61 73 259:2 / /boot rw,relatime shared:84 - ext4 /dev/nvme0n1p2 rw,seclabel
+	//
+	// $ docker run -v /:/hostfs:ro alpine cat /hostfs/proc/self/mountinfo | grep ext4
+	// 5111 5048 259:2 / /hostfs/boot ro,relatime master:84 - ext4 /dev/nvme0n1p2 rw,seclabel
+	//
+	// Therefore, do not add rootPath if the mountpath has already a rootPath prefix.
+	sep := string(filepath.Separator)
+	if rootPath != "" && rootPath != sep &&
+		strings.HasPrefix(filepath.Clean(mountpoint)+sep, filepath.Clean(rootPath)+sep) {
+		return mountpoint
+	}
+
 	return filepath.Join(rootPath, mountpoint)
 }

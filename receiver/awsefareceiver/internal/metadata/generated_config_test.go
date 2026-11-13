@@ -20,77 +20,121 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	}{
 		{
 			name: "default",
-			want: DefaultMetricsBuilderConfig(),
+			want: NewDefaultMetricsBuilderConfig(),
 		},
 		{
 			name: "all_set",
 			want: MetricsBuilderConfig{
 				Metrics: MetricsConfig{
-					EfaImpairedRemoteConnEvents: MetricConfig{
-						Enabled: true,
+					EfaImpairedRemoteConnEvents: EfaImpairedRemoteConnEventsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaImpairedRemoteConnEventsMetricAttributeKey{EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaDevice, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaPort, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadBytes: MetricConfig{
-						Enabled: true,
+					EfaRdmaReadBytes: EfaRdmaReadBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadBytesMetricAttributeKey{EfaRdmaReadBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadRespBytes: MetricConfig{
-						Enabled: true,
+					EfaRdmaReadRespBytes: EfaRdmaReadRespBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadRespBytesMetricAttributeKey{EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadWrErr: MetricConfig{
-						Enabled: true,
+					EfaRdmaReadWrErr: EfaRdmaReadWrErrMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadWrErrMetricAttributeKey{EfaRdmaReadWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadWrs: MetricConfig{
-						Enabled: true,
+					EfaRdmaReadWrs: EfaRdmaReadWrsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadWrsMetricAttributeKey{EfaRdmaReadWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrsMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteBytes: MetricConfig{
-						Enabled: true,
+					EfaRdmaWriteBytes: EfaRdmaWriteBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteBytesMetricAttributeKey{EfaRdmaWriteBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteRecvBytes: MetricConfig{
-						Enabled: true,
+					EfaRdmaWriteRecvBytes: EfaRdmaWriteRecvBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteRecvBytesMetricAttributeKey{EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteWrErr: MetricConfig{
-						Enabled: true,
+					EfaRdmaWriteWrErr: EfaRdmaWriteWrErrMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteWrErrMetricAttributeKey{EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteWrs: MetricConfig{
-						Enabled: true,
+					EfaRdmaWriteWrs: EfaRdmaWriteWrsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteWrsMetricAttributeKey{EfaRdmaWriteWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRecvBytes: MetricConfig{
-						Enabled: true,
+					EfaRecvBytes: EfaRecvBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRecvBytesMetricAttributeKey{EfaRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRecvBytesMetricAttributeKeyAwsEfaPort, EfaRecvBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRecvWrs: MetricConfig{
-						Enabled: true,
+					EfaRecvWrs: EfaRecvWrsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRecvWrsMetricAttributeKey{EfaRecvWrsMetricAttributeKeyAwsEfaDevice, EfaRecvWrsMetricAttributeKeyAwsEfaPort, EfaRecvWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRetransBytes: MetricConfig{
-						Enabled: true,
+					EfaRetransBytes: EfaRetransBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRetransBytesMetricAttributeKey{EfaRetransBytesMetricAttributeKeyAwsEfaDevice, EfaRetransBytesMetricAttributeKeyAwsEfaPort, EfaRetransBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRetransPkts: MetricConfig{
-						Enabled: true,
+					EfaRetransPkts: EfaRetransPktsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRetransPktsMetricAttributeKey{EfaRetransPktsMetricAttributeKeyAwsEfaDevice, EfaRetransPktsMetricAttributeKeyAwsEfaPort, EfaRetransPktsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRetransTimeoutEvents: MetricConfig{
-						Enabled: true,
+					EfaRetransTimeoutEvents: EfaRetransTimeoutEventsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRetransTimeoutEventsMetricAttributeKey{EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaDevice, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaPort, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRxBytes: MetricConfig{
-						Enabled: true,
+					EfaRxBytes: EfaRxBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRxBytesMetricAttributeKey{EfaRxBytesMetricAttributeKeyAwsEfaDevice, EfaRxBytesMetricAttributeKeyAwsEfaPort, EfaRxBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRxDropped: MetricConfig{
-						Enabled: true,
+					EfaRxDropped: EfaRxDroppedMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRxDroppedMetricAttributeKey{EfaRxDroppedMetricAttributeKeyAwsEfaDevice, EfaRxDroppedMetricAttributeKeyAwsEfaPort, EfaRxDroppedMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRxPkts: MetricConfig{
-						Enabled: true,
+					EfaRxPkts: EfaRxPktsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRxPktsMetricAttributeKey{EfaRxPktsMetricAttributeKeyAwsEfaDevice, EfaRxPktsMetricAttributeKeyAwsEfaPort, EfaRxPktsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaSendBytes: MetricConfig{
-						Enabled: true,
+					EfaSendBytes: EfaSendBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaSendBytesMetricAttributeKey{EfaSendBytesMetricAttributeKeyAwsEfaDevice, EfaSendBytesMetricAttributeKeyAwsEfaPort, EfaSendBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaSendWrs: MetricConfig{
-						Enabled: true,
+					EfaSendWrs: EfaSendWrsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaSendWrsMetricAttributeKey{EfaSendWrsMetricAttributeKeyAwsEfaDevice, EfaSendWrsMetricAttributeKeyAwsEfaPort, EfaSendWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaTxBytes: MetricConfig{
-						Enabled: true,
+					EfaTxBytes: EfaTxBytesMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaTxBytesMetricAttributeKey{EfaTxBytesMetricAttributeKeyAwsEfaDevice, EfaTxBytesMetricAttributeKeyAwsEfaPort, EfaTxBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaTxPkts: MetricConfig{
-						Enabled: true,
+					EfaTxPkts: EfaTxPktsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaTxPktsMetricAttributeKey{EfaTxPktsMetricAttributeKeyAwsEfaDevice, EfaTxPktsMetricAttributeKeyAwsEfaPort, EfaTxPktsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaUnresponsiveRemoteEvents: MetricConfig{
-						Enabled: true,
+					EfaUnresponsiveRemoteEvents: EfaUnresponsiveRemoteEventsMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaUnresponsiveRemoteEventsMetricAttributeKey{EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaDevice, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaPort, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaEniID},
 					},
 				},
 			},
@@ -99,71 +143,115 @@ func TestMetricsBuilderConfig(t *testing.T) {
 			name: "none_set",
 			want: MetricsBuilderConfig{
 				Metrics: MetricsConfig{
-					EfaImpairedRemoteConnEvents: MetricConfig{
-						Enabled: false,
+					EfaImpairedRemoteConnEvents: EfaImpairedRemoteConnEventsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaImpairedRemoteConnEventsMetricAttributeKey{EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaDevice, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaPort, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadBytes: MetricConfig{
-						Enabled: false,
+					EfaRdmaReadBytes: EfaRdmaReadBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadBytesMetricAttributeKey{EfaRdmaReadBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadRespBytes: MetricConfig{
-						Enabled: false,
+					EfaRdmaReadRespBytes: EfaRdmaReadRespBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadRespBytesMetricAttributeKey{EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadWrErr: MetricConfig{
-						Enabled: false,
+					EfaRdmaReadWrErr: EfaRdmaReadWrErrMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadWrErrMetricAttributeKey{EfaRdmaReadWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaReadWrs: MetricConfig{
-						Enabled: false,
+					EfaRdmaReadWrs: EfaRdmaReadWrsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaReadWrsMetricAttributeKey{EfaRdmaReadWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrsMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteBytes: MetricConfig{
-						Enabled: false,
+					EfaRdmaWriteBytes: EfaRdmaWriteBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteBytesMetricAttributeKey{EfaRdmaWriteBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteRecvBytes: MetricConfig{
-						Enabled: false,
+					EfaRdmaWriteRecvBytes: EfaRdmaWriteRecvBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteRecvBytesMetricAttributeKey{EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteWrErr: MetricConfig{
-						Enabled: false,
+					EfaRdmaWriteWrErr: EfaRdmaWriteWrErrMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteWrErrMetricAttributeKey{EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRdmaWriteWrs: MetricConfig{
-						Enabled: false,
+					EfaRdmaWriteWrs: EfaRdmaWriteWrsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRdmaWriteWrsMetricAttributeKey{EfaRdmaWriteWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRecvBytes: MetricConfig{
-						Enabled: false,
+					EfaRecvBytes: EfaRecvBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRecvBytesMetricAttributeKey{EfaRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRecvBytesMetricAttributeKeyAwsEfaPort, EfaRecvBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRecvWrs: MetricConfig{
-						Enabled: false,
+					EfaRecvWrs: EfaRecvWrsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRecvWrsMetricAttributeKey{EfaRecvWrsMetricAttributeKeyAwsEfaDevice, EfaRecvWrsMetricAttributeKeyAwsEfaPort, EfaRecvWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRetransBytes: MetricConfig{
-						Enabled: false,
+					EfaRetransBytes: EfaRetransBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRetransBytesMetricAttributeKey{EfaRetransBytesMetricAttributeKeyAwsEfaDevice, EfaRetransBytesMetricAttributeKeyAwsEfaPort, EfaRetransBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRetransPkts: MetricConfig{
-						Enabled: false,
+					EfaRetransPkts: EfaRetransPktsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRetransPktsMetricAttributeKey{EfaRetransPktsMetricAttributeKeyAwsEfaDevice, EfaRetransPktsMetricAttributeKeyAwsEfaPort, EfaRetransPktsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRetransTimeoutEvents: MetricConfig{
-						Enabled: false,
+					EfaRetransTimeoutEvents: EfaRetransTimeoutEventsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRetransTimeoutEventsMetricAttributeKey{EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaDevice, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaPort, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRxBytes: MetricConfig{
-						Enabled: false,
+					EfaRxBytes: EfaRxBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRxBytesMetricAttributeKey{EfaRxBytesMetricAttributeKeyAwsEfaDevice, EfaRxBytesMetricAttributeKeyAwsEfaPort, EfaRxBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRxDropped: MetricConfig{
-						Enabled: false,
+					EfaRxDropped: EfaRxDroppedMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRxDroppedMetricAttributeKey{EfaRxDroppedMetricAttributeKeyAwsEfaDevice, EfaRxDroppedMetricAttributeKeyAwsEfaPort, EfaRxDroppedMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaRxPkts: MetricConfig{
-						Enabled: false,
+					EfaRxPkts: EfaRxPktsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaRxPktsMetricAttributeKey{EfaRxPktsMetricAttributeKeyAwsEfaDevice, EfaRxPktsMetricAttributeKeyAwsEfaPort, EfaRxPktsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaSendBytes: MetricConfig{
-						Enabled: false,
+					EfaSendBytes: EfaSendBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaSendBytesMetricAttributeKey{EfaSendBytesMetricAttributeKeyAwsEfaDevice, EfaSendBytesMetricAttributeKeyAwsEfaPort, EfaSendBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaSendWrs: MetricConfig{
-						Enabled: false,
+					EfaSendWrs: EfaSendWrsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaSendWrsMetricAttributeKey{EfaSendWrsMetricAttributeKeyAwsEfaDevice, EfaSendWrsMetricAttributeKeyAwsEfaPort, EfaSendWrsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaTxBytes: MetricConfig{
-						Enabled: false,
+					EfaTxBytes: EfaTxBytesMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaTxBytesMetricAttributeKey{EfaTxBytesMetricAttributeKeyAwsEfaDevice, EfaTxBytesMetricAttributeKeyAwsEfaPort, EfaTxBytesMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaTxPkts: MetricConfig{
-						Enabled: false,
+					EfaTxPkts: EfaTxPktsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaTxPktsMetricAttributeKey{EfaTxPktsMetricAttributeKeyAwsEfaDevice, EfaTxPktsMetricAttributeKeyAwsEfaPort, EfaTxPktsMetricAttributeKeyAwsEfaEniID},
 					},
-					EfaUnresponsiveRemoteEvents: MetricConfig{
-						Enabled: false,
+					EfaUnresponsiveRemoteEvents: EfaUnresponsiveRemoteEventsMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []EfaUnresponsiveRemoteEventsMetricAttributeKey{EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaDevice, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaPort, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaEniID},
 					},
 				},
 			},
@@ -172,10 +260,273 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadMetricsBuilderConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(MetricConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(EfaImpairedRemoteConnEventsMetricConfig{}, EfaRdmaReadBytesMetricConfig{}, EfaRdmaReadRespBytesMetricConfig{}, EfaRdmaReadWrErrMetricConfig{}, EfaRdmaReadWrsMetricConfig{}, EfaRdmaWriteBytesMetricConfig{}, EfaRdmaWriteRecvBytesMetricConfig{}, EfaRdmaWriteWrErrMetricConfig{}, EfaRdmaWriteWrsMetricConfig{}, EfaRecvBytesMetricConfig{}, EfaRecvWrsMetricConfig{}, EfaRetransBytesMetricConfig{}, EfaRetransPktsMetricConfig{}, EfaRetransTimeoutEventsMetricConfig{}, EfaRxBytesMetricConfig{}, EfaRxDroppedMetricConfig{}, EfaRxPktsMetricConfig{}, EfaSendBytesMetricConfig{}, EfaSendWrsMetricConfig{}, EfaTxBytesMetricConfig{}, EfaTxPktsMetricConfig{}, EfaUnresponsiveRemoteEventsMetricConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}
+}
+func TestEfaImpairedRemoteConnEventsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaImpairedRemoteConnEvents
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaImpairedRemoteConnEventsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_impaired_remote_conn_events doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaImpairedRemoteConnEvents
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaReadBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaReadBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaReadBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_read_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaReadBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaReadRespBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaReadRespBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaReadRespBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_read_resp_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaReadRespBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaReadWrErrMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaReadWrErr
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaReadWrErrMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_read_wr_err doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaReadWrErr
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaReadWrsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaReadWrs
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaReadWrsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_read_wrs doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaReadWrs
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaWriteBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaWriteBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaWriteBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_write_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaWriteBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaWriteRecvBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaWriteRecvBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaWriteRecvBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_write_recv_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaWriteRecvBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaWriteWrErrMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaWriteWrErr
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaWriteWrErrMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_write_wr_err doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaWriteWrErr
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRdmaWriteWrsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRdmaWriteWrs
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRdmaWriteWrsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rdma_write_wrs doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRdmaWriteWrs
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRecvBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRecvBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRecvBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_recv_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRecvBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRecvWrsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRecvWrs
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRecvWrsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_recv_wrs doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRecvWrs
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRetransBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRetransBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRetransBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_retrans_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRetransBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRetransPktsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRetransPkts
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRetransPktsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_retrans_pkts doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRetransPkts
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRetransTimeoutEventsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRetransTimeoutEvents
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRetransTimeoutEventsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_retrans_timeout_events doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRetransTimeoutEvents
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRxBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRxBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRxBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rx_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRxBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRxDroppedMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRxDropped
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRxDroppedMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rx_dropped doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRxDropped
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaRxPktsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaRxPkts
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaRxPktsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_rx_pkts doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaRxPkts
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaSendBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaSendBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaSendBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_send_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaSendBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaSendWrsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaSendWrs
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaSendWrsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_send_wrs doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaSendWrs
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaTxBytesMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaTxBytes
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaTxBytesMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_tx_bytes doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaTxBytes
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaTxPktsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaTxPkts
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaTxPktsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_tx_pkts doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaTxPkts
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestEfaUnresponsiveRemoteEventsMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().EfaUnresponsiveRemoteEvents
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []EfaUnresponsiveRemoteEventsMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric efa_unresponsive_remote_events doesn't have an attribute invalid, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]")
+
+	cfg = DefaultMetricsConfig().EfaUnresponsiveRemoteEvents
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
 
 func loadMetricsBuilderConfig(t *testing.T, name string) MetricsBuilderConfig {
@@ -183,7 +534,7 @@ func loadMetricsBuilderConfig(t *testing.T, name string) MetricsBuilderConfig {
 	require.NoError(t, err)
 	sub, err := cm.Sub(name)
 	require.NoError(t, err)
-	cfg := DefaultMetricsBuilderConfig()
+	cfg := NewDefaultMetricsBuilderConfig()
 	require.NoError(t, sub.Unmarshal(&cfg, confmap.WithIgnoreUnused()))
 	return cfg
 }

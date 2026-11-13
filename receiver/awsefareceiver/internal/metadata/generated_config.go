@@ -3,16 +3,30 @@
 package metadata
 
 import (
+	"fmt"
+
 	"go.opentelemetry.io/collector/confmap"
 )
 
-// MetricConfig provides common config for a particular metric.
-type MetricConfig struct {
+// EfaImpairedRemoteConnEventsMetricAttributeKey specifies the key of an attribute for the efa_impaired_remote_conn_events metric.
+type EfaImpairedRemoteConnEventsMetricAttributeKey string
+
+const (
+	EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaDevice EfaImpairedRemoteConnEventsMetricAttributeKey = "aws.efa.device"
+	EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaPort   EfaImpairedRemoteConnEventsMetricAttributeKey = "aws.efa.port"
+	EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaEniID  EfaImpairedRemoteConnEventsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaImpairedRemoteConnEventsMetricConfig provides config for the efa_impaired_remote_conn_events metric.
+type EfaImpairedRemoteConnEventsMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                          `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaImpairedRemoteConnEventsMetricAttributeKey `mapstructure:"attributes"`
 }
 
-func (ms *MetricConfig) Unmarshal(parser *confmap.Conf) error {
+func (ms *EfaImpairedRemoteConnEventsMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -26,99 +40,1211 @@ func (ms *MetricConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
+func (ms *EfaImpairedRemoteConnEventsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaDevice, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaPort, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_impaired_remote_conn_events doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaReadBytesMetricAttributeKey specifies the key of an attribute for the efa_rdma_read_bytes metric.
+type EfaRdmaReadBytesMetricAttributeKey string
+
+const (
+	EfaRdmaReadBytesMetricAttributeKeyAwsEfaDevice EfaRdmaReadBytesMetricAttributeKey = "aws.efa.device"
+	EfaRdmaReadBytesMetricAttributeKeyAwsEfaPort   EfaRdmaReadBytesMetricAttributeKey = "aws.efa.port"
+	EfaRdmaReadBytesMetricAttributeKeyAwsEfaEniID  EfaRdmaReadBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaReadBytesMetricConfig provides config for the efa_rdma_read_bytes metric.
+type EfaRdmaReadBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                               `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaReadBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaReadBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaReadBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaReadBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_read_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaReadRespBytesMetricAttributeKey specifies the key of an attribute for the efa_rdma_read_resp_bytes metric.
+type EfaRdmaReadRespBytesMetricAttributeKey string
+
+const (
+	EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaDevice EfaRdmaReadRespBytesMetricAttributeKey = "aws.efa.device"
+	EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaPort   EfaRdmaReadRespBytesMetricAttributeKey = "aws.efa.port"
+	EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaEniID  EfaRdmaReadRespBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaReadRespBytesMetricConfig provides config for the efa_rdma_read_resp_bytes metric.
+type EfaRdmaReadRespBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                   `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaReadRespBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaReadRespBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaReadRespBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_read_resp_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaReadWrErrMetricAttributeKey specifies the key of an attribute for the efa_rdma_read_wr_err metric.
+type EfaRdmaReadWrErrMetricAttributeKey string
+
+const (
+	EfaRdmaReadWrErrMetricAttributeKeyAwsEfaDevice EfaRdmaReadWrErrMetricAttributeKey = "aws.efa.device"
+	EfaRdmaReadWrErrMetricAttributeKeyAwsEfaPort   EfaRdmaReadWrErrMetricAttributeKey = "aws.efa.port"
+	EfaRdmaReadWrErrMetricAttributeKeyAwsEfaEniID  EfaRdmaReadWrErrMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaReadWrErrMetricConfig provides config for the efa_rdma_read_wr_err metric.
+type EfaRdmaReadWrErrMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                               `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaReadWrErrMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaReadWrErrMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaReadWrErrMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaReadWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_read_wr_err doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaReadWrsMetricAttributeKey specifies the key of an attribute for the efa_rdma_read_wrs metric.
+type EfaRdmaReadWrsMetricAttributeKey string
+
+const (
+	EfaRdmaReadWrsMetricAttributeKeyAwsEfaDevice EfaRdmaReadWrsMetricAttributeKey = "aws.efa.device"
+	EfaRdmaReadWrsMetricAttributeKeyAwsEfaPort   EfaRdmaReadWrsMetricAttributeKey = "aws.efa.port"
+	EfaRdmaReadWrsMetricAttributeKeyAwsEfaEniID  EfaRdmaReadWrsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaReadWrsMetricConfig provides config for the efa_rdma_read_wrs metric.
+type EfaRdmaReadWrsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                             `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaReadWrsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaReadWrsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaReadWrsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaReadWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrsMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_read_wrs doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaWriteBytesMetricAttributeKey specifies the key of an attribute for the efa_rdma_write_bytes metric.
+type EfaRdmaWriteBytesMetricAttributeKey string
+
+const (
+	EfaRdmaWriteBytesMetricAttributeKeyAwsEfaDevice EfaRdmaWriteBytesMetricAttributeKey = "aws.efa.device"
+	EfaRdmaWriteBytesMetricAttributeKeyAwsEfaPort   EfaRdmaWriteBytesMetricAttributeKey = "aws.efa.port"
+	EfaRdmaWriteBytesMetricAttributeKeyAwsEfaEniID  EfaRdmaWriteBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaWriteBytesMetricConfig provides config for the efa_rdma_write_bytes metric.
+type EfaRdmaWriteBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaWriteBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaWriteBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaWriteBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaWriteBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_write_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaWriteRecvBytesMetricAttributeKey specifies the key of an attribute for the efa_rdma_write_recv_bytes metric.
+type EfaRdmaWriteRecvBytesMetricAttributeKey string
+
+const (
+	EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaDevice EfaRdmaWriteRecvBytesMetricAttributeKey = "aws.efa.device"
+	EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaPort   EfaRdmaWriteRecvBytesMetricAttributeKey = "aws.efa.port"
+	EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaEniID  EfaRdmaWriteRecvBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaWriteRecvBytesMetricConfig provides config for the efa_rdma_write_recv_bytes metric.
+type EfaRdmaWriteRecvBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                    `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaWriteRecvBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaWriteRecvBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaWriteRecvBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_write_recv_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaWriteWrErrMetricAttributeKey specifies the key of an attribute for the efa_rdma_write_wr_err metric.
+type EfaRdmaWriteWrErrMetricAttributeKey string
+
+const (
+	EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaDevice EfaRdmaWriteWrErrMetricAttributeKey = "aws.efa.device"
+	EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaPort   EfaRdmaWriteWrErrMetricAttributeKey = "aws.efa.port"
+	EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaEniID  EfaRdmaWriteWrErrMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaWriteWrErrMetricConfig provides config for the efa_rdma_write_wr_err metric.
+type EfaRdmaWriteWrErrMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaWriteWrErrMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaWriteWrErrMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaWriteWrErrMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_write_wr_err doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRdmaWriteWrsMetricAttributeKey specifies the key of an attribute for the efa_rdma_write_wrs metric.
+type EfaRdmaWriteWrsMetricAttributeKey string
+
+const (
+	EfaRdmaWriteWrsMetricAttributeKeyAwsEfaDevice EfaRdmaWriteWrsMetricAttributeKey = "aws.efa.device"
+	EfaRdmaWriteWrsMetricAttributeKeyAwsEfaPort   EfaRdmaWriteWrsMetricAttributeKey = "aws.efa.port"
+	EfaRdmaWriteWrsMetricAttributeKeyAwsEfaEniID  EfaRdmaWriteWrsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRdmaWriteWrsMetricConfig provides config for the efa_rdma_write_wrs metric.
+type EfaRdmaWriteWrsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                              `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRdmaWriteWrsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRdmaWriteWrsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRdmaWriteWrsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRdmaWriteWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rdma_write_wrs doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRecvBytesMetricAttributeKey specifies the key of an attribute for the efa_recv_bytes metric.
+type EfaRecvBytesMetricAttributeKey string
+
+const (
+	EfaRecvBytesMetricAttributeKeyAwsEfaDevice EfaRecvBytesMetricAttributeKey = "aws.efa.device"
+	EfaRecvBytesMetricAttributeKeyAwsEfaPort   EfaRecvBytesMetricAttributeKey = "aws.efa.port"
+	EfaRecvBytesMetricAttributeKeyAwsEfaEniID  EfaRecvBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRecvBytesMetricConfig provides config for the efa_recv_bytes metric.
+type EfaRecvBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                           `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRecvBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRecvBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRecvBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRecvBytesMetricAttributeKeyAwsEfaPort, EfaRecvBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_recv_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRecvWrsMetricAttributeKey specifies the key of an attribute for the efa_recv_wrs metric.
+type EfaRecvWrsMetricAttributeKey string
+
+const (
+	EfaRecvWrsMetricAttributeKeyAwsEfaDevice EfaRecvWrsMetricAttributeKey = "aws.efa.device"
+	EfaRecvWrsMetricAttributeKeyAwsEfaPort   EfaRecvWrsMetricAttributeKey = "aws.efa.port"
+	EfaRecvWrsMetricAttributeKeyAwsEfaEniID  EfaRecvWrsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRecvWrsMetricConfig provides config for the efa_recv_wrs metric.
+type EfaRecvWrsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                         `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRecvWrsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRecvWrsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRecvWrsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRecvWrsMetricAttributeKeyAwsEfaDevice, EfaRecvWrsMetricAttributeKeyAwsEfaPort, EfaRecvWrsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_recv_wrs doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRetransBytesMetricAttributeKey specifies the key of an attribute for the efa_retrans_bytes metric.
+type EfaRetransBytesMetricAttributeKey string
+
+const (
+	EfaRetransBytesMetricAttributeKeyAwsEfaDevice EfaRetransBytesMetricAttributeKey = "aws.efa.device"
+	EfaRetransBytesMetricAttributeKeyAwsEfaPort   EfaRetransBytesMetricAttributeKey = "aws.efa.port"
+	EfaRetransBytesMetricAttributeKeyAwsEfaEniID  EfaRetransBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRetransBytesMetricConfig provides config for the efa_retrans_bytes metric.
+type EfaRetransBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                              `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRetransBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRetransBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRetransBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRetransBytesMetricAttributeKeyAwsEfaDevice, EfaRetransBytesMetricAttributeKeyAwsEfaPort, EfaRetransBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_retrans_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRetransPktsMetricAttributeKey specifies the key of an attribute for the efa_retrans_pkts metric.
+type EfaRetransPktsMetricAttributeKey string
+
+const (
+	EfaRetransPktsMetricAttributeKeyAwsEfaDevice EfaRetransPktsMetricAttributeKey = "aws.efa.device"
+	EfaRetransPktsMetricAttributeKeyAwsEfaPort   EfaRetransPktsMetricAttributeKey = "aws.efa.port"
+	EfaRetransPktsMetricAttributeKeyAwsEfaEniID  EfaRetransPktsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRetransPktsMetricConfig provides config for the efa_retrans_pkts metric.
+type EfaRetransPktsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                             `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRetransPktsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRetransPktsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRetransPktsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRetransPktsMetricAttributeKeyAwsEfaDevice, EfaRetransPktsMetricAttributeKeyAwsEfaPort, EfaRetransPktsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_retrans_pkts doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRetransTimeoutEventsMetricAttributeKey specifies the key of an attribute for the efa_retrans_timeout_events metric.
+type EfaRetransTimeoutEventsMetricAttributeKey string
+
+const (
+	EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaDevice EfaRetransTimeoutEventsMetricAttributeKey = "aws.efa.device"
+	EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaPort   EfaRetransTimeoutEventsMetricAttributeKey = "aws.efa.port"
+	EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaEniID  EfaRetransTimeoutEventsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRetransTimeoutEventsMetricConfig provides config for the efa_retrans_timeout_events metric.
+type EfaRetransTimeoutEventsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                      `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRetransTimeoutEventsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRetransTimeoutEventsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRetransTimeoutEventsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaDevice, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaPort, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_retrans_timeout_events doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRxBytesMetricAttributeKey specifies the key of an attribute for the efa_rx_bytes metric.
+type EfaRxBytesMetricAttributeKey string
+
+const (
+	EfaRxBytesMetricAttributeKeyAwsEfaDevice EfaRxBytesMetricAttributeKey = "aws.efa.device"
+	EfaRxBytesMetricAttributeKeyAwsEfaPort   EfaRxBytesMetricAttributeKey = "aws.efa.port"
+	EfaRxBytesMetricAttributeKeyAwsEfaEniID  EfaRxBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRxBytesMetricConfig provides config for the efa_rx_bytes metric.
+type EfaRxBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                         `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRxBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRxBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRxBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRxBytesMetricAttributeKeyAwsEfaDevice, EfaRxBytesMetricAttributeKeyAwsEfaPort, EfaRxBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rx_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRxDroppedMetricAttributeKey specifies the key of an attribute for the efa_rx_dropped metric.
+type EfaRxDroppedMetricAttributeKey string
+
+const (
+	EfaRxDroppedMetricAttributeKeyAwsEfaDevice EfaRxDroppedMetricAttributeKey = "aws.efa.device"
+	EfaRxDroppedMetricAttributeKeyAwsEfaPort   EfaRxDroppedMetricAttributeKey = "aws.efa.port"
+	EfaRxDroppedMetricAttributeKeyAwsEfaEniID  EfaRxDroppedMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRxDroppedMetricConfig provides config for the efa_rx_dropped metric.
+type EfaRxDroppedMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                           `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRxDroppedMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRxDroppedMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRxDroppedMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRxDroppedMetricAttributeKeyAwsEfaDevice, EfaRxDroppedMetricAttributeKeyAwsEfaPort, EfaRxDroppedMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rx_dropped doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaRxPktsMetricAttributeKey specifies the key of an attribute for the efa_rx_pkts metric.
+type EfaRxPktsMetricAttributeKey string
+
+const (
+	EfaRxPktsMetricAttributeKeyAwsEfaDevice EfaRxPktsMetricAttributeKey = "aws.efa.device"
+	EfaRxPktsMetricAttributeKeyAwsEfaPort   EfaRxPktsMetricAttributeKey = "aws.efa.port"
+	EfaRxPktsMetricAttributeKeyAwsEfaEniID  EfaRxPktsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaRxPktsMetricConfig provides config for the efa_rx_pkts metric.
+type EfaRxPktsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                        `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaRxPktsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaRxPktsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaRxPktsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaRxPktsMetricAttributeKeyAwsEfaDevice, EfaRxPktsMetricAttributeKeyAwsEfaPort, EfaRxPktsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_rx_pkts doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaSendBytesMetricAttributeKey specifies the key of an attribute for the efa_send_bytes metric.
+type EfaSendBytesMetricAttributeKey string
+
+const (
+	EfaSendBytesMetricAttributeKeyAwsEfaDevice EfaSendBytesMetricAttributeKey = "aws.efa.device"
+	EfaSendBytesMetricAttributeKeyAwsEfaPort   EfaSendBytesMetricAttributeKey = "aws.efa.port"
+	EfaSendBytesMetricAttributeKeyAwsEfaEniID  EfaSendBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaSendBytesMetricConfig provides config for the efa_send_bytes metric.
+type EfaSendBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                           `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaSendBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaSendBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaSendBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaSendBytesMetricAttributeKeyAwsEfaDevice, EfaSendBytesMetricAttributeKeyAwsEfaPort, EfaSendBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_send_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaSendWrsMetricAttributeKey specifies the key of an attribute for the efa_send_wrs metric.
+type EfaSendWrsMetricAttributeKey string
+
+const (
+	EfaSendWrsMetricAttributeKeyAwsEfaDevice EfaSendWrsMetricAttributeKey = "aws.efa.device"
+	EfaSendWrsMetricAttributeKeyAwsEfaPort   EfaSendWrsMetricAttributeKey = "aws.efa.port"
+	EfaSendWrsMetricAttributeKeyAwsEfaEniID  EfaSendWrsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaSendWrsMetricConfig provides config for the efa_send_wrs metric.
+type EfaSendWrsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                         `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaSendWrsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaSendWrsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaSendWrsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaSendWrsMetricAttributeKeyAwsEfaDevice, EfaSendWrsMetricAttributeKeyAwsEfaPort, EfaSendWrsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_send_wrs doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaTxBytesMetricAttributeKey specifies the key of an attribute for the efa_tx_bytes metric.
+type EfaTxBytesMetricAttributeKey string
+
+const (
+	EfaTxBytesMetricAttributeKeyAwsEfaDevice EfaTxBytesMetricAttributeKey = "aws.efa.device"
+	EfaTxBytesMetricAttributeKeyAwsEfaPort   EfaTxBytesMetricAttributeKey = "aws.efa.port"
+	EfaTxBytesMetricAttributeKeyAwsEfaEniID  EfaTxBytesMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaTxBytesMetricConfig provides config for the efa_tx_bytes metric.
+type EfaTxBytesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                         `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaTxBytesMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaTxBytesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaTxBytesMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaTxBytesMetricAttributeKeyAwsEfaDevice, EfaTxBytesMetricAttributeKeyAwsEfaPort, EfaTxBytesMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_tx_bytes doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaTxPktsMetricAttributeKey specifies the key of an attribute for the efa_tx_pkts metric.
+type EfaTxPktsMetricAttributeKey string
+
+const (
+	EfaTxPktsMetricAttributeKeyAwsEfaDevice EfaTxPktsMetricAttributeKey = "aws.efa.device"
+	EfaTxPktsMetricAttributeKeyAwsEfaPort   EfaTxPktsMetricAttributeKey = "aws.efa.port"
+	EfaTxPktsMetricAttributeKeyAwsEfaEniID  EfaTxPktsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaTxPktsMetricConfig provides config for the efa_tx_pkts metric.
+type EfaTxPktsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                        `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaTxPktsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaTxPktsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaTxPktsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaTxPktsMetricAttributeKeyAwsEfaDevice, EfaTxPktsMetricAttributeKeyAwsEfaPort, EfaTxPktsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_tx_pkts doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// EfaUnresponsiveRemoteEventsMetricAttributeKey specifies the key of an attribute for the efa_unresponsive_remote_events metric.
+type EfaUnresponsiveRemoteEventsMetricAttributeKey string
+
+const (
+	EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaDevice EfaUnresponsiveRemoteEventsMetricAttributeKey = "aws.efa.device"
+	EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaPort   EfaUnresponsiveRemoteEventsMetricAttributeKey = "aws.efa.port"
+	EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaEniID  EfaUnresponsiveRemoteEventsMetricAttributeKey = "aws.efa.eni.id"
+)
+
+// EfaUnresponsiveRemoteEventsMetricConfig provides config for the efa_unresponsive_remote_events metric.
+type EfaUnresponsiveRemoteEventsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                          `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []EfaUnresponsiveRemoteEventsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *EfaUnresponsiveRemoteEventsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *EfaUnresponsiveRemoteEventsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaDevice, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaPort, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaEniID:
+		default:
+			return fmt.Errorf("metric efa_unresponsive_remote_events doesn't have an attribute %v, valid attributes: [aws.efa.device, aws.efa.port, aws.efa.eni.id]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // MetricsConfig provides config for awsefareceiver metrics.
 type MetricsConfig struct {
-	EfaImpairedRemoteConnEvents MetricConfig `mapstructure:"efa_impaired_remote_conn_events"`
-	EfaRdmaReadBytes            MetricConfig `mapstructure:"efa_rdma_read_bytes"`
-	EfaRdmaReadRespBytes        MetricConfig `mapstructure:"efa_rdma_read_resp_bytes"`
-	EfaRdmaReadWrErr            MetricConfig `mapstructure:"efa_rdma_read_wr_err"`
-	EfaRdmaReadWrs              MetricConfig `mapstructure:"efa_rdma_read_wrs"`
-	EfaRdmaWriteBytes           MetricConfig `mapstructure:"efa_rdma_write_bytes"`
-	EfaRdmaWriteRecvBytes       MetricConfig `mapstructure:"efa_rdma_write_recv_bytes"`
-	EfaRdmaWriteWrErr           MetricConfig `mapstructure:"efa_rdma_write_wr_err"`
-	EfaRdmaWriteWrs             MetricConfig `mapstructure:"efa_rdma_write_wrs"`
-	EfaRecvBytes                MetricConfig `mapstructure:"efa_recv_bytes"`
-	EfaRecvWrs                  MetricConfig `mapstructure:"efa_recv_wrs"`
-	EfaRetransBytes             MetricConfig `mapstructure:"efa_retrans_bytes"`
-	EfaRetransPkts              MetricConfig `mapstructure:"efa_retrans_pkts"`
-	EfaRetransTimeoutEvents     MetricConfig `mapstructure:"efa_retrans_timeout_events"`
-	EfaRxBytes                  MetricConfig `mapstructure:"efa_rx_bytes"`
-	EfaRxDropped                MetricConfig `mapstructure:"efa_rx_dropped"`
-	EfaRxPkts                   MetricConfig `mapstructure:"efa_rx_pkts"`
-	EfaSendBytes                MetricConfig `mapstructure:"efa_send_bytes"`
-	EfaSendWrs                  MetricConfig `mapstructure:"efa_send_wrs"`
-	EfaTxBytes                  MetricConfig `mapstructure:"efa_tx_bytes"`
-	EfaTxPkts                   MetricConfig `mapstructure:"efa_tx_pkts"`
-	EfaUnresponsiveRemoteEvents MetricConfig `mapstructure:"efa_unresponsive_remote_events"`
+	EfaImpairedRemoteConnEvents EfaImpairedRemoteConnEventsMetricConfig `mapstructure:"efa_impaired_remote_conn_events"`
+	EfaRdmaReadBytes            EfaRdmaReadBytesMetricConfig            `mapstructure:"efa_rdma_read_bytes"`
+	EfaRdmaReadRespBytes        EfaRdmaReadRespBytesMetricConfig        `mapstructure:"efa_rdma_read_resp_bytes"`
+	EfaRdmaReadWrErr            EfaRdmaReadWrErrMetricConfig            `mapstructure:"efa_rdma_read_wr_err"`
+	EfaRdmaReadWrs              EfaRdmaReadWrsMetricConfig              `mapstructure:"efa_rdma_read_wrs"`
+	EfaRdmaWriteBytes           EfaRdmaWriteBytesMetricConfig           `mapstructure:"efa_rdma_write_bytes"`
+	EfaRdmaWriteRecvBytes       EfaRdmaWriteRecvBytesMetricConfig       `mapstructure:"efa_rdma_write_recv_bytes"`
+	EfaRdmaWriteWrErr           EfaRdmaWriteWrErrMetricConfig           `mapstructure:"efa_rdma_write_wr_err"`
+	EfaRdmaWriteWrs             EfaRdmaWriteWrsMetricConfig             `mapstructure:"efa_rdma_write_wrs"`
+	EfaRecvBytes                EfaRecvBytesMetricConfig                `mapstructure:"efa_recv_bytes"`
+	EfaRecvWrs                  EfaRecvWrsMetricConfig                  `mapstructure:"efa_recv_wrs"`
+	EfaRetransBytes             EfaRetransBytesMetricConfig             `mapstructure:"efa_retrans_bytes"`
+	EfaRetransPkts              EfaRetransPktsMetricConfig              `mapstructure:"efa_retrans_pkts"`
+	EfaRetransTimeoutEvents     EfaRetransTimeoutEventsMetricConfig     `mapstructure:"efa_retrans_timeout_events"`
+	EfaRxBytes                  EfaRxBytesMetricConfig                  `mapstructure:"efa_rx_bytes"`
+	EfaRxDropped                EfaRxDroppedMetricConfig                `mapstructure:"efa_rx_dropped"`
+	EfaRxPkts                   EfaRxPktsMetricConfig                   `mapstructure:"efa_rx_pkts"`
+	EfaSendBytes                EfaSendBytesMetricConfig                `mapstructure:"efa_send_bytes"`
+	EfaSendWrs                  EfaSendWrsMetricConfig                  `mapstructure:"efa_send_wrs"`
+	EfaTxBytes                  EfaTxBytesMetricConfig                  `mapstructure:"efa_tx_bytes"`
+	EfaTxPkts                   EfaTxPktsMetricConfig                   `mapstructure:"efa_tx_pkts"`
+	EfaUnresponsiveRemoteEvents EfaUnresponsiveRemoteEventsMetricConfig `mapstructure:"efa_unresponsive_remote_events"`
 }
 
 func DefaultMetricsConfig() MetricsConfig {
 	return MetricsConfig{
-		EfaImpairedRemoteConnEvents: MetricConfig{
-			Enabled: true,
+		EfaImpairedRemoteConnEvents: EfaImpairedRemoteConnEventsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaImpairedRemoteConnEventsMetricAttributeKey{EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaDevice, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaPort, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaReadBytes: MetricConfig{
-			Enabled: true,
+		EfaRdmaReadBytes: EfaRdmaReadBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaReadBytesMetricAttributeKey{EfaRdmaReadBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaReadRespBytes: MetricConfig{
-			Enabled: true,
+		EfaRdmaReadRespBytes: EfaRdmaReadRespBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaReadRespBytesMetricAttributeKey{EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaPort, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaReadWrErr: MetricConfig{
-			Enabled: true,
+		EfaRdmaReadWrErr: EfaRdmaReadWrErrMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaReadWrErrMetricAttributeKey{EfaRdmaReadWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaReadWrs: MetricConfig{
-			Enabled: true,
+		EfaRdmaReadWrs: EfaRdmaReadWrsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaReadWrsMetricAttributeKey{EfaRdmaReadWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaReadWrsMetricAttributeKeyAwsEfaPort, EfaRdmaReadWrsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaWriteBytes: MetricConfig{
-			Enabled: true,
+		EfaRdmaWriteBytes: EfaRdmaWriteBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaWriteBytesMetricAttributeKey{EfaRdmaWriteBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaWriteRecvBytes: MetricConfig{
-			Enabled: true,
+		EfaRdmaWriteRecvBytes: EfaRdmaWriteRecvBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaWriteRecvBytesMetricAttributeKey{EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaPort, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaWriteWrErr: MetricConfig{
-			Enabled: true,
+		EfaRdmaWriteWrErr: EfaRdmaWriteWrErrMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaWriteWrErrMetricAttributeKey{EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRdmaWriteWrs: MetricConfig{
-			Enabled: true,
+		EfaRdmaWriteWrs: EfaRdmaWriteWrsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRdmaWriteWrsMetricAttributeKey{EfaRdmaWriteWrsMetricAttributeKeyAwsEfaDevice, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaPort, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRecvBytes: MetricConfig{
-			Enabled: true,
+		EfaRecvBytes: EfaRecvBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRecvBytesMetricAttributeKey{EfaRecvBytesMetricAttributeKeyAwsEfaDevice, EfaRecvBytesMetricAttributeKeyAwsEfaPort, EfaRecvBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRecvWrs: MetricConfig{
-			Enabled: true,
+		EfaRecvWrs: EfaRecvWrsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRecvWrsMetricAttributeKey{EfaRecvWrsMetricAttributeKeyAwsEfaDevice, EfaRecvWrsMetricAttributeKeyAwsEfaPort, EfaRecvWrsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRetransBytes: MetricConfig{
-			Enabled: true,
+		EfaRetransBytes: EfaRetransBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRetransBytesMetricAttributeKey{EfaRetransBytesMetricAttributeKeyAwsEfaDevice, EfaRetransBytesMetricAttributeKeyAwsEfaPort, EfaRetransBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRetransPkts: MetricConfig{
-			Enabled: true,
+		EfaRetransPkts: EfaRetransPktsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRetransPktsMetricAttributeKey{EfaRetransPktsMetricAttributeKeyAwsEfaDevice, EfaRetransPktsMetricAttributeKeyAwsEfaPort, EfaRetransPktsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRetransTimeoutEvents: MetricConfig{
-			Enabled: true,
+		EfaRetransTimeoutEvents: EfaRetransTimeoutEventsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRetransTimeoutEventsMetricAttributeKey{EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaDevice, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaPort, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRxBytes: MetricConfig{
-			Enabled: true,
+		EfaRxBytes: EfaRxBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRxBytesMetricAttributeKey{EfaRxBytesMetricAttributeKeyAwsEfaDevice, EfaRxBytesMetricAttributeKeyAwsEfaPort, EfaRxBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRxDropped: MetricConfig{
-			Enabled: true,
+		EfaRxDropped: EfaRxDroppedMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRxDroppedMetricAttributeKey{EfaRxDroppedMetricAttributeKeyAwsEfaDevice, EfaRxDroppedMetricAttributeKeyAwsEfaPort, EfaRxDroppedMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaRxPkts: MetricConfig{
-			Enabled: true,
+		EfaRxPkts: EfaRxPktsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaRxPktsMetricAttributeKey{EfaRxPktsMetricAttributeKeyAwsEfaDevice, EfaRxPktsMetricAttributeKeyAwsEfaPort, EfaRxPktsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaSendBytes: MetricConfig{
-			Enabled: true,
+		EfaSendBytes: EfaSendBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaSendBytesMetricAttributeKey{EfaSendBytesMetricAttributeKeyAwsEfaDevice, EfaSendBytesMetricAttributeKeyAwsEfaPort, EfaSendBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaSendWrs: MetricConfig{
-			Enabled: true,
+		EfaSendWrs: EfaSendWrsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaSendWrsMetricAttributeKey{EfaSendWrsMetricAttributeKeyAwsEfaDevice, EfaSendWrsMetricAttributeKeyAwsEfaPort, EfaSendWrsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaTxBytes: MetricConfig{
-			Enabled: true,
+		EfaTxBytes: EfaTxBytesMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaTxBytesMetricAttributeKey{EfaTxBytesMetricAttributeKeyAwsEfaDevice, EfaTxBytesMetricAttributeKeyAwsEfaPort, EfaTxBytesMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaTxPkts: MetricConfig{
-			Enabled: true,
+		EfaTxPkts: EfaTxPktsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaTxPktsMetricAttributeKey{EfaTxPktsMetricAttributeKeyAwsEfaDevice, EfaTxPktsMetricAttributeKeyAwsEfaPort, EfaTxPktsMetricAttributeKeyAwsEfaEniID},
 		},
-		EfaUnresponsiveRemoteEvents: MetricConfig{
-			Enabled: true,
+		EfaUnresponsiveRemoteEvents: EfaUnresponsiveRemoteEventsMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []EfaUnresponsiveRemoteEventsMetricAttributeKey{EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaDevice, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaPort, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaEniID},
 		},
 	}
 }
@@ -128,7 +1254,7 @@ type MetricsBuilderConfig struct {
 	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
-func DefaultMetricsBuilderConfig() MetricsBuilderConfig {
+func NewDefaultMetricsBuilderConfig() MetricsBuilderConfig {
 	return MetricsBuilderConfig{
 		Metrics: DefaultMetricsConfig(),
 	}

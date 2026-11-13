@@ -14,7 +14,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -34,6 +35,32 @@ const (
 	regionEnvVar     = "us-west-2"
 )
 
+func getHTTPServer(t *testing.T, srv Server) *http.Server {
+	t.Helper()
+
+	proxyServer, ok := srv.(*server)
+	require.True(t, ok, "expected proxy server implementation")
+	require.NotNil(t, proxyServer.server)
+
+	return proxyServer.server
+}
+
+func getProxyHandler(t *testing.T, srv Server) *proxyHandler {
+	t.Helper()
+
+	proxyServer, ok := srv.(*server)
+	require.True(t, ok, "expected proxy server implementation")
+	require.NotNil(t, proxyServer.handler)
+
+	return proxyServer.handler
+}
+
+func newTestTelemetrySettings(logger *zap.Logger) component.TelemetrySettings {
+	settings := componenttest.NewNopTelemetrySettings()
+	settings.Logger = logger
+	return settings
+}
+
 func TestHappyCase(t *testing.T) {
 	logger, recordedLogs := logSetup()
 
@@ -43,8 +70,8 @@ func TestHappyCase(t *testing.T) {
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 	cfg.ProxyAddress = "https://example.com"
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 	go func() {
 		_ = srv.ListenAndServe()
 	}()
@@ -74,10 +101,10 @@ func TestHandlerHappyCase(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 
-	handler := srv.(*http.Server).Handler.ServeHTTP
+	handler := getHTTPServer(t, srv).Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
 		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", strings.NewReader(`{"NextToken": null}`))
 	rec := httptest.NewRecorder()
@@ -99,11 +126,11 @@ func TestHandlerIoReadSeekerCreationFailed(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 
 	expectedErr := errors.New("expected mockReadCloser error")
-	handler := srv.(*http.Server).Handler.ServeHTTP
+	handler := getHTTPServer(t, srv).Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
 		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", &mockReadCloser{
 			readErr: expectedErr,
@@ -128,10 +155,10 @@ func TestHandlerNilBodyIsOk(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 
-	handler := srv.(*http.Server).Handler.ServeHTTP
+	handler := getHTTPServer(t, srv).Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
 		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", http.NoBody)
 	rec := httptest.NewRecorder()
@@ -166,10 +193,10 @@ func TestHandlerSignerErrorsOut(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 
-	handler := srv.(*http.Server).Handler.ServeHTTP
+	handler := getHTTPServer(t, srv).Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
 		"https://xray.us-west-2.amazonaws.com/GetSamplingRules", strings.NewReader(`{}`))
 	rec := httptest.NewRecorder()
@@ -189,7 +216,7 @@ func TestTCPEndpointInvalid(t *testing.T) {
 
 	cfg := DefaultConfig()
 	cfg.Endpoint = "invalid\n"
-	_, err := NewServer(cfg, logger)
+	_, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.Error(t, err, "NewServer should fail")
 }
 
@@ -211,7 +238,7 @@ func TestCantGetAWSConfigSession(t *testing.T) {
 	newAWSConfig = func(_ context.Context, _ *awsutil.AWSSessionSettings, _ *zap.Logger) (aws.Config, error) {
 		return aws.Config{}, expectedErr
 	}
-	_, err := NewServer(cfg, logger)
+	_, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.EqualError(t, err, expectedErr.Error())
 }
 
@@ -224,7 +251,7 @@ func TestCantGetServiceEndpoint(t *testing.T) {
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
 
-	_, err := NewServer(cfg, logger)
+	_, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.Error(t, err, "NewServer should fail")
 	assert.ErrorContains(t, err, "invalid region")
 }
@@ -239,7 +266,7 @@ func TestAWSEndpointInvalid(t *testing.T) {
 	cfg.Endpoint = tcpAddr
 	cfg.AWSEndpoint = "invalid endpoint \n"
 
-	_, err := NewServer(cfg, logger)
+	_, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.Error(t, err, "NewServer should fail")
 	assert.ErrorContains(t, err, "unable to parse AWS service endpoint")
 }
@@ -254,7 +281,7 @@ func TestCanCreateTransport(t *testing.T) {
 	cfg.Endpoint = tcpAddr
 	cfg.ProxyAddress = "invalid address \n"
 
-	_, err := NewServer(cfg, logger)
+	_, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.Error(t, err, "NewServer should fail")
 	assert.ErrorContains(t, err, "invalid control character in URL")
 }
@@ -433,8 +460,6 @@ func TestSignedRequestHasAuthorizationHeader(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
 
 	// Create a mock backend server to capture the signed request
 	capturedReqCh := make(chan *http.Request, 1)
@@ -442,21 +467,12 @@ func TestSignedRequestHasAuthorizationHeader(t *testing.T) {
 		capturedReqCh <- r.Clone(r.Context())
 	}))
 	defer backend.Close()
+	cfg.AWSEndpoint = backend.URL
 
-	// Override the transport to use mock backend
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 
-	// Save original rewrite and wrap it
-	originalRewrite := proxy.Rewrite
-	proxy.Rewrite = func(r *httputil.ProxyRequest) {
-		originalRewrite(r)
-		// Redirect to mock backend
-		r.Out.URL.Scheme = "http"
-		r.Out.URL.Host = backend.Listener.Addr().String()
-		r.Out.Host = backend.Listener.Addr().String()
-	}
-
+	httpSrv := getHTTPServer(t, srv)
 	handler := httpSrv.Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
 		"https://xray.us-west-2.amazonaws.com/GetSamplingRules",
@@ -495,8 +511,6 @@ func TestSignedRequestHasRequiredHeaders(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
 
 	// Create a mock backend server to capture the signed request
 	capturedReqCh := make(chan *http.Request, 1)
@@ -504,19 +518,12 @@ func TestSignedRequestHasRequiredHeaders(t *testing.T) {
 		capturedReqCh <- r.Clone(r.Context())
 	}))
 	defer backend.Close()
+	cfg.AWSEndpoint = backend.URL
 
-	// Override the transport to use mock backend
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 
-	originalRewrite := proxy.Rewrite
-	proxy.Rewrite = func(r *httputil.ProxyRequest) {
-		originalRewrite(r)
-		r.Out.URL.Scheme = "http"
-		r.Out.URL.Host = backend.Listener.Addr().String()
-		r.Out.Host = backend.Listener.Addr().String()
-	}
-
+	httpSrv := getHTTPServer(t, srv)
 	handler := httpSrv.Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
 		"https://xray.us-west-2.amazonaws.com/GetSamplingRules",
@@ -552,26 +559,18 @@ func TestConnectionHeaderRemovedBeforeSigning(t *testing.T) {
 	cfg := DefaultConfig()
 	tcpAddr := testutil.GetAvailableLocalAddress(t)
 	cfg.Endpoint = tcpAddr
-	srv, err := NewServer(cfg, logger)
-	assert.NoError(t, err, "NewServer should succeed")
 
 	capturedReqCh := make(chan *http.Request, 1)
 	backend := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		capturedReqCh <- r.Clone(r.Context())
 	}))
 	defer backend.Close()
+	cfg.AWSEndpoint = backend.URL
 
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
+	require.NoError(t, err, "NewServer must succeed")
 
-	originalRewrite := proxy.Rewrite
-	proxy.Rewrite = func(r *httputil.ProxyRequest) {
-		originalRewrite(r)
-		r.Out.URL.Scheme = "http"
-		r.Out.URL.Host = backend.Listener.Addr().String()
-		r.Out.Host = backend.Listener.Addr().String()
-	}
-
+	httpSrv := getHTTPServer(t, srv)
 	handler := httpSrv.Handler.ServeHTTP
 	req := httptest.NewRequest(http.MethodPost,
 		"https://xray.us-west-2.amazonaws.com/GetSamplingRules",
@@ -686,12 +685,11 @@ func TestInvalidRoutingRuleSkipsSigning(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err)
 
 	mockTrans := &mockTransport{}
-	httpSrv := srv.(*http.Server)
-	handler := httpSrv.Handler.(*proxyHandler)
+	handler := getProxyHandler(t, srv)
 	handler.proxy.Transport = mockTrans
 
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:2000/InvalidPath", strings.NewReader(`{}`))
@@ -773,7 +771,7 @@ func TestNewServerWithRoutingRules(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed with routing rules")
 	assert.NotNil(t, srv)
 }
@@ -836,13 +834,12 @@ func TestHandlerRoutingWithMultipleServices(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed")
 
 	// Replace transport with mock
 	mockTrans := &mockTransport{}
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	proxy := getProxyHandler(t, srv).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {
@@ -896,12 +893,11 @@ func TestHandlerRoutingWithAutoResolvedEndpoint(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed")
 
 	mockTrans := &mockTransport{}
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	proxy := getProxyHandler(t, srv).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {
@@ -942,12 +938,11 @@ func TestHandlerPreservesURLPath(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed")
 
 	mockTrans := &mockTransport{}
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	proxy := getProxyHandler(t, srv).proxy
 	proxy.Transport = mockTrans
 
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:2000/slos?MaxResults=1", strings.NewReader(`{}`))
@@ -983,7 +978,7 @@ func TestNewServerWithMultipleRoles(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed with multiple roles")
 	assert.NotNil(t, srv)
 }
@@ -1008,7 +1003,7 @@ func TestNewServerWithDuplicateRoles(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed with duplicate roles")
 	assert.NotNil(t, srv)
 }
@@ -1033,7 +1028,7 @@ func TestNewServerWithDefaultRoleInRoutingRules(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed when routing rule references default role")
 	assert.NotNil(t, srv)
 }
@@ -1052,7 +1047,7 @@ func TestNewServerWithEmptyRoleARN(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed with empty role ARN in routing rule")
 	assert.NotNil(t, srv)
 }
@@ -1082,7 +1077,7 @@ func TestNewServerWithMixedRoleConfiguration(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed with mixed role configuration")
 	assert.NotNil(t, srv)
 }
@@ -1109,12 +1104,11 @@ func TestHandlerRoutingFallsBackToTopLevelRegion(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed")
 
 	mockTrans := &mockTransport{}
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	proxy := getProxyHandler(t, srv).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {
@@ -1161,12 +1155,11 @@ func TestHandlerRoutingAutoResolvesEndpointWhenRuleHasNoEndpoint(t *testing.T) {
 		},
 	}
 
-	srv, err := NewServer(cfg, logger)
+	srv, err := NewServer(cfg, componenttest.NewNopHost(), newTestTelemetrySettings(logger))
 	assert.NoError(t, err, "NewServer should succeed")
 
 	mockTrans := &mockTransport{}
-	httpSrv := srv.(*http.Server)
-	proxy := httpSrv.Handler.(*proxyHandler).proxy
+	proxy := getProxyHandler(t, srv).proxy
 	proxy.Transport = mockTrans
 
 	testCases := []struct {

@@ -238,8 +238,10 @@ func TestNewPrometheusScraperEndToEnd(t *testing.T) {
 				Action:      relabel.LabelMap,
 			},
 			{
-				Regex:  relabel.MustNewRegexp("^port"),
-				Action: relabel.LabelDrop,
+				Regex:       relabel.MustNewRegexp("^port"),
+				Separator:   relabel.DefaultRelabelConfig.Separator,
+				Replacement: relabel.DefaultRelabelConfig.Replacement,
+				Action:      relabel.LabelDrop,
 			},
 		},
 	}

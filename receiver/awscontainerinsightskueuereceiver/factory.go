@@ -32,7 +32,8 @@ func NewFactory() receiver.Factory {
 	return receiver.NewFactory(
 		receiverType,
 		createDefaultConfig,
-		receiver.WithMetrics(createMetricsReceiver, kueueMetricsStability))
+		receiver.WithMetrics(createMetricsReceiver, kueueMetricsStability),
+	)
 }
 
 // createDefaultConfig returns a default config for the receiver.

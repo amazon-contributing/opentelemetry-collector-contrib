@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//go:build !aix
+//go:build !aix && !freebsd && !solaris
 
 package datadogextension
 
@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/confmap"
@@ -233,6 +234,9 @@ func TestFullOtelCollectorPayloadIntegration(t *testing.T) {
 	assert.NotEmpty(t, testPayload.Metadata.ActiveComponents)
 
 	// Step 2: Create mock Datadog agent components
+
+	// Isolate from DD_API_KEY env var; nodetreemodel skips empty-string env vars.
+	t.Setenv("DD_API_KEY", "")
 
 	// Extract the backend URL to configure components to use our mock
 	backendURL := mockBackend.URL
@@ -613,14 +617,14 @@ func TestHTTPServerIntegration(t *testing.T) {
 	require.NotNil(t, serializer)
 
 	// Step 3: Create HTTP server configuration
+	httpServerConfig := confighttp.NewDefaultServerConfig()
+	httpServerConfig.NetAddr = confignet.AddrConfig{
+		Transport: confignet.TransportTypeTCP,
+		Endpoint:  "localhost:0",
+	}
 	serverConfig := &httpserver.Config{
-		ServerConfig: confighttp.ServerConfig{
-			NetAddr: confignet.AddrConfig{
-				Transport: confignet.TransportTypeTCP,
-				Endpoint:  "localhost:0",
-			},
-		},
-		Path: "/otel/metadata",
+		ServerConfig: httpServerConfig,
+		Path:         "/otel/metadata",
 	}
 
 	// Step 4: Create and test the HTTP server
@@ -631,6 +635,7 @@ func TestHTTPServerIntegration(t *testing.T) {
 		testHostname,
 		testUUID,
 		otelMetadata,
+		telemetrySettings,
 	)
 	require.NotNil(t, server)
 
@@ -640,7 +645,7 @@ func TestHTTPServerIntegration(t *testing.T) {
 	defer serializer.Stop()
 
 	// Start the HTTP server
-	server.Start()
+	require.NoError(t, server.Start(t.Context(), componenttest.NewNopHost()))
 	defer func() {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
@@ -746,6 +751,16 @@ func TestHTTPServerConfigIntegration(t *testing.T) {
 	)
 
 	// Test different server configurations
+	defaultServerConfig := confighttp.NewDefaultServerConfig()
+	defaultServerConfig.NetAddr = confignet.AddrConfig{
+		Transport: confignet.TransportTypeTCP,
+		Endpoint:  httpserver.DefaultServerEndpoint,
+	}
+	customServerConfig := confighttp.NewDefaultServerConfig()
+	customServerConfig.NetAddr = confignet.AddrConfig{
+		Transport: confignet.TransportTypeTCP,
+		Endpoint:  "localhost:9999",
+	}
 	testCases := []struct {
 		name   string
 		config *httpserver.Config
@@ -753,25 +768,15 @@ func TestHTTPServerConfigIntegration(t *testing.T) {
 		{
 			name: "default_config",
 			config: &httpserver.Config{
-				ServerConfig: confighttp.ServerConfig{
-					NetAddr: confignet.AddrConfig{
-						Transport: confignet.TransportTypeTCP,
-						Endpoint:  httpserver.DefaultServerEndpoint,
-					},
-				},
-				Path: "/metadata",
+				ServerConfig: defaultServerConfig,
+				Path:         "/metadata",
 			},
 		},
 		{
 			name: "custom_endpoint_and_path",
 			config: &httpserver.Config{
-				ServerConfig: confighttp.ServerConfig{
-					NetAddr: confignet.AddrConfig{
-						Transport: confignet.TransportTypeTCP,
-						Endpoint:  "localhost:9999",
-					},
-				},
-				Path: "/custom/otel/metadata",
+				ServerConfig: customServerConfig,
+				Path:         "/custom/otel/metadata",
 			},
 		},
 	}
@@ -786,11 +791,12 @@ func TestHTTPServerConfigIntegration(t *testing.T) {
 				"test-host-"+tc.name,
 				"test-uuid-"+tc.name,
 				otelMetadata,
+				telemetrySettings,
 			)
 			require.NotNil(t, server)
 
 			// Test server creation doesn't panic and can be started/stopped
-			server.Start()
+			require.NoError(t, server.Start(t.Context(), componenttest.NewNopHost()))
 			time.Sleep(50 * time.Millisecond) // Brief pause to allow server startup
 
 			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
@@ -845,14 +851,14 @@ func TestHTTPServerConcurrentAccess(t *testing.T) {
 	)
 
 	// Create server
+	httpServerConfig := confighttp.NewDefaultServerConfig()
+	httpServerConfig.NetAddr = confignet.AddrConfig{
+		Transport: confignet.TransportTypeTCP,
+		Endpoint:  "localhost:0",
+	}
 	serverConfig := &httpserver.Config{
-		ServerConfig: confighttp.ServerConfig{
-			NetAddr: confignet.AddrConfig{
-				Transport: confignet.TransportTypeTCP,
-				Endpoint:  "localhost:0",
-			},
-		},
-		Path: "/concurrent/metadata",
+		ServerConfig: httpServerConfig,
+		Path:         "/concurrent/metadata",
 	}
 
 	server := httpserver.NewServer(
@@ -862,6 +868,7 @@ func TestHTTPServerConcurrentAccess(t *testing.T) {
 		"concurrent-test-host",
 		"concurrent-test-uuid",
 		otelMetadata,
+		telemetrySettings,
 	)
 
 	// Start serializer

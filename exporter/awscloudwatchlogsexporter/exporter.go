@@ -128,7 +128,11 @@ func (e *cwlExporter) start(ctx context.Context, host component.Host) error {
 	)
 
 	logStreamManager := cwlogs.NewLogStreamManager(*e.svcStructuredLog)
-	e.pusherFactory = cwlogs.NewMultiStreamPusherFactory(logStreamManager, *e.svcStructuredLog, e.logger)
+	var pusherOpts []cwlogs.PusherOption
+	if e.Config.MaxEventPayloadBytes > 0 {
+		pusherOpts = append(pusherOpts, cwlogs.WithMaxEventPayloadBytes(e.Config.MaxEventPayloadBytes))
+	}
+	e.pusherFactory = cwlogs.NewMultiStreamPusherFactory(logStreamManager, *e.svcStructuredLog, e.logger, pusherOpts...)
 
 	return nil
 }
