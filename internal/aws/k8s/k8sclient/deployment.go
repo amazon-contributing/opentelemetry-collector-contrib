@@ -131,12 +131,11 @@ func transformFuncDeployment(obj any) (any, error) {
 }
 
 func createDeploymentListWatch(client kubernetes.Interface, ns string) cache.ListerWatcher {
-	ctx := context.Background()
 	return &cache.ListWatch{
-		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+		ListWithContextFunc: func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 			return client.AppsV1().Deployments(ns).List(ctx, opts)
 		},
-		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+		WatchFuncWithContext: func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 			return client.AppsV1().Deployments(ns).Watch(ctx, opts)
 		},
 	}

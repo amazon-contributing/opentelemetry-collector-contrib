@@ -188,7 +188,6 @@ func TestPodClient_PodInfos(t *testing.T) {
 				UID:       "bc5f5839-f62e-44b9-a79e-af250d92dcb1",
 				Name:      "kube-proxy-csm88",
 				Namespace: "kube-system",
-				SelfLink:  "/api/v1/namespaces/kube-system/pods/kube-proxy-csm88",
 				Labels: map[string]string{
 					"key": "value",
 				},
