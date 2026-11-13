@@ -66,7 +66,7 @@ func TestContextClientMetadata(t *testing.T) {
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
 					&pathtest.Key[testContext]{
-						S: ottltest.Strp("auth"),
+						S: new("auth"),
 					},
 				},
 			},
@@ -89,7 +89,7 @@ func TestContextClientMetadata(t *testing.T) {
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
 					&pathtest.Key[testContext]{
-						S: ottltest.Strp("non-existent"),
+						S: new("non-existent"),
 					},
 				},
 			},
@@ -110,7 +110,7 @@ func TestContextClientMetadata(t *testing.T) {
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
 					&pathtest.Key[testContext]{
-						S: ottltest.Strp("empty-key"),
+						S: new("empty-key"),
 					},
 				},
 			},
@@ -131,7 +131,7 @@ func TestContextClientMetadata(t *testing.T) {
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
 					&pathtest.Key[testContext]{
-						S: ottltest.Strp("multi-values"),
+						S: new("multi-values"),
 					},
 				},
 			},
@@ -154,7 +154,7 @@ func TestContextClientMetadata(t *testing.T) {
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
 					&pathtest.Key[testContext]{
-						S: ottltest.Strp("multi-values"),
+						S: new("multi-values"),
 					},
 					&pathtest.Key[testContext]{
 						I: ottltest.Intp(0),
@@ -200,7 +200,7 @@ func TestContextClientMetadata(t *testing.T) {
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
 					&pathtest.Key[testContext]{
-						S: ottltest.Strp("auth"),
+						S: new("auth"),
 					},
 				},
 			},
@@ -315,7 +315,7 @@ func TestContextClientAuthAttributes_AllAndKey(t *testing.T) {
 				NextPath: &pathtest.Path[testContext]{
 					N: "attributes",
 					KeySlice: []ottl.Key[testContext]{
-						&pathtest.Key[testContext]{S: ottltest.Strp("subject")},
+						&pathtest.Key[testContext]{S: new("subject")},
 					},
 				},
 			},
@@ -335,7 +335,7 @@ func TestContextClientAuthAttributes_AllAndKey(t *testing.T) {
 				NextPath: &pathtest.Path[testContext]{
 					N: "attributes",
 					KeySlice: []ottl.Key[testContext]{
-						&pathtest.Key[testContext]{S: ottltest.Strp("roles")},
+						&pathtest.Key[testContext]{S: new("roles")},
 						&pathtest.Key[testContext]{I: ottltest.Intp(1)},
 					},
 				},
@@ -356,7 +356,7 @@ func TestContextClientAuthAttributes_AllAndKey(t *testing.T) {
 				NextPath: &pathtest.Path[testContext]{
 					N: "attributes",
 					KeySlice: []ottl.Key[testContext]{
-						&pathtest.Key[testContext]{S: ottltest.Strp("missing")},
+						&pathtest.Key[testContext]{S: new("missing")},
 					},
 				},
 			},
@@ -420,7 +420,7 @@ func TestContextGrpcMetadata(t *testing.T) {
 			NextPath: &pathtest.Path[testContext]{
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
-					&pathtest.Key[testContext]{S: ottltest.Strp("k1")},
+					&pathtest.Key[testContext]{S: new("k1")},
 				},
 			},
 		}
@@ -443,7 +443,7 @@ func TestContextGrpcMetadata(t *testing.T) {
 			NextPath: &pathtest.Path[testContext]{
 				N: "metadata",
 				KeySlice: []ottl.Key[testContext]{
-					&pathtest.Key[testContext]{S: ottltest.Strp("missing")},
+					&pathtest.Key[testContext]{S: new("missing")},
 				},
 			},
 		}

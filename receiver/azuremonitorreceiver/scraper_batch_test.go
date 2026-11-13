@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azmetrics"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/receiver/receivertest"
@@ -41,13 +40,13 @@ func getMetricsQueryResponseMockData() []queryResourcesResponseMock {
 									{
 										// Send only timestamp with all other values nil is a case that can
 										// happen in the Azure responses.
-										TimeStamp: to.Ptr(time.Now()),
+										TimeStamp: new(time.Now()),
 									},
 									{
-										TimeStamp: to.Ptr(time.Now()),
+										TimeStamp: new(time.Now()),
 										// Keep only Total to make sure that all values are considered.
 										// Not only Average
-										Total: to.Ptr(1.),
+										Total: new(1.),
 									},
 								},
 							}},
@@ -76,12 +75,12 @@ func getMetricsQueryResponseMockData() []queryResourcesResponseMock {
 							Unit: azmetrics.MetricUnitPercent,
 							TimeSeries: []azmetrics.TimeSeriesElement{{
 								Data: []azmetrics.MetricValue{{
-									TimeStamp: to.Ptr(time.Now()),
-									Average:   to.Ptr(1.),
-									Count:     to.Ptr(1.),
-									Maximum:   to.Ptr(1.),
-									Minimum:   to.Ptr(1.),
-									Total:     to.Ptr(1.),
+									TimeStamp: new(time.Now()),
+									Average:   new(1.),
+									Count:     new(1.),
+									Maximum:   new(1.),
+									Minimum:   new(1.),
+									Total:     new(1.),
 								}},
 							}},
 						},
@@ -90,12 +89,12 @@ func getMetricsQueryResponseMockData() []queryResourcesResponseMock {
 							Unit: azmetrics.MetricUnitCount,
 							TimeSeries: []azmetrics.TimeSeriesElement{{
 								Data: []azmetrics.MetricValue{{
-									TimeStamp: to.Ptr(time.Now()),
-									Average:   to.Ptr(1.),
-									Count:     to.Ptr(1.),
-									Maximum:   to.Ptr(1.),
-									Minimum:   to.Ptr(1.),
-									Total:     to.Ptr(1.),
+									TimeStamp: new(time.Now()),
+									Average:   new(1.),
+									Count:     new(1.),
+									Maximum:   new(1.),
+									Minimum:   new(1.),
+									Total:     new(1.),
 								}},
 							}},
 						},
@@ -123,12 +122,12 @@ func getMetricsQueryResponseMockData() []queryResourcesResponseMock {
 							Unit: azmetrics.MetricUnitBytes,
 							TimeSeries: []azmetrics.TimeSeriesElement{{
 								Data: []azmetrics.MetricValue{{
-									TimeStamp: to.Ptr(time.Now()),
-									Average:   to.Ptr(1.),
-									Count:     to.Ptr(1.),
-									Maximum:   to.Ptr(1.),
-									Minimum:   to.Ptr(1.),
-									Total:     to.Ptr(1.),
+									TimeStamp: new(time.Now()),
+									Average:   new(1.),
+									Count:     new(1.),
+									Maximum:   new(1.),
+									Minimum:   new(1.),
+									Total:     new(1.),
 								}},
 							}},
 						},

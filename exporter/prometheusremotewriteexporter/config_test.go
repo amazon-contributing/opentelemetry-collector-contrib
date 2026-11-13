@@ -59,7 +59,7 @@ func TestLoadConfig(t *testing.T) {
 			id: component.NewIDWithName(metadata.Type, "2"),
 			expected: &Config{
 				MaxBatchSizeBytes:          3000000,
-				MaxBatchRequestParallelism: toPtr(10),
+				MaxBatchRequestParallelism: new(10),
 				TimeoutSettings:            exporterhelper.NewDefaultTimeoutConfig(),
 				BackOffConfig: configretry.BackOffConfig{
 					Enabled:             true,
@@ -150,8 +150,4 @@ func TestDisabledTargetInfo(t *testing.T) {
 	require.NoError(t, sub.Unmarshal(cfg))
 
 	assert.False(t, cfg.(*Config).TargetInfo.Enabled)
-}
-
-func toPtr[T any](val T) *T {
-	return &val
 }

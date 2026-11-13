@@ -15,10 +15,6 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/googlecloudpubsubpushreceiver/internal/metadata"
 )
 
-func componentIDPtr(id component.ID) *component.ID {
-	return &id
-}
-
 func TestCreateDefaultConfigRoundTrip(t *testing.T) {
 	cfg := createDefaultConfig()
 	cm := confmap.New()
@@ -42,7 +38,7 @@ func TestLoadConfig(t *testing.T) {
 			id: component.NewIDWithName(metadata.Type, ""),
 			expected: func() component.Config {
 				cfg := createDefaultConfig().(*Config)
-				cfg.Encoding = componentIDPtr(component.MustNewID("test"))
+				cfg.Encoding = new(component.MustNewID("test"))
 				return cfg
 			}(),
 		},

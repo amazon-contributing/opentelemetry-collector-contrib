@@ -22,8 +22,10 @@ import (
 )
 
 // This is not in ottltest because it depends on a type that's a member of OTTL.
+//
+//go:fix inline
 func booleanp(b boolean) *boolean {
-	return &b
+	return new(b)
 }
 
 func Test_parse(t *testing.T) {
@@ -41,7 +43,7 @@ func Test_parse(t *testing.T) {
 					Arguments: []argument{
 						{
 							Value: value{
-								String: ottltest.Strp("foo"),
+								String: new("foo"),
 							},
 						},
 					},
@@ -59,7 +61,7 @@ func Test_parse(t *testing.T) {
 						{
 							Value: value{
 								Literal: &mathExprLiteral{
-									Float: ottltest.Floatp(1.2),
+									Float: new(1.2),
 								},
 							},
 						},
@@ -99,11 +101,11 @@ func Test_parse(t *testing.T) {
 								Map: &mapValue{
 									Values: []mapItem{
 										{
-											Key:   ottltest.Strp("stringAttr"),
-											Value: &value{String: ottltest.Strp("value")},
+											Key:   new("stringAttr"),
+											Value: &value{String: new("value")},
 										},
 										{
-											Key: ottltest.Strp("intAttr"),
+											Key: new("intAttr"),
 											Value: &value{
 												Literal: &mathExprLiteral{
 													Int: ottltest.Intp(3),
@@ -111,16 +113,16 @@ func Test_parse(t *testing.T) {
 											},
 										},
 										{
-											Key: ottltest.Strp("floatAttr"),
+											Key: new("floatAttr"),
 											Value: &value{
 												Literal: &mathExprLiteral{
-													Float: ottltest.Floatp(2.5),
+													Float: new(2.5),
 												},
 											},
 										},
 										{
-											Key:   ottltest.Strp("boolAttr"),
-											Value: &value{Bool: (*boolean)(ottltest.Boolp(true))},
+											Key:   new("boolAttr"),
+											Value: &value{Bool: (*boolean)(new(true))},
 										},
 									},
 								},
@@ -168,8 +170,8 @@ func Test_parse(t *testing.T) {
 													Map: &mapValue{
 														Values: []mapItem{
 															{
-																Key:   ottltest.Strp("foo"),
-																Value: &value{String: ottltest.Strp("bar")},
+																Key:   new("foo"),
+																Value: &value{String: new("bar")},
 															},
 														},
 													},
@@ -197,16 +199,16 @@ func Test_parse(t *testing.T) {
 								Map: &mapValue{
 									Values: []mapItem{
 										{
-											Key: ottltest.Strp("mapAttr"),
+											Key: new("mapAttr"),
 											Value: &value{
 												Map: &mapValue{
 													Values: []mapItem{
 														{
-															Key:   ottltest.Strp("foo"),
-															Value: &value{String: ottltest.Strp("bar")},
+															Key:   new("foo"),
+															Value: &value{String: new("bar")},
 														},
 														{
-															Key: ottltest.Strp("get"),
+															Key: new("get"),
 															Value: &value{
 																Literal: &mathExprLiteral{
 																	Path: &path{
@@ -226,15 +228,15 @@ func Test_parse(t *testing.T) {
 															},
 														},
 														{
-															Key: ottltest.Strp("arrayAttr"),
+															Key: new("arrayAttr"),
 															Value: &value{
 																List: &list{
 																	Values: []value{
 																		{
-																			String: ottltest.Strp("foo"),
+																			String: new("foo"),
 																		},
 																		{
-																			String: ottltest.Strp("bar"),
+																			String: new("bar"),
 																		},
 																	},
 																},
@@ -262,7 +264,7 @@ func Test_parse(t *testing.T) {
 					Arguments: []argument{
 						{
 							Value: value{
-								String: ottltest.Strp("foo"),
+								String: new("foo"),
 							},
 						},
 						{
@@ -322,7 +324,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("bar"),
+														String: new("bar"),
 													},
 												},
 											},
@@ -336,7 +338,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								String: ottltest.Strp("dog"),
+								String: new("dog"),
 							},
 						},
 					},
@@ -366,7 +368,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("bar"),
+														String: new("bar"),
 													},
 												},
 											},
@@ -377,7 +379,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								String: ottltest.Strp("dog"),
+								String: new("dog"),
 							},
 						},
 					},
@@ -406,7 +408,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("message"),
+														String: new("message"),
 													},
 												},
 											},
@@ -417,7 +419,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								String: ottltest.Strp("device=*"),
+								String: new("device=*"),
 							},
 						},
 						{
@@ -434,7 +436,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("device_name"),
+														String: new("device_name"),
 													},
 												},
 											},
@@ -445,7 +447,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								Enum: (*enumSymbol)(ottltest.Strp("SHA256")),
+								Enum: (*enumSymbol)(new("SHA256")),
 							},
 						},
 					},
@@ -474,7 +476,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("message"),
+														String: new("message"),
 													},
 												},
 											},
@@ -484,7 +486,7 @@ func Test_parse(t *testing.T) {
 							},
 						},
 						{
-							FunctionName: ottltest.Strp("Sha256"),
+							FunctionName: new("Sha256"),
 						},
 					},
 				},
@@ -512,7 +514,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("message"),
+														String: new("message"),
 													},
 												},
 											},
@@ -523,7 +525,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								Enum: (*enumSymbol)(ottltest.Strp("S")),
+								Enum: (*enumSymbol)(new("S")),
 							},
 						},
 					},
@@ -553,10 +555,10 @@ func Test_parse(t *testing.T) {
 												Name: "bar",
 												Keys: []key{
 													{
-														String: ottltest.Strp("x"),
+														String: new("x"),
 													},
 													{
-														String: ottltest.Strp("y"),
+														String: new("y"),
 													},
 												},
 											},
@@ -578,7 +580,7 @@ func Test_parse(t *testing.T) {
 												Int: ottltest.Intp(0),
 											},
 											{
-												String: ottltest.Strp("pass"),
+												String: new("pass"),
 											},
 										},
 									},
@@ -612,7 +614,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("bar"),
+														String: new("bar"),
 													},
 												},
 											},
@@ -626,7 +628,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								String: ottltest.Strp("dog"),
+								String: new("dog"),
 							},
 						},
 					},
@@ -653,7 +655,7 @@ func Test_parse(t *testing.T) {
 								},
 								Op: eq,
 								Right: value{
-									String: ottltest.Strp("fido"),
+									String: new("fido"),
 								},
 							},
 						},
@@ -683,7 +685,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("bar"),
+														String: new("bar"),
 													},
 												},
 											},
@@ -697,7 +699,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								String: ottltest.Strp("dog"),
+								String: new("dog"),
 							},
 						},
 					},
@@ -724,7 +726,7 @@ func Test_parse(t *testing.T) {
 								},
 								Op: ne,
 								Right: value{
-									String: ottltest.Strp("fido"),
+									String: new("fido"),
 								},
 							},
 						},
@@ -754,7 +756,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("bar"),
+														String: new("bar"),
 													},
 												},
 											},
@@ -768,7 +770,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								String: ottltest.Strp("dog"),
+								String: new("dog"),
 							},
 						},
 					},
@@ -795,7 +797,7 @@ func Test_parse(t *testing.T) {
 								},
 								Op: eq,
 								Right: value{
-									String: ottltest.Strp("fido"),
+									String: new("fido"),
 								},
 							},
 						},
@@ -812,7 +814,7 @@ func Test_parse(t *testing.T) {
 					Arguments: []argument{
 						{
 							Value: value{
-								String: ottltest.Strp("fo\"o"),
+								String: new("fo\"o"),
 							},
 						},
 					},
@@ -829,12 +831,12 @@ func Test_parse(t *testing.T) {
 					Arguments: []argument{
 						{
 							Value: value{
-								String: ottltest.Strp("cumulative"),
+								String: new("cumulative"),
 							},
 						},
 						{
 							Value: value{
-								Bool: (*boolean)(ottltest.Boolp(false)),
+								Bool: (*boolean)(new(false)),
 							},
 						},
 					},
@@ -851,12 +853,12 @@ func Test_parse(t *testing.T) {
 					Arguments: []argument{
 						{
 							Value: value{
-								String: ottltest.Strp("cumulative"),
+								String: new("cumulative"),
 							},
 						},
 						{
 							Value: value{
-								Bool: (*boolean)(ottltest.Boolp(true)),
+								Bool: (*boolean)(new(true)),
 							},
 						},
 					},
@@ -885,7 +887,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("bytes"),
+														String: new("bytes"),
 													},
 												},
 											},
@@ -925,7 +927,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -936,7 +938,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								IsNil: (*isNil)(ottltest.Boolp(true)),
+								IsNil: (*isNil)(new(true)),
 							},
 						},
 					},
@@ -965,7 +967,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -976,7 +978,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								String: ottltest.Strp("nil"),
+								String: new("nil"),
 							},
 						},
 					},
@@ -1005,7 +1007,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -1016,7 +1018,7 @@ func Test_parse(t *testing.T) {
 						},
 						{
 							Value: value{
-								Enum: (*enumSymbol)(ottltest.Strp("TEST_ENUM")),
+								Enum: (*enumSymbol)(new("TEST_ENUM")),
 							},
 						},
 					},
@@ -1045,7 +1047,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -1087,7 +1089,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -1101,7 +1103,7 @@ func Test_parse(t *testing.T) {
 								List: &list{
 									Values: []value{
 										{
-											String: ottltest.Strp("value0"),
+											String: new("value0"),
 										},
 									},
 								},
@@ -1133,7 +1135,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -1147,10 +1149,10 @@ func Test_parse(t *testing.T) {
 								List: &list{
 									Values: []value{
 										{
-											String: ottltest.Strp("value1"),
+											String: new("value1"),
 										},
 										{
-											String: ottltest.Strp("value2"),
+											String: new("value2"),
 										},
 									},
 								},
@@ -1182,7 +1184,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -1205,10 +1207,10 @@ func Test_parse(t *testing.T) {
 																List: &list{
 																	Values: []value{
 																		{
-																			String: ottltest.Strp("a"),
+																			String: new("a"),
 																		},
 																		{
-																			String: ottltest.Strp("b"),
+																			String: new("b"),
 																		},
 																	},
 																},
@@ -1216,7 +1218,7 @@ func Test_parse(t *testing.T) {
 														},
 														{
 															Value: value{
-																String: ottltest.Strp("+"),
+																String: new("+"),
 															},
 														},
 													},
@@ -1227,7 +1229,7 @@ func Test_parse(t *testing.T) {
 											List: &list{
 												Values: []value{
 													{
-														String: ottltest.Strp("1"),
+														String: new("1"),
 													},
 													{
 														Literal: &mathExprLiteral{
@@ -1236,14 +1238,14 @@ func Test_parse(t *testing.T) {
 													},
 													{
 														Literal: &mathExprLiteral{
-															Float: ottltest.Floatp(3.0),
+															Float: new(3.0),
 														},
 													},
 												},
 											},
 										},
 										{
-											IsNil: (*isNil)(ottltest.Boolp(true)),
+											IsNil: (*isNil)(new(true)),
 										},
 										{
 											Literal: &mathExprLiteral{
@@ -1258,7 +1260,7 @@ func Test_parse(t *testing.T) {
 															Name: "attributes",
 															Keys: []key{
 																{
-																	String: ottltest.Strp("test"),
+																	String: new("test"),
 																},
 															},
 														},
@@ -1296,7 +1298,7 @@ func Test_parse(t *testing.T) {
 												Name: "attributes",
 												Keys: []key{
 													{
-														String: ottltest.Strp("test"),
+														String: new("test"),
 													},
 												},
 											},
@@ -1420,7 +1422,7 @@ func Test_parse(t *testing.T) {
 						{
 							Name: "name",
 							Value: value{
-								String: ottltest.Strp("foo"),
+								String: new("foo"),
 							},
 						},
 					},
@@ -1470,7 +1472,7 @@ func Test_parseCondition_full(t *testing.T) {
 							},
 							Op: eq,
 							Right: value{
-								String: ottltest.Strp("fido"),
+								String: new("fido"),
 							},
 						},
 					},
@@ -1502,7 +1504,7 @@ func Test_parseCondition_full(t *testing.T) {
 							},
 							Op: ne,
 							Right: value{
-								String: ottltest.Strp("fido"),
+								String: new("fido"),
 							},
 						},
 					},
@@ -1676,7 +1678,7 @@ func setNameTest(b *booleanExpression) *parsedStatement {
 				},
 				{
 					Value: value{
-						String: ottltest.Strp("test"),
+						String: new("test"),
 					},
 				},
 			},
@@ -1916,7 +1918,7 @@ func Test_parseWhere(t *testing.T) {
 							},
 							Op: ne,
 							Right: value{
-								String: ottltest.Strp("foo"),
+								String: new("foo"),
 							},
 						},
 					},
@@ -1943,7 +1945,7 @@ func Test_parseWhere(t *testing.T) {
 									},
 									Op: ne,
 									Right: value{
-										String: ottltest.Strp("bar"),
+										String: new("bar"),
 									},
 								},
 							},
@@ -1976,7 +1978,7 @@ func Test_parseWhere(t *testing.T) {
 							},
 							Op: eq,
 							Right: value{
-								String: ottltest.Strp("foo"),
+								String: new("foo"),
 							},
 						},
 					},
@@ -2005,7 +2007,7 @@ func Test_parseWhere(t *testing.T) {
 									},
 									Op: eq,
 									Right: value{
-										String: ottltest.Strp("bar"),
+										String: new("bar"),
 									},
 								},
 							},
@@ -2027,7 +2029,7 @@ func Test_parseWhere(t *testing.T) {
 						{
 							Operator: "and",
 							Value: &booleanValue{
-								Negation: ottltest.Strp("not"),
+								Negation: new("not"),
 								ConstExpr: &constExpr{
 									Boolean: booleanp(false),
 								},
@@ -2042,7 +2044,7 @@ func Test_parseWhere(t *testing.T) {
 			expected: setNameTest(&booleanExpression{
 				Left: &term{
 					Left: &booleanValue{
-						Negation: ottltest.Strp("not"),
+						Negation: new("not"),
 						Comparison: &comparison{
 							Left: value{
 								Literal: &mathExprLiteral{
@@ -2062,7 +2064,7 @@ func Test_parseWhere(t *testing.T) {
 							},
 							Op: eq,
 							Right: value{
-								String: ottltest.Strp("bar"),
+								String: new("bar"),
 							},
 						},
 					},
@@ -2074,7 +2076,7 @@ func Test_parseWhere(t *testing.T) {
 			expected: setNameTest(&booleanExpression{
 				Left: &term{
 					Left: &booleanValue{
-						Negation: ottltest.Strp("not"),
+						Negation: new("not"),
 						SubExpr: &booleanExpression{
 							Left: &term{
 								Left: &booleanValue{
@@ -2147,11 +2149,11 @@ func Test_parseWhere(t *testing.T) {
 					Left: &booleanValue{
 						Comparison: &comparison{
 							Left: value{
-								IsNil: (*isNil)(ottltest.Boolp(true)),
+								IsNil: (*isNil)(new(true)),
 							},
 							Op: eq,
 							Right: value{
-								IsNil: (*isNil)(ottltest.Boolp(true)),
+								IsNil: (*isNil)(new(true)),
 							},
 						},
 					},
@@ -2165,11 +2167,11 @@ func Test_parseWhere(t *testing.T) {
 					Left: &booleanValue{
 						Comparison: &comparison{
 							Left: value{
-								IsNil: (*isNil)(ottltest.Boolp(true)),
+								IsNil: (*isNil)(new(true)),
 							},
 							Op: eq,
 							Right: value{
-								String: ottltest.Strp("nil"),
+								String: new("nil"),
 							},
 						},
 					},

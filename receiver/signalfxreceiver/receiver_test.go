@@ -712,7 +712,7 @@ func buildSFxDatapointMsg(time, value int64, dimensions uint) *sfxpb.DataPointUp
 				Metric:    "single",
 				Timestamp: time,
 				Value: sfxpb.Datum{
-					IntValue: int64Ptr(value),
+					IntValue: new(value),
 				},
 				MetricType: sfxTypePtr(sfxpb.MetricType_GAUGE),
 				Dimensions: buildNDimensions(dimensions),
@@ -731,7 +731,7 @@ func buildSFxEventMsg(time int64, dimensions uint) *sfxpb.EventUploadMessage {
 					{
 						Key: "a",
 						Value: &sfxpb.PropertyValue{
-							StrValue: strPtr("b"),
+							StrValue: new("b"),
 						},
 					},
 				},
@@ -754,20 +754,14 @@ func (badReqBody) Close() error {
 	return nil
 }
 
-func strPtr(s string) *string {
-	return &s
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}
-
+//go:fix inline
 func sfxTypePtr(t sfxpb.MetricType) *sfxpb.MetricType {
-	return &t
+	return new(t)
 }
 
+//go:fix inline
 func sfxCategoryPtr(t sfxpb.EventCategory) *sfxpb.EventCategory {
-	return &t
+	return new(t)
 }
 
 func buildNDimensions(n uint) []*sfxpb.Dimension {
