@@ -337,7 +337,6 @@ receiver/icmpcheckreceiver/                                      @open-telemetry
 receiver/iisreceiver/                                            @open-telemetry/collector-contrib-approvers @ishleenk17 @pjanotti
 receiver/influxdbreceiver/                                       @open-telemetry/collector-contrib-approvers @jacobmarble
 receiver/jaegerreceiver/                                         @open-telemetry/collector-contrib-approvers @yurishkuro
-receiver/jmxreceiver/                                            @open-telemetry/collector-contrib-approvers @atoulme @rogercoll
 receiver/journaldreceiver/                                       @open-telemetry/collector-contrib-approvers @belimawr @namco1992
 receiver/k8sclusterreceiver/                                     @open-telemetry/collector-contrib-approvers @TylerHelmuth @povilasv @ChrsMark @jinja2
 receiver/k8seventsreceiver/                                      @open-telemetry/collector-contrib-approvers @TylerHelmuth @ChrsMark @jinja2
