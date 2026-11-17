@@ -60,8 +60,9 @@ func countFrom(catalog string) string { return "SELECT count(*) FROM " + catalog
 //     old dbid, which no longer joins pg_database; only the new incarnation's rows
 //     do.
 //
-// The top query SQL must return none of those rows. Two scrapes must not panic,
-// and must report the live databases and the new incarnation, including
+// The top query SQL must return none of those rows. Two scrapes must not panic.
+// The first must report the live databases and the new incarnation. The second
+// runs against the counters the first one cached, so it must report only the
 // statements run between the scrapes.
 //
 // Not covered: a collector that already ran before a database is dropped and
@@ -213,11 +214,15 @@ func runTopQueryOrphanRows(t *testing.T, pgVersion string) {
 	requireQueryReported(t, fromSQL, "keepdb", liveDatabaseCatalog)
 	requireQueryReported(t, fromSQL, "recreated", newIncarnationCatalog)
 
+	// The delta cache gets room for the counters of every row the query can return
+	// (10 per row, doubled as in the factory). A cache too small for the rows evicts
+	// entries during the first scrape, and the second then reports those rows again
+	// as if they were new.
 	scraper := newPostgreSQLScraper(receiver.Settings{
 		TelemetrySettings: component.TelemetrySettings{
 			Logger: zap.Must(zap.NewProduction()),
 		},
-	}, &cfg, clientFactory, newCache(100), newTTLCache[string](1, time.Second))
+	}, &cfg, clientFactory, newCache(int(maxRows*10*2)), newTTLCache[string](1, time.Second))
 
 	// scrape runs one top query collection and returns the reported queries by database.
 	scrape := func() map[string][]string {
@@ -242,15 +247,23 @@ func runTopQueryOrphanRows(t *testing.T, pgVersion string) {
 	requireQueryReported(t, first, "keepdb", liveDatabaseCatalog)
 	requireQueryReported(t, first, "recreated", newIncarnationCatalog)
 
-	// New statements between the scrapes must be reported by the second one,
-	// whatever the delta cache holds for the earlier ones.
+	// Between the scrapes only these two statements run, apart from the collector's
+	// own queries, which the SQL leaves out. A row whose counters did not move has
+	// no delta, so the second scrape must report these two and nothing else: none
+	// of the earlier statements may be reported again.
 	runPG(t, "appuser", "apppass", "keepdb", port, countFrom(liveDatabaseLater))
 	runPG(t, "appuser", "apppass", "recreated", port, countFrom(newIncarnationLater))
 	// Rewind so the interval gate permits a second collection.
 	scraper.lastExecutionTimestamp = scraper.lastExecutionTimestamp.Add(-interval)
 	second := scrape()
-	requireQueryReported(t, second, "keepdb", liveDatabaseLater)
-	requireQueryReported(t, second, "recreated", newIncarnationLater)
+	require.Len(t, second, 2, "the second scrape must report only the statements run since the first one; reported: %v", second)
+	for database, table := range map[string]string{
+		"keepdb":    liveDatabaseLater,
+		"recreated": newIncarnationLater,
+	} {
+		require.Len(t, second[database], 1, "the second scrape must report only the statement run since the first one in %q; reported: %v", database, second[database])
+		requireQueryReported(t, second, database, table)
+	}
 }
 
 // requireOrphanRowsLeftOut fails if any reported query belongs to the dropped
