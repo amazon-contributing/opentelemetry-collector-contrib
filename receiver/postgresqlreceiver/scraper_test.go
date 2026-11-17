@@ -682,6 +682,66 @@ func TestScrapeTopQueriesSkipsNilDatabase(t *testing.T) {
 	assert.Equal(t, 0, actualLogs.LogRecordCount(), "row with nil db.namespace must be skipped, not emitted")
 }
 
+// The nil db.namespace guard must skip only the orphan row: a live row after it is
+// still reported. A guard that returned instead of continuing would drop it.
+func TestScrapeTopQueriesSkipsNilDatabaseKeepsLiveRows(t *testing.T) {
+	cols := []string{
+		"calls", "datname", "shared_blks_dirtied", "shared_blks_hit",
+		"shared_blks_read", "shared_blks_written", "temp_blks_read",
+		"temp_blks_written", "query", "queryid", "rolname", "rolsuper", "rows",
+		"total_exec_time", "total_plan_time",
+	}
+	cases := []struct {
+		name     string
+		rolsuper string
+	}{
+		// A superuser row skips the plan lookup.
+		{name: "superuser live row", rolsuper: "true"},
+		// A non-superuser row goes through the pg_store_plans lookup first.
+		{name: "non-superuser live row", rolsuper: "false"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Databases = []string{}
+			cfg.Events.DbServerTopQuery.Enabled = true
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			require.NoError(t, err)
+			defer db.Close()
+
+			settings := receivertest.NewNopSettings(metadata.Type)
+			logger, err := zap.NewProduction()
+			require.NoError(t, err)
+			settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+			scraper := newPostgreSQLScraper(settings, cfg, mockSimpleClientFactory{db: db}, newCache(30), newTTLCache[string](1, time.Second))
+
+			// The orphan row comes first, so it is processed before the live row.
+			rows := sqlmock.NewRows(cols).
+				AddRow("123", nil, "1", "1", "1", "1", "1", "1", "select 1", "999", "appuser", "false", "1", "1", "1").
+				AddRow("456", "app", "1", "1", "1", "1", "1", "1", "select 2", "1000", "appuser", tc.rolsuper, "1", "1", "1")
+			mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(rows)
+			if tc.rolsuper != "true" {
+				// pg_store_plans is installed but holds no plan for the live row.
+				mock.ExpectQuery(testPlanStoreAvailableSQL).
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+				mock.ExpectBegin()
+				mock.ExpectExec(testSetPlanFormatSQL).WillReturnResult(sqlmock.NewResult(0, 0))
+				mock.ExpectQuery(testCapturedQueryPlanSQL).WithArgs("1000").WillReturnRows(sqlmock.NewRows([]string{"plan"}))
+				mock.ExpectRollback()
+			}
+
+			actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
+			require.Equal(t, 1, actualLogs.LogRecordCount(), "the live row after the orphan row must still be reported")
+			namespace, ok := actualLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Attributes().Get("db.namespace")
+			require.True(t, ok)
+			require.Equal(t, "app", namespace.Str())
+		})
+	}
+}
+
 func TestScrapeTopQueriesSkipsExplainForSuperuserQueries(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Databases = []string{}
@@ -809,6 +869,8 @@ func TestIsCollectionDue(t *testing.T) {
 const testCapturedQueryPlanSQL = "/* otel-collector-ignore */ SELECT plan FROM pg_store_plans WHERE queryid::text = $1 ORDER BY calls DESC LIMIT 1"
 
 const testSetPlanFormatSQL = "SET LOCAL pg_store_plans.plan_format = 'json'"
+
+const testPlanStoreAvailableSQL = "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')"
 
 func TestExplainQuery(t *testing.T) {
 	testCases := []struct {
