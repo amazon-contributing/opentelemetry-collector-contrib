@@ -319,27 +319,34 @@ func TestLogPusherConcurrentAddAndFlush(t *testing.T) {
 }
 
 func TestPusher_perPusherMaxEventPayloadBytes(t *testing.T) {
-	// Build a payload that fits within a 512 KiB per-pusher cap but exceeds
-	// the package default (256 KiB). With WithMaxEventPayloadBytes(512 KiB) the
-	// payload must pass through unmodified; without the option it would be
-	// truncated to the 256 KiB default.
-	largeSize := defaultMaxEventPayloadBytes + 1024 // 256 KiB + 1 KiB
+	// The package default is the 1 MiB service limit. A per-pusher cap can only
+	// lower it: a payload between the cap and the default is kept whole under
+	// the default and truncated under the cap.
+	const lowerCap = 512 * 1024
+	largeSize := lowerCap + 1024 // 513 KiB, under the 1 MiB default
 	body := strings.Repeat("b", largeSize)
 
-	t.Run("per-pusher cap raises ceiling above package default", func(t *testing.T) {
+	t.Run("per-pusher cap lowers ceiling below package default", func(t *testing.T) {
 		ev := NewEvent(timestampMs, body)
-		require.NoError(t, ev.validateWithCap(zap.NewNop(), defaultMaxEventPayloadBytes*2))
-		assert.Len(t, *ev.InputLogEvent.Message, largeSize,
-			"event should pass through untruncated because the per-pusher cap is large enough")
+		require.NoError(t, ev.validateWithCap(zap.NewNop(), lowerCap))
+		assert.Less(t, len(*ev.InputLogEvent.Message), largeSize,
+			"event should be truncated to the per-pusher cap")
+		assert.Contains(t, *ev.InputLogEvent.Message, truncatedSuffix)
+	})
+
+	t.Run("package default keeps payload under 1 MiB", func(t *testing.T) {
+		ev := NewEvent(timestampMs, body)
+		require.NoError(t, ev.validateWithCap(zap.NewNop(), defaultMaxEventPayloadBytes))
+		assert.Len(t, *ev.InputLogEvent.Message, largeSize)
 		assert.NotContains(t, *ev.InputLogEvent.Message, truncatedSuffix)
 	})
 
-	t.Run("zero cap falls back to package default and truncates", func(t *testing.T) {
+	t.Run("zero cap falls back to package default", func(t *testing.T) {
 		ev := NewEvent(timestampMs, body)
 		require.NoError(t, ev.validateWithCap(zap.NewNop(), 0))
-		assert.Less(t, len(*ev.InputLogEvent.Message), largeSize,
-			"event should be truncated to package default when cap is 0")
-		assert.Contains(t, *ev.InputLogEvent.Message, truncatedSuffix)
+		assert.Len(t, *ev.InputLogEvent.Message, largeSize,
+			"a zero cap uses the 1 MiB package default, so the payload is kept whole")
+		assert.NotContains(t, *ev.InputLogEvent.Message, truncatedSuffix)
 	})
 
 	t.Run("default Validate matches validateWithCap(package default)", func(t *testing.T) {
@@ -355,8 +362,8 @@ func TestPusher_perPusherMaxEventPayloadBytes(t *testing.T) {
 			LogGroupName:  logGroup,
 			LogStreamName: logStreamName,
 		}, Client{svc: &mockCloudWatchClient{}}, zap.NewNop(),
-			WithMaxEventPayloadBytes(defaultMaxEventPayloadBytes*2))
-		assert.Equal(t, defaultMaxEventPayloadBytes*2, p.effectiveMaxEventPayloadBytes())
+			WithMaxEventPayloadBytes(lowerCap))
+		assert.Equal(t, lowerCap, p.effectiveMaxEventPayloadBytes())
 	})
 
 	t.Run("effectiveMaxEventPayloadBytes falls back to package var when option is zero or omitted", func(t *testing.T) {
