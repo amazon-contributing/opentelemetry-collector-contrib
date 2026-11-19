@@ -16,7 +16,7 @@ issues: [742]
 # These lines will be padded with 2 spaces and then inserted directly into the document.
 # Use pipe (|) for multiline entries.
 subtext: |
-  A database found without pg_store_plans is re-checked every minute instead of being skipped until restart.
+  A database found without pg_store_plans is re-checked on each top query collection instead of being skipped until restart.
 
 # e.g. '[aws]'
 # Include 'aws' if the change is done done by cwa

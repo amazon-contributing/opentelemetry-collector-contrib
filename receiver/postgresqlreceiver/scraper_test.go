@@ -3437,7 +3437,8 @@ func TestQueryPlanStoreReadyWarnsOnceAndSkips(t *testing.T) {
 	ready := p.queryPlanStoreReady(t.Context(), storeAbsentClient{}, "appdb", now)
 	require.False(t, ready, "plan lookups must be skipped when pg_store_plans is absent")
 	require.Contains(t, p.storePlansMissing, "appdb", "the database must be marked so later polls skip it")
-	require.True(t, p.queryPlanStoreSkipped("appdb", now.Add(storePlansRecheckInterval-time.Second)), "polls before the re-check is due must skip")
+	require.True(t, p.queryPlanStoreSkipped("appdb", now), "other queries in the same collection must skip")
+	require.False(t, p.queryPlanStoreSkipped("appdb", now.Add(time.Second)), "the next collection must check again")
 	require.Equal(t, 1, logs.Len(), "a missing extension must warn once")
 }
 
@@ -3457,24 +3458,24 @@ func TestQueryPlanStoreResumesAfterExtensionCreated(t *testing.T) {
 	c := &toggleStoreClient{}
 	t0 := time.Unix(1_700_000_000, 0)
 
-	// Extension absent: marked missing and skipped until the re-check is due.
+	// Extension absent: marked missing, and skipped for the rest of that collection only.
 	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t0))
-	require.True(t, p.queryPlanStoreSkipped("appdb", t0.Add(storePlansRecheckInterval-time.Second)))
-	require.False(t, p.queryPlanStoreSkipped("appdb", t0.Add(storePlansRecheckInterval)), "a re-check is due once the interval elapses")
+	require.True(t, p.queryPlanStoreSkipped("appdb", t0))
 
-	// Re-check while still absent: stays skipped and does not warn again.
-	t1 := t0.Add(storePlansRecheckInterval)
+	// Next collection, still absent: checked again, stays skipped within the collection, does not warn again.
+	t1 := t0.Add(time.Minute)
+	require.False(t, p.queryPlanStoreSkipped("appdb", t1), "each new collection must re-check")
 	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t1))
-	require.True(t, p.queryPlanStoreSkipped("appdb", t1.Add(time.Second)))
+	require.True(t, p.queryPlanStoreSkipped("appdb", t1))
 	require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len(), "a persistently missing extension must warn once")
 
-	// The extension is created while the agent keeps running: the next due re-check resumes lookups.
+	// The extension is created while the agent keeps running: the next collection resumes lookups.
 	c.present = true
-	t2 := t1.Add(storePlansRecheckInterval)
+	t2 := t1.Add(time.Minute)
 	require.False(t, p.queryPlanStoreSkipped("appdb", t2))
 	require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t2))
 	require.NotContains(t, p.storePlansMissing, "appdb", "the mark must be cleared so lookups are no longer skipped")
-	require.False(t, p.queryPlanStoreSkipped("appdb", t2.Add(time.Second)))
+	require.False(t, p.queryPlanStoreSkipped("appdb", t2))
 	require.Equal(t, 1, logs.FilterLevelExact(zap.InfoLevel).Len(), "resuming must be logged once")
 }
 

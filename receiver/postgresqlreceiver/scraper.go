@@ -84,15 +84,11 @@ type postgreSQLScraper struct {
 	dbVersion              string
 	// lastTopQueryErr de-duplicates the top-query failure log (report once per transition, not every poll).
 	lastTopQueryErr string
-	// storePlansMissing maps databases lacking pg_store_plans to the time of their next availability re-check.
-	// The receiver warns once when a database enters this map, skips plan lookups there until the re-check is
-	// due, and resumes once a re-check finds the extension.
+	// storePlansMissing maps databases lacking pg_store_plans to the collection time that found them without it.
+	// The receiver warns once when a database enters this map and checks it once per top-query collection, so
+	// plan lookups resume on the first collection after the extension is created.
 	storePlansMissing map[string]time.Time
 }
-
-// storePlansRecheckInterval is how long a database found without pg_store_plans is skipped before the
-// extension is looked for again.
-const storePlansRecheckInterval = time.Minute
 
 type errsMux struct {
 	sync.RWMutex
@@ -477,15 +473,16 @@ func (p *postgreSQLScraper) clearTopQueryErr() {
 	p.lastTopQueryErr = ""
 }
 
-// queryPlanStoreSkipped reports whether database is known to lack pg_store_plans and is not yet due for a re-check.
+// queryPlanStoreSkipped reports whether database was already found without pg_store_plans in the collection
+// that started at now, so its remaining queries in that collection skip the check.
 func (p *postgreSQLScraper) queryPlanStoreSkipped(database string, now time.Time) bool {
-	recheckAt, missing := p.storePlansMissing[database]
-	return missing && now.Before(recheckAt)
+	checkedAt, missing := p.storePlansMissing[database]
+	return missing && checkedAt.Equal(now)
 }
 
 // queryPlanStoreReady reports whether pg_store_plans is available in database. A database found without it is
-// marked missing and re-checked every storePlansRecheckInterval. It warns once when a database becomes missing
-// and logs once when the extension appears.
+// marked missing and checked again on the next top-query collection. It warns once when a database becomes
+// missing and logs once when the extension appears.
 func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient client, database string, now time.Time) bool {
 	present, err := dbClient.queryPlanStoreAvailable(ctx)
 	if err != nil {
@@ -494,10 +491,10 @@ func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient cl
 	}
 	_, wasMissing := p.storePlansMissing[database]
 	if !present {
-		p.storePlansMissing[database] = now.Add(storePlansRecheckInterval)
+		p.storePlansMissing[database] = now
 		if !wasMissing {
 			p.logger.Warn("pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no agent restart is needed",
-				zap.String("database", database), zap.Duration("recheck_interval", storePlansRecheckInterval))
+				zap.String("database", database))
 		}
 		return false
 	}
