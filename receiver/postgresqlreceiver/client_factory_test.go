@@ -31,7 +31,7 @@ func TestPasswordResolutionInlinePriority(t *testing.T) {
 	require.Equal(t, "inlinepass", factory.baseConfig.password)
 
 	// When password is set, passfile should not appear in connection string
-	connStr, err := factory.baseConfig.ConnectionString()
+	connStr, err := factory.baseConfig.ConnectionString(t.Context())
 	require.NoError(t, err)
 	require.NotContains(t, connStr, "passfile")
 }
@@ -84,7 +84,7 @@ func TestConnectionStringWithPassfile(t *testing.T) {
 		},
 	}
 
-	connStr, err := cfg.ConnectionString()
+	connStr, err := cfg.ConnectionString(t.Context())
 	require.NoError(t, err)
 	require.Contains(t, connStr, "passfile='/tmp/pgpass'")
 }
@@ -99,7 +99,7 @@ func TestConnectionStringWithoutPassfile(t *testing.T) {
 		},
 	}
 
-	connStr, err := cfg.ConnectionString()
+	connStr, err := cfg.ConnectionString(t.Context())
 	require.NoError(t, err)
 	require.NotContains(t, connStr, "passfile")
 }

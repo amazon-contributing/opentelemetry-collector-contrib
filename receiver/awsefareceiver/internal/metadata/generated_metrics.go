@@ -3,80 +3,120 @@
 package metadata
 
 import (
+	"slices"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/xpdata/xhash"
 	"go.opentelemetry.io/collector/receiver"
 )
 
+const (
+	AggregationStrategySum = "sum"
+	AggregationStrategyAvg = "avg"
+	AggregationStrategyMin = "min"
+	AggregationStrategyMax = "max"
+)
+
+// dataPointKey hashes dp's attributes and timestamps for O(1) dedup lookup.
+func dataPointKey(dp pmetric.NumberDataPoint) uint64 {
+	return xhash.Hash64(
+		xhash.WithMap(dp.Attributes()),
+		xhash.WithUint64(uint64(dp.StartTimestamp())),
+		xhash.WithUint64(uint64(dp.Timestamp())),
+	)
+}
+
 var MetricsInfo = metricsInfo{
 	EfaImpairedRemoteConnEvents: metricInfo{
-		Name: "efa_impaired_remote_conn_events",
+		Name:       "efa_impaired_remote_conn_events",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaReadBytes: metricInfo{
-		Name: "efa_rdma_read_bytes",
+		Name:       "efa_rdma_read_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaReadRespBytes: metricInfo{
-		Name: "efa_rdma_read_resp_bytes",
+		Name:       "efa_rdma_read_resp_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaReadWrErr: metricInfo{
-		Name: "efa_rdma_read_wr_err",
+		Name:       "efa_rdma_read_wr_err",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaReadWrs: metricInfo{
-		Name: "efa_rdma_read_wrs",
+		Name:       "efa_rdma_read_wrs",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaWriteBytes: metricInfo{
-		Name: "efa_rdma_write_bytes",
+		Name:       "efa_rdma_write_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaWriteRecvBytes: metricInfo{
-		Name: "efa_rdma_write_recv_bytes",
+		Name:       "efa_rdma_write_recv_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaWriteWrErr: metricInfo{
-		Name: "efa_rdma_write_wr_err",
+		Name:       "efa_rdma_write_wr_err",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRdmaWriteWrs: metricInfo{
-		Name: "efa_rdma_write_wrs",
+		Name:       "efa_rdma_write_wrs",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRecvBytes: metricInfo{
-		Name: "efa_recv_bytes",
+		Name:       "efa_recv_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRecvWrs: metricInfo{
-		Name: "efa_recv_wrs",
+		Name:       "efa_recv_wrs",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRetransBytes: metricInfo{
-		Name: "efa_retrans_bytes",
+		Name:       "efa_retrans_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRetransPkts: metricInfo{
-		Name: "efa_retrans_pkts",
+		Name:       "efa_retrans_pkts",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRetransTimeoutEvents: metricInfo{
-		Name: "efa_retrans_timeout_events",
+		Name:       "efa_retrans_timeout_events",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRxBytes: metricInfo{
-		Name: "efa_rx_bytes",
+		Name:       "efa_rx_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRxDropped: metricInfo{
-		Name: "efa_rx_dropped",
+		Name:       "efa_rx_dropped",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaRxPkts: metricInfo{
-		Name: "efa_rx_pkts",
+		Name:       "efa_rx_pkts",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaSendBytes: metricInfo{
-		Name: "efa_send_bytes",
+		Name:       "efa_send_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaSendWrs: metricInfo{
-		Name: "efa_send_wrs",
+		Name:       "efa_send_wrs",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaTxBytes: metricInfo{
-		Name: "efa_tx_bytes",
+		Name:       "efa_tx_bytes",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaTxPkts: metricInfo{
-		Name: "efa_tx_pkts",
+		Name:       "efa_tx_pkts",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 	EfaUnresponsiveRemoteEvents: metricInfo{
-		Name: "efa_unresponsive_remote_events",
+		Name:       "efa_unresponsive_remote_events",
+		Attributes: []string{"aws.efa.device", "aws.efa.port", "aws.efa.eni.id"},
 	},
 }
 
@@ -106,13 +146,16 @@ type metricsInfo struct {
 }
 
 type metricInfo struct {
-	Name string
+	Name       string
+	Attributes []string
 }
 
 type metricEfaImpairedRemoteConnEvents struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                          // data buffer for generated metric.
+	config        EfaImpairedRemoteConnEventsMetricConfig // metric config provided by user.
+	capacity      int                                     // max observed number of data points added to the metric.
+	aggDataPoints []int64                                 // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                          // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_impaired_remote_conn_events metric with initial data.
@@ -124,19 +167,55 @@ func (m *metricEfaImpairedRemoteConnEvents) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaImpairedRemoteConnEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaImpairedRemoteConnEventsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -149,13 +228,18 @@ func (m *metricEfaImpairedRemoteConnEvents) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaImpairedRemoteConnEvents) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaImpairedRemoteConnEvents(cfg MetricConfig) metricEfaImpairedRemoteConnEvents {
+func newMetricEfaImpairedRemoteConnEvents(cfg EfaImpairedRemoteConnEventsMetricConfig) metricEfaImpairedRemoteConnEvents {
 	m := metricEfaImpairedRemoteConnEvents{config: cfg}
 
 	if cfg.Enabled {
@@ -166,9 +250,11 @@ func newMetricEfaImpairedRemoteConnEvents(cfg MetricConfig) metricEfaImpairedRem
 }
 
 type metricEfaRdmaReadBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric               // data buffer for generated metric.
+	config        EfaRdmaReadBytesMetricConfig // metric config provided by user.
+	capacity      int                          // max observed number of data points added to the metric.
+	aggDataPoints []int64                      // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int               // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_read_bytes metric with initial data.
@@ -180,19 +266,55 @@ func (m *metricEfaRdmaReadBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaReadBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -205,13 +327,18 @@ func (m *metricEfaRdmaReadBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaReadBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaReadBytes(cfg MetricConfig) metricEfaRdmaReadBytes {
+func newMetricEfaRdmaReadBytes(cfg EfaRdmaReadBytesMetricConfig) metricEfaRdmaReadBytes {
 	m := metricEfaRdmaReadBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -222,9 +349,11 @@ func newMetricEfaRdmaReadBytes(cfg MetricConfig) metricEfaRdmaReadBytes {
 }
 
 type metricEfaRdmaReadRespBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                   // data buffer for generated metric.
+	config        EfaRdmaReadRespBytesMetricConfig // metric config provided by user.
+	capacity      int                              // max observed number of data points added to the metric.
+	aggDataPoints []int64                          // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                   // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_read_resp_bytes metric with initial data.
@@ -236,19 +365,55 @@ func (m *metricEfaRdmaReadRespBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaReadRespBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadRespBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -261,13 +426,18 @@ func (m *metricEfaRdmaReadRespBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaReadRespBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaReadRespBytes(cfg MetricConfig) metricEfaRdmaReadRespBytes {
+func newMetricEfaRdmaReadRespBytes(cfg EfaRdmaReadRespBytesMetricConfig) metricEfaRdmaReadRespBytes {
 	m := metricEfaRdmaReadRespBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -278,9 +448,11 @@ func newMetricEfaRdmaReadRespBytes(cfg MetricConfig) metricEfaRdmaReadRespBytes 
 }
 
 type metricEfaRdmaReadWrErr struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric               // data buffer for generated metric.
+	config        EfaRdmaReadWrErrMetricConfig // metric config provided by user.
+	capacity      int                          // max observed number of data points added to the metric.
+	aggDataPoints []int64                      // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int               // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_read_wr_err metric with initial data.
@@ -292,19 +464,55 @@ func (m *metricEfaRdmaReadWrErr) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaReadWrErr) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadWrErrMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -317,13 +525,18 @@ func (m *metricEfaRdmaReadWrErr) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaReadWrErr) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaReadWrErr(cfg MetricConfig) metricEfaRdmaReadWrErr {
+func newMetricEfaRdmaReadWrErr(cfg EfaRdmaReadWrErrMetricConfig) metricEfaRdmaReadWrErr {
 	m := metricEfaRdmaReadWrErr{config: cfg}
 
 	if cfg.Enabled {
@@ -334,9 +547,11 @@ func newMetricEfaRdmaReadWrErr(cfg MetricConfig) metricEfaRdmaReadWrErr {
 }
 
 type metricEfaRdmaReadWrs struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric             // data buffer for generated metric.
+	config        EfaRdmaReadWrsMetricConfig // metric config provided by user.
+	capacity      int                        // max observed number of data points added to the metric.
+	aggDataPoints []int64                    // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int             // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_read_wrs metric with initial data.
@@ -348,19 +563,55 @@ func (m *metricEfaRdmaReadWrs) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaReadWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadWrsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadWrsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaReadWrsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -373,13 +624,18 @@ func (m *metricEfaRdmaReadWrs) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaReadWrs) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaReadWrs(cfg MetricConfig) metricEfaRdmaReadWrs {
+func newMetricEfaRdmaReadWrs(cfg EfaRdmaReadWrsMetricConfig) metricEfaRdmaReadWrs {
 	m := metricEfaRdmaReadWrs{config: cfg}
 
 	if cfg.Enabled {
@@ -390,9 +646,11 @@ func newMetricEfaRdmaReadWrs(cfg MetricConfig) metricEfaRdmaReadWrs {
 }
 
 type metricEfaRdmaWriteBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                // data buffer for generated metric.
+	config        EfaRdmaWriteBytesMetricConfig // metric config provided by user.
+	capacity      int                           // max observed number of data points added to the metric.
+	aggDataPoints []int64                       // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_write_bytes metric with initial data.
@@ -404,19 +662,55 @@ func (m *metricEfaRdmaWriteBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaWriteBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -429,13 +723,18 @@ func (m *metricEfaRdmaWriteBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaWriteBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaWriteBytes(cfg MetricConfig) metricEfaRdmaWriteBytes {
+func newMetricEfaRdmaWriteBytes(cfg EfaRdmaWriteBytesMetricConfig) metricEfaRdmaWriteBytes {
 	m := metricEfaRdmaWriteBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -446,9 +745,11 @@ func newMetricEfaRdmaWriteBytes(cfg MetricConfig) metricEfaRdmaWriteBytes {
 }
 
 type metricEfaRdmaWriteRecvBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                    // data buffer for generated metric.
+	config        EfaRdmaWriteRecvBytesMetricConfig // metric config provided by user.
+	capacity      int                               // max observed number of data points added to the metric.
+	aggDataPoints []int64                           // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                    // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_write_recv_bytes metric with initial data.
@@ -460,19 +761,55 @@ func (m *metricEfaRdmaWriteRecvBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaWriteRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteRecvBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -485,13 +822,18 @@ func (m *metricEfaRdmaWriteRecvBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaWriteRecvBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaWriteRecvBytes(cfg MetricConfig) metricEfaRdmaWriteRecvBytes {
+func newMetricEfaRdmaWriteRecvBytes(cfg EfaRdmaWriteRecvBytesMetricConfig) metricEfaRdmaWriteRecvBytes {
 	m := metricEfaRdmaWriteRecvBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -502,9 +844,11 @@ func newMetricEfaRdmaWriteRecvBytes(cfg MetricConfig) metricEfaRdmaWriteRecvByte
 }
 
 type metricEfaRdmaWriteWrErr struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                // data buffer for generated metric.
+	config        EfaRdmaWriteWrErrMetricConfig // metric config provided by user.
+	capacity      int                           // max observed number of data points added to the metric.
+	aggDataPoints []int64                       // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_write_wr_err metric with initial data.
@@ -516,19 +860,55 @@ func (m *metricEfaRdmaWriteWrErr) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaWriteWrErr) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteWrErrMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -541,13 +921,18 @@ func (m *metricEfaRdmaWriteWrErr) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaWriteWrErr) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaWriteWrErr(cfg MetricConfig) metricEfaRdmaWriteWrErr {
+func newMetricEfaRdmaWriteWrErr(cfg EfaRdmaWriteWrErrMetricConfig) metricEfaRdmaWriteWrErr {
 	m := metricEfaRdmaWriteWrErr{config: cfg}
 
 	if cfg.Enabled {
@@ -558,9 +943,11 @@ func newMetricEfaRdmaWriteWrErr(cfg MetricConfig) metricEfaRdmaWriteWrErr {
 }
 
 type metricEfaRdmaWriteWrs struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric              // data buffer for generated metric.
+	config        EfaRdmaWriteWrsMetricConfig // metric config provided by user.
+	capacity      int                         // max observed number of data points added to the metric.
+	aggDataPoints []int64                     // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int              // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rdma_write_wrs metric with initial data.
@@ -572,19 +959,55 @@ func (m *metricEfaRdmaWriteWrs) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRdmaWriteWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRdmaWriteWrsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -597,13 +1020,18 @@ func (m *metricEfaRdmaWriteWrs) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRdmaWriteWrs) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRdmaWriteWrs(cfg MetricConfig) metricEfaRdmaWriteWrs {
+func newMetricEfaRdmaWriteWrs(cfg EfaRdmaWriteWrsMetricConfig) metricEfaRdmaWriteWrs {
 	m := metricEfaRdmaWriteWrs{config: cfg}
 
 	if cfg.Enabled {
@@ -614,9 +1042,11 @@ func newMetricEfaRdmaWriteWrs(cfg MetricConfig) metricEfaRdmaWriteWrs {
 }
 
 type metricEfaRecvBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric           // data buffer for generated metric.
+	config        EfaRecvBytesMetricConfig // metric config provided by user.
+	capacity      int                      // max observed number of data points added to the metric.
+	aggDataPoints []int64                  // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int           // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_recv_bytes metric with initial data.
@@ -628,19 +1058,55 @@ func (m *metricEfaRecvBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRecvBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRecvBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRecvBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRecvBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -653,13 +1119,18 @@ func (m *metricEfaRecvBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRecvBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRecvBytes(cfg MetricConfig) metricEfaRecvBytes {
+func newMetricEfaRecvBytes(cfg EfaRecvBytesMetricConfig) metricEfaRecvBytes {
 	m := metricEfaRecvBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -670,9 +1141,11 @@ func newMetricEfaRecvBytes(cfg MetricConfig) metricEfaRecvBytes {
 }
 
 type metricEfaRecvWrs struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric         // data buffer for generated metric.
+	config        EfaRecvWrsMetricConfig // metric config provided by user.
+	capacity      int                    // max observed number of data points added to the metric.
+	aggDataPoints []int64                // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int         // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_recv_wrs metric with initial data.
@@ -684,19 +1157,55 @@ func (m *metricEfaRecvWrs) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRecvWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRecvWrsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRecvWrsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRecvWrsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -709,13 +1218,18 @@ func (m *metricEfaRecvWrs) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRecvWrs) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRecvWrs(cfg MetricConfig) metricEfaRecvWrs {
+func newMetricEfaRecvWrs(cfg EfaRecvWrsMetricConfig) metricEfaRecvWrs {
 	m := metricEfaRecvWrs{config: cfg}
 
 	if cfg.Enabled {
@@ -726,9 +1240,11 @@ func newMetricEfaRecvWrs(cfg MetricConfig) metricEfaRecvWrs {
 }
 
 type metricEfaRetransBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric              // data buffer for generated metric.
+	config        EfaRetransBytesMetricConfig // metric config provided by user.
+	capacity      int                         // max observed number of data points added to the metric.
+	aggDataPoints []int64                     // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int              // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_retrans_bytes metric with initial data.
@@ -740,19 +1256,55 @@ func (m *metricEfaRetransBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRetransBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -765,13 +1317,18 @@ func (m *metricEfaRetransBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRetransBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRetransBytes(cfg MetricConfig) metricEfaRetransBytes {
+func newMetricEfaRetransBytes(cfg EfaRetransBytesMetricConfig) metricEfaRetransBytes {
 	m := metricEfaRetransBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -782,9 +1339,11 @@ func newMetricEfaRetransBytes(cfg MetricConfig) metricEfaRetransBytes {
 }
 
 type metricEfaRetransPkts struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric             // data buffer for generated metric.
+	config        EfaRetransPktsMetricConfig // metric config provided by user.
+	capacity      int                        // max observed number of data points added to the metric.
+	aggDataPoints []int64                    // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int             // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_retrans_pkts metric with initial data.
@@ -796,19 +1355,55 @@ func (m *metricEfaRetransPkts) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRetransPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransPktsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransPktsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransPktsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -821,13 +1416,18 @@ func (m *metricEfaRetransPkts) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRetransPkts) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRetransPkts(cfg MetricConfig) metricEfaRetransPkts {
+func newMetricEfaRetransPkts(cfg EfaRetransPktsMetricConfig) metricEfaRetransPkts {
 	m := metricEfaRetransPkts{config: cfg}
 
 	if cfg.Enabled {
@@ -838,9 +1438,11 @@ func newMetricEfaRetransPkts(cfg MetricConfig) metricEfaRetransPkts {
 }
 
 type metricEfaRetransTimeoutEvents struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                      // data buffer for generated metric.
+	config        EfaRetransTimeoutEventsMetricConfig // metric config provided by user.
+	capacity      int                                 // max observed number of data points added to the metric.
+	aggDataPoints []int64                             // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                      // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_retrans_timeout_events metric with initial data.
@@ -852,19 +1454,55 @@ func (m *metricEfaRetransTimeoutEvents) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRetransTimeoutEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRetransTimeoutEventsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -877,13 +1515,18 @@ func (m *metricEfaRetransTimeoutEvents) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRetransTimeoutEvents) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRetransTimeoutEvents(cfg MetricConfig) metricEfaRetransTimeoutEvents {
+func newMetricEfaRetransTimeoutEvents(cfg EfaRetransTimeoutEventsMetricConfig) metricEfaRetransTimeoutEvents {
 	m := metricEfaRetransTimeoutEvents{config: cfg}
 
 	if cfg.Enabled {
@@ -894,9 +1537,11 @@ func newMetricEfaRetransTimeoutEvents(cfg MetricConfig) metricEfaRetransTimeoutE
 }
 
 type metricEfaRxBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric         // data buffer for generated metric.
+	config        EfaRxBytesMetricConfig // metric config provided by user.
+	capacity      int                    // max observed number of data points added to the metric.
+	aggDataPoints []int64                // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int         // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rx_bytes metric with initial data.
@@ -908,19 +1553,55 @@ func (m *metricEfaRxBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRxBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRxBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRxBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -933,13 +1614,18 @@ func (m *metricEfaRxBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRxBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRxBytes(cfg MetricConfig) metricEfaRxBytes {
+func newMetricEfaRxBytes(cfg EfaRxBytesMetricConfig) metricEfaRxBytes {
 	m := metricEfaRxBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -950,9 +1636,11 @@ func newMetricEfaRxBytes(cfg MetricConfig) metricEfaRxBytes {
 }
 
 type metricEfaRxDropped struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric           // data buffer for generated metric.
+	config        EfaRxDroppedMetricConfig // metric config provided by user.
+	capacity      int                      // max observed number of data points added to the metric.
+	aggDataPoints []int64                  // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int           // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rx_dropped metric with initial data.
@@ -964,19 +1652,55 @@ func (m *metricEfaRxDropped) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRxDropped) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRxDroppedMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRxDroppedMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRxDroppedMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -989,13 +1713,18 @@ func (m *metricEfaRxDropped) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRxDropped) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRxDropped(cfg MetricConfig) metricEfaRxDropped {
+func newMetricEfaRxDropped(cfg EfaRxDroppedMetricConfig) metricEfaRxDropped {
 	m := metricEfaRxDropped{config: cfg}
 
 	if cfg.Enabled {
@@ -1006,9 +1735,11 @@ func newMetricEfaRxDropped(cfg MetricConfig) metricEfaRxDropped {
 }
 
 type metricEfaRxPkts struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric        // data buffer for generated metric.
+	config        EfaRxPktsMetricConfig // metric config provided by user.
+	capacity      int                   // max observed number of data points added to the metric.
+	aggDataPoints []int64               // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int        // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_rx_pkts metric with initial data.
@@ -1020,19 +1751,55 @@ func (m *metricEfaRxPkts) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaRxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaRxPktsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRxPktsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaRxPktsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1045,13 +1812,18 @@ func (m *metricEfaRxPkts) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaRxPkts) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaRxPkts(cfg MetricConfig) metricEfaRxPkts {
+func newMetricEfaRxPkts(cfg EfaRxPktsMetricConfig) metricEfaRxPkts {
 	m := metricEfaRxPkts{config: cfg}
 
 	if cfg.Enabled {
@@ -1062,9 +1834,11 @@ func newMetricEfaRxPkts(cfg MetricConfig) metricEfaRxPkts {
 }
 
 type metricEfaSendBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric           // data buffer for generated metric.
+	config        EfaSendBytesMetricConfig // metric config provided by user.
+	capacity      int                      // max observed number of data points added to the metric.
+	aggDataPoints []int64                  // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int           // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_send_bytes metric with initial data.
@@ -1076,19 +1850,55 @@ func (m *metricEfaSendBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaSendBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaSendBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaSendBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaSendBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1101,13 +1911,18 @@ func (m *metricEfaSendBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaSendBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaSendBytes(cfg MetricConfig) metricEfaSendBytes {
+func newMetricEfaSendBytes(cfg EfaSendBytesMetricConfig) metricEfaSendBytes {
 	m := metricEfaSendBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -1118,9 +1933,11 @@ func newMetricEfaSendBytes(cfg MetricConfig) metricEfaSendBytes {
 }
 
 type metricEfaSendWrs struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric         // data buffer for generated metric.
+	config        EfaSendWrsMetricConfig // metric config provided by user.
+	capacity      int                    // max observed number of data points added to the metric.
+	aggDataPoints []int64                // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int         // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_send_wrs metric with initial data.
@@ -1132,19 +1949,55 @@ func (m *metricEfaSendWrs) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaSendWrs) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaSendWrsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaSendWrsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaSendWrsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1157,13 +2010,18 @@ func (m *metricEfaSendWrs) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaSendWrs) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaSendWrs(cfg MetricConfig) metricEfaSendWrs {
+func newMetricEfaSendWrs(cfg EfaSendWrsMetricConfig) metricEfaSendWrs {
 	m := metricEfaSendWrs{config: cfg}
 
 	if cfg.Enabled {
@@ -1174,9 +2032,11 @@ func newMetricEfaSendWrs(cfg MetricConfig) metricEfaSendWrs {
 }
 
 type metricEfaTxBytes struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric         // data buffer for generated metric.
+	config        EfaTxBytesMetricConfig // metric config provided by user.
+	capacity      int                    // max observed number of data points added to the metric.
+	aggDataPoints []int64                // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int         // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_tx_bytes metric with initial data.
@@ -1188,19 +2048,55 @@ func (m *metricEfaTxBytes) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaTxBytes) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaTxBytesMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaTxBytesMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaTxBytesMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1213,13 +2109,18 @@ func (m *metricEfaTxBytes) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaTxBytes) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaTxBytes(cfg MetricConfig) metricEfaTxBytes {
+func newMetricEfaTxBytes(cfg EfaTxBytesMetricConfig) metricEfaTxBytes {
 	m := metricEfaTxBytes{config: cfg}
 
 	if cfg.Enabled {
@@ -1230,9 +2131,11 @@ func newMetricEfaTxBytes(cfg MetricConfig) metricEfaTxBytes {
 }
 
 type metricEfaTxPkts struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric        // data buffer for generated metric.
+	config        EfaTxPktsMetricConfig // metric config provided by user.
+	capacity      int                   // max observed number of data points added to the metric.
+	aggDataPoints []int64               // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int        // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_tx_pkts metric with initial data.
@@ -1244,19 +2147,55 @@ func (m *metricEfaTxPkts) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaTxPkts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaTxPktsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaTxPktsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaTxPktsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1269,13 +2208,18 @@ func (m *metricEfaTxPkts) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaTxPkts) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaTxPkts(cfg MetricConfig) metricEfaTxPkts {
+func newMetricEfaTxPkts(cfg EfaTxPktsMetricConfig) metricEfaTxPkts {
 	m := metricEfaTxPkts{config: cfg}
 
 	if cfg.Enabled {
@@ -1286,9 +2230,11 @@ func newMetricEfaTxPkts(cfg MetricConfig) metricEfaTxPkts {
 }
 
 type metricEfaUnresponsiveRemoteEvents struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                          // data buffer for generated metric.
+	config        EfaUnresponsiveRemoteEventsMetricConfig // metric config provided by user.
+	capacity      int                                     // max observed number of data points added to the metric.
+	aggDataPoints []int64                                 // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                          // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills efa_unresponsive_remote_events metric with initial data.
@@ -1300,19 +2246,55 @@ func (m *metricEfaUnresponsiveRemoteEvents) init() {
 	m.data.Sum().SetIsMonotonic(true)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricEfaUnresponsiveRemoteEvents) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, awsEfaDeviceAttributeValue string, awsEfaPortAttributeValue string, awsEfaEniIDAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaDevice) {
+		dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaPort) {
+		dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, EfaUnresponsiveRemoteEventsMetricAttributeKeyAwsEfaEniID) {
+		dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Sum().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("aws.efa.device", awsEfaDeviceAttributeValue)
-	dp.Attributes().PutStr("aws.efa.port", awsEfaPortAttributeValue)
-	dp.Attributes().PutStr("aws.efa.eni.id", awsEfaEniIDAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1325,13 +2307,18 @@ func (m *metricEfaUnresponsiveRemoteEvents) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricEfaUnresponsiveRemoteEvents) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricEfaUnresponsiveRemoteEvents(cfg MetricConfig) metricEfaUnresponsiveRemoteEvents {
+func newMetricEfaUnresponsiveRemoteEvents(cfg EfaUnresponsiveRemoteEventsMetricConfig) metricEfaUnresponsiveRemoteEvents {
 	m := metricEfaUnresponsiveRemoteEvents{config: cfg}
 
 	if cfg.Enabled {

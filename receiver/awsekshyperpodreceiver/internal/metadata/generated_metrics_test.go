@@ -19,6 +19,7 @@ const (
 	testDataSetDefault testDataSet = iota
 	testDataSetAll
 	testDataSetNone
+	testDataSetReag
 )
 
 func TestMetricsBuilder(t *testing.T) {
@@ -37,6 +38,11 @@ func TestMetricsBuilder(t *testing.T) {
 			resAttrsSet: testDataSetAll,
 		},
 		{
+			name:        "reaggregate_set",
+			metricsSet:  testDataSetReag,
+			resAttrsSet: testDataSetReag,
+		},
+		{
 			name:        "none_set",
 			metricsSet:  testDataSetNone,
 			resAttrsSet: testDataSetNone,
@@ -51,31 +57,64 @@ func TestMetricsBuilder(t *testing.T) {
 			settings := receivertest.NewNopSettings(receivertest.NopType)
 			settings.Logger = zap.New(observedZapCore)
 			mb := NewMetricsBuilder(loadMetricsBuilderConfig(t, tt.name), settings, WithStartTime(start))
+			aggMap := make(map[string]string) // contains the aggregation strategies for each metric name
+			aggMap["hyperpod_node_health_status_schedulable"] = mb.metricHyperpodNodeHealthStatusSchedulable.config.AggregationStrategy
+			aggMap["hyperpod_node_health_status_unschedulable"] = mb.metricHyperpodNodeHealthStatusUnschedulable.config.AggregationStrategy
+			aggMap["hyperpod_node_health_status_unschedulable_pending_reboot"] = mb.metricHyperpodNodeHealthStatusUnschedulablePendingReboot.config.AggregationStrategy
+			aggMap["hyperpod_node_health_status_unschedulable_pending_replacement"] = mb.metricHyperpodNodeHealthStatusUnschedulablePendingReplacement.config.AggregationStrategy
 
 			expectedWarnings := 0
-			assert.Equal(t, expectedWarnings, observedLogs.Len())
+			if tt.metricsSet != testDataSetReag {
+				assert.Equal(t, expectedWarnings, observedLogs.Len())
+			}
 
 			defaultMetricsCount := 0
 			allMetricsCount := 0
-
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordHyperpodNodeHealthStatusSchedulableDataPoint(ts, 1, "cluster_name-val", "instance_id-val", "node_name-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordHyperpodNodeHealthStatusSchedulableDataPoint(ts, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordHyperpodNodeHealthStatusSchedulableDataPoint(ts+1, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				assert.Equal(t, 2, mb.metricHyperpodNodeHealthStatusSchedulable.data.Gauge().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordHyperpodNodeHealthStatusUnschedulableDataPoint(ts, 1, "cluster_name-val", "instance_id-val", "node_name-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordHyperpodNodeHealthStatusUnschedulableDataPoint(ts, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordHyperpodNodeHealthStatusUnschedulableDataPoint(ts+1, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				assert.Equal(t, 2, mb.metricHyperpodNodeHealthStatusUnschedulable.data.Gauge().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordHyperpodNodeHealthStatusUnschedulablePendingRebootDataPoint(ts, 1, "cluster_name-val", "instance_id-val", "node_name-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordHyperpodNodeHealthStatusUnschedulablePendingRebootDataPoint(ts, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordHyperpodNodeHealthStatusUnschedulablePendingRebootDataPoint(ts+1, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				assert.Equal(t, 2, mb.metricHyperpodNodeHealthStatusUnschedulablePendingReboot.data.Gauge().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordHyperpodNodeHealthStatusUnschedulablePendingReplacementDataPoint(ts, 1, "cluster_name-val", "instance_id-val", "node_name-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordHyperpodNodeHealthStatusUnschedulablePendingReplacementDataPoint(ts, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordHyperpodNodeHealthStatusUnschedulablePendingReplacementDataPoint(ts+1, 3, "cluster_name-val-2", "instance_id-val-2", "node_name-val-2")
+				assert.Equal(t, 2, mb.metricHyperpodNodeHealthStatusUnschedulablePendingReplacement.data.Gauge().DataPoints().Len())
+			}
 
 			res := pcommon.NewResource()
 			metrics := mb.Emit(WithResource(res))
+			if tt.name == "reaggregate_set" {
+				assert.Empty(t, mb.metricHyperpodNodeHealthStatusSchedulable.aggDataPoints)
+				assert.Empty(t, mb.metricHyperpodNodeHealthStatusUnschedulable.aggDataPoints)
+				assert.Empty(t, mb.metricHyperpodNodeHealthStatusUnschedulablePendingReboot.aggDataPoints)
+				assert.Empty(t, mb.metricHyperpodNodeHealthStatusUnschedulablePendingReplacement.aggDataPoints)
+			}
 
 			if tt.expectEmpty {
 				assert.Equal(t, 0, metrics.ResourceMetrics().Len())
@@ -103,89 +142,213 @@ func TestMetricsBuilder(t *testing.T) {
 			for _, mi := range allMetricsList {
 				switch mi.Name() {
 				case "hyperpod_node_health_status_schedulable":
-					assert.False(t, validatedMetrics["hyperpod_node_health_status_schedulable"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_schedulable")
-					validatedMetrics["hyperpod_node_health_status_schedulable"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "HyperPod node health status: Schedulable", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
-					assert.True(t, ok)
-					assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
-					instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
-					assert.True(t, ok)
-					assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
-					nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
-					assert.True(t, ok)
-					assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_schedulable"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_schedulable")
+						validatedMetrics["hyperpod_node_health_status_schedulable"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "HyperPod node health status: Schedulable", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
+						assert.True(t, ok)
+						assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
+						instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
+						assert.True(t, ok)
+						assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
+						nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
+						assert.True(t, ok)
+						assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_schedulable"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_schedulable")
+						validatedMetrics["hyperpod_node_health_status_schedulable"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Gauge().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "HyperPod node health status: Schedulable", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["hyperpod_node_health_status_schedulable"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("cluster_name")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("instance_id")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("node_name")
+						assert.False(t, ok)
+					}
 				case "hyperpod_node_health_status_unschedulable":
-					assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable")
-					validatedMetrics["hyperpod_node_health_status_unschedulable"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "HyperPod node health status: Unschedulable", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
-					assert.True(t, ok)
-					assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
-					instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
-					assert.True(t, ok)
-					assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
-					nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
-					assert.True(t, ok)
-					assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable")
+						validatedMetrics["hyperpod_node_health_status_unschedulable"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "HyperPod node health status: Unschedulable", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
+						assert.True(t, ok)
+						assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
+						instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
+						assert.True(t, ok)
+						assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
+						nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
+						assert.True(t, ok)
+						assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable")
+						validatedMetrics["hyperpod_node_health_status_unschedulable"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Gauge().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "HyperPod node health status: Unschedulable", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["hyperpod_node_health_status_unschedulable"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("cluster_name")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("instance_id")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("node_name")
+						assert.False(t, ok)
+					}
 				case "hyperpod_node_health_status_unschedulable_pending_reboot":
-					assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable_pending_reboot"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable_pending_reboot")
-					validatedMetrics["hyperpod_node_health_status_unschedulable_pending_reboot"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "HyperPod node health status: UnschedulablePendingReboot", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
-					assert.True(t, ok)
-					assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
-					instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
-					assert.True(t, ok)
-					assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
-					nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
-					assert.True(t, ok)
-					assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable_pending_reboot"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable_pending_reboot")
+						validatedMetrics["hyperpod_node_health_status_unschedulable_pending_reboot"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "HyperPod node health status: UnschedulablePendingReboot", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
+						assert.True(t, ok)
+						assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
+						instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
+						assert.True(t, ok)
+						assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
+						nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
+						assert.True(t, ok)
+						assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable_pending_reboot"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable_pending_reboot")
+						validatedMetrics["hyperpod_node_health_status_unschedulable_pending_reboot"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Gauge().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "HyperPod node health status: UnschedulablePendingReboot", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["hyperpod_node_health_status_unschedulable_pending_reboot"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("cluster_name")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("instance_id")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("node_name")
+						assert.False(t, ok)
+					}
 				case "hyperpod_node_health_status_unschedulable_pending_replacement":
-					assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable_pending_replacement"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable_pending_replacement")
-					validatedMetrics["hyperpod_node_health_status_unschedulable_pending_replacement"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "HyperPod node health status: UnschedulablePendingReplacement", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
-					assert.True(t, ok)
-					assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
-					instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
-					assert.True(t, ok)
-					assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
-					nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
-					assert.True(t, ok)
-					assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable_pending_replacement"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable_pending_replacement")
+						validatedMetrics["hyperpod_node_health_status_unschedulable_pending_replacement"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "HyperPod node health status: UnschedulablePendingReplacement", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						clusterNameAttrVal, ok := dp.Attributes().Get("cluster_name")
+						assert.True(t, ok)
+						assert.Equal(t, "cluster_name-val", clusterNameAttrVal.Str())
+						instanceIDAttrVal, ok := dp.Attributes().Get("instance_id")
+						assert.True(t, ok)
+						assert.Equal(t, "instance_id-val", instanceIDAttrVal.Str())
+						nodeNameAttrVal, ok := dp.Attributes().Get("node_name")
+						assert.True(t, ok)
+						assert.Equal(t, "node_name-val", nodeNameAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["hyperpod_node_health_status_unschedulable_pending_replacement"], "Found a duplicate in the metrics slice: hyperpod_node_health_status_unschedulable_pending_replacement")
+						validatedMetrics["hyperpod_node_health_status_unschedulable_pending_replacement"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Gauge().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "HyperPod node health status: UnschedulablePendingReplacement", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["hyperpod_node_health_status_unschedulable_pending_replacement"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("cluster_name")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("instance_id")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("node_name")
+						assert.False(t, ok)
+					}
 				}
 			}
 		})

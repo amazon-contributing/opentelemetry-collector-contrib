@@ -95,7 +95,8 @@ func TestLogEventBatch_sortLogEvents(t *testing.T) {
 		timestamp := rand.Int()
 		logEvent := NewEvent(
 			int64(timestamp),
-			fmt.Sprintf("message%v", timestamp))
+			fmt.Sprintf("message%v", timestamp),
+		)
 		fmt.Printf("logEvents[%d].Timestamp=%d.\n", i, timestamp)
 		logEventBatch.putLogEventsInput.LogEvents = append(logEventBatch.putLogEventsInput.LogEvents, logEvent.InputLogEvent)
 	}
@@ -162,7 +163,7 @@ func TestPusher_addLogEventBatch(t *testing.T) {
 	// the actual log event add operation happens after the func newLogEventBatchIfNeeded
 	assert.Len(t, p.logEventBatch.putLogEventsInput.LogEvents, 1)
 
-	p.logEventBatch.byteTotal = maxEventPayloadBytes - logEvent.eventPayloadBytes() + 1
+	p.logEventBatch.byteTotal = maxRequestPayloadBytes - logEvent.eventPayloadBytes() + 1
 	assert.NotNil(t, p.addLogEvent(logEvent))
 	assert.Len(t, p.logEventBatch.putLogEventsInput.LogEvents, 1)
 
@@ -191,8 +192,19 @@ func TestAddLogEventWithValidation(t *testing.T) {
 	require.NoError(t, p.AddLogEntry(t.Context(), logEvent), "Error adding log entry")
 	assert.Equal(t, expectedTruncatedContent, *logEvent.InputLogEvent.Message)
 
-	logEvent = NewEvent(timestampMs, "")
-	assert.NotNil(t, p.addLogEvent(logEvent))
+	// Push enough additional truncated-to-256 KiB events that the cumulative
+	// byte total crosses the per-batch ceiling (~1 MiB) and a rollover is
+	// guaranteed. We already have one event in the batch; four more 256 KiB
+	// events bring the running total above the ceiling.
+	var rolled bool
+	for i := 0; i < 5 && !rolled; i++ {
+		filler := NewEvent(timestampMs, strings.Repeat("b", defaultMaxEventPayloadBytes))
+		require.NoError(t, filler.Validate(zap.NewNop()))
+		if p.addLogEvent(filler) != nil {
+			rolled = true
+		}
+	}
+	assert.True(t, rolled, "batch should roll once total bytes exceed the per-request ceiling")
 }
 
 func TestStreamManager(t *testing.T) {
@@ -304,6 +316,95 @@ func TestLogPusherConcurrentAddAndFlush(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+func TestPusher_perPusherMaxEventPayloadBytes(t *testing.T) {
+	// The package default is the 1 MiB service limit. A per-pusher cap can only
+	// lower it: a payload between the cap and the default is kept whole under
+	// the default and truncated under the cap.
+	const lowerCap = 512 * 1024
+	largeSize := lowerCap + 1024 // 513 KiB, under the 1 MiB default
+	body := strings.Repeat("b", largeSize)
+
+	t.Run("per-pusher cap lowers ceiling below package default", func(t *testing.T) {
+		ev := NewEvent(timestampMs, body)
+		require.NoError(t, ev.validateWithCap(zap.NewNop(), lowerCap))
+		assert.Less(t, len(*ev.InputLogEvent.Message), largeSize,
+			"event should be truncated to the per-pusher cap")
+		assert.Contains(t, *ev.InputLogEvent.Message, truncatedSuffix)
+	})
+
+	t.Run("package default keeps payload under 1 MiB", func(t *testing.T) {
+		ev := NewEvent(timestampMs, body)
+		require.NoError(t, ev.validateWithCap(zap.NewNop(), defaultMaxEventPayloadBytes))
+		assert.Len(t, *ev.InputLogEvent.Message, largeSize)
+		assert.NotContains(t, *ev.InputLogEvent.Message, truncatedSuffix)
+	})
+
+	t.Run("zero cap falls back to package default", func(t *testing.T) {
+		ev := NewEvent(timestampMs, body)
+		require.NoError(t, ev.validateWithCap(zap.NewNop(), 0))
+		assert.Len(t, *ev.InputLogEvent.Message, largeSize,
+			"a zero cap uses the 1 MiB package default, so the payload is kept whole")
+		assert.NotContains(t, *ev.InputLogEvent.Message, truncatedSuffix)
+	})
+
+	t.Run("default Validate matches validateWithCap(package default)", func(t *testing.T) {
+		evA := NewEvent(timestampMs, body)
+		evB := NewEvent(timestampMs, body)
+		require.NoError(t, evA.Validate(zap.NewNop()))
+		require.NoError(t, evB.validateWithCap(zap.NewNop(), maxEventPayloadBytes))
+		assert.Equal(t, *evA.InputLogEvent.Message, *evB.InputLogEvent.Message)
+	})
+
+	t.Run("effectiveMaxEventPayloadBytes honors per-pusher value", func(t *testing.T) {
+		p := newLogPusher(StreamKey{
+			LogGroupName:  logGroup,
+			LogStreamName: logStreamName,
+		}, Client{svc: &mockCloudWatchClient{}}, zap.NewNop(),
+			WithMaxEventPayloadBytes(lowerCap))
+		assert.Equal(t, lowerCap, p.effectiveMaxEventPayloadBytes())
+	})
+
+	t.Run("effectiveMaxEventPayloadBytes falls back to package var when option is zero or omitted", func(t *testing.T) {
+		omitted := newLogPusher(StreamKey{
+			LogGroupName:  logGroup,
+			LogStreamName: logStreamName,
+		}, Client{svc: &mockCloudWatchClient{}}, zap.NewNop())
+		zero := newLogPusher(StreamKey{
+			LogGroupName:  logGroup,
+			LogStreamName: logStreamName,
+		}, Client{svc: &mockCloudWatchClient{}}, zap.NewNop(),
+			WithMaxEventPayloadBytes(0))
+		assert.Equal(t, maxEventPayloadBytes, omitted.effectiveMaxEventPayloadBytes())
+		assert.Equal(t, maxEventPayloadBytes, zero.effectiveMaxEventPayloadBytes())
+	})
+
+	t.Run("two large events with a 1 MiB cap share a batch (regression for per-event vs batch cap conflation)", func(t *testing.T) {
+		// Before the fix, eventBatch.exceedsLimit compared against the
+		// package-level maxEventPayloadBytes (256 KiB). Two ~400 KiB events
+		// passed through a pusher with a 1 MiB per-event cap would land in
+		// two separate PutLogEvents calls. After the fix, exceedsLimit
+		// compares against maxRequestPayloadBytes (1 MiB) and they share a
+		// batch.
+		p := newLogPusher(StreamKey{
+			LogGroupName:  logGroup,
+			LogStreamName: logStreamName,
+		}, Client{svc: &mockCloudWatchClient{}}, zap.NewNop(),
+			WithMaxEventPayloadBytes(maxRequestPayloadBytes))
+
+		body := strings.Repeat("c", 400*1024)
+		var rolledOut int
+		for range 2 {
+			prev := p.addLogEvent(NewEvent(timestampMs, body))
+			if prev != nil {
+				rolledOut++
+			}
+		}
+		assert.Equal(t, 0, rolledOut, "two 400 KiB events with a 1 MiB cap must share a batch, not flush early")
+		assert.Len(t, p.logEventBatch.putLogEventsInput.LogEvents, 2,
+			"both events should still be queued in the current batch")
+	})
 }
 
 func TestByTimestampLessNilTimestamp(t *testing.T) {

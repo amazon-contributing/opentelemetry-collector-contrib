@@ -8,6 +8,7 @@ import (
 	promconfig "github.com/prometheus/prometheus/config"
 	"go.opentelemetry.io/collector/receiver"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/internal/sharedpromconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/internal/targetallocator"
 )
 
@@ -16,5 +17,5 @@ type Config = targetallocator.Config
 type Manager = targetallocator.Manager
 
 func NewManager(set receiver.Settings, cfg *Config, promCfg *promconfig.Config) *Manager {
-	return targetallocator.NewManager(set, cfg, promCfg)
+	return targetallocator.NewManager(set, cfg, sharedpromconfig.NewConfig(promCfg))
 }

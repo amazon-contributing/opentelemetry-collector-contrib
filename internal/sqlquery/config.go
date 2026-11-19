@@ -62,8 +62,8 @@ func (c Config) Validate() error {
 		if c.Host == "" {
 			return errors.New("'host' or 'datasource' must be specified")
 		}
-		// For sqlserver, port is optional
-		if c.Driver != DriverSQLServer && c.Port == 0 {
+		// For SQL Server drivers, port is optional.
+		if c.Driver != DriverSQLServer && c.Driver != DriverAzureSQL && c.Port == 0 {
 			return errors.New("'port' or 'datasource' must be specified")
 		}
 		if c.Database == "" {
@@ -88,6 +88,7 @@ type Query struct {
 	Logs               []LogsCfg   `mapstructure:"logs"`
 	TrackingColumn     string      `mapstructure:"tracking_column"`
 	TrackingStartValue string      `mapstructure:"tracking_start_value"`
+	IgnoreNullValues   bool        `mapstructure:"ignore_null_values"`
 }
 
 func (q Query) Validate() error {

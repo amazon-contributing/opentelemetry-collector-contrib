@@ -6,7 +6,8 @@
 | Distributions | [contrib] |
 | Issues        | [![Open issues](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-collector-contrib?query=is%3Aissue%20is%3Aopen%20label%3Areceiver%2Fawslambda%20&label=open&color=orange&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues?q=is%3Aopen+is%3Aissue+label%3Areceiver%2Fawslambda) [![Closed issues](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-collector-contrib?query=is%3Aissue%20is%3Aclosed%20label%3Areceiver%2Fawslambda%20&label=closed&color=blue&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues?q=is%3Aclosed+is%3Aissue+label%3Areceiver%2Fawslambda) |
 | Code coverage | [![codecov](https://codecov.io/github/open-telemetry/opentelemetry-collector-contrib/graph/main/badge.svg?component=receiver_awslambda)](https://app.codecov.io/gh/open-telemetry/opentelemetry-collector-contrib/tree/main/?components%5B0%5D=receiver_awslambda&displayType=list) |
-| [Code Owners](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/CONTRIBUTING.md#becoming-a-code-owner)    | [@MichaelKatsoulis](https://www.github.com/MichaelKatsoulis), [@Kavindu-Dodan](https://www.github.com/Kavindu-Dodan), [@axw](https://www.github.com/axw), [@pjanotti](https://www.github.com/pjanotti) |
+| [Code Owners](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/CONTRIBUTING.md#becoming-a-code-owner)    | [@MichaelKatsoulis](https://www.github.com/MichaelKatsoulis), [@Kavindu-Dodan](https://www.github.com/Kavindu-Dodan), [@pjanotti](https://www.github.com/pjanotti) |
+| Emeritus      | [@axw](https://www.github.com/axw) |
 
 [alpha]: https://github.com/open-telemetry/opentelemetry-collector/blob/main/docs/component-stability.md#alpha
 [contrib]: https://github.com/open-telemetry/opentelemetry-collector-releases/tree/main/distributions/otelcol-contrib
@@ -41,10 +42,10 @@ The `awslambdareceiver` operates as follows:
 The receiver automatically detects the event source based on the Lambda invocation message format.
 Table below summarizes supported signals and their sources:
 
-| Signal  | Sources                          |
-|---------|----------------------------------|
-| Logs    | S3, CloudWatch Logs subscription |
-| Metrics | S3                               |
+| Signal  | Sources                                  |
+|---------|------------------------------------------|
+| Logs    | S3, CloudWatch Logs subscription, Custom |
+| Metrics | S3                                       |
 
 Sections below summarize how each event source is handled.
 
@@ -73,7 +74,7 @@ This metadata is added to the request context and can be accessed by any downstr
 > Static metadata such as `cloud.provider` are not available through `client.Info`.
 > These can be added using processors (for example, the resource processor).
 
-### CloudWatch Logs subscription
+### CloudWatch Logs subscription handling
 
 CloudWatch Logs events are handled in the following manner:
 
@@ -82,6 +83,34 @@ CloudWatch Logs events are handled in the following manner:
 - Decode payload using the configured encoding extension
   - Default encoding: Parse CloudWatch Logs messages to OpenTelemetry log records
   - Custom encoding: Use specified encoding extension (for example, `aws_logs_encoding` for AWS log formats)
+
+The following metadata is available through `client.Info` for CloudWatch Logs events.
+This metadata is added to the request context and can be accessed by any downstream component in the pipeline (for example, processors):
+
+| Metadata Key         | Description                |
+|----------------------|----------------------------|
+| cloud.account.id     | AWS account ID             |
+| aws.log.group.names  | CloudWatch log group name  |
+| aws.log.stream.names | CloudWatch log stream name |
+
+> [!NOTE]
+> Static metadata such as `cloud.provider` are not available through `client.Info`.
+> These can be added using processors (for example, the resource processor).
+
+### Custom event handling
+
+Events that are not recognized as S3 or CloudWatch Logs events are handled as custom events.
+For custom events, only the logs signal is supported.
+
+Custom events are handled in the following manner:
+
+- Receive the Lambda invocation payload
+- Decode the payload using the configured encoding extension 
+
+If an encoding extension is not configured, then the receiver will error out and return the error.
+
+The encoding used for custom events is configured through the `custom::encoding` option.
+See the [Configurations](#configurations) section for details.
 
 ## Deployment
 
@@ -133,7 +162,7 @@ Write a collector configuration:
 ```shell
 cat > collector-config.yaml << 'EOF'
 receivers:
-  awslambda:
+  aws_lambda:
 
 exporters:
   debug:
@@ -142,7 +171,7 @@ exporters:
 service:
   pipelines:
     logs:
-      receivers: [awslambda]
+      receivers: [aws_lambda]
       exporters: [debug]
 EOF
 
@@ -211,10 +240,16 @@ See [Filter pattern syntax](https://docs.aws.amazon.com/AmazonCloudWatch/latest/
 
 The following receiver configuration parameters are supported.
 
-| Name                   | Description                                             |
-|:-----------------------|:--------------------------------------------------------|
-| `s3::encoding`         | Optional encoder to use for S3 event processing         | 
-| `cloudwatch::encoding` | Optional encoder to use for CloudWatch event processing | 
+| Name                    | Description                                                                                                                                      |
+|:------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------|
+| `s3::encoding`          | Optional encoder to use for S3 event processing                                                                                                  |
+| `s3::encodings`         | Optional list of path-based encoders for multi-format S3 routing (see [Multi-Format S3 Configuration](#multi-format-s3-configuration-encodings)) |
+| `s3::access_key_id`     | Optional static AWS access key ID for S3 access. Applies only to S3 event handling.                                                              |
+| `s3::secret_access_key` | Optional static AWS secret access key for S3 access. Applies only to S3 event handling.                                                          |
+| `s3::session_token`     | Optional static AWS session token for S3 access. Applies only to S3 event handling.                                                              |
+| `cloudwatch::encoding`  | Optional encoder to use for CloudWatch event processing                                                                                          |
+| `custom::encoding`      | Optional encoder to use for custom event processing                                                                                              |
+| `failure_bucket_arn`    | Optional S3 bucket ARN holding failed Lambda records for replay. Bucket access utilize default credentials of the Lambda runtime environment     | 
 
 Consider following notes on default behaviors:
 
@@ -233,7 +268,7 @@ Given below are example configurations for various use cases.
 
 ```yaml
 receivers:
-  awslambda:
+  aws_lambda:
     s3:
       encoding: aws_logs_encoding
 
@@ -252,7 +287,7 @@ service:
     - aws_logs_encoding
   pipelines:
     logs:
-      receivers: [awslambda]
+      receivers: [aws_lambda]
       exporters: [otlp_http]
 ```
 
@@ -264,7 +299,7 @@ Parsed logs are forwarded to an OTLP listener via the `otlp_http` exporter.
 
 ```yaml
 receivers:
-  awslambda:
+  aws_lambda:
     s3:
       encoding: aws_logs_encoding
 
@@ -283,17 +318,91 @@ service:
     - aws_logs_encoding
   pipelines:
     logs:
-      receivers: [awslambda]
+      receivers: [aws_lambda]
       exporters: [otlp_http]
 ```
 
 Similar to the first example, this configuration is for collecting ELB access logs stored in S3.
 
+### Multi-Format S3 Configuration (encodings)
+
+The `encodings` field enables routing different S3 object key patterns to different decoders within
+a single Lambda deployment. This is useful when a Lambda function receives events from:
+
+- **A single S3 bucket that stores multiple log types** — for example, VPC Flow Logs and CloudTrail
+  logs written to the same bucket under different key prefixes.
+- **Multiple S3 buckets with different log types** — for example, one bucket for VPC Flow Logs and
+  another for WAF logs, both configured to trigger the same Lambda function.
+
+`encoding` (single, top-level) and `encodings` (list) are mutually exclusive — use one or the other.
+
+Each entry in `encodings` supports three fields:
+
+| Field          | Required | Description |
+|----------------|----------|-------------|
+| `name`         | yes      | Unique identifier for this entry. For known names (`vpcflow`, `cloudtrail`, etc.) the default `path_pattern` is applied automatically. |
+| `encoding`     | no       | Extension ID of the decoder (e.g. `awslogs_encoding/vpcflow`). Omit to pass content through as raw bytes using the built-in default decoder. |
+| `path_pattern` | no*      | Prefix pattern matched against the S3 object key. `*` matches one path segment. Omit to use the built-in default for known names. Use `"*"` as a catch-all. |
+
+\* May be omitted only for built-in known names. For any other name, `path_pattern` must be set explicitly (use `"*"` for a catch-all).
+
+Each entry in `encodings` is evaluated in order of pattern specificity (more-specific patterns are
+matched first; `"*"` catch-all is matched last). Users may list entries in any order.
+
+#### Combining encodings with extensions
+
+The `encoding` field references a collector extension by its component ID. Each referenced
+extension must be declared in the `extensions:` block and listed under `service.extensions`.
+
+The following example decodes VPC Flow Logs and CloudTrail events into structured log records,
+and forwards anything else as raw bytes via the catch-all entry:
+
+```yaml
+extensions:
+  awslogs_encoding/vpcflow:
+    format: vpcflow
+    vpcflow:
+      file_format: plain-text
+  awslogs_encoding/cloudtrail:
+    format: cloudtrail
+
+receivers:
+  aws_lambda:
+    s3:
+      encodings:
+        - name: vpcflow
+          encoding: awslogs_encoding/vpcflow     # decode VPC Flow Log fields into structured records
+        - name: cloudtrail
+          encoding: awslogs_encoding/cloudtrail  # decode CloudTrail JSON events into structured records
+          path_pattern: "myorg/*/CloudTrail"     # optional: override default (AWSLogs/*/CloudTrail); omit to use the default
+        - name: catchall
+          path_pattern: "*"                      # forward anything else as raw bytes
+
+```
+
+#### Built-in default path patterns
+
+The following well-known names have built-in default path patterns. When `path_pattern` is omitted
+for these names, the receiver uses the corresponding default.
+
+| Name              | Default path pattern                    |
+|-------------------|-----------------------------------------|
+| `vpcflow`         | `AWSLogs/*/vpcflowlogs`                 |
+| `cloudtrail`      | `AWSLogs/*/CloudTrail`                  |
+| `elbaccess`       | `AWSLogs/*/elasticloadbalancing`        |
+| `waf`             | `AWSLogs/*/WAFLogs`                     |
+| `networkfirewall` | `AWSLogs/*/network-firewall`            |
+
+In the default patterns `*` matches exactly one path segment (the AWS account ID in standard AWS
+log paths).
+
+For any name not listed above, `path_pattern` must be specified explicitly.
+
 ### Example 3: CloudWatch Logs using CloudWatch Subscription Filters
 
 ```yaml
 receivers:
-  awslambda:
+  aws_lambda:
 
 exporters:
   otlp_http:
@@ -302,7 +411,7 @@ exporters:
 service:
   pipelines:
     logs:
-      receivers: [awslambda]
+      receivers: [aws_lambda]
       exporters: [otlp_http]
 ```
 
@@ -314,7 +423,7 @@ These logs then get forwarded to an OTLP listener via the `otlp_http` exporter.
 
 ```yaml
 receivers:
-  awslambda:
+  aws_lambda:
 
 exporters:
   otlp_http:
@@ -323,7 +432,7 @@ exporters:
 service:
   pipelines:
     logs:
-      receivers: [awslambda]
+      receivers: [aws_lambda]
       exporters: [otlp_http]
 ```
 
@@ -374,7 +483,7 @@ To enable this feature, set the `failure_bucket_arn` configuration to the ARN of
 
 ```yaml
 receivers:
-  awslambda:
+  aws_lambda:
     s3:
       encoding: aws_logs_encoding
     failure_bucket_arn: "arn:aws:s3:::example"

@@ -9,18 +9,12 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
-	"go.opentelemetry.io/collector/featuregate"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/resourcetotelemetry"
 )
-
-var defaultNoRollupfg = featuregate.GlobalRegistry().MustRegister("awsemf.nodimrollupdefault", featuregate.StageAlpha,
-	featuregate.WithRegisterFromVersion("v0.83.0"),
-	featuregate.WithRegisterDescription("Changes the default AWS EMF Exporter Dimension rollup option to "+
-		"NoDimensionRollup"))
 
 // NewFactory creates a factory for AWS EMF exporter.
 func NewFactory() exporter.Factory {
@@ -34,7 +28,7 @@ func NewFactory() exporter.Factory {
 // CreateDefaultConfig creates the default configuration for exporter.
 func createDefaultConfig() component.Config {
 	var defaultDimensionRollupOption string
-	if defaultNoRollupfg.IsEnabled() {
+	if metadata.AwsemfNodimrollupdefaultFeatureGate.IsEnabled() {
 		defaultDimensionRollupOption = "NoDimensionRollup"
 	} else {
 		defaultDimensionRollupOption = "ZeroAndSingleDimensionRollup"
@@ -73,5 +67,15 @@ func createMetricsExporter(ctx context.Context, params exporter.Settings, config
 		return nil, err
 	}
 
-	return resourcetotelemetry.WrapMetricsExporter(expCfg.ResourceToTelemetrySettings, exporter), nil
+	rttSettings := expCfg.ResourceToTelemetrySettings
+	//nolint:staticcheck // check deprecated fields
+	if (rttSettings.Enabled || rttSettings.ExcludeServiceAttributes) && !metadata.ExporterAwsemfDisableLegacyResourceToTelemetryConversionFeatureGate.IsEnabled() {
+		params.Logger.Warn("enabled and exclude_service_attributes in resource_to_telemetry_conversion are deprecated; use included and excluded patterns instead")
+	}
+	if metadata.ExporterAwsemfDisableLegacyResourceToTelemetryConversionFeatureGate.IsEnabled() {
+		rttSettings.Enabled = false                  //nolint:staticcheck // ignore deprecated field
+		rttSettings.ExcludeServiceAttributes = false //nolint:staticcheck // ignore deprecated field
+	}
+
+	return resourcetotelemetry.WrapMetricsExporter(rttSettings, exporter), nil
 }

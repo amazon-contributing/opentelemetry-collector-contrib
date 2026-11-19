@@ -18,7 +18,7 @@ import (
 
 // Config represent a configuration for the CloudWatch logs exporter.
 type Config struct {
-	configretry.BackOffConfig `mapstructure:"retry_on_failure"`
+	BackOffConfig configretry.BackOffConfig `mapstructure:"retry_on_failure"`
 
 	// LogGroupName is the name of CloudWatch log group which defines group of log streams
 	// that share the same retention, monitoring, and access control settings.
@@ -48,7 +48,7 @@ type Config struct {
 
 	logger *zap.Logger
 
-	awsutil.AWSSessionSettings `mapstructure:",squash"`
+	AWSSessionSettings awsutil.AWSSessionSettings `mapstructure:",squash"`
 
 	// Export raw log string instead of log wrapper
 	// Required for emf logs
@@ -60,6 +60,11 @@ type Config struct {
 
 	// MiddlewareID is an ID for an extension that can be used to configure the AWS client.
 	MiddlewareID *component.ID `mapstructure:"middleware,omitempty"`
+
+	// MaxEventPayloadBytes is the per-event payload cap in bytes; oversized log events are truncated.
+	// Defaults to the CloudWatch Logs per-event API limit of 1 MiB (1048576); may be lowered
+	// to truncate earlier. 0 or omitted means the package default.
+	MaxEventPayloadBytes int `mapstructure:"max_event_payload_bytes,omitempty"`
 }
 
 var _ component.Config = (*Config)(nil)
@@ -90,6 +95,16 @@ func (config *Config) Validate() error {
 	if config.EmfOnly && !config.RawLog {
 		return errors.New("emf only is true, but raw log is false")
 	}
+
+	if config.MaxEventPayloadBytes != 0 {
+		if config.MaxEventPayloadBytes < cwlogs.MinAllowedEventPayloadBytes {
+			return errors.New("'max_event_payload_bytes' is too small to fit the per-event header and truncation suffix")
+		}
+		if config.MaxEventPayloadBytes > cwlogs.MaxAllowedEventPayloadBytes {
+			return errors.New("'max_event_payload_bytes' exceeds the CloudWatch Logs per-event API limit (1 MiB)")
+		}
+	}
+
 	return cwlogs.ValidateTagsInput(config.Tags)
 }
 

@@ -329,7 +329,7 @@ func visualizeHistogramWithPercentiles(hi HistogramInput) {
 		var percentileMarkers strings.Builder
 		for _, p := range percentiles {
 			if percentilePositions[p] == i {
-				percentileMarkers.WriteString(fmt.Sprintf(" P%.0f", p*100))
+				fmt.Fprintf(&percentileMarkers, " P%.0f", p*100)
 			}
 		}
 
@@ -356,7 +356,7 @@ func visualizeHistogramWithPercentiles(hi HistogramInput) {
 		var percentileLines strings.Builder
 		for _, p := range percentiles {
 			if percentilePositions[p] == i {
-				percentileLines.WriteString(fmt.Sprintf(" ──P%.0f", p*100))
+				fmt.Fprintf(&percentileLines, " ──P%.0f", p*100)
 			}
 		}
 

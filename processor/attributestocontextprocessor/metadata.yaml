@@ -8,3 +8,6 @@ status:
   distributions: []
   codeowners:
     active: [jj22ee, jefchien, sky333999]
+
+tests:
+  skip_context_propagation: true

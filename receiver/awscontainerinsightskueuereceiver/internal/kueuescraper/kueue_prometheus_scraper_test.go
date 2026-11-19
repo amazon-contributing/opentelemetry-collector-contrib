@@ -11,7 +11,10 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
+	"github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/model/relabel"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer"
@@ -234,4 +237,30 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 func TestKueuePrometheusScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
 	assert.Equal(t, "containerInsightsKueueMetricsScraper", kmJobName)
+}
+
+func TestGetKueueMetricRelabelConfigs_AddressPort(t *testing.T) {
+	tests := []struct {
+		name    string
+		address string
+		want    string
+	}{
+		{name: "replaces existing port", address: "10.0.0.1:8080", want: "10.0.0.1:8443"},
+		{name: "adds missing port", address: "10.0.0.1", want: "10.0.0.1:8443"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lb := labels.NewBuilder(labels.FromStrings(
+				"__name__", "kueue_pending_workloads",
+				"__address__", tt.address,
+				"__meta_kubernetes_service_annotation_prometheus_io_port", "8443",
+			))
+			cfgs := GetKueueMetricRelabelConfigs("test-cluster")
+			for _, c := range cfgs {
+				require.NoError(t, c.Validate(model.UTF8Validation))
+			}
+			require.True(t, relabel.ProcessBuilder(lb, cfgs...))
+			assert.Equal(t, tt.want, lb.Get("__address__"))
+		})
+	}
 }

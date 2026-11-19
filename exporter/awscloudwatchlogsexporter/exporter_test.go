@@ -403,10 +403,10 @@ func TestConsumeLogs(t *testing.T) {
 	defer cancel()
 	factory := NewFactory()
 	expCfg := factory.CreateDefaultConfig().(*Config)
-	expCfg.Region = "us-west-2"
+	expCfg.AWSSessionSettings.Region = "us-west-2"
 	expCfg.LogGroupName = "testGroup"
 	expCfg.LogStreamName = "testStream"
-	expCfg.MaxRetries = 0
+	expCfg.AWSSessionSettings.MaxRetries = 0
 	exp, err := newCwLogsPusher(ctx, expCfg, exportertest.NewNopSettings(metadata.Type))
 
 	testcases := []struct {
@@ -485,10 +485,10 @@ func TestMiddleware(t *testing.T) {
 	defer cancel()
 	factory := NewFactory()
 	expCfg := factory.CreateDefaultConfig().(*Config)
-	expCfg.Region = "us-west-2"
+	expCfg.AWSSessionSettings.Region = "us-west-2"
 	expCfg.LogGroupName = "testGroup"
 	expCfg.LogStreamName = "testStream"
-	expCfg.MaxRetries = 0
+	expCfg.AWSSessionSettings.MaxRetries = 0
 	expCfg.MiddlewareID = &id
 	handler := new(awsmiddleware.MockHandler)
 	handler.On("ID").Return("test")
@@ -519,7 +519,7 @@ func TestMiddleware(t *testing.T) {
 func TestNewExporterWithoutRegionErr(t *testing.T) {
 	factory := NewFactory()
 	expCfg := factory.CreateDefaultConfig().(*Config)
-	expCfg.MaxRetries = 0
+	expCfg.AWSSessionSettings.MaxRetries = 0
 
 	ctx := t.Context()
 	exp, err := newCwLogsExporter(ctx, expCfg, exportertest.NewNopSettings(metadata.Type))

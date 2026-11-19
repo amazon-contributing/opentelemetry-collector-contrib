@@ -60,7 +60,7 @@ func newTestScraper(cfg *Config) *scraper {
 func defaultTestConfig() *Config {
 	cfg := &Config{
 		ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
-		MetricsBuilderConfig: metadata.DefaultMetricsBuilderConfig(),
+		MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
 		ClusterName:          "test-cluster",
 	}
 	cfg.CollectionInterval = 60 * time.Second

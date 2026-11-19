@@ -12,12 +12,14 @@ import (
 )
 
 type EntityEventTransformer struct {
-	defaultProperties map[string]string
+	defaultProperties   map[string]string
+	stripK8sLabelPrefix bool
 }
 
-func NewEntityEventTransformer(defaultProperties map[string]string) *EntityEventTransformer {
+func NewEntityEventTransformer(defaultProperties map[string]string, stripK8sLabelPrefix bool) *EntityEventTransformer {
 	return &EntityEventTransformer{
-		defaultProperties: defaultProperties,
+		defaultProperties:   defaultProperties,
+		stripK8sLabelPrefix: stripK8sLabelPrefix,
 	}
 }
 
@@ -35,17 +37,19 @@ func (t *EntityEventTransformer) TransformEntityEvent(event metadata.EntityEvent
 		return nil, err
 	}
 
-	properties, tags := t.extractPropertiesAndTags(state.Attributes())
+	skipSanitization := resourceIDsSkipSanitization[dimKey]
+	properties, tags := t.extractPropertiesAndTags(state.Attributes(), skipSanitization)
 
 	return &DimensionUpdate{
 		Name:       dimKey,
 		Value:      dimValue,
 		Properties: properties,
 		Tags:       tags,
+		Replace:    true,
 	}, nil
 }
 
-func (t *EntityEventTransformer) extractPropertiesAndTags(attrs pcommon.Map) (map[string]*string, map[string]bool) {
+func (t *EntityEventTransformer) extractPropertiesAndTags(attrs pcommon.Map, skipSanitization bool) (map[string]*string, map[string]bool) {
 	properties := make(map[string]*string)
 	tags := make(map[string]bool)
 
@@ -58,13 +62,21 @@ func (t *EntityEventTransformer) extractPropertiesAndTags(attrs pcommon.Map) (ma
 			return true
 		}
 
+		key := k
+		if !skipSanitization {
+			key = sanitizeProperty(k, t.stripK8sLabelPrefix)
+			if key == "" {
+				return true
+			}
+		}
+
 		valueStr := v.AsString()
 
 		if valueStr == "" {
-			tags[k] = true
+			tags[key] = true
 		} else {
 			propVal := valueStr
-			properties[k] = &propVal
+			properties[key] = &propVal
 		}
 
 		return true
@@ -106,6 +118,14 @@ func extractDimensionKeyValue(entityType string, entityID pcommon.Map) (string, 
 	case "k8s.node":
 		if v, ok := entityID.Get("k8s.node.uid"); ok {
 			return "k8s.node.uid", v.Str(), nil
+		}
+	case "k8s.persistentvolume":
+		if v, ok := entityID.Get("k8s.persistentvolume.uid"); ok {
+			return "k8s.persistentvolume.uid", v.Str(), nil
+		}
+	case "k8s.persistentvolumeclaim":
+		if v, ok := entityID.Get("k8s.persistentvolumeclaim.uid"); ok {
+			return "k8s.persistentvolumeclaim.uid", v.Str(), nil
 		}
 	case "k8s.pod":
 		if v, ok := entityID.Get("k8s.pod.uid"); ok {

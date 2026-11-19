@@ -29,10 +29,20 @@ func (ms *FileAtimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
+// FileCountMetricAttributeKey specifies the key of an attribute for the file.count metric.
+type FileCountMetricAttributeKey string
+
+const (
+	FileCountMetricAttributeKeyFileInclude FileCountMetricAttributeKey = "file.include"
+)
+
 // FileCountMetricConfig provides config for the file.count metric.
 type FileCountMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                        `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []FileCountMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *FileCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -46,6 +56,24 @@ func (ms *FileCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *FileCountMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case FileCountMetricAttributeKeyFileInclude:
+		default:
+			return fmt.Errorf("metric file.count doesn't have an attribute %v, valid attributes: [file.include]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -137,7 +165,7 @@ func (ms *FileSizeMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
-// MetricsConfig provides config for filestats metrics.
+// MetricsConfig provides config for file_stats metrics.
 type MetricsConfig struct {
 	FileAtime FileAtimeMetricConfig `mapstructure:"file.atime"`
 	FileCount FileCountMetricConfig `mapstructure:"file.count"`
@@ -152,7 +180,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled: false,
 		},
 		FileCount: FileCountMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []FileCountMetricAttributeKey{},
 		},
 		FileCtime: FileCtimeMetricConfig{
 			Enabled:             false,
@@ -194,7 +224,7 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
-// ResourceAttributesConfig provides config for filestats resource attributes.
+// ResourceAttributesConfig provides config for file_stats resource attributes.
 type ResourceAttributesConfig struct {
 	FileName ResourceAttributeConfig `mapstructure:"file.name"`
 	FilePath ResourceAttributeConfig `mapstructure:"file.path"`
@@ -211,13 +241,13 @@ func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 	}
 }
 
-// MetricsBuilderConfig is a configuration for filestats metrics builder.
+// MetricsBuilderConfig is a configuration for file_stats metrics builder.
 type MetricsBuilderConfig struct {
 	Metrics            MetricsConfig            `mapstructure:"metrics"`
 	ResourceAttributes ResourceAttributesConfig `mapstructure:"resource_attributes"`
 }
 
-func DefaultMetricsBuilderConfig() MetricsBuilderConfig {
+func NewDefaultMetricsBuilderConfig() MetricsBuilderConfig {
 	return MetricsBuilderConfig{
 		Metrics:            DefaultMetricsConfig(),
 		ResourceAttributes: DefaultResourceAttributesConfig(),

@@ -177,13 +177,16 @@ func GetKueueMetricRelabelConfigs(clusterName string) []*relabel.Config {
 			Replacement: "kubernetes_type",
 		},
 		{ // drop conflicting name "type"
-			Action: relabel.LabelDrop,
-			Regex:  relabel.MustNewRegexp("^type$"),
+			Action:      relabel.LabelDrop,
+			Regex:       relabel.MustNewRegexp("^type$"),
+			Separator:   relabel.DefaultRelabelConfig.Separator,
+			Replacement: relabel.DefaultRelabelConfig.Replacement,
 		},
 		{ // add port to value of label "__address__" if it isn't already included.
 			Action:       relabel.Replace,
 			Regex:        relabel.MustNewRegexp("([^:]+)(?::\\d+)?;(\\d+)"),
 			SourceLabels: model.LabelNames{"__address__", "__meta_kubernetes_service_annotation_prometheus_io_port"},
+			Separator:    relabel.DefaultRelabelConfig.Separator,
 			Replacement:  "$1:$2",
 			TargetLabel:  "__address__",
 		},

@@ -6,7 +6,7 @@ components:
         - file
         - kafka
         - prometheus
-        - prometheusremotewrite
+        - prometheus_remote_write
         - zipkin
     extension:
         - health_check
@@ -16,9 +16,12 @@ components:
         - filter
         - probabilistic_sampler
         - resource
+        - resource_detection
         - span
+        - transform
     receiver:
-        - hostmetrics
+        - file_log
+        - host_metrics
         - jaeger
         - kafka
         - prometheus

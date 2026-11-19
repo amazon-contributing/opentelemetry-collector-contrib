@@ -1,6 +1,8 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
+//go:build !remove_all_resourcedetection_detectors
+
 package resourcedetectionprocessor
 
 import (
@@ -15,6 +17,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/confighttp"
+	"go.opentelemetry.io/collector/config/configretry"
 	"go.opentelemetry.io/collector/config/configtls"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -144,7 +147,7 @@ func TestResourceProcessor(t *testing.T) {
 		{
 			name:             "Invalid detector key",
 			detectorKeys:     []string{"invalid-key"},
-			expectedNewError: "invalid detector key: invalid-key",
+			expectedNewError: `detector "invalid-key" is not compiled into this binary; compiled detectors: [mock]`,
 		},
 	}
 
@@ -157,18 +160,21 @@ func TestResourceProcessor(t *testing.T) {
 			require.NoError(t, res.Attributes().FromRaw(tt.detectedResource))
 			md1.On("Detect").Return(res, tt.detectedError)
 			factory.resourceProviderFactory = internal.NewProviderFactory(
-				map[internal.DetectorType]internal.DetectorFactory{"mock": func(processor.Settings, internal.DetectorConfig) (internal.Detector, error) {
+				map[internal.DetectorType]internal.DetectorFactory{"mock": func(processor.Settings, internal.DetectorConfig, bool) (internal.Detector, error) {
 					return md1, nil
-				}})
+				}},
+			)
 
 			if tt.detectorKeys == nil {
 				tt.detectorKeys = []string{"mock"}
 			}
 
+			clientConfig := confighttp.NewDefaultClientConfig()
+			clientConfig.Timeout = time.Second
 			cfg := &Config{
 				Override:     tt.override,
 				Detectors:    tt.detectorKeys,
-				ClientConfig: confighttp.ClientConfig{Timeout: time.Second},
+				ClientConfig: clientConfig,
 			}
 
 			// Test trace consumer
@@ -313,15 +319,17 @@ func TestProcessor_RefreshInterval_UpdatesResource(t *testing.T) {
 	// Hook detector into factory.
 	factory.resourceProviderFactory = internal.NewProviderFactory(
 		map[internal.DetectorType]internal.DetectorFactory{
-			"mock": func(processor.Settings, internal.DetectorConfig) (internal.Detector, error) {
+			"mock": func(processor.Settings, internal.DetectorConfig, bool) (internal.Detector, error) {
 				return md, nil
 			},
 		},
 	)
 
+	clientConfig := confighttp.NewDefaultClientConfig()
+	clientConfig.Timeout = 500 * time.Millisecond
 	cfg := &Config{
 		Detectors:       []string{"mock"},
-		ClientConfig:    confighttp.ClientConfig{Timeout: 500 * time.Millisecond},
+		ClientConfig:    clientConfig,
 		RefreshInterval: 50 * time.Millisecond, // short to trigger refresh quickly
 	}
 
@@ -330,7 +338,6 @@ func TestProcessor_RefreshInterval_UpdatesResource(t *testing.T) {
 	mp, err := factory.createMetricsProcessor(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, msink)
 	require.NoError(t, err)
 	require.NoError(t, mp.Start(t.Context(), componenttest.NewNopHost()))
-	defer func() { assert.NoError(t, mp.Shutdown(t.Context())) }()
 
 	// Send one batch → should see res1.
 	md1 := pmetric.NewMetrics()
@@ -368,9 +375,6 @@ func TestProcessor_RefreshInterval_UpdatesResource(t *testing.T) {
 		return false
 	}, 500*time.Millisecond, 20*time.Millisecond, "refresh loop did not update resource from v1 to v2")
 
-	// Verify Detect was called at least twice (initial + at least one refresh).
-	assert.GreaterOrEqual(t, len(md.Calls), 2, "Detect should have been called at least twice")
-
 	// Send final batch to confirm resource is now res2.
 	md2 := pmetric.NewMetrics()
 	require.NoError(t, md2.ResourceMetrics().AppendEmpty().Resource().Attributes().FromRaw(map[string]any{}))
@@ -385,6 +389,12 @@ func TestProcessor_RefreshInterval_UpdatesResource(t *testing.T) {
 	allMetrics := msink.AllMetrics()
 	got2 := allMetrics[len(allMetrics)-1].ResourceMetrics().At(0).Resource().Attributes().AsRaw()
 	assert.Equal(t, map[string]any{"k": "v2"}, got2)
+
+	// Stop the refresh loop before reading mock state to avoid a data race.
+	require.NoError(t, mp.Shutdown(t.Context()))
+
+	// Verify Detect was called at least twice (initial + at least one refresh).
+	assert.GreaterOrEqual(t, len(md.Calls), 2, "Detect should have been called at least twice")
 }
 
 func TestProcessor_RefreshInterval_KeepsLastGoodOnFailure(t *testing.T) {
@@ -424,15 +434,17 @@ func TestProcessor_RefreshInterval_KeepsLastGoodOnFailure(t *testing.T) {
 	// Wire detector into factory.
 	factory.resourceProviderFactory = internal.NewProviderFactory(
 		map[internal.DetectorType]internal.DetectorFactory{
-			"mock": func(processor.Settings, internal.DetectorConfig) (internal.Detector, error) {
+			"mock": func(processor.Settings, internal.DetectorConfig, bool) (internal.Detector, error) {
 				return md, nil
 			},
 		},
 	)
 
+	clientConfig := confighttp.NewDefaultClientConfig()
+	clientConfig.Timeout = 500 * time.Millisecond
 	cfg := &Config{
 		Detectors:       []string{"mock"},
-		ClientConfig:    confighttp.ClientConfig{Timeout: 500 * time.Millisecond},
+		ClientConfig:    clientConfig,
 		RefreshInterval: 25 * time.Millisecond,
 	}
 
@@ -441,7 +453,6 @@ func TestProcessor_RefreshInterval_KeepsLastGoodOnFailure(t *testing.T) {
 	mp, err := factory.createMetricsProcessor(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, msink)
 	require.NoError(t, err)
 	require.NoError(t, mp.Start(t.Context(), componenttest.NewNopHost()))
-	defer func() { assert.NoError(t, mp.Shutdown(t.Context())) }()
 
 	// Helper to push one metrics batch and return the resource attrs of that batch.
 	getAttrsAfterConsume := func() map[string]any {
@@ -488,6 +499,9 @@ func TestProcessor_RefreshInterval_KeepsLastGoodOnFailure(t *testing.T) {
 		attrs := getAttrsAfterConsume()
 		return assert.ObjectsAreEqual(map[string]any{"k": "v2"}, attrs)
 	}, time.Second, 10*time.Millisecond)
+
+	// Stop the refresh loop before asserting mock expectations.
+	require.NoError(t, mp.Shutdown(t.Context()))
 
 	// Verify the mock saw exactly 3 Detect calls in the order we expected.
 	md.AssertExpectations(t)
@@ -808,15 +822,15 @@ func TestStartFailsGracefullyOnInvalidHTTPClientConfig(t *testing.T) {
 	oCfg.Detectors = []string{"env"}
 
 	// Configure invalid TLS settings that will cause ToClient() to fail
-	oCfg.ClientConfig = confighttp.ClientConfig{
-		TLS: configtls.ClientConfig{
-			Config: configtls.Config{
-				CAFile:   "/nonexistent/ca.crt",
-				CertFile: "/nonexistent/cert.crt",
-				KeyFile:  "/nonexistent/key.pem",
-			},
+	clientConfig := confighttp.NewDefaultClientConfig()
+	clientConfig.TLS = configtls.ClientConfig{
+		Config: configtls.Config{
+			CAFile:   "/nonexistent/ca.crt",
+			CertFile: "/nonexistent/cert.crt",
+			KeyFile:  "/nonexistent/key.pem",
 		},
 	}
+	oCfg.ClientConfig = clientConfig
 
 	ctx := t.Context()
 	host := componenttest.NewNopHost()
@@ -887,29 +901,37 @@ func TestStart_IgnoreDetectorErrors(t *testing.T) {
 			md := &mockDetector{}
 			md.On("Detect").Return(pcommon.NewResource(), errors.New("detector boom"))
 
-			set := processortest.NewNopSettings(metadata.Type)
-			// A short client timeout bounds the detector's retry/backoff loop.
+			// Build through the factory so the test also covers the Config -> processor wiring.
+			factory := &factory{providers: map[component.ID]*internal.ResourceProvider{}}
+			factory.resourceProviderFactory = internal.NewProviderFactory(
+				map[internal.DetectorType]internal.DetectorFactory{
+					"mock": func(processor.Settings, internal.DetectorConfig, bool) (internal.Detector, error) {
+						return md, nil
+					},
+				},
+			)
+
 			clientConfig := confighttp.NewDefaultClientConfig()
 			clientConfig.Timeout = 50 * time.Millisecond
-
-			rdp := &resourceDetectionProcessor{
-				provider:             internal.NewResourceProvider(set.Logger, 50*time.Millisecond, md),
-				override:             true,
-				httpClientSettings:   clientConfig,
-				telemetrySettings:    set.TelemetrySettings,
-				ignoreDetectorErrors: tt.ignoreDetectorErrors,
+			cfg := &Config{
+				Detectors:            []string{"mock"},
+				ClientConfig:         clientConfig,
+				Override:             true,
+				Retry:                configretry.BackOffConfig{Enabled: false},
+				IgnoreDetectorErrors: tt.ignoreDetectorErrors,
 			}
 
-			err := rdp.Start(t.Context(), componenttest.NewNopHost())
+			mp, err := factory.createMetricsProcessor(t.Context(), processortest.NewNopSettings(metadata.Type), cfg, consumertest.NewNop())
+			require.NoError(t, err)
+
+			err = mp.Start(t.Context(), componenttest.NewNopHost())
 			if tt.expectErr {
 				assert.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				res, _, _ := rdp.provider.Get(t.Context(), nil)
-				assert.Equal(t, 0, res.Attributes().Len())
 			}
 
-			require.NoError(t, rdp.Shutdown(t.Context()))
+			require.NoError(t, mp.Shutdown(t.Context()))
 		})
 	}
 }

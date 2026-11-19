@@ -3,16 +3,30 @@
 package metadata
 
 import (
+	"fmt"
+
 	"go.opentelemetry.io/collector/confmap"
 )
 
-// MetricConfig provides common config for a particular metric.
-type MetricConfig struct {
+// HyperpodNodeHealthStatusSchedulableMetricAttributeKey specifies the key of an attribute for the hyperpod_node_health_status_schedulable metric.
+type HyperpodNodeHealthStatusSchedulableMetricAttributeKey string
+
+const (
+	HyperpodNodeHealthStatusSchedulableMetricAttributeKeyClusterName HyperpodNodeHealthStatusSchedulableMetricAttributeKey = "cluster_name"
+	HyperpodNodeHealthStatusSchedulableMetricAttributeKeyInstanceID  HyperpodNodeHealthStatusSchedulableMetricAttributeKey = "instance_id"
+	HyperpodNodeHealthStatusSchedulableMetricAttributeKeyNodeName    HyperpodNodeHealthStatusSchedulableMetricAttributeKey = "node_name"
+)
+
+// HyperpodNodeHealthStatusSchedulableMetricConfig provides config for the hyperpod_node_health_status_schedulable metric.
+type HyperpodNodeHealthStatusSchedulableMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                                  `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []HyperpodNodeHealthStatusSchedulableMetricAttributeKey `mapstructure:"attributes"`
 }
 
-func (ms *MetricConfig) Unmarshal(parser *confmap.Conf) error {
+func (ms *HyperpodNodeHealthStatusSchedulableMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -26,27 +40,203 @@ func (ms *MetricConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
+func (ms *HyperpodNodeHealthStatusSchedulableMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case HyperpodNodeHealthStatusSchedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyNodeName:
+		default:
+			return fmt.Errorf("metric hyperpod_node_health_status_schedulable doesn't have an attribute %v, valid attributes: [cluster_name, instance_id, node_name]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// HyperpodNodeHealthStatusUnschedulableMetricAttributeKey specifies the key of an attribute for the hyperpod_node_health_status_unschedulable metric.
+type HyperpodNodeHealthStatusUnschedulableMetricAttributeKey string
+
+const (
+	HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyClusterName HyperpodNodeHealthStatusUnschedulableMetricAttributeKey = "cluster_name"
+	HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyInstanceID  HyperpodNodeHealthStatusUnschedulableMetricAttributeKey = "instance_id"
+	HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyNodeName    HyperpodNodeHealthStatusUnschedulableMetricAttributeKey = "node_name"
+)
+
+// HyperpodNodeHealthStatusUnschedulableMetricConfig provides config for the hyperpod_node_health_status_unschedulable metric.
+type HyperpodNodeHealthStatusUnschedulableMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                                    `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []HyperpodNodeHealthStatusUnschedulableMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *HyperpodNodeHealthStatusUnschedulableMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *HyperpodNodeHealthStatusUnschedulableMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyNodeName:
+		default:
+			return fmt.Errorf("metric hyperpod_node_health_status_unschedulable doesn't have an attribute %v, valid attributes: [cluster_name, instance_id, node_name]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey specifies the key of an attribute for the hyperpod_node_health_status_unschedulable_pending_reboot metric.
+type HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey string
+
+const (
+	HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyClusterName HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey = "cluster_name"
+	HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyInstanceID  HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey = "instance_id"
+	HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyNodeName    HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey = "node_name"
+)
+
+// HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig provides config for the hyperpod_node_health_status_unschedulable_pending_reboot metric.
+type HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                                                 `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyNodeName:
+		default:
+			return fmt.Errorf("metric hyperpod_node_health_status_unschedulable_pending_reboot doesn't have an attribute %v, valid attributes: [cluster_name, instance_id, node_name]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey specifies the key of an attribute for the hyperpod_node_health_status_unschedulable_pending_replacement metric.
+type HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey string
+
+const (
+	HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyClusterName HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey = "cluster_name"
+	HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyInstanceID  HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey = "instance_id"
+	HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyNodeName    HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey = "node_name"
+)
+
+// HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig provides config for the hyperpod_node_health_status_unschedulable_pending_replacement metric.
+type HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                                                      `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyNodeName:
+		default:
+			return fmt.Errorf("metric hyperpod_node_health_status_unschedulable_pending_replacement doesn't have an attribute %v, valid attributes: [cluster_name, instance_id, node_name]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // MetricsConfig provides config for awsekshyperpodreceiver metrics.
 type MetricsConfig struct {
-	HyperpodNodeHealthStatusSchedulable                     MetricConfig `mapstructure:"hyperpod_node_health_status_schedulable"`
-	HyperpodNodeHealthStatusUnschedulable                   MetricConfig `mapstructure:"hyperpod_node_health_status_unschedulable"`
-	HyperpodNodeHealthStatusUnschedulablePendingReboot      MetricConfig `mapstructure:"hyperpod_node_health_status_unschedulable_pending_reboot"`
-	HyperpodNodeHealthStatusUnschedulablePendingReplacement MetricConfig `mapstructure:"hyperpod_node_health_status_unschedulable_pending_replacement"`
+	HyperpodNodeHealthStatusSchedulable                     HyperpodNodeHealthStatusSchedulableMetricConfig                     `mapstructure:"hyperpod_node_health_status_schedulable"`
+	HyperpodNodeHealthStatusUnschedulable                   HyperpodNodeHealthStatusUnschedulableMetricConfig                   `mapstructure:"hyperpod_node_health_status_unschedulable"`
+	HyperpodNodeHealthStatusUnschedulablePendingReboot      HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig      `mapstructure:"hyperpod_node_health_status_unschedulable_pending_reboot"`
+	HyperpodNodeHealthStatusUnschedulablePendingReplacement HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig `mapstructure:"hyperpod_node_health_status_unschedulable_pending_replacement"`
 }
 
 func DefaultMetricsConfig() MetricsConfig {
 	return MetricsConfig{
-		HyperpodNodeHealthStatusSchedulable: MetricConfig{
-			Enabled: true,
+		HyperpodNodeHealthStatusSchedulable: HyperpodNodeHealthStatusSchedulableMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []HyperpodNodeHealthStatusSchedulableMetricAttributeKey{HyperpodNodeHealthStatusSchedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyNodeName},
 		},
-		HyperpodNodeHealthStatusUnschedulable: MetricConfig{
-			Enabled: true,
+		HyperpodNodeHealthStatusUnschedulable: HyperpodNodeHealthStatusUnschedulableMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulableMetricAttributeKey{HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyNodeName},
 		},
-		HyperpodNodeHealthStatusUnschedulablePendingReboot: MetricConfig{
-			Enabled: true,
+		HyperpodNodeHealthStatusUnschedulablePendingReboot: HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKey{HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyNodeName},
 		},
-		HyperpodNodeHealthStatusUnschedulablePendingReplacement: MetricConfig{
-			Enabled: true,
+		HyperpodNodeHealthStatusUnschedulablePendingReplacement: HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig{
+			Enabled:             true,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKey{HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyClusterName, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyInstanceID, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyNodeName},
 		},
 	}
 }
@@ -56,7 +246,7 @@ type MetricsBuilderConfig struct {
 	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
-func DefaultMetricsBuilderConfig() MetricsBuilderConfig {
+func NewDefaultMetricsBuilderConfig() MetricsBuilderConfig {
 	return MetricsBuilderConfig{
 		Metrics: DefaultMetricsConfig(),
 	}

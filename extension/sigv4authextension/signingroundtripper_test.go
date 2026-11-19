@@ -123,6 +123,9 @@ func TestInferServiceAndRegion(t *testing.T) {
 	req7, err := http.NewRequest(http.MethodGet, "https://xray.us-east-1.amazonaws.com/v1/traces", http.NoBody)
 	assert.NoError(t, err)
 
+	req8, err := http.NewRequest(http.MethodGet, "https://monitoring.us-east-1.amazonaws.com/v1/metrics", http.NoBody)
+	assert.NoError(t, err)
+
 	tests := []struct {
 		name            string
 		request         *http.Request
@@ -177,6 +180,13 @@ func TestInferServiceAndRegion(t *testing.T) {
 			req7,
 			createDefaultConfig().(*Config),
 			"xray",
+			"us-east-1",
+		},
+		{
+			"monitoring_service_and_region_match_with_no_config",
+			req8,
+			createDefaultConfig().(*Config),
+			"monitoring",
 			"us-east-1",
 		},
 	}

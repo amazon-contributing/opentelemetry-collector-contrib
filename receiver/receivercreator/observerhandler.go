@@ -99,12 +99,14 @@ func (obs *observerHandler) OnAdd(added []observer.Endpoint) {
 		}
 
 		for _, template := range obs.config.receiverTemplates {
+			obs.params.Logger.Debug("evaluating rule", zap.Any("rule", template.Rule), zap.Any("env", env))
 			if matches, err := template.rule.eval(env); err != nil {
 				obs.params.Logger.Error("failed matching rule", zap.String("rule", template.Rule), zap.Error(err))
 				continue
 			} else if !matches {
 				continue
 			}
+			obs.params.Logger.Debug("starting receiver for match")
 			obs.startReceiver(template, env, e)
 		}
 	}
@@ -147,13 +149,13 @@ func (obs *observerHandler) OnChange(changed []observer.Endpoint) {
 
 func (obs *observerHandler) startReceiver(template receiverTemplate, env observer.EndpointEnv, e observer.Endpoint) {
 	obs.params.Logger.Debug("expanding the following template config",
-		zap.String("name", template.id.String()),
+		zap.String("name", template.receiverConfig.id.String()),
 		zap.String("endpoint", e.Target),
 		zap.String("endpoint_id", string(e.ID)),
-		zap.Any("config", template.config))
-	resolvedConfig, err := expandConfig(template.config, env)
+		zap.Any("config", template.receiverConfig.config))
+	resolvedConfig, err := expandConfig(template.receiverConfig.config, env)
 	if err != nil {
-		obs.params.Logger.Error("unable to resolve template config", zap.String("receiver", template.id.String()), zap.Error(err))
+		obs.params.Logger.Error("unable to resolve template config", zap.String("receiver", template.receiverConfig.id.String()), zap.Error(err))
 		return
 	}
 
@@ -169,7 +171,7 @@ func (obs *observerHandler) startReceiver(template receiverTemplate, env observe
 	// ones from using expr in their Target values.
 	discoveredConfig, err := expandConfig(discoveredCfg, env)
 	if err != nil {
-		obs.params.Logger.Error("unable to resolve discovered config", zap.String("receiver", template.id.String()), zap.Error(err))
+		obs.params.Logger.Error("unable to resolve discovered config", zap.String("receiver", template.receiverConfig.id.String()), zap.Error(err))
 		return
 	}
 
@@ -196,7 +198,7 @@ func (obs *observerHandler) startReceiver(template receiverTemplate, env observe
 		obs.nextTracesConsumer,
 		obs.nextProfilesConsumer,
 	); err != nil {
-		obs.params.Logger.Error("failed creating resource enhancer", zap.String("receiver", template.id.String()), zap.Error(err))
+		obs.params.Logger.Error("failed creating resource enhancer", zap.String("receiver", template.receiverConfig.id.String()), zap.Error(err))
 		return
 	}
 
@@ -208,7 +210,7 @@ func (obs *observerHandler) startReceiver(template receiverTemplate, env observe
 	}
 
 	obs.params.Logger.Info("starting receiver",
-		zap.String("name", template.id.String()),
+		zap.String("name", template.receiverConfig.id.String()),
 		zap.String("endpoint", e.Target),
 		zap.String("endpoint_id", string(e.ID)),
 	)
@@ -219,14 +221,14 @@ func (obs *observerHandler) startReceiver(template receiverTemplate, env observe
 	var receiver component.Component
 	if receiver, err = obs.runner.start(
 		receiverConfig{
-			id:         template.id,
+			id:         template.receiverConfig.id,
 			config:     resolvedConfig,
 			endpointID: e.ID,
 		},
 		discoveredConfig,
 		consumer,
 	); err != nil {
-		obs.params.Logger.Error("failed to start receiver", zap.String("receiver", template.id.String()), zap.Error(err))
+		obs.params.Logger.Error("failed to start receiver", zap.String("receiver", template.receiverConfig.id.String()), zap.Error(err))
 		return
 	}
 	obs.receiversByEndpointID.Put(e.ID, receiver)

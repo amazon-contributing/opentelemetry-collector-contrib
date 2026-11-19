@@ -144,8 +144,10 @@ func NewPrometheusScraper(opts PrometheusScraperOpts) (*PrometheusScraper, error
 				Action:      relabel.LabelMap,
 			},
 			{
-				Regex:  relabel.MustNewRegexp("^type$"),
-				Action: relabel.LabelDrop,
+				Regex:       relabel.MustNewRegexp("^type$"),
+				Separator:   relabel.DefaultRelabelConfig.Separator,
+				Replacement: relabel.DefaultRelabelConfig.Replacement,
+				Action:      relabel.LabelDrop,
 			},
 		},
 	}

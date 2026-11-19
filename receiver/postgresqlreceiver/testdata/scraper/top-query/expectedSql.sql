@@ -13,18 +13,20 @@ SELECT
   temp_blks_written,
   query,
   queryid::TEXT,
-  rolname,
-  rolsuper::TEXT,
+  userid::TEXT,
+  COALESCE(rolname, '') AS rolname,
+  COALESCE(rolsuper, false)::TEXT AS rolsuper,
   rows::TEXT,
   total_exec_time,
   total_plan_time
 FROM
   pg_stat_statements as pg_stat_statements
   LEFT JOIN pg_roles ON pg_stat_statements.userid = pg_roles.oid
-  LEFT JOIN pg_database ON pg_stat_statements.dbid = pg_database.oid
+  INNER JOIN pg_database ON pg_stat_statements.dbid = pg_database.oid
 WHERE
-  query != '<insufficient privilege>'
+  datname IS NOT NULL
+  AND query != '<insufficient privilege>'
   AND query NOT LIKE '/* otel-collector-ignore */%'
-  AND rolname != current_user
+  AND COALESCE(rolname, '') != current_user
 ORDER BY calls DESC
 LIMIT 31;

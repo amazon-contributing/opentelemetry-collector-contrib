@@ -12,19 +12,20 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/lib/pq"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configtls"
-	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
-	"go.opentelemetry.io/otel/trace"
+	conventions "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/dbauth"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver/internal/metadata"
 )
@@ -52,22 +53,28 @@ var errNoLastArchive = errors.New("no last archive found, not able to calculate 
 type client interface {
 	Close() error
 	getDatabaseStats(ctx context.Context, databases []string) (map[databaseName]databaseStats, error)
+	getExecutionTimeStats(ctx context.Context, databases []string) (map[databaseName]float64, error)
+	getDatabaseConflicts(ctx context.Context, databases []string) (map[databaseName]databaseConflictStats, error)
 	getDatabaseLocks(ctx context.Context) ([]databaseLocks, error)
+	getServerScopedLocks(ctx context.Context) ([]databaseLocks, error)
 	getBGWriterStats(ctx context.Context) (*bgStat, error)
 	getBackends(ctx context.Context, databases []string) (map[databaseName]int64, error)
 	getDatabaseSize(ctx context.Context, databases []string) (map[databaseName]int64, error)
 	getDatabaseTableMetrics(ctx context.Context, db string) (map[tableIdentifier]tableStats, error)
 	getBlocksReadByTable(ctx context.Context, db string) (map[tableIdentifier]tableIOStats, error)
+	getTableCount(ctx context.Context) (int64, error)
 	getReplicationStats(ctx context.Context) ([]replicationStats, error)
 	getLatestWalAgeSeconds(ctx context.Context) (int64, error)
 	getMaxConnections(ctx context.Context) (int64, error)
 	getIndexStats(ctx context.Context, database string) (map[indexIdentifer]indexStat, error)
 	getFunctionStats(ctx context.Context, database string) (map[functionIdentifer]functionStat, error)
+	getVectorSearchStats(ctx context.Context) ([]vectorSearchStat, error)
+	getVectorInsertStats(ctx context.Context) ([]vectorInsertStat, error)
 	listDatabases(ctx context.Context) ([]string, error)
 	getVersion(ctx context.Context) (string, error)
-	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
-	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
-	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, float64, error)
+	getTopQuery(ctx context.Context, limit int64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, error)
+	explainQuery(ctx context.Context, query, queryID string, logger *zap.Logger) (string, error)
 	queryPlanStoreAvailable(ctx context.Context) (bool, error)
 	getSessionStates(ctx context.Context) (map[string]int64, error)
 }
@@ -80,10 +87,215 @@ type postgreSQLClient struct {
 // capturedQueryPlanSQL is the query used to read a recorded plan from pg_store_plans by queryid.
 const capturedQueryPlanSQL = "/* otel-collector-ignore */ SELECT plan FROM pg_store_plans WHERE queryid::text = $1 ORDER BY calls DESC LIMIT 1"
 
+// typedLiteralTypeNames is the allowlist of type names repaired in the "TYPENAME $N" position,
+// longest spelling first so a multi-word name beats the prefix it starts with. Anything unlisted,
+// including aliases such as int and bool and any user-defined type, stays unrepaired.
+const typedLiteralTypeNames = `timestamptz|timestamp\s+with\s+time\s+zone|timestamp\s+without\s+time\s+zone|timestamp|` +
+	`timetz|time\s+with\s+time\s+zone|time\s+without\s+time\s+zone|time|interval|date|` +
+	`double\s+precision|numeric|decimal|real|smallint|integer|bigint|boolean|` +
+	`uuid|jsonb|json|xml|bytea|inet|cidr|macaddr|money|bit\s+varying|bit|` +
+	`character\s+varying|character|varchar|text`
+
+// pg_stat_statements substitutes "$N" over the byte ranges of the constants it jumbled without
+// re-parsing, so a parameter can land where the grammar accepts none. Both constructs below fail
+// PREPARE with 42601; both rewrites skip protectedSpans, so a "$N" that is only text is untouched.
+var (
+	// EXTRACT's field argument cannot be a parameter, so the emitted EXTRACT($1 FROM x) is
+	// invalid; pg_catalog.extract($1, x) is the call the parser itself builds and does take one.
+	// Only the text through FROM is replaced, so the original closing paren still terminates the
+	// call. EXTRACT($2 FROM $1) is rewritten but fails with 42725: untyped args pick no overload.
+	extractParamPattern = regexp.MustCompile(`(?i)\bEXTRACT\s*\(\s*(\$\d+)\s+FROM\s+`)
+
+	// TYPENAME 'value' requires a literal, so "interval '1 day'" normalizes to the invalid
+	// "interval $1". CAST is used rather than "::" because only it takes a multi-word type name or
+	// an interval qualifier; the trailing group accepts only interval keywords so it cannot swallow
+	// a following AND, OR or alias. Required whitespace leaves "interval_col" and "timestamp(3) $1".
+	typedLiteralParamPattern = regexp.MustCompile(`(?i)\b(` + typedLiteralTypeNames + `)\s+(\$\d+)\b` +
+		`((?:\s+(?:YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)(?:\s+TO\s+(?:MONTH|DAY|HOUR|MINUTE|SECOND))?)?)`)
+)
+
+// repairNormalizedQuery rewrites the parameter placements that pg_stat_statements can emit but
+// PostgreSQL cannot parse. Queries that do not contain them are returned unchanged.
+//
+// The EXTRACT repair targets pg_catalog.extract (PostgreSQL 14+) rather than date_part, whose
+// double precision return would fail to prepare wherever the result feeds a numeric-only function
+// or operator such as round(x, n) or %. No version gate is needed: before 14 EXTRACT returned
+// double precision, so such a query would not have parsed and cannot have been recorded.
+func repairNormalizedQuery(query string) string {
+	query = replaceOutsideProtected(query, extractParamPattern, "pg_catalog.extract(${1}, ")
+	query = replaceOutsideProtected(query, typedLiteralParamPattern, "CAST(${2} AS ${1}${3})")
+	return query
+}
+
+// replaceOutsideProtected applies re the way ReplaceAllString would, except that a match beginning
+// inside a protectedSpans range is left alone. Spans are recomputed per call.
+func replaceOutsideProtected(query string, re *regexp.Regexp, repl string) string {
+	matches := re.FindAllStringSubmatchIndex(query, -1)
+	if len(matches) == 0 {
+		return query
+	}
+
+	spans := protectedSpans(query)
+	var out []byte
+	last := 0
+	for _, m := range matches {
+		if isProtectedOffset(spans, m[0]) {
+			continue
+		}
+		out = append(out, query[last:m[0]]...)
+		out = re.ExpandString(out, repl, query, m)
+		last = m[1]
+	}
+	if out == nil {
+		return query
+	}
+	return string(append(out, query[last:]...))
+}
+
+// isProtectedOffset reports whether offset falls inside one of the spans, which protectedSpans
+// returns ordered and non-overlapping.
+func isProtectedOffset(spans [][2]int, offset int) bool {
+	for _, s := range spans {
+		if offset < s[0] {
+			return false
+		}
+		if offset < s[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// protectedSpans reports the byte ranges a repair must not rewrite: string literals, quoted
+// identifiers, dollar-quoted strings and comments, which pg_stat_statements preserves verbatim, so
+// a "$1" inside one is text. Unterminated constructs protect to the end; over-protecting only
+// skips a repair, while under-protecting corrupts SQL that prepares today.
+func protectedSpans(query string) [][2]int {
+	var spans [][2]int
+	for i := 0; i < len(query); {
+		end, ok := protectedSpanAt(query, i)
+		if !ok {
+			i++
+			continue
+		}
+		spans = append(spans, [2]int{i, end})
+		i = end
+	}
+	return spans
+}
+
+// protectedSpanAt reports the end of the protected region starting at i, or false when nothing
+// protected starts there.
+func protectedSpanAt(query string, i int) (int, bool) {
+	switch {
+	case query[i] == '\'':
+		return endOfQuoted(query, i, escapesWithBackslash(query, i)), true
+	case query[i] == '"':
+		return endOfQuoted(query, i, false), true
+	case strings.HasPrefix(query[i:], "--"):
+		if nl := strings.IndexByte(query[i:], '\n'); nl != -1 {
+			return i + nl, true
+		}
+		return len(query), true
+	case strings.HasPrefix(query[i:], "/*"):
+		return endOfBlockComment(query, i), true
+	case query[i] == '$':
+		tag, ok := dollarQuoteTag(query, i)
+		if !ok {
+			return 0, false
+		}
+		return endOfDollarQuoted(query, i, tag), true
+	default:
+		return 0, false
+	}
+}
+
+// endOfQuoted returns the index just past the quote that closes the run opening at start, or
+// len(query) when it is unterminated.
+func endOfQuoted(query string, start int, backslashEscapes bool) int {
+	quote := query[start]
+	for i := start + 1; i < len(query); {
+		switch {
+		case backslashEscapes && query[i] == '\\':
+			i += 2
+		case query[i] != quote:
+			i++
+		// A doubled quote is an escaped quote, so it continues the run rather than closing it.
+		case i+1 < len(query) && query[i+1] == quote:
+			i += 2
+		default:
+			return i + 1
+		}
+	}
+	return len(query)
+}
+
+// escapesWithBackslash reports whether the literal opening at start is an E'...' string, the only
+// form where a backslash escapes the next byte. The E must not be the tail of a longer word.
+func escapesWithBackslash(query string, start int) bool {
+	if start == 0 || (query[start-1] != 'E' && query[start-1] != 'e') {
+		return false
+	}
+	return start < 2 || !isIdentifierByte(query[start-2])
+}
+
+// endOfBlockComment returns the index just past the "*/" that closes the comment opening at
+// start, or len(query) when it is unterminated. Block comments nest, hence the depth counter.
+func endOfBlockComment(query string, start int) int {
+	depth := 0
+	for i := start; i+1 < len(query); {
+		switch query[i : i+2] {
+		case "/*":
+			depth++
+			i += 2
+		case "*/":
+			depth--
+			if depth == 0 {
+				return i + 2
+			}
+			i += 2
+		default:
+			i++
+		}
+	}
+	return len(query)
+}
+
+// dollarQuoteTag returns the full delimiter, both dollar signs included, of the dollar-quoted
+// string at start. A tag is empty or an identifier not starting with a digit, so "$1" is not one.
+func dollarQuoteTag(query string, start int) (string, bool) {
+	for i := start + 1; i < len(query); i++ {
+		if query[i] == '$' {
+			return query[start : i+1], true
+		}
+		if !isIdentifierByte(query[i]) || (i == start+1 && query[i] >= '0' && query[i] <= '9') {
+			return "", false
+		}
+	}
+	return "", false
+}
+
+// endOfDollarQuoted returns the index just past the closing tag of the dollar-quoted string
+// opening at start, or len(query) when it is unterminated.
+func endOfDollarQuoted(query string, start int, tag string) int {
+	body := start + len(tag)
+	if offset := strings.Index(query[body:], tag); offset != -1 {
+		return body + offset + len(tag)
+	}
+	return len(query)
+}
+
+func isIdentifierByte(b byte) bool {
+	return b == '_' || b >= '0' && b <= '9' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z'
+}
+
 // explainQuery implements client.
-func (c *postgreSQLClient) explainQuery(_, queryID string, logger *zap.Logger) (string, error) {
-	// Read the plan already captured for this query rather than re-planning it here.
-	rawPlan, err := c.capturedQueryPlan(queryID)
+//
+// The plan is read from pg_store_plans, which recorded it when the originating
+// session ran the query; the monitoring connection never prepares or plans a
+// query it did not author. query is unused and kept for the interface shape.
+func (c *postgreSQLClient) explainQuery(ctx context.Context, _, queryID string, logger *zap.Logger) (string, error) {
+	rawPlan, err := c.capturedQueryPlan(ctx, queryID)
 	if err != nil {
 		logger.Debug("could not read captured query plan", zap.String("queryID", queryID), zap.Error(err))
 		return "", nil
@@ -106,20 +318,20 @@ func (c *postgreSQLClient) explainQuery(_, queryID string, logger *zap.Logger) (
 	return plan, nil
 }
 
-func (c *postgreSQLClient) capturedQueryPlan(queryID string) (string, error) {
-	tx, err := c.client.Begin()
+func (c *postgreSQLClient) capturedQueryPlan(ctx context.Context, queryID string) (string, error) {
+	tx, err := c.client.BeginTx(ctx, nil)
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	// pg_store_plans renders the plan column at read time; force json so it is parseable regardless of the server default.
-	if _, err := tx.Exec("SET LOCAL pg_store_plans.plan_format = 'json'"); err != nil {
+	if _, err := tx.ExecContext(ctx, "SET LOCAL pg_store_plans.plan_format = 'json'"); err != nil {
 		return "", err
 	}
 
 	var plan string
-	if err := tx.QueryRow(capturedQueryPlanSQL, queryID).Scan(&plan); err != nil {
+	if err := tx.QueryRowContext(ctx, capturedQueryPlanSQL, queryID).Scan(&plan); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
 		}
@@ -145,6 +357,22 @@ type postgreSQLConfig struct {
 	database string
 	address  confignet.AddrConfig
 	tls      configtls.ClientConfig
+	// credentialProvider, when non-nil, supplies the password (and optionally the
+	// username) at connection-string-build time instead of the static password.
+	// Non-pool path: resolved once per *sql.DB build (one build per scrape), so
+	// each scrape picks up a freshly-minted credential. Pool path: resolved per
+	// physical connection by credentialConnector, so a long-lived pool re-mints on
+	// every new connection it opens. Either way, no collector restart is needed.
+	credentialProvider dbauth.Provider
+}
+
+var conninfoValueEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+
+// quoteConninfoValue encodes a value for lib/pq's keyword/value connection
+// string format. Quoting every value prevents credential or configuration data
+// containing whitespace, quotes, or backslashes from becoming new options.
+func quoteConninfoValue(value string) string {
+	return `'` + conninfoValueEscaper.Replace(value) + `'`
 }
 
 func sslConnectionString(tls configtls.ClientConfig) string {
@@ -161,21 +389,25 @@ func sslConnectionString(tls configtls.ClientConfig) string {
 	}
 
 	if tls.CAFile != "" {
-		conn += fmt.Sprintf(" sslrootcert='%s'", tls.CAFile)
+		conn += " sslrootcert=" + quoteConninfoValue(tls.CAFile)
 	}
 
 	if tls.KeyFile != "" {
-		conn += fmt.Sprintf(" sslkey='%s'", tls.KeyFile)
+		conn += " sslkey=" + quoteConninfoValue(tls.KeyFile)
 	}
 
 	if tls.CertFile != "" {
-		conn += fmt.Sprintf(" sslcert='%s'", tls.CertFile)
+		conn += " sslcert=" + quoteConninfoValue(tls.CertFile)
 	}
 
 	return conn
 }
 
-func (c postgreSQLConfig) ConnectionString() (string, error) {
+// ConnectionString builds the lib/pq DSN, resolving the credential provider (if
+// any) with the supplied context. The pool path resolves per physical connection
+// via credentialConnector, so the connection context flows through to credential
+// minting.
+func (c postgreSQLConfig) ConnectionString(ctx context.Context) (string, error) {
 	// postgres will assume the supplied user as the database name if none is provided,
 	// so we must specify a database name even when we are just collecting the list of databases.
 	database := defaultPostgreSQLDatabase
@@ -193,13 +425,43 @@ func (c postgreSQLConfig) ConnectionString() (string, error) {
 		host = "/" + host
 	}
 
-	connStr := fmt.Sprintf("port=%s host=%s user=%s dbname=%s %s", port, host, c.username, database, sslConnectionString(c.tls))
-	if c.passfile != "" && c.password == "" {
-		connStr += fmt.Sprintf(" passfile='%s'", c.passfile)
-	} else {
-		connStr += fmt.Sprintf(" password=%s", c.password)
+	username, password := c.username, c.password
+	if c.credentialProvider != nil {
+		// Resolve the credential at build time so each new connection uses a
+		// currently-valid secret (e.g. a freshly-minted AWS IAM token).
+		cred, credErr := c.credentialProvider.GetCredential(ctx, dbauth.Request{
+			Endpoint: c.address.Endpoint,
+			Username: c.username,
+		})
+		if credErr != nil {
+			return "", fmt.Errorf("resolve credential: %w", credErr)
+		}
+		if cred == nil {
+			// A provider must return either a credential or an error. Guard against a
+			// contract-violating provider so a bad extension fails this scrape closed
+			// rather than panicking the whole collector on the nil dereference below.
+			return "", errors.New("resolve credential: provider returned a nil credential")
+		}
+		password = cred.Secret
+		if cred.Username != nil {
+			username = *cred.Username
+		}
 	}
-	return connStr, nil
+
+	passwordOption := "password=" + quoteConninfoValue(password)
+	if c.passfile != "" && password == "" {
+		passwordOption = "passfile=" + quoteConninfoValue(c.passfile)
+	}
+
+	return fmt.Sprintf(
+		"port=%s host=%s user=%s %s dbname=%s %s",
+		quoteConninfoValue(port),
+		quoteConninfoValue(host),
+		quoteConninfoValue(username),
+		passwordOption,
+		quoteConninfoValue(database),
+		sslConnectionString(c.tls),
+	), nil
 }
 
 func (c *postgreSQLClient) Close() error {
@@ -267,6 +529,89 @@ func (c *postgreSQLClient) getDatabaseStats(ctx context.Context, databases []str
 	return dbStats, errs
 }
 
+// getExecutionTimeStats returns, per database, the cumulative time (in seconds) spent executing
+// SQL statements. It aggregates the total_exec_time column of pg_stat_statements (reported in
+// milliseconds) across all currently tracked statements and requires the pg_stat_statements
+// extension to be installed.
+func (c *postgreSQLClient) getExecutionTimeStats(ctx context.Context, databases []string) (map[databaseName]float64, error) {
+	query := filterQueryByDatabases(
+		"SELECT pd.datname AS datname, SUM(pss.total_exec_time) / 1000.0 AS execution_time_seconds FROM pg_stat_statements pss JOIN pg_database pd ON pss.dbid = pd.oid",
+		databases,
+		true,
+	)
+
+	rows, err := c.client.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var errs error
+	stats := map[databaseName]float64{}
+
+	for rows.Next() {
+		var datname string
+		var executionTime float64
+		err = rows.Scan(&datname, &executionTime)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		if datname != "" {
+			stats[databaseName(datname)] = executionTime
+		}
+	}
+	return stats, multierr.Append(errs, rows.Err())
+}
+
+// databaseConflictStats holds the per-database query cancellation counters from
+// pg_stat_database_conflicts. These counters are only incremented on standby
+// servers, where queries can be canceled due to conflicts with recovery.
+type databaseConflictStats struct {
+	conflTablespace int64
+	conflLock       int64
+	conflSnapshot   int64
+	conflBufferpin  int64
+	conflDeadlock   int64
+}
+
+func (c *postgreSQLClient) getDatabaseConflicts(ctx context.Context, databases []string) (map[databaseName]databaseConflictStats, error) {
+	query := filterQueryByDatabases(
+		"SELECT datname, confl_tablespace, confl_lock, confl_snapshot, confl_bufferpin, confl_deadlock FROM pg_stat_database_conflicts",
+		databases,
+		false,
+	)
+
+	rows, err := c.client.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var errs error
+	conflictStats := map[databaseName]databaseConflictStats{}
+
+	for rows.Next() {
+		var datname string
+		var conflTablespace, conflLock, conflSnapshot, conflBufferpin, conflDeadlock int64
+		err = rows.Scan(&datname, &conflTablespace, &conflLock, &conflSnapshot, &conflBufferpin, &conflDeadlock)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		if datname != "" {
+			conflictStats[databaseName(datname)] = databaseConflictStats{
+				conflTablespace: conflTablespace,
+				conflLock:       conflLock,
+				conflSnapshot:   conflSnapshot,
+				conflBufferpin:  conflBufferpin,
+				conflDeadlock:   conflDeadlock,
+			}
+		}
+	}
+	return conflictStats, multierr.Append(errs, rows.Err())
+}
+
 type databaseLocks struct {
 	relation string
 	mode     string
@@ -275,14 +620,34 @@ type databaseLocks struct {
 }
 
 func (c *postgreSQLClient) getDatabaseLocks(ctx context.Context) ([]databaseLocks, error) {
-	query := `SELECT relname AS relation, mode, locktype,COUNT(pid)
+	// Scoped to the connected database: relation OIDs from other databases would
+	// not resolve against this pg_class, and locks owned by no database are
+	// collected once by getServerScopedLocks. The outer join keeps targets that
+	// are not relations, which report an empty relation.
+	return c.queryDatabaseLocks(ctx, `SELECT COALESCE(relname, '') AS relation, mode, locktype,COUNT(*)
 	AS locks FROM pg_locks
-	JOIN pg_class ON pg_locks.relation = pg_class.oid
-	GROUP BY relname, mode, locktype;`
+	LEFT JOIN pg_class ON pg_locks.relation = pg_class.oid
+	WHERE pg_locks.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+	GROUP BY relname, mode, locktype;`)
+}
 
+func (c *postgreSQLClient) getServerScopedLocks(ctx context.Context) ([]databaseLocks, error) {
+	// Locks owned by no single database, collected once per scrape: shared targets
+	// (database = 0, resolvable from any connection) and transaction ID targets
+	// (database IS NULL). The relation IS NULL branch is required because the outer
+	// join leaves relisshared NULL for targets that are not relations.
+	return c.queryDatabaseLocks(ctx, `SELECT COALESCE(relname, '') AS relation, mode, locktype,COUNT(*)
+	AS locks FROM pg_locks
+	LEFT JOIN pg_class ON pg_locks.relation = pg_class.oid
+	WHERE pg_locks.database IS NULL
+	OR (pg_locks.database = 0 AND (pg_locks.relation IS NULL OR pg_class.relisshared))
+	GROUP BY relname, mode, locktype;`)
+}
+
+func (c *postgreSQLClient) queryDatabaseLocks(ctx context.Context, query string) ([]databaseLocks, error) {
 	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("unable to query pg_locks and pg_locks.relation: %w", err)
+		return nil, fmt.Errorf("unable to query pg_locks: %w", err)
 	}
 	defer rows.Close()
 	var dl []databaseLocks
@@ -305,7 +670,10 @@ func (c *postgreSQLClient) getDatabaseLocks(ctx context.Context) ([]databaseLock
 	return dl, multierr.Combine(errs...)
 }
 
-// getBackends returns a map of database names to the number of active connections
+// getBackends returns the number of backend processes for each database, counted from pg_stat_activity
+// across all connection states (active, idle, idle-in-transaction) and all backend types, including
+// non-client backends such as autovacuum and parallel workers. Backends with no associated database
+// (NULL datname, e.g. the background writer and WAL writer) are not attributed to any database.
 func (c *postgreSQLClient) getBackends(ctx context.Context, databases []string) (map[databaseName]int64, error) {
 	query := filterQueryByDatabases("SELECT datname, count(*) as count from pg_stat_activity", databases, true)
 	rows, err := c.client.QueryContext(ctx, query)
@@ -371,17 +739,31 @@ type tableStats struct {
 }
 
 func (c *postgreSQLClient) getDatabaseTableMetrics(ctx context.Context, db string) (map[tableIdentifier]tableStats, error) {
-	query := `SELECT schemaname as schema, relname AS table,
-	n_live_tup AS live,
-	n_dead_tup AS dead,
-	n_tup_ins AS ins,
-	n_tup_upd AS upd,
-	n_tup_del AS del,
-	n_tup_hot_upd AS hot_upd,
-	seq_scan AS seq_scans,
-	pg_relation_size(relid) AS table_size,
-	vacuum_count
-	FROM pg_stat_user_tables;`
+	// explicitly ignore the relations which have an active `AccessExclusiveLock`
+	// this is to prevent the current query's `AccessShareLock` from getting stalled
+	// table_size is -1 when the table is dropped after its stats row is read, as the
+	// size function then returns NULL; the scraper skips the size for that row only
+	query := `SELECT
+    s.schemaname AS schema,
+    s.relname AS table,
+    s.n_live_tup AS live,
+    s.n_dead_tup AS dead,
+    s.n_tup_ins AS ins,
+    s.n_tup_upd AS upd,
+    s.n_tup_del AS del,
+    s.n_tup_hot_upd AS hot_upd,
+    s.seq_scan AS seq_scans,
+    coalesce(pg_total_relation_size(s.relid), -1) AS table_size,
+    s.vacuum_count
+FROM pg_stat_user_tables s
+LEFT JOIN (
+    SELECT DISTINCT relation
+    FROM pg_locks
+    WHERE locktype = 'relation'
+      AND mode = 'AccessExclusiveLock'
+      AND granted = true
+) l ON s.relid = l.relation
+WHERE l.relation IS NULL;`
 
 	ts := map[tableIdentifier]tableStats{}
 	var errors error
@@ -389,6 +771,7 @@ func (c *postgreSQLClient) getDatabaseTableMetrics(ctx context.Context, db strin
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var schema, table string
 		var live, dead, ins, upd, del, hotUpd, seqScans, tableSize, vacuumCount int64
@@ -412,7 +795,7 @@ func (c *postgreSQLClient) getDatabaseTableMetrics(ctx context.Context, db strin
 			vacuumCount: vacuumCount,
 		}
 	}
-	return ts, errors
+	return ts, multierr.Append(errors, rows.Err())
 }
 
 type tableIOStats struct {
@@ -447,6 +830,7 @@ func (c *postgreSQLClient) getBlocksReadByTable(ctx context.Context, db string) 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var schema, table string
 		var heapRead, heapHit, idxRead, idxHit, toastRead, toastHit, tidxRead, tidxHit int64
@@ -469,7 +853,43 @@ func (c *postgreSQLClient) getBlocksReadByTable(ctx context.Context, db string) 
 			tidxHit:   tidxHit,
 		}
 	}
-	return tios, errors
+	return tios, multierr.Append(errors, rows.Err())
+}
+
+// getTableCount is a cheap COUNT(*) alternative to getDatabaseTableMetrics;
+// must return the same count as len(getDatabaseTableMetrics).
+func (c *postgreSQLClient) getTableCount(ctx context.Context) (int64, error) {
+	version, err := c.getVersion(ctx)
+	if err != nil {
+		return 0, err
+	}
+	major, err := parseMajorVersion(version)
+	if err != nil {
+		return 0, err
+	}
+
+	// Partitioned parents ('p') only count as user tables from PG 14 on.
+	query := `SELECT count(*) FROM pg_class
+WHERE relkind IN ('r', 'm')
+AND relnamespace NOT IN (
+    SELECT oid FROM pg_namespace
+    WHERE nspname = 'pg_catalog' OR nspname = 'information_schema' OR nspname ~ '^pg_toast'
+);`
+	if major >= 14 {
+		query = `SELECT count(*) FROM pg_class
+WHERE relkind IN ('r', 'm', 'p')
+AND relnamespace NOT IN (
+    SELECT oid FROM pg_namespace
+    WHERE nspname = 'pg_catalog' OR nspname = 'information_schema' OR nspname ~ '^pg_toast'
+);`
+	}
+
+	row := c.client.QueryRowContext(ctx, query)
+	var count int64
+	if err := row.Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 type indexStat struct {
@@ -482,10 +902,22 @@ type indexStat struct {
 }
 
 func (c *postgreSQLClient) getIndexStats(ctx context.Context, database string) (map[indexIdentifer]indexStat, error) {
+	// explicitly ignore indexes which have an active `AccessExclusiveLock`
+	// this is to prevent the current query's `AccessShareLock` from getting stalled
+	// index_size is -1 when the index is dropped after its stats row is read, as the
+	// size function then returns NULL; the scraper skips the size for that row only
 	query := `SELECT schemaname, relname, indexrelname,
-	pg_relation_size(indexrelid) AS index_size,
+	coalesce(pg_relation_size(indexrelid), -1) AS index_size,
 	idx_scan
-	FROM pg_stat_user_indexes;`
+	FROM pg_stat_user_indexes s
+	LEFT JOIN (
+		SELECT DISTINCT relation
+		FROM pg_locks
+		WHERE locktype = 'relation'
+		  AND mode = 'AccessExclusiveLock'
+		  AND granted = true
+	) l ON s.indexrelid = l.relation
+	WHERE l.relation IS NULL;`
 
 	stats := map[indexIdentifer]indexStat{}
 
@@ -515,6 +947,7 @@ func (c *postgreSQLClient) getIndexStats(ctx context.Context, database string) (
 			scans:    indexScans,
 		}
 	}
+	errs = append(errs, rows.Err())
 	return stats, multierr.Combine(errs...)
 }
 
@@ -570,6 +1003,92 @@ SELECT s.schemaname,
 		}
 	}
 	return stats, multierr.Combine(errs...)
+}
+
+// vectorSearchStat holds the aggregated pgvector search statistics for a single distance function.
+type vectorSearchStat struct {
+	// distanceFunction is the pgvector distance function classification (e.g. cosine, l2, hamming).
+	distanceFunction string
+	// calls is the cumulative number of executions of statements using this distance function.
+	calls int64
+	// totalExecTime is the cumulative execution time in seconds.
+	totalExecTime float64
+	// rowsReturned is the cumulative number of rows returned by statements using this distance function.
+	rowsReturned int64
+}
+
+//go:embed templates/vectorSearchStatsTemplate.tmpl
+var vectorSearchStatsQuery string
+
+func (c *postgreSQLClient) getVectorSearchStats(ctx context.Context) ([]vectorSearchStat, error) {
+	rows, err := c.client.QueryContext(ctx, vectorSearchStatsQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []vectorSearchStat
+	var errs error
+	for rows.Next() {
+		var distanceFunction string
+		var calls int64
+		var totalExecTimeMs float64
+		var rowsReturned int64
+		if err := rows.Scan(&distanceFunction, &calls, &totalExecTimeMs, &rowsReturned); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		stats = append(stats, vectorSearchStat{
+			distanceFunction: distanceFunction,
+			calls:            calls,
+			// pg_stat_statements reports total_exec_time in milliseconds; convert to seconds.
+			totalExecTime: totalExecTimeMs / 1000.0,
+			rowsReturned:  rowsReturned,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		errs = multierr.Append(errs, err)
+	}
+	return stats, errs
+}
+
+// vectorInsertStat holds the aggregated pgvector insert statistics.
+type vectorInsertStat struct {
+	// rows is the cumulative number of vectors inserted into pgvector tables.
+	rows int64
+	// totalExecTime is the cumulative execution time in seconds.
+	totalExecTime float64
+}
+
+//go:embed templates/vectorInsertStatsTemplate.tmpl
+var vectorInsertStatsQuery string
+
+func (c *postgreSQLClient) getVectorInsertStats(ctx context.Context) ([]vectorInsertStat, error) {
+	rows, err := c.client.QueryContext(ctx, vectorInsertStatsQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []vectorInsertStat
+	var errs error
+	for rows.Next() {
+		var insertedRows int64
+		var totalExecTimeMs float64
+		if err := rows.Scan(&insertedRows, &totalExecTimeMs); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		stats = append(stats, vectorInsertStat{
+			rows: insertedRows,
+			// pg_stat_statements reports total_exec_time in milliseconds; convert to seconds.
+			totalExecTime: totalExecTimeMs / 1000.0,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		errs = multierr.Append(errs, err)
+	}
+	return stats, errs
 }
 
 type bgStat struct {
@@ -830,8 +1349,17 @@ func (c *postgreSQLClient) getVersion(ctx context.Context) (string, error) {
 	query := "SHOW server_version;"
 	row := c.client.QueryRowContext(ctx, query)
 	var version string
-	err := row.Scan(&version)
-	return version, err
+	if err := row.Scan(&version); err != nil {
+		return "", err
+	}
+	// SHOW server_version includes a packaging suffix on Debian/pgdg builds
+	// e.g. "17.2 (Debian 17.2-1.pgdg120+1)". Take only the leading token so
+	// db.system.version is consistent across packaging variants.
+	fields := strings.Fields(version)
+	if len(fields) == 0 {
+		return "", errors.New("empty server version")
+	}
+	return fields[0], nil
 }
 
 func parseMajorVersion(ver string) (int, error) {
@@ -843,17 +1371,22 @@ func parseMajorVersion(ver string) (int, error) {
 	return strconv.Atoi(parts[0])
 }
 
+// quoteDatabaseList renders databases as SQL string literals for an IN/NOT IN clause.
+func quoteDatabaseList(databases []string) string {
+	quoted := make([]string, len(databases))
+	for i, db := range databases {
+		quoted[i] = pq.QuoteLiteral(db)
+	}
+	return strings.Join(quoted, ",")
+}
+
 func filterQueryByDatabases(baseQuery string, databases []string, groupBy bool) string {
 	if len(databases) > 0 {
-		var queryDatabases []string
-		for _, db := range databases {
-			queryDatabases = append(queryDatabases, fmt.Sprintf("'%s'", db))
-		}
+		keyword := " WHERE"
 		if strings.Contains(baseQuery, "WHERE") {
-			baseQuery += fmt.Sprintf(" AND datname IN (%s)", strings.Join(queryDatabases, ","))
-		} else {
-			baseQuery += fmt.Sprintf(" WHERE datname IN (%s)", strings.Join(queryDatabases, ","))
+			keyword = " AND"
 		}
+		baseQuery += keyword + " datname IN (" + quoteDatabaseList(databases) + ")"
 	}
 	if groupBy {
 		baseQuery += " GROUP BY datname"
@@ -897,16 +1430,18 @@ func (c *postgreSQLClient) getSessionStates(ctx context.Context) (map[string]int
 //go:embed templates/querySampleTemplate.tmpl
 var querySampleTemplate string
 
-func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error) {
-	tmpl := template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
+var querySampleTmpl = template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
+
+func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, float64, error) {
 	buf := bytes.Buffer{}
 
-	if err := tmpl.Execute(&buf, map[string]any{
+	if tmplErr := querySampleTmpl.Execute(&buf, map[string]any{
 		"limit":                limit,
 		"newestQueryTimestamp": newestQueryTimestamp,
-	}); err != nil {
-		logger.Error("failed to execute template", zap.Error(err))
-		return []map[string]any{}, newestQueryTimestamp, fmt.Errorf("failed executing template: %w", err)
+		"excludedDatabases":    quoteDatabaseList(excludedDatabases),
+	}); tmplErr != nil {
+		logger.Error("failed to execute template", zap.Error(tmplErr))
+		return []map[string]any{}, newestQueryTimestamp, fmt.Errorf("failed executing template: %w", tmplErr)
 	}
 
 	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, buf.String(), logger, sqlquery.TelemetryConfig{})
@@ -923,7 +1458,6 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 
 	errs := make([]error, 0)
 	finalAttributes := make([]map[string]any, 0)
-	propagator := propagation.TraceContext{}
 	for _, row := range rows {
 		if row[querySampleColumnQuery] == insufficientPrivilegeQuerySampleText {
 			logger.Warn("skipping query sample due to insufficient privileges")
@@ -931,33 +1465,29 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			continue
 		}
 		currentAttributes := make(map[string]any)
-		var traceCtx context.Context
 		querySampleSimpleColumns := []string{
 			querySampleColumnClientHostname,
 			querySampleColumnQueryStart,
+			querySampleColumnBackendStart,
 			querySampleColumnWaitEventType,
 			querySampleColumnWaitEvent,
 			querySampleColumnQueryID,
 			querySampleColumnState,
 			querySampleColumnApplicationName,
+			querySampleColumnBackendType,
+			querySampleColumnBlockingPIDs,
+			querySampleColumnBlockingStartTime,
+			querySampleColumnBlockingLockMode,
+			querySampleColumnBlockingLockType,
+			querySampleColumnBlockingLockRelation,
+			querySampleColumnBlockingTxnStartTime,
 		}
 
 		for _, col := range querySampleSimpleColumns {
 			currentAttributes[dbAttributePrefix+col] = row[col]
-			if col == querySampleColumnApplicationName && row[col] != "" {
-				// Use a background context so we don't accidentally inherit cancellation or span context
-				// from the scrape context; the only trace linkage should come from the extracted traceparent.
-				ctxFromQuery := propagator.Extract(context.Background(), propagation.MapCarrier{
-					traceparentCarrierKey: row[col],
-				})
-
-				if trace.SpanContextFromContext(ctxFromQuery).IsValid() {
-					traceCtx = ctxFromQuery
-				}
-			}
 		}
 
-		if traceCtx != nil {
+		if traceCtx := querySampleTraceContext(row[querySampleColumnApplicationName], row[querySampleColumnQuery]); traceCtx != nil {
 			currentAttributes[querySampleTraceContextKey] = traceCtx
 		}
 
@@ -996,6 +1526,15 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			}
 		}
 
+		blockingWaitDuration := int64(0)
+		if row[querySampleColumnBlockingWaitDuration] != "" {
+			blockingWaitDuration, err = strconv.ParseInt(row[querySampleColumnBlockingWaitDuration], 10, 64)
+			if err != nil {
+				logger.Warn("failed to convert blocking_wait_duration to int64", zap.Error(err))
+				errs = append(errs, err)
+			}
+		}
+
 		// TODO: check if the query is truncated.
 		obfuscated, err := obfuscateSQL(row[querySampleColumnQuery])
 		if err != nil {
@@ -1003,12 +1542,13 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			obfuscated = ""
 		}
 		currentAttributes[dbAttributePrefix+querySampleColumnPID] = pid
-		currentAttributes[string(semconv.NetworkPeerPortKey)] = clientPort
-		currentAttributes[string(semconv.NetworkPeerAddressKey)] = row[querySampleColumnClientAddr]
-		currentAttributes[string(semconv.DBQueryTextKey)] = obfuscated
-		currentAttributes[string(semconv.DBNamespaceKey)] = row[querySampleColumnDatname]
-		currentAttributes[string(semconv.UserNameKey)] = row[querySampleColumnUsename]
+		currentAttributes[string(conventions.NetworkPeerPortKey)] = clientPort
+		currentAttributes[string(conventions.NetworkPeerAddressKey)] = row[querySampleColumnClientAddr]
+		currentAttributes[string(conventions.DBQueryTextKey)] = obfuscated
+		currentAttributes[string(conventions.DBNamespaceKey)] = row[querySampleColumnDatname]
+		currentAttributes[string(conventions.UserNameKey)] = row[querySampleColumnUsename]
 		currentAttributes[postgresqlTotalExecTimeAttributeName] = duration
+		currentAttributes[dbAttributePrefix+querySampleColumnBlockingWaitDuration] = blockingWaitDuration
 		finalAttributes = append(finalAttributes, currentAttributes)
 	}
 
@@ -1042,16 +1582,18 @@ func convertToInt(column, value string, logger *zap.Logger) (any, error) {
 //go:embed templates/topQueryTemplate.tmpl
 var topQueryTemplate string
 
+var topQueryTmpl = template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
+
 // getTopQuery implements client.
-func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error) {
-	tmpl := template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
+func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, error) {
 	buf := bytes.Buffer{}
 
 	// TODO: Only get query after the oldest query we got from the previous sample query colelction.
 	// For instance, if from the last sample query we got queries executed between 8:00 ~ 8:15,
 	// in this query, we should only gather query after 8:15
-	if err := tmpl.Execute(&buf, map[string]any{
-		"limit": limit,
+	if err := topQueryTmpl.Execute(&buf, map[string]any{
+		"limit":             limit,
+		"excludedDatabases": quoteDatabaseList(excludedDatabases),
 	}); err != nil {
 		logger.Error("failed to execute template", zap.Error(err))
 		return []map[string]any{}, fmt.Errorf("failed executing template: %w", err)
@@ -1074,8 +1616,8 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 
 	for _, row := range rows {
 		hasConvention := map[string]string{
-			"datname": string(semconv.DBNamespaceKey),
-			"query":   string(semconv.DBQueryTextKey),
+			"datname": string(conventions.DBNamespaceKey),
+			"query":   string(conventions.DBQueryTextKey),
 		}
 
 		needConversion := map[string]func(string, string, *zap.Logger) (any, error){

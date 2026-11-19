@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
+	"github.com/cenkalti/backoff/v7"
 	"github.com/fsnotify/fsnotify"
 	"github.com/goccy/go-yaml"
 	commonconfig "github.com/prometheus/common/config"
@@ -31,13 +31,15 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/internal/sharedpromconfig"
 )
 
 type Manager struct {
 	settings             receiver.Settings
 	shutdown             chan struct{}
 	cfg                  *Config
-	promCfg              *promconfig.Config
+	promCfg              *sharedpromconfig.Config
 	initialScrapeConfigs []*promconfig.ScrapeConfig
 	scrapeManager        *scrape.Manager
 	discoveryManager     *discovery.Manager
@@ -53,13 +55,13 @@ type Manager struct {
 	configUpdated chan struct{}
 }
 
-func NewManager(set receiver.Settings, cfg *Config, promCfg *promconfig.Config) *Manager {
+func NewManager(set receiver.Settings, cfg *Config, promCfg *sharedpromconfig.Config) *Manager {
 	return &Manager{
 		shutdown:             make(chan struct{}),
 		settings:             set,
 		cfg:                  cfg,
 		promCfg:              promCfg,
-		initialScrapeConfigs: promCfg.ScrapeConfigs,
+		initialScrapeConfigs: promCfg.Get().ScrapeConfigs,
 		configUpdateCount:    &atomic.Int64{},
 		configUpdated:        make(chan struct{}, 10),
 	}
@@ -70,7 +72,8 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 	m.discoveryManager = dm
 	m.host = host
 
-	if err := m.applyCfg(); err != nil {
+	promCfg := m.promCfg.Get()
+	if err := m.applyCfg(&promCfg); err != nil {
 		m.settings.Logger.Error("Failed to apply new scrape configuration", zap.Error(err))
 		return err
 	}
@@ -87,7 +90,7 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 		savedHash, opErr := m.sync(uint64(0))
 		if opErr != nil {
 			if errors.Is(opErr, syscall.ECONNREFUSED) {
-				return 0, backoff.RetryAfter(1)
+				return 0, backoff.RetryAfter(time.Second, opErr)
 			}
 			return 0, opErr
 		}
@@ -153,9 +156,9 @@ func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 		}
 	}
 
-	addFile(m.cfg.TLS.CAFile)
-	addFile(m.cfg.TLS.CertFile)
-	addFile(m.cfg.TLS.KeyFile)
+	addFile(m.cfg.ClientConfig.TLS.CAFile)
+	addFile(m.cfg.ClientConfig.TLS.CertFile)
+	addFile(m.cfg.ClientConfig.TLS.KeyFile)
 
 	go func() {
 		for {
@@ -187,7 +190,7 @@ func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 
 func (m *Manager) setHTTPClient(ctx context.Context) error {
 	var err error
-	m.httpClient, err = m.cfg.ToClient(ctx, m.host.GetExtensions(), m.settings.TelemetrySettings)
+	m.httpClient, err = m.cfg.ClientConfig.ToClient(ctx, m.host.GetExtensions(), m.settings.TelemetrySettings)
 	if err != nil {
 		m.settings.Logger.Error("Failed to create http client", zap.Error(err))
 		return err
@@ -199,9 +202,9 @@ func (m *Manager) setHTTPClient(ctx context.Context) error {
 // baseDiscoveryCfg can be used to provide additional ScrapeConfigs which will be added to the retrieved jobs.
 func (m *Manager) sync(compareHash uint64) (uint64, error) {
 	m.settings.Logger.Debug("Syncing target allocator jobs")
-	m.settings.Logger.Debug("endpoint", zap.String("endpoint", m.cfg.Endpoint))
+	m.settings.Logger.Debug("endpoint", zap.String("endpoint", m.cfg.ClientConfig.Endpoint))
 
-	scrapeConfigsResponse, err := getScrapeConfigsResponse(m.httpClient, m.cfg.Endpoint)
+	scrapeConfigsResponse, err := getScrapeConfigsResponse(m.httpClient, m.cfg.ClientConfig.Endpoint)
 	if err != nil {
 		m.settings.Logger.Error("Failed to retrieve job list", zap.Error(err))
 		return 0, err
@@ -218,11 +221,12 @@ func (m *Manager) sync(compareHash uint64) (uint64, error) {
 		return hash, nil
 	}
 
-	// Copy initial scrape configurations
-	initialConfig := make([]*promconfig.ScrapeConfig, len(m.initialScrapeConfigs))
-	copy(initialConfig, m.initialScrapeConfigs)
+	// Read GlobalConfig under read lock for validation outside the write lock.
+	globalCfg := m.promCfg.Get().GlobalConfig
 
-	m.promCfg.ScrapeConfigs = initialConfig
+	// Build the new scrape configs outside the lock to minimize the critical section.
+	newConfigs := make([]*promconfig.ScrapeConfig, len(m.initialScrapeConfigs))
+	copy(newConfigs, m.initialScrapeConfigs)
 
 	for jobName, scrapeConfig := range scrapeConfigsResponse {
 		var httpSD promHTTP.SDConfig
@@ -234,7 +238,7 @@ func (m *Manager) sync(compareHash uint64) (uint64, error) {
 			httpSD = promHTTP.SDConfig(*m.cfg.HTTPSDConfig)
 		}
 		escapedJob := url.QueryEscape(jobName)
-		httpSD.URL = fmt.Sprintf("%s/jobs/%s/targets?collector_id=%s", m.cfg.Endpoint, escapedJob, m.cfg.CollectorID)
+		httpSD.URL = fmt.Sprintf("%s/jobs/%s/targets?collector_id=%s", m.cfg.ClientConfig.Endpoint, escapedJob, m.cfg.CollectorID)
 
 		err = configureSDHTTPClientConfigFromTA(&httpSD, m.cfg)
 		if err != nil {
@@ -256,17 +260,21 @@ func (m *Manager) sync(compareHash uint64) (uint64, error) {
 		}
 
 		// Validate the scrape config and also fill in the defaults from the global config as needed.
-		err = scrapeConfig.Validate(m.promCfg.GlobalConfig)
+		err = scrapeConfig.Validate(globalCfg)
 		if err != nil {
 			m.settings.Logger.Error("Failed to validate the scrape configuration", zap.Error(err))
 			return 0, err
 		}
 
-		m.promCfg.ScrapeConfigs = append(m.promCfg.ScrapeConfigs, scrapeConfig)
+		newConfigs = append(newConfigs, scrapeConfig)
 	}
 
-	err = m.applyCfg()
-	if err != nil {
+	// Hold the write lock only for the config swap for the shared pointer.
+	m.promCfg.Mutate(func(cfg *promconfig.Config) {
+		cfg.ScrapeConfigs = newConfigs
+	})
+	cfgSnapshot := m.promCfg.Get()
+	if err = m.applyCfg(&cfgSnapshot); err != nil {
 		m.settings.Logger.Error("Failed to apply new scrape configuration", zap.Error(err))
 		return 0, err
 	}
@@ -281,13 +289,13 @@ func (m *Manager) sync(compareHash uint64) (uint64, error) {
 	return hash, nil
 }
 
-func (m *Manager) applyCfg() error {
-	scrapeConfigs, err := m.promCfg.GetScrapeConfigs()
+func (m *Manager) applyCfg(cfg *promconfig.Config) error {
+	scrapeConfigs, err := cfg.GetScrapeConfigs()
 	if err != nil {
 		return fmt.Errorf("could not get scrape configs: %w", err)
 	}
 
-	if err := m.scrapeManager.ApplyConfig(m.promCfg); err != nil {
+	if err := m.scrapeManager.ApplyConfig(cfg); err != nil {
 		return err
 	}
 

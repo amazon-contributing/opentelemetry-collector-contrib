@@ -415,18 +415,18 @@ func TestProcess_IfExpression(t *testing.T) {
 func TestProcess_OnErrorModes(t *testing.T) {
 	const malformed = "nospaces-garbage"
 
-	// Every mode returns the parse error from HandleEntryError; they differ
-	// only in whether the entry is then forwarded (send*) or dropped (drop*).
+	// Quiet modes swallow the parse error in HandleEntryError.
 	cases := []struct {
 		name     string
 		onError  string
 		wantSent bool
+		wantErr  bool
 	}{
-		{name: "DefaultSend", onError: "", wantSent: true},
-		{name: "Send", onError: "send", wantSent: true},
-		{name: "SendQuiet", onError: "send_quiet", wantSent: true},
-		{name: "Drop", onError: "drop", wantSent: false},
-		{name: "DropQuiet", onError: "drop_quiet", wantSent: false},
+		{name: "DefaultSend", onError: "", wantSent: true, wantErr: true},
+		{name: "Send", onError: "send", wantSent: true, wantErr: true},
+		{name: "SendQuiet", onError: "send_quiet", wantSent: true, wantErr: false},
+		{name: "Drop", onError: "drop", wantSent: false, wantErr: true},
+		{name: "DropQuiet", onError: "drop_quiet", wantSent: false, wantErr: false},
 	}
 
 	for _, tc := range cases {
@@ -443,7 +443,11 @@ func TestProcess_OnErrorModes(t *testing.T) {
 			e := entry.New()
 			e.Body = malformed
 			err := p.Process(t.Context(), e)
-			require.Error(t, err)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 
 			if tc.wantSent {
 				fake.ExpectBody(t, malformed)
