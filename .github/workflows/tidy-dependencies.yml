@@ -30,7 +30,7 @@ jobs:
           permission-contents: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.head_ref }}
           token: ${{ steps.otelbot-token.outputs.token }}
           # Keep token so the `go mod tidy` step can push.
           persist-credentials: true # zizmor: ignore[artipacked]
@@ -43,9 +43,7 @@ jobs:
           git config user.name otelbot
           git config user.email 197425009+otelbot@users.noreply.github.com
           echo "git diff --exit-code || (git add . && git commit -m \"go mod tidy, make genotelcontribcol and make genoteltestbedcol\" && git push)"
-          git diff --exit-code || (git add . && git commit -m "go mod tidy, make genotelcontribcol and make genoteltestbedcol" && git push origin HEAD:"$HEAD_REF")
-        env:
-          HEAD_REF: ${{ github.head_ref }}
+          git diff --exit-code || (git add . && git commit -m "go mod tidy, make genotelcontribcol and make genoteltestbedcol" && git push)
       - name: Remove renovatebot label
         env:
           GH_TOKEN: ${{ github.token }}
