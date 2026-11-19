@@ -50,10 +50,16 @@ type postgreSQLScraper struct {
 	lastExecutionTimestamp time.Time
 	// lastTopQueryErr de-duplicates the top-query failure log (report once per transition, not every poll).
 	lastTopQueryErr string
-	// storePlansMissing maps databases lacking pg_store_plans to the collection time that found them without it.
-	// The receiver warns once when a database enters this map and checks it once per top-query collection, so
-	// plan lookups resume on the first collection after the extension is created.
-	storePlansMissing map[string]time.Time
+	// storePlansUnavailable maps databases where captured plans cannot be read to why, and to the collection that
+	// found out. The receiver warns once per cause and checks again once per top-query collection, so plan
+	// lookups resume on the first collection after the extension is created and loaded.
+	storePlansUnavailable map[string]storePlansMark
+}
+
+// storePlansMark records why plans are unavailable in a database and which collection found out.
+type storePlansMark struct {
+	checkedAt time.Time
+	status    planStoreStatus
 }
 
 type errsMux struct {
@@ -99,17 +105,17 @@ func newPostgreSQLScraper(
 	}
 
 	return &postgreSQLScraper{
-		logger:             settings.Logger,
-		config:             config,
-		clientFactory:      clientFactory,
-		mb:                 metadata.NewMetricsBuilder(config.MetricsBuilderConfig, settings),
-		lb:                 metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
-		excludes:           excludes,
-		cache:              cache,
-		queryPlanCache:     queryPlanCache,
-		separateSchemaAttr: separateSchemaAttr,
-		serviceInstanceID:  getInstanceID(config.Endpoint, settings.Logger),
-		storePlansMissing:  make(map[string]time.Time),
+		logger:                settings.Logger,
+		config:                config,
+		clientFactory:         clientFactory,
+		mb:                    metadata.NewMetricsBuilder(config.MetricsBuilderConfig, settings),
+		lb:                    metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
+		excludes:              excludes,
+		cache:                 cache,
+		queryPlanCache:        queryPlanCache,
+		separateSchemaAttr:    separateSchemaAttr,
+		serviceInstanceID:     getInstanceID(config.Endpoint, settings.Logger),
+		storePlansUnavailable: make(map[string]storePlansMark),
 	}
 }
 
@@ -285,34 +291,37 @@ func (p *postgreSQLScraper) clearTopQueryErr() {
 	p.lastTopQueryErr = ""
 }
 
-// queryPlanStoreSkipped reports whether database was already found without pg_store_plans in the collection
+// queryPlanStoreSkipped reports whether database was already found unable to serve plans in the collection
 // that started at now, so its remaining queries in that collection skip the check.
 func (p *postgreSQLScraper) queryPlanStoreSkipped(database string, now time.Time) bool {
-	checkedAt, missing := p.storePlansMissing[database]
-	return missing && checkedAt.Equal(now)
+	mark, unavailable := p.storePlansUnavailable[database]
+	return unavailable && mark.checkedAt.Equal(now)
 }
 
-// queryPlanStoreReady reports whether pg_store_plans is available in database. A database found without it is
-// marked missing and checked again on the next top-query collection. It warns once when a database becomes
-// missing and logs once when the extension appears.
+// queryPlanStoreReady reports whether captured plans can be read in database. A database that cannot serve them
+// is marked and checked again on the next top-query collection. It warns once per cause, and logs once when
+// plans become readable again.
 func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient client, database string, now time.Time) bool {
-	present, err := dbClient.queryPlanStoreAvailable(ctx)
+	status, err := dbClient.queryPlanStoreStatus(ctx)
 	if err != nil {
 		// Could not determine availability; let the lookup proceed and surface any error there.
 		return true
 	}
-	_, wasMissing := p.storePlansMissing[database]
-	if !present {
-		p.storePlansMissing[database] = now
-		if !wasMissing {
-			p.logger.Warn("pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no agent restart is needed",
-				zap.String("database", database))
+	prev, wasUnavailable := p.storePlansUnavailable[database]
+	if status != planStoreReady {
+		p.storePlansUnavailable[database] = storePlansMark{checkedAt: now, status: status}
+		if !wasUnavailable || prev.status != status {
+			msg := "pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no agent restart is needed"
+			if status == planStoreNotLoaded {
+				msg = "pg_store_plans extension is created but not loaded; add it to shared_preload_libraries and restart PostgreSQL. Query plans will not be collected for this database until then, no agent restart is needed"
+			}
+			p.logger.Warn(msg, zap.String("database", database))
 		}
 		return false
 	}
-	if wasMissing {
-		delete(p.storePlansMissing, database)
-		p.logger.Info("pg_store_plans extension is now installed; resuming query plan collection",
+	if wasUnavailable {
+		delete(p.storePlansUnavailable, database)
+		p.logger.Info("pg_store_plans is now readable; resuming query plan collection",
 			zap.String("database", database))
 	}
 	return true

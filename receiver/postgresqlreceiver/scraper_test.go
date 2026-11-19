@@ -887,35 +887,37 @@ func TestLogTopQueryErrOnce(t *testing.T) {
 // storeAbsentClient reports pg_store_plans as not installed.
 type storeAbsentClient struct{ *mockClient }
 
-func (storeAbsentClient) queryPlanStoreAvailable(context.Context) (bool, error) { return false, nil }
+func (storeAbsentClient) queryPlanStoreStatus(context.Context) (planStoreStatus, error) {
+	return planStoreMissing, nil
+}
 
 func TestQueryPlanStoreReadyWarnsOnceAndSkips(t *testing.T) {
 	core, logs := observer.New(zap.WarnLevel)
-	p := &postgreSQLScraper{logger: zap.New(core), storePlansMissing: make(map[string]time.Time)}
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
 	now := time.Unix(1_700_000_000, 0)
 
 	ready := p.queryPlanStoreReady(t.Context(), storeAbsentClient{}, "appdb", now)
 	require.False(t, ready, "plan lookups must be skipped when pg_store_plans is absent")
-	require.Contains(t, p.storePlansMissing, "appdb", "the database must be marked so later polls skip it")
+	require.Contains(t, p.storePlansUnavailable, "appdb", "the database must be marked so later polls skip it")
 	require.True(t, p.queryPlanStoreSkipped("appdb", now), "other queries in the same collection must skip")
 	require.False(t, p.queryPlanStoreSkipped("appdb", now.Add(time.Second)), "the next collection must check again")
 	require.Equal(t, 1, logs.Len(), "a missing extension must warn once")
 }
 
-// toggleStoreClient reports pg_store_plans as installed or not according to present.
+// toggleStoreClient reports the pg_store_plans status it is set to.
 type toggleStoreClient struct {
 	*mockClient
-	present bool
+	status planStoreStatus
 }
 
-func (c *toggleStoreClient) queryPlanStoreAvailable(context.Context) (bool, error) {
-	return c.present, nil
+func (c *toggleStoreClient) queryPlanStoreStatus(context.Context) (planStoreStatus, error) {
+	return c.status, nil
 }
 
 func TestQueryPlanStoreResumesAfterExtensionCreated(t *testing.T) {
 	core, logs := observer.New(zap.InfoLevel)
-	p := &postgreSQLScraper{logger: zap.New(core), storePlansMissing: make(map[string]time.Time)}
-	c := &toggleStoreClient{}
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	c := &toggleStoreClient{status: planStoreMissing}
 	t0 := time.Unix(1_700_000_000, 0)
 
 	// Extension absent: marked missing, and skipped for the rest of that collection only.
@@ -930,13 +932,44 @@ func TestQueryPlanStoreResumesAfterExtensionCreated(t *testing.T) {
 	require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len(), "a persistently missing extension must warn once")
 
 	// The extension is created while the agent keeps running: the next collection resumes lookups.
-	c.present = true
+	c.status = planStoreReady
 	t2 := t1.Add(time.Minute)
 	require.False(t, p.queryPlanStoreSkipped("appdb", t2))
 	require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t2))
-	require.NotContains(t, p.storePlansMissing, "appdb", "the mark must be cleared so lookups are no longer skipped")
+	require.NotContains(t, p.storePlansUnavailable, "appdb", "the mark must be cleared so lookups are no longer skipped")
 	require.False(t, p.queryPlanStoreSkipped("appdb", t2))
 	require.Equal(t, 1, logs.FilterLevelExact(zap.InfoLevel).Len(), "resuming must be logged once")
+}
+
+func TestQueryPlanStoreNotLoadedWarnsPerCauseAndResumes(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	c := &toggleStoreClient{status: planStoreMissing}
+	t0 := time.Unix(1_700_000_000, 0)
+
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t0))
+	require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len())
+
+	// The extension is created before the library is preloaded: a different cause, so it warns again and names
+	// the preload requirement, and lookups stay off because every read would fail.
+	c.status = planStoreNotLoaded
+	t1 := t0.Add(time.Minute)
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t1))
+	require.True(t, p.queryPlanStoreSkipped("appdb", t1))
+	warns := logs.FilterLevelExact(zap.WarnLevel).All()
+	require.Len(t, warns, 2)
+	require.Contains(t, warns[1].Message, "shared_preload_libraries")
+
+	// Same cause on the next collection: no further warning.
+	t2 := t1.Add(time.Minute)
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t2))
+	require.Equal(t, 2, logs.FilterLevelExact(zap.WarnLevel).Len())
+
+	// PostgreSQL restarted with the library: the next collection resumes.
+	c.status = planStoreReady
+	require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t2.Add(time.Minute)))
+	require.NotContains(t, p.storePlansUnavailable, "appdb")
+	require.Equal(t, 1, logs.FilterLevelExact(zap.InfoLevel).Len())
 }
 
 func TestCollectSessionStates(t *testing.T) {
@@ -980,9 +1013,9 @@ func (*mockClient) explainQuery(string, string, *zap.Logger) (string, error) {
 	panic("unimplemented")
 }
 
-// queryPlanStoreAvailable implements client.
-func (*mockClient) queryPlanStoreAvailable(context.Context) (bool, error) {
-	return true, nil
+// queryPlanStoreStatus implements client.
+func (*mockClient) queryPlanStoreStatus(context.Context) (planStoreStatus, error) {
+	return planStoreReady, nil
 }
 
 // getTopQuery implements client.
