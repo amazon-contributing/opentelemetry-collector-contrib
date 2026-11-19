@@ -75,7 +75,7 @@ type client interface {
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(ctx context.Context, query, queryID string, logger *zap.Logger) (string, error)
-	queryPlanStoreAvailable(ctx context.Context) (bool, error)
+	queryPlanStoreStatus(ctx context.Context) (planStoreStatus, error)
 	getSessionStates(ctx context.Context) (map[string]int64, error)
 }
 
@@ -343,12 +343,41 @@ func (c *postgreSQLClient) capturedQueryPlan(ctx context.Context, queryID string
 	return plan, tx.Commit()
 }
 
-// queryPlanStoreAvailable reports whether the pg_store_plans extension is installed in the connected database.
-func (c *postgreSQLClient) queryPlanStoreAvailable(ctx context.Context) (bool, error) {
+// planStoreStatus describes whether captured plans can be read in a database.
+type planStoreStatus int
+
+const (
+	// planStoreReady means the extension is created and its library is loaded, or the state could not be told apart.
+	planStoreReady planStoreStatus = iota
+	// planStoreMissing means CREATE EXTENSION has not run in the database.
+	planStoreMissing
+	// planStoreNotLoaded means the extension is created but pg_store_plans is not in shared_preload_libraries,
+	// so every read fails until PostgreSQL is restarted with it.
+	planStoreNotLoaded
+)
+
+// pgObjectNotInPrerequisiteState is the SQLSTATE pg_store_plans raises when its library is not preloaded.
+const pgObjectNotInPrerequisiteState = "55000"
+
+// queryPlanStoreStatus reports whether captured plans can be read in the connected database. Creating the
+// extension is not enough: without the preloaded library every read fails, so it also probes the info view,
+// which is cheap and fails with the same error. Any other probe failure is left for the lookup to report.
+func (c *postgreSQLClient) queryPlanStoreStatus(ctx context.Context) (planStoreStatus, error) {
 	var present bool
-	err := c.client.QueryRowContext(ctx,
-		"SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')").Scan(&present)
-	return present, err
+	if err := c.client.QueryRowContext(ctx,
+		"SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')").Scan(&present); err != nil {
+		return planStoreReady, err
+	}
+	if !present {
+		return planStoreMissing, nil
+	}
+	var one int
+	err := c.client.QueryRowContext(ctx, "/* otel-collector-ignore */ SELECT 1 FROM pg_store_plans_info").Scan(&one)
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == pgObjectNotInPrerequisiteState {
+		return planStoreNotLoaded, nil
+	}
+	return planStoreReady, nil
 }
 
 var _ client = (*postgreSQLClient)(nil)

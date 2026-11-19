@@ -17,6 +17,7 @@ issues: [742]
 # Use pipe (|) for multiline entries.
 subtext: |
   A database found without pg_store_plans is re-checked on each top query collection instead of being skipped until restart.
+  An extension that is created but not preloaded is reported once with the shared_preload_libraries requirement, and plans resume after PostgreSQL restarts with it.
 
 # e.g. '[aws]'
 # Include 'aws' if the change is done done by cwa
