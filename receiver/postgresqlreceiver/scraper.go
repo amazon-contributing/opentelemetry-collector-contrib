@@ -50,9 +50,15 @@ type postgreSQLScraper struct {
 	lastExecutionTimestamp time.Time
 	// lastTopQueryErr de-duplicates the top-query failure log (report once per transition, not every poll).
 	lastTopQueryErr string
-	// storePlansMissing marks databases lacking pg_store_plans, so the agent warns once and skips lookups there.
-	storePlansMissing map[string]bool
+	// storePlansMissing maps databases lacking pg_store_plans to the time of their next availability re-check.
+	// The receiver warns once when a database enters this map, skips plan lookups there until the re-check is
+	// due, and resumes once a re-check finds the extension.
+	storePlansMissing map[string]time.Time
 }
+
+// storePlansRecheckInterval is how long a database found without pg_store_plans is skipped before the
+// extension is looked for again.
+const storePlansRecheckInterval = time.Minute
 
 type errsMux struct {
 	sync.RWMutex
@@ -107,7 +113,7 @@ func newPostgreSQLScraper(
 		queryPlanCache:     queryPlanCache,
 		separateSchemaAttr: separateSchemaAttr,
 		serviceInstanceID:  getInstanceID(config.Endpoint, settings.Logger),
-		storePlansMissing:  make(map[string]bool),
+		storePlansMissing:  make(map[string]time.Time),
 	}
 }
 
@@ -283,18 +289,34 @@ func (p *postgreSQLScraper) clearTopQueryErr() {
 	p.lastTopQueryErr = ""
 }
 
-// queryPlanStoreReady reports whether pg_store_plans is available in database, warning once and marking it missing if not.
-func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient client, database string) bool {
+// queryPlanStoreSkipped reports whether database is known to lack pg_store_plans and is not yet due for a re-check.
+func (p *postgreSQLScraper) queryPlanStoreSkipped(database string, now time.Time) bool {
+	recheckAt, missing := p.storePlansMissing[database]
+	return missing && now.Before(recheckAt)
+}
+
+// queryPlanStoreReady reports whether pg_store_plans is available in database. A database found without it is
+// marked missing and re-checked every storePlansRecheckInterval. It warns once when a database becomes missing
+// and logs once when the extension appears.
+func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient client, database string, now time.Time) bool {
 	present, err := dbClient.queryPlanStoreAvailable(ctx)
 	if err != nil {
 		// Could not determine availability; let the lookup proceed and surface any error there.
 		return true
 	}
+	_, wasMissing := p.storePlansMissing[database]
 	if !present {
-		p.storePlansMissing[database] = true
-		p.logger.Warn("pg_store_plans extension not installed; query plans will not be collected for this database until it is created",
-			zap.String("database", database))
+		p.storePlansMissing[database] = now.Add(storePlansRecheckInterval)
+		if !wasMissing {
+			p.logger.Warn("pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no agent restart is needed",
+				zap.String("database", database), zap.Duration("recheck_interval", storePlansRecheckInterval))
+		}
 		return false
+	}
+	if wasMissing {
+		delete(p.storePlansMissing, database)
+		p.logger.Info("pg_store_plans extension is now installed; resuming query plan collection",
+			zap.String("database", database))
 	}
 	return true
 }
@@ -403,11 +425,11 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 		isSuperuser, _ := item.Value[dbAttributePrefix+"rolsuper"].(string)
 		if !ok && isSuperuser != "true" && explained < maxExplainEachInterval {
 			database := item.Value[string(semconv.DBNamespaceKey)].(string)
-			// Skip the lookup for databases known to lack pg_store_plans; the query is still reported below without a plan.
-			if !p.storePlansMissing[database] {
+			// Skip the lookup for databases known to lack pg_store_plans until their re-check is due; the query is still reported below without a plan.
+			if !p.queryPlanStoreSkipped(database, collectionTime) {
 				dbClient, err := clientFactory.getClient(database)
 				if err == nil {
-					if p.queryPlanStoreReady(ctx, dbClient, database) {
+					if p.queryPlanStoreReady(ctx, dbClient, database, collectionTime) {
 						plan, err = dbClient.explainQuery(rawQuery, queryID, logger)
 						if err != nil {
 							logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
