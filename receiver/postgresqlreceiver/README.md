@@ -109,22 +109,28 @@ We provide functionality to collect the most executed queries from PostgreSQL. I
 ...
 ```
 
-Along with those attributes, we will also report the query plan we gathered if it is possible. 
+Along with those attributes, we also report the query execution plan when one is available. Plans are read from the [`pg_store_plans`](https://github.com/ossc-db/pg_store_plans) extension, which records the plan of each statement as it executes. The receiver reads the already-recorded plan for a top query; it does not re-run or re-plan the query. If `pg_store_plans` is not installed in a database, top queries are still reported, just without a plan.
 
-By default, top query collection is disabled, also note, to use it, you will need 
-to create the extension to every database. Take the example from `testdata/integration/02-create-extension.sh`
+By default, top query collection is disabled. To use it you will need to install the required extensions in every monitored database. `pg_stat_statements` is bundled with PostgreSQL; `pg_store_plans` is a third-party extension that must be built/installed separately (see the [project README](https://github.com/ossc-db/pg_store_plans)). Both must be preloaded, and query plans additionally require `compute_query_id` so the plan can be matched to the top query:
+
+```
+# postgresql.conf
+shared_preload_libraries = 'pg_stat_statements,pg_store_plans'
+compute_query_id = on   # or 'auto' with pg_stat_statements loaded
+```
+
+Then create the extensions in each monitored database (see `testdata/integration/02-create-extension.sh`):
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+CREATE EXTENSION IF NOT EXISTS pg_store_plans;
 ```
 
 The following options are available:
 - `max_rows_per_query`: (optional, default=1000) The max number of rows would return from the query 
 against `pg_stat_statements`.
 - `top_n_query`: (optional, default=200) The maximum number of active queries to report (to the next consumer) in a single run.
-- `max_explain_each_interval`: (optional, default=1000). The maximum number of explain query to be sent in each scrape interval. The top query 
-collection would not get the query plan directly. Instead, we need to mimic the query in the database and get the query plan from database 
-separately. This could lead some resources usage and limit this will reduce the impact on your database.
+- `max_explain_each_interval`: (optional, default=1000). The maximum number of query plans to read from `pg_store_plans` in each scrape interval. Each read is a lookup against the plan store on your database, so lowering this reduces the load the receiver places on the database.
 - `query_plan_cache_size`: (optional, default=1000). The query plan cache size. Once we got explain for one query, we will store it in the cache.
 This defines the cache's size for query plan.
 - `query_plan_cache_ttl`: (optional, default=1h). How long before the query plan cache got expired. Example values: `1m`, `1h`. 
