@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/compute v1.74.1
 	cloud.google.com/go/compute/metadata v0.10.0
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.38.0
-	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-00010101000000-000000000000
+	github.com/amazon-contributing/opentelemetry-collector-contrib/override/aws v0.0.0-20260912231548-38daeff85a3e
 	github.com/aws/aws-sdk-go-v2 v1.47.5
 	github.com/aws/aws-sdk-go-v2/config v1.33.13
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5
