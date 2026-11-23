@@ -48,6 +48,10 @@ type postgreSQLScraper struct {
 	newestQueryTimestamp   float64
 	serviceInstanceID      string
 	lastExecutionTimestamp time.Time
+	// lastTopQueryErr de-duplicates the top-query failure log (report once per transition, not every poll).
+	lastTopQueryErr string
+	// storePlansMissing marks databases lacking pg_store_plans, so the agent warns once and skips lookups there.
+	storePlansMissing map[string]bool
 }
 
 type errsMux struct {
@@ -103,6 +107,7 @@ func newPostgreSQLScraper(
 		queryPlanCache:     queryPlanCache,
 		separateSchemaAttr: separateSchemaAttr,
 		serviceInstanceID:  getInstanceID(config.Endpoint, settings.Logger),
+		storePlansMissing:  make(map[string]bool),
 	}
 }
 
@@ -260,12 +265,46 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 	}
 }
 
+// logTopQueryErrOnce logs a top-query collection failure once per transition, not every poll.
+func (p *postgreSQLScraper) logTopQueryErrOnce(msg string, err error) {
+	sig := msg
+	if err != nil {
+		sig += ": " + err.Error()
+	}
+	if sig == p.lastTopQueryErr {
+		return
+	}
+	p.lastTopQueryErr = sig
+	p.logger.Error(msg, zap.Error(err))
+}
+
+// clearTopQueryErr resets the sticky error after a successful collection so later failures log again.
+func (p *postgreSQLScraper) clearTopQueryErr() {
+	p.lastTopQueryErr = ""
+}
+
+// queryPlanStoreReady reports whether pg_store_plans is available in database, warning once and marking it missing if not.
+func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient client, database string) bool {
+	present, err := dbClient.queryPlanStoreAvailable(ctx)
+	if err != nil {
+		// Could not determine availability; let the lookup proceed and surface any error there.
+		return true
+	}
+	if !present {
+		p.storePlansMissing[database] = true
+		p.logger.Warn("pg_store_plans extension not installed; query plans will not be collected for this database until it is created",
+			zap.String("database", database))
+		return false
+	}
+	return true
+}
+
 func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory postgreSQLClientFactory, limit, topNQuery, maxExplainEachInterval int64, mux *errsMux, logger *zap.Logger, collectionTime time.Time) {
 	timestamp := pcommon.NewTimestampFromTime(collectionTime)
 
 	defaultDbClient, err := clientFactory.getClient(defaultPostgreSQLDatabase)
 	if err != nil {
-		logger.Error("failed to create db client for default postgresql database")
+		p.logTopQueryErrOnce("failed to create db client for default postgresql database", err)
 		mux.addPartial(err)
 		return
 	}
@@ -274,10 +313,12 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 
 	rows, err := defaultDbClient.getTopQuery(ctx, limit, logger)
 	if err != nil {
-		logger.Error("failed to get top query", zap.Error(err))
+		p.logTopQueryErrOnce("failed to get top query", err)
 		mux.addPartial(err)
 		return
 	}
+	// Collection succeeded; clear any sticky error so a later failure is reported again.
+	p.clearTopQueryErr()
 
 	type updatedOnlyInfo struct {
 		finalConverter func(float64) any
@@ -362,18 +403,23 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 		isSuperuser, _ := item.Value[dbAttributePrefix+"rolsuper"].(string)
 		if !ok && isSuperuser != "true" && explained < maxExplainEachInterval {
 			database := item.Value[string(semconv.DBNamespaceKey)].(string)
-			dbClient, err := clientFactory.getClient(database)
-			if err == nil {
-				plan, err = dbClient.explainQuery(rawQuery, queryID, logger)
-				if err != nil {
-					logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
-				}
-				// to avoid flood the error message. there are some internal queries meant to not be
-				// explained. we wait for the cache to expire and report the error again.
-				p.queryPlanCache.Add(queryID+"-plan", plan)
-				err = dbClient.Close()
-				if err != nil {
-					logger.Error("failed to close", zap.Error(err))
+			// Skip the lookup for databases known to lack pg_store_plans; the query is still reported below without a plan.
+			if !p.storePlansMissing[database] {
+				dbClient, err := clientFactory.getClient(database)
+				if err == nil {
+					if p.queryPlanStoreReady(ctx, dbClient, database) {
+						plan, err = dbClient.explainQuery(rawQuery, queryID, logger)
+						if err != nil {
+							logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
+						}
+						// to avoid flood the error message. there are some internal queries meant to not be
+						// explained. we wait for the cache to expire and report the error again.
+						p.queryPlanCache.Add(queryID+"-plan", plan)
+					}
+					err = dbClient.Close()
+					if err != nil {
+						logger.Error("failed to close", zap.Error(err))
+					}
 				}
 			}
 			explained++

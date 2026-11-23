@@ -1,0 +1,21 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# postgres image with the pg_store_plans extension built from source, used to
+# verify the receiver reads captured query plans as JSON regardless of the
+# server's default pg_store_plans.plan_format (which is text).
+FROM postgres:17
+
+ARG PG_STORE_PLANS_VERSION=1.10
+
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		build-essential git ca-certificates postgresql-server-dev-17; \
+	git clone --depth 1 --branch "${PG_STORE_PLANS_VERSION}" \
+		https://github.com/ossc-db/pg_store_plans.git /tmp/pg_store_plans; \
+	make -C /tmp/pg_store_plans USE_PGXS=1; \
+	make -C /tmp/pg_store_plans USE_PGXS=1 install; \
+	rm -rf /tmp/pg_store_plans; \
+	apt-get purge -y --auto-remove build-essential git postgresql-server-dev-17; \
+	rm -rf /var/lib/apt/lists/*
