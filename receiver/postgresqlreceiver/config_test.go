@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/config/configdbauth"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/postgresqlreceiver/internal/metadata"
 )
 
@@ -338,6 +339,14 @@ func TestPassfileValidation(t *testing.T) {
 				cfg.Passfile = "/nonexistent/path/pgpass"
 			},
 			expectError: "`passfile` is inaccessible",
+		},
+		{
+			desc: "db_auth + nonexistent passfile - valid (db_auth takes priority)",
+			modifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.DBAuth = configdbauth.ID(component.MustNewID("aws_iam_dbauth"))
+				cfg.Passfile = "/nonexistent/path/pgpass"
+			},
 		},
 		{
 			desc: "passfile wrong permissions - error (linux only)",

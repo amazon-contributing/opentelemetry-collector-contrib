@@ -115,8 +115,8 @@ func (cfg *Config) Validate() error {
 		err = multierr.Append(err, errors.New(ErrNoPassword))
 	}
 
-	// When Password is empty and Passfile is set, validate the file.
-	if cfg.Password == "" && cfg.Passfile != "" {
+	// Validate the passfile only when it is the credential source.
+	if cfg.Password == "" && !dbAuthConfigured && cfg.Passfile != "" {
 		if permErr := cfg.validatePassfilePermissions(); permErr != nil {
 			err = multierr.Append(err, permErr)
 		}
