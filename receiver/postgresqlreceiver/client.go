@@ -87,6 +87,9 @@ type postgreSQLClient struct {
 // capturedQueryPlanSQL is the query used to read a recorded plan from pg_store_plans by queryid.
 const capturedQueryPlanSQL = "/* otel-collector-ignore */ SELECT plan FROM pg_store_plans WHERE queryid::text = $1 ORDER BY calls DESC LIMIT 1"
 
+// Fork: unused through isIdentifierByte. explainQuery reads plans from pg_store_plans and never
+// prepares query text; kept to match upstream.
+
 // typedLiteralTypeNames is the allowlist of type names repaired in the "TYPENAME $N" position,
 // longest spelling first so a multi-word name beats the prefix it starts with. Anything unlisted,
 // including aliases such as int and bool and any user-defined type, stays unrepaired.
