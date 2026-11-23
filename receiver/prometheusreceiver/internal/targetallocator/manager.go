@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -35,6 +36,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver/internal/sharedpromconfig"
 )
 
+var errNoHTTPClient = errors.New("no target allocator client: the last TLS client build failed")
+
 type Manager struct {
 	settings             receiver.Settings
 	shutdown             chan struct{}
@@ -45,7 +48,9 @@ type Manager struct {
 	discoveryManager     *discovery.Manager
 	watcher              *fsnotify.Watcher
 	host                 component.Host
-	httpClient           *http.Client
+	httpClient           atomic.Pointer[http.Client]
+	tlsReloadDelay       time.Duration
+	newBackOff           func() backoff.BackOff
 	wg                   sync.WaitGroup
 
 	// configUpdateCount tracks how many times the config has changed, for
@@ -64,6 +69,8 @@ func NewManager(set receiver.Settings, cfg *Config, promCfg *sharedpromconfig.Co
 		initialScrapeConfigs: promCfg.Get().ScrapeConfigs,
 		configUpdateCount:    &atomic.Int64{},
 		configUpdated:        make(chan struct{}, 10),
+		tlsReloadDelay:       time.Second,
+		newBackOff:           func() backoff.BackOff { return backoff.NewExponentialBackOff() },
 	}
 }
 
@@ -96,8 +103,11 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 		}
 		return savedHash, nil
 	}
-	// immediately sync jobs, not waiting for the first tick
-	savedHash, err := backoff.Retry(ctx, operation, backoff.WithBackOff(backoff.NewExponentialBackOff()))
+	// immediately sync jobs, not waiting for the first tick; the ticker below
+	// keeps retrying after the first interval
+	savedHash, err := backoff.Retry(ctx, operation,
+		backoff.WithBackOff(m.newBackOff()),
+		backoff.WithMaxElapsedTime(m.cfg.Interval))
 	if err != nil {
 		m.settings.Logger.Error("Failed to sync target allocator", zap.Error(err))
 	}
@@ -138,8 +148,8 @@ func (m *Manager) Shutdown() {
 	m.wg.Wait()
 }
 
-// setupTLSWatchers creates one fsnotify watcher and adds CAFile, CertFile, KeyFile
-// so that we automatically re-sync whenever they change.
+// setupTLSWatchers rebuilds the HTTP client when a TLS file, or the ..data
+// symlink of a mounted Secret, changes.
 func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -147,32 +157,53 @@ func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 	}
 	m.watcher = watcher
 
-	addFile := func(path string) {
+	watched := map[string]map[string]struct{}{}
+	for _, path := range []string{m.cfg.ClientConfig.TLS.CAFile, m.cfg.ClientConfig.TLS.CertFile, m.cfg.ClientConfig.TLS.KeyFile} {
 		if path == "" {
-			return
+			continue
 		}
-		if err := watcher.Add(path); err != nil {
-			m.settings.Logger.Error("Failed to watch TLS file", zap.String("file", path), zap.Error(err))
+		dir := filepath.Dir(filepath.Clean(path))
+		if _, ok := watched[dir]; !ok {
+			if err := watcher.Add(dir); err != nil {
+				m.settings.Logger.Error("Failed to watch TLS file directory", zap.String("dir", dir), zap.Error(err))
+				continue
+			}
+			watched[dir] = map[string]struct{}{"..data": {}}
 		}
+		watched[dir][filepath.Base(path)] = struct{}{}
 	}
 
-	addFile(m.cfg.ClientConfig.TLS.CAFile)
-	addFile(m.cfg.ClientConfig.TLS.CertFile)
-	addFile(m.cfg.ClientConfig.TLS.KeyFile)
-
-	go func() {
+	m.wg.Go(func() {
+		var reload *time.Timer
+		var reloadC <-chan time.Time
+		defer func() {
+			if reload != nil {
+				reload.Stop()
+			}
+		}()
 		for {
 			select {
 			case event, ok := <-watcher.Events:
 				if !ok {
 					return
 				}
-				if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Remove) != 0 {
-					m.settings.Logger.Info("TLS file changed; re-syncing",
-						zap.String("file", event.Name), zap.String("op", event.Op.String()))
-					if err := m.setHTTPClient(ctx); err != nil {
-						m.settings.Logger.Error("Failed to sync after TLS file change", zap.Error(err))
-					}
+				if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Remove) == 0 {
+					continue
+				}
+				if _, ok := watched[filepath.Dir(event.Name)][filepath.Base(event.Name)]; !ok {
+					continue
+				}
+				if reload == nil {
+					reload = time.NewTimer(m.tlsReloadDelay)
+				} else {
+					reload.Reset(m.tlsReloadDelay)
+				}
+				reloadC = reload.C
+			case <-reloadC:
+				reloadC = nil
+				m.settings.Logger.Info("TLS files changed; rebuilding target allocator client")
+				if err := m.setHTTPClient(ctx); err != nil {
+					m.settings.Logger.Error("Failed to sync after TLS file change", zap.Error(err))
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -183,19 +214,21 @@ func (m *Manager) setupTLSWatchers(ctx context.Context) error {
 				return
 			}
 		}
-	}()
+	})
 
 	return nil
 }
 
 func (m *Manager) setHTTPClient(ctx context.Context) error {
-	var err error
-	m.httpClient, err = m.cfg.ClientConfig.ToClient(ctx, m.host.GetExtensions(), m.settings.TelemetrySettings)
+	client, err := m.cfg.ClientConfig.ToClient(ctx, m.host.GetExtensions(), m.settings.TelemetrySettings)
 	if err != nil {
 		m.settings.Logger.Error("Failed to create http client", zap.Error(err))
-		return err
+		client = nil
 	}
-	return nil
+	if previous := m.httpClient.Swap(client); previous != nil {
+		previous.CloseIdleConnections()
+	}
+	return err
 }
 
 // sync request jobs from targetAllocator and update underlying receiver, if the response does not match the provided compareHash.
@@ -204,7 +237,11 @@ func (m *Manager) sync(compareHash uint64) (uint64, error) {
 	m.settings.Logger.Debug("Syncing target allocator jobs")
 	m.settings.Logger.Debug("endpoint", zap.String("endpoint", m.cfg.ClientConfig.Endpoint))
 
-	scrapeConfigsResponse, err := getScrapeConfigsResponse(m.httpClient, m.cfg.ClientConfig.Endpoint)
+	httpClient := m.httpClient.Load()
+	if httpClient == nil {
+		return 0, errNoHTTPClient
+	}
+	scrapeConfigsResponse, err := getScrapeConfigsResponse(httpClient, m.cfg.ClientConfig.Endpoint)
 	if err != nil {
 		m.settings.Logger.Error("Failed to retrieve job list", zap.Error(err))
 		return 0, err
