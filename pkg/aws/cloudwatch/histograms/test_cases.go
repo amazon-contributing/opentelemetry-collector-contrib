@@ -76,8 +76,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      101,
 				Sum:        6000,
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{21, 31, 25, 15, 7, 2},
 				Attributes: map[string]string{"service.name": "payment-service"},
@@ -86,8 +86,8 @@ func TestCases() []HistogramTestCase {
 				Count:   101,
 				Sum:     6000,
 				Average: 59.41,
-				Min:     ptr(10.0),
-				Max:     ptr(200.0),
+				Min:     new(10.0),
+				Max:     new(200.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 10.0, High: 25.0},
 					0.1:  {Low: 10.0, High: 25.0},
@@ -104,8 +104,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      1010,
 				Sum:        145000,
-				Min:        ptr(10.0),
-				Max:        ptr(151.0),
+				Min:        new(10.0),
+				Max:        new(151.0),
 				Boundaries: []float64{25, 50, 75, 100, 125, 150, 151, 200},
 				Counts:     []uint64{3, 7, 15, 25, 50, 800, 100, 10, 0},
 				Attributes: map[string]string{"service.name": "payment-service"},
@@ -114,8 +114,8 @@ func TestCases() []HistogramTestCase {
 				Count:   1010,
 				Sum:     145000,
 				Average: 143.56,
-				Min:     ptr(10.0),
-				Max:     ptr(151.0),
+				Min:     new(10.0),
+				Max:     new(151.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 25.0, High: 50.0},
 					0.1:  {Low: 125.0, High: 150.0},
@@ -132,8 +132,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      51,
 				Sum:        1000,
-				Min:        ptr(5.0),
-				Max:        ptr(75.0),
+				Min:        new(5.0),
+				Max:        new(75.0),
 				Boundaries: []float64{},
 				Counts:     []uint64{51},
 				Attributes: map[string]string{"service.name": "auth-service"},
@@ -142,8 +142,8 @@ func TestCases() []HistogramTestCase {
 				Count:   51,
 				Sum:     1000,
 				Average: 19.61,
-				Min:     ptr(5.0),
-				Max:     ptr(75.0),
+				Min:     new(5.0),
+				Max:     new(75.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 5.0, High: 75.0},
 					0.1:  {Low: 5.0, High: 75.0},
@@ -160,8 +160,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      31,
 				Sum:        150,
-				Min:        ptr(1.0),
-				Max:        ptr(10.0),
+				Min:        new(1.0),
+				Max:        new(10.0),
 				Boundaries: []float64{5},
 				Counts:     []uint64{21, 10},
 				Attributes: map[string]string{"service.name": "database"},
@@ -170,8 +170,8 @@ func TestCases() []HistogramTestCase {
 				Count:   31,
 				Sum:     150,
 				Average: 4.84,
-				Min:     ptr(1.0),
-				Max:     ptr(10.0),
+				Min:     new(1.0),
+				Max:     new(10.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 1.0, High: 5.0},
 					0.1:  {Low: 1.0, High: 5.0},
@@ -188,8 +188,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      101,
 				Sum:        25000,
-				Min:        ptr(0.0),
-				Max:        ptr(1500.0),
+				Min:        new(0.0),
+				Max:        new(1500.0),
 				Boundaries: []float64{10, 50, 100, 500, 1000},
 				Counts:     []uint64{51, 0, 0, 39, 0, 11},
 				Attributes: map[string]string{"service.name": "cache-service"},
@@ -198,8 +198,8 @@ func TestCases() []HistogramTestCase {
 				Count:   101,
 				Sum:     25000,
 				Average: 247.52,
-				Min:     ptr(0.0),
-				Max:     ptr(1500.0),
+				Min:     new(0.0),
+				Max:     new(1500.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 0.0, High: 10.0},
 					0.1:  {Low: 0.0, High: 10.0},
@@ -216,8 +216,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      1001,
 				Sum:        100000000000,
-				Min:        ptr(100000.0),
-				Max:        ptr(1000000000.0),
+				Min:        new(100000.0),
+				Max:        new(1000000000.0),
 				Boundaries: []float64{1000000, 10000000, 50000000, 100000000, 500000000},
 				Counts:     []uint64{201, 301, 249, 150, 50, 50},
 				Attributes: map[string]string{"service.name": "batch-processor"},
@@ -226,8 +226,8 @@ func TestCases() []HistogramTestCase {
 				Count:   1001,
 				Sum:     100000000000,
 				Average: 99900099.90,
-				Min:     ptr(100000.0),
-				Max:     ptr(1000000000.0),
+				Min:     new(100000.0),
+				Max:     new(1000000000.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 100000.0, High: 1000000.0},
 					0.1:  {Low: 100000.0, High: 1000000.0},
@@ -244,8 +244,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      1124,
 				Sum:        350000,
-				Min:        ptr(0.5),
-				Max:        ptr(1100.0),
+				Min:        new(0.5),
+				Max:        new(1100.0),
 				Boundaries: []float64{1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000},
 				Counts:     []uint64{51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 53},
 				Attributes: map[string]string{"service.name": "detailed-metrics"},
@@ -254,8 +254,8 @@ func TestCases() []HistogramTestCase {
 				Count:   1124,
 				Sum:     350000,
 				Average: 311.39,
-				Min:     ptr(0.5),
-				Max:     ptr(1100.0),
+				Min:     new(0.5),
+				Max:     new(1100.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 0.5, High: 1.0},
 					0.1:  {Low: 5.0, High: 10.0},
@@ -272,8 +272,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      101,
 				Sum:        0.00015,
-				Min:        ptr(0.00000001),
-				Max:        ptr(0.000006),
+				Min:        new(0.00000001),
+				Max:        new(0.000006),
 				Boundaries: []float64{0.0000001, 0.000001, 0.000002, 0.000003, 0.000004, 0.000005},
 				Counts:     []uint64{11, 21, 29, 20, 15, 4, 1},
 				Attributes: map[string]string{"service.name": "micro-timing"},
@@ -282,8 +282,8 @@ func TestCases() []HistogramTestCase {
 				Count:   101,
 				Sum:     0.00015,
 				Average: 0.00000149,
-				Min:     ptr(0.00000001),
-				Max:     ptr(0.000006),
+				Min:     new(0.00000001),
+				Max:     new(0.000006),
 				PercentileRanges: map[float64]PercentileRange{
 					0.01: {Low: 0.00000001, High: 0.0000001},
 					0.1:  {Low: 0.00000001, High: 0.0000001},
@@ -300,8 +300,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      101,
 				Sum:        -10000,
-				Min:        ptr(-200.0),
-				Max:        ptr(-10.0),
+				Min:        new(-200.0),
+				Max:        new(-10.0),
 				Boundaries: []float64{-150, -100, -75, -50, -25},
 				Counts:     []uint64{21, 31, 25, 15, 7, 2},
 				Attributes: map[string]string{"service.name": "negative-service"},
@@ -310,8 +310,8 @@ func TestCases() []HistogramTestCase {
 				Count:   101,
 				Sum:     -10000,
 				Average: -99.01,
-				Min:     ptr(-200.0),
-				Max:     ptr(-10.0),
+				Min:     new(-200.0),
+				Max:     new(-10.0),
 				// Can't get percentiles for negatives
 				PercentileRanges: map[float64]PercentileRange{},
 			},
@@ -321,8 +321,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      106,
 				Sum:        0,
-				Min:        ptr(-50.0),
-				Max:        ptr(50.0),
+				Min:        new(-50.0),
+				Max:        new(50.0),
 				Boundaries: []float64{-30, -10, 10, 30},
 				Counts:     []uint64{25, 26, 5, 25, 25},
 				Attributes: map[string]string{"service.name": "temperature-service"},
@@ -331,8 +331,8 @@ func TestCases() []HistogramTestCase {
 				Count:   106,
 				Sum:     0,
 				Average: 0.0,
-				Min:     ptr(-50.0),
-				Max:     ptr(50.0),
+				Min:     new(-50.0),
+				Max:     new(50.0),
 				// Can't get percentiles for negatives
 				PercentileRanges: map[float64]PercentileRange{},
 			},
@@ -343,8 +343,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      101,
 				Sum:        200,
-				Min:        ptr(-100.0),
-				Max:        ptr(60.0),
+				Min:        new(-100.0),
+				Max:        new(60.0),
 				Boundaries: []float64{0, 10, 20, 30, 40, 50},
 				Counts:     []uint64{61, 10, 10, 10, 5, 4, 1},
 				Attributes: map[string]string{"service.name": "temperature-service"},
@@ -353,8 +353,8 @@ func TestCases() []HistogramTestCase {
 				Count:   101,
 				Sum:     200,
 				Average: 1.98,
-				Min:     ptr(-100.0),
-				Max:     ptr(60.0),
+				Min:     new(-100.0),
+				Max:     new(60.0),
 				// Can't get percentiles for negatives
 				PercentileRanges: map[float64]PercentileRange{},
 			},
@@ -391,7 +391,7 @@ func TestCases() []HistogramTestCase {
 				Count:      101,
 				Sum:        17500,
 				Min:        nil,
-				Max:        ptr(750.0),
+				Max:        new(750.0),
 				Boundaries: []float64{100, 200, 300, 400, 500},
 				Counts:     []uint64{21, 31, 24, 15, 5, 5},
 				Attributes: map[string]string{"service.name": "api-gateway"},
@@ -401,7 +401,7 @@ func TestCases() []HistogramTestCase {
 				Sum:     17500,
 				Average: 173.27,
 				Min:     nil,
-				Max:     ptr(750.0),
+				Max:     new(750.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.1:  {Low: math.Inf(-1), High: 100.0},
 					0.25: {Low: 100.0, High: 200.0},
@@ -416,7 +416,7 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      51,
 				Sum:        4000,
-				Min:        ptr(25.0),
+				Min:        new(25.0),
 				Max:        nil,
 				Boundaries: []float64{50, 100, 150},
 				Counts:     []uint64{11, 21, 14, 5},
@@ -426,7 +426,7 @@ func TestCases() []HistogramTestCase {
 				Count:   51,
 				Sum:     4000,
 				Average: 78.43,
-				Min:     ptr(25.0),
+				Min:     new(25.0),
 				Max:     nil,
 				PercentileRanges: map[float64]PercentileRange{
 					0.1:  {Low: 25.0, High: 50.0},
@@ -523,8 +523,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      1386, // 126 buckets * 11 items each
 				Sum:        870555,
-				Min:        ptr(5.0),
-				Max:        ptr(1300.0),
+				Min:        new(5.0),
+				Max:        new(1300.0),
 				Boundaries: boundaries125,
 				Counts:     counts125,
 				Attributes: map[string]string{"service.name": "many-buckets-125"},
@@ -533,8 +533,8 @@ func TestCases() []HistogramTestCase {
 				Count:   1386,
 				Sum:     870555,
 				Average: 628.11,
-				Min:     ptr(5.0),
-				Max:     ptr(1300.0),
+				Min:     new(5.0),
+				Max:     new(1300.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.1:  {Low: 120.0, High: 130.0},
 					0.25: {Low: 310.0, High: 320.0},
@@ -550,8 +550,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      1936, // 176 buckets * 11 items each
 				Sum:        1697000,
-				Min:        ptr(5.0),
-				Max:        ptr(1800.0),
+				Min:        new(5.0),
+				Max:        new(1800.0),
 				Boundaries: boundaries175,
 				Counts:     counts175,
 				Attributes: map[string]string{"service.name": "many-buckets-175"},
@@ -560,8 +560,8 @@ func TestCases() []HistogramTestCase {
 				Count:   1936,
 				Sum:     1697000,
 				Average: 876.55,
-				Min:     ptr(5.0),
-				Max:     ptr(1800.0),
+				Min:     new(5.0),
+				Max:     new(1800.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.1:  {Low: 170.0, High: 180.0},
 					0.25: {Low: 430.0, High: 440.0},
@@ -578,8 +578,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      2486, // 226 buckets * 11 items each
 				Sum:        2803750,
-				Min:        ptr(5.0),
-				Max:        ptr(2300.0),
+				Min:        new(5.0),
+				Max:        new(2300.0),
 				Boundaries: boundaries225,
 				Counts:     counts225,
 				Attributes: map[string]string{"service.name": "many-buckets-225"},
@@ -588,8 +588,8 @@ func TestCases() []HistogramTestCase {
 				Count:   2486,
 				Sum:     2803750,
 				Average: 1127.82,
-				Min:     ptr(5.0),
-				Max:     ptr(2300.0),
+				Min:     new(5.0),
+				Max:     new(2300.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.1:  {Low: 220.0, High: 230.0},
 					0.25: {Low: 560.0, High: 570.0},
@@ -606,8 +606,8 @@ func TestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      3586, // 326 buckets * 11 items each
 				Sum:        5830500,
-				Min:        ptr(5.0),
-				Max:        ptr(3300.0),
+				Min:        new(5.0),
+				Max:        new(3300.0),
 				Boundaries: boundaries325,
 				Counts:     counts325,
 				Attributes: map[string]string{"service.name": "many-buckets-325"},
@@ -616,8 +616,8 @@ func TestCases() []HistogramTestCase {
 				Count:   3586,
 				Sum:     5830500,
 				Average: 1625.91,
-				Min:     ptr(5.0),
-				Max:     ptr(3300.0),
+				Min:     new(5.0),
+				Max:     new(3300.0),
 				PercentileRanges: map[float64]PercentileRange{
 					0.1:  {Low: 320.0, High: 330.0},
 					0.25: {Low: 810.0, High: 820.0},
@@ -637,8 +637,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        5000,
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 40, 100, 150}, // 40 < 50
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 				Attributes: map[string]string{"service.name": "invalid-boundaries"},
@@ -650,8 +650,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        5000,
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2}, // Should be 5 counts for 4 boundaries
 				Attributes: map[string]string{"service.name": "wrong-counts"},
@@ -663,8 +663,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      90, // Doesn't match sum of counts (100)
 				Sum:        5000,
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 				Attributes: map[string]string{"service.name": "count-mismatch"},
@@ -676,8 +676,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        5000,
-				Min:        ptr(30.0), // Greater than first boundary (25)
-				Max:        ptr(200.0),
+				Min:        new(30.0), // Greater than first boundary (25)
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2}, // Has counts in first bucket
 				Attributes: map[string]string{"service.name": "invalid-min"},
@@ -689,8 +689,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        5000,
-				Min:        ptr(10.0),
-				Max:        ptr(140.0), // Less than last boundary (150)
+				Min:        new(10.0),
+				Max:        new(140.0), // Less than last boundary (150)
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2}, // Has counts in overflow bucket
 				Attributes: map[string]string{"service.name": "invalid-max"},
@@ -702,8 +702,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        100, // Too small given the boundaries and counts
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 				Attributes: map[string]string{"service.name": "small-sum"},
@@ -715,8 +715,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        1000000, // Too large given the boundaries and counts
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 				Attributes: map[string]string{"service.name": "large-sum"},
@@ -728,8 +728,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        2000,      // This sum is too low given min is in second bucket
-				Min:        ptr(60.0), // Min falls in second bucket (50,75]
-				Max:        ptr(200.0),
+				Min:        new(60.0), // Min falls in second bucket (50,75]
+				Max:        new(200.0),
 				Boundaries: []float64{50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 10}, // 30 values must be at least 60 each in second bucket
 				Attributes: map[string]string{"service.name": "invalid-min-bucket"},
@@ -741,8 +741,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        10000, // This sum is too high given max is in second-to-last bucket
-				Min:        ptr(10.0),
-				Max:        ptr(90.0), // Max falls in second-to-last bucket (75,100]
+				Min:        new(10.0),
+				Max:        new(90.0), // Max falls in second-to-last bucket (75,100]
 				Boundaries: []float64{50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 10}, // No value can exceed 90
 				Attributes: map[string]string{"service.name": "invalid-max-bucket"},
@@ -754,8 +754,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        math.NaN(),
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 			},
@@ -766,8 +766,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        math.Inf(1),
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 			},
@@ -778,8 +778,8 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        5000,
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, math.NaN(), 75, 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 			},
@@ -790,16 +790,12 @@ func InvalidTestCases() []HistogramTestCase {
 			Input: HistogramInput{
 				Count:      100,
 				Sum:        5000,
-				Min:        ptr(10.0),
-				Max:        ptr(200.0),
+				Min:        new(10.0),
+				Max:        new(200.0),
 				Boundaries: []float64{25, 50, math.Inf(1), 100, 150},
 				Counts:     []uint64{20, 30, 25, 15, 8, 2},
 			},
 			Expected: ExpectedMetrics{},
 		},
 	}
-}
-
-func ptr(f float64) *float64 {
-	return &f
 }

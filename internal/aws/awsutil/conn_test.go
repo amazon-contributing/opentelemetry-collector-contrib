@@ -277,3 +277,19 @@ func TestResolveRegionFromIMDS_NoCustomHTTPClient(t *testing.T) {
 	assert.Equal(t, "eu-west-1", region)
 	assert.Nil(t, gotOpts.HTTPClient, "IMDS region lookup must not carry the custom client")
 }
+
+func TestResolveRegion_PassesIMDSRetries(t *testing.T) {
+	t.Setenv("AWS_REGION", "")
+	orig := newIMDSClient
+	t.Cleanup(func() { newIMDSClient = orig })
+
+	gotRetries := -1
+	newIMDSClient = func(_ *zap.Logger, retries int, _ ...func(*imds.Options)) imdsRegionClient {
+		gotRetries = retries
+		return fakeIMDSRegionClient{region: "eu-west-1"}
+	}
+
+	region := resolveRegion(t.Context(), zap.NewNop(), &AWSSessionSettings{IMDSRetries: 4})
+	assert.Equal(t, "eu-west-1", region)
+	assert.Equal(t, 4, gotRetries)
+}

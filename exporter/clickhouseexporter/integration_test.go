@@ -33,7 +33,8 @@ func getContainer(req testcontainers.ContainerRequest) (testcontainers.Container
 		testcontainers.GenericContainerRequest{
 			ContainerRequest: req,
 			Started:          true,
-		})
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure container: %w", err)
 	}
@@ -227,6 +228,7 @@ func testIntegrationWithImage(t *testing.T, clickhouseImage string) {
 	t.Run("TestLogsExporterSchemaFeatures", testProtocolsMapBody(testLogsExporterSchemaFeatures))
 	t.Run("TestTracesExporter", testProtocols(testTracesExporter, false))
 	t.Run("TestMetricsExporter", testProtocols(testMetricsExporter, false))
+	t.Run("TestProfilesExporter", testProtocols(testProfilesExporter, false))
 	t.Run("TestLogsJSONExporter", testProtocolsMapBody(testLogsJSONExporter))
 	t.Run("TestLogsJSONExporterSchemaFeatures", testProtocolsMapBody(testLogsJSONExporterSchemaFeatures))
 	t.Run("TestTracesJSONExporter", testProtocols(testTracesJSONExporter, false))
@@ -246,7 +248,7 @@ func testIntegrationWithImage(t *testing.T, clickhouseImage string) {
 			t.Fatal(err)
 		}
 
-		db, err := internal.NewClickhouseClientFromOptions(opt)
+		db, err := internal.NewClickhouseClientFromOptions(opt, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -265,11 +267,12 @@ func testIntegrationWithImage(t *testing.T, clickhouseImage string) {
 
 func TestIntegration(t *testing.T) {
 	// Update versions according to oldest and newest supported here: https://github.com/clickhouse/clickhouse/security
+	// 25.8 tests the bloom_filter fallback (CH < 26.2), 26.2 tests full text search indexes.
+	t.Run("26.2", func(t *testing.T) {
+		testIntegrationWithImage(t, "clickhouse/clickhouse-server:26.2-alpine")
+	})
 	t.Run("25.8", func(t *testing.T) {
 		testIntegrationWithImage(t, "clickhouse/clickhouse-server:25.8-alpine")
-	})
-	t.Run("25.3", func(t *testing.T) {
-		testIntegrationWithImage(t, "clickhouse/clickhouse-server:25.3-alpine")
 	})
 
 	// Verify all integration tests, ignoring test container reaper

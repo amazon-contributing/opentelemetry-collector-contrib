@@ -19,6 +19,7 @@ const (
 	testDataSetDefault testDataSet = iota
 	testDataSetAll
 	testDataSetNone
+	testDataSetReag
 )
 
 func TestMetricsBuilder(t *testing.T) {
@@ -37,6 +38,11 @@ func TestMetricsBuilder(t *testing.T) {
 			resAttrsSet: testDataSetAll,
 		},
 		{
+			name:        "reaggregate_set",
+			metricsSet:  testDataSetReag,
+			resAttrsSet: testDataSetReag,
+		},
+		{
 			name:        "none_set",
 			metricsSet:  testDataSetNone,
 			resAttrsSet: testDataSetNone,
@@ -51,103 +57,262 @@ func TestMetricsBuilder(t *testing.T) {
 			settings := receivertest.NewNopSettings(receivertest.NopType)
 			settings.Logger = zap.New(observedZapCore)
 			mb := NewMetricsBuilder(loadMetricsBuilderConfig(t, tt.name), settings, WithStartTime(start))
+			aggMap := make(map[string]string) // contains the aggregation strategies for each metric name
+			aggMap["efa_impaired_remote_conn_events"] = mb.metricEfaImpairedRemoteConnEvents.config.AggregationStrategy
+			aggMap["efa_rdma_read_bytes"] = mb.metricEfaRdmaReadBytes.config.AggregationStrategy
+			aggMap["efa_rdma_read_resp_bytes"] = mb.metricEfaRdmaReadRespBytes.config.AggregationStrategy
+			aggMap["efa_rdma_read_wr_err"] = mb.metricEfaRdmaReadWrErr.config.AggregationStrategy
+			aggMap["efa_rdma_read_wrs"] = mb.metricEfaRdmaReadWrs.config.AggregationStrategy
+			aggMap["efa_rdma_write_bytes"] = mb.metricEfaRdmaWriteBytes.config.AggregationStrategy
+			aggMap["efa_rdma_write_recv_bytes"] = mb.metricEfaRdmaWriteRecvBytes.config.AggregationStrategy
+			aggMap["efa_rdma_write_wr_err"] = mb.metricEfaRdmaWriteWrErr.config.AggregationStrategy
+			aggMap["efa_rdma_write_wrs"] = mb.metricEfaRdmaWriteWrs.config.AggregationStrategy
+			aggMap["efa_recv_bytes"] = mb.metricEfaRecvBytes.config.AggregationStrategy
+			aggMap["efa_recv_wrs"] = mb.metricEfaRecvWrs.config.AggregationStrategy
+			aggMap["efa_retrans_bytes"] = mb.metricEfaRetransBytes.config.AggregationStrategy
+			aggMap["efa_retrans_pkts"] = mb.metricEfaRetransPkts.config.AggregationStrategy
+			aggMap["efa_retrans_timeout_events"] = mb.metricEfaRetransTimeoutEvents.config.AggregationStrategy
+			aggMap["efa_rx_bytes"] = mb.metricEfaRxBytes.config.AggregationStrategy
+			aggMap["efa_rx_dropped"] = mb.metricEfaRxDropped.config.AggregationStrategy
+			aggMap["efa_rx_pkts"] = mb.metricEfaRxPkts.config.AggregationStrategy
+			aggMap["efa_send_bytes"] = mb.metricEfaSendBytes.config.AggregationStrategy
+			aggMap["efa_send_wrs"] = mb.metricEfaSendWrs.config.AggregationStrategy
+			aggMap["efa_tx_bytes"] = mb.metricEfaTxBytes.config.AggregationStrategy
+			aggMap["efa_tx_pkts"] = mb.metricEfaTxPkts.config.AggregationStrategy
+			aggMap["efa_unresponsive_remote_events"] = mb.metricEfaUnresponsiveRemoteEvents.config.AggregationStrategy
 
 			expectedWarnings := 0
-			assert.Equal(t, expectedWarnings, observedLogs.Len())
+			if tt.metricsSet != testDataSetReag {
+				assert.Equal(t, expectedWarnings, observedLogs.Len())
+			}
 
 			defaultMetricsCount := 0
 			allMetricsCount := 0
-
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaImpairedRemoteConnEventsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaImpairedRemoteConnEvents.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaReadBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaReadBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaReadBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaReadBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaReadRespBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaReadRespBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaReadRespBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaReadRespBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaReadWrErrDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaReadWrErrDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaReadWrErrDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaReadWrErr.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaReadWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaReadWrsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaReadWrsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaReadWrs.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaWriteBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaWriteBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaWriteBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaWriteBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaWriteRecvBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaWriteRecvBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaWriteWrErrDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaWriteWrErrDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaWriteWrErrDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaWriteWrErr.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRdmaWriteWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRdmaWriteWrsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRdmaWriteWrsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRdmaWriteWrs.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRecvBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRecvBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRecvBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRecvBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRecvWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRecvWrsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRecvWrsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRecvWrs.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRetransBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRetransBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRetransBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRetransBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRetransPktsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRetransPktsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRetransPktsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRetransPkts.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRetransTimeoutEventsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRetransTimeoutEventsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRetransTimeoutEventsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRetransTimeoutEvents.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRxBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRxBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRxBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRxBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRxDroppedDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRxDroppedDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRxDroppedDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRxDropped.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaRxPktsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaRxPktsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaRxPktsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaRxPkts.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaSendBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaSendBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaSendBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaSendBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaSendWrsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaSendWrsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaSendWrsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaSendWrs.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaTxBytesDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaTxBytesDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaTxBytesDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaTxBytes.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaTxPktsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
-
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaTxPktsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaTxPktsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaTxPkts.data.Sum().DataPoints().Len())
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, 1, "aws.efa.device-val", "aws.efa.port-val", "aws.efa.eni.id-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				// a different timestamp is a different key: must not merge with the above.
+				mb.RecordEfaUnresponsiveRemoteEventsDataPoint(ts+1, 3, "aws.efa.device-val-2", "aws.efa.port-val-2", "aws.efa.eni.id-val-2")
+				assert.Equal(t, 2, mb.metricEfaUnresponsiveRemoteEvents.data.Sum().DataPoints().Len())
+			}
 
 			res := pcommon.NewResource()
 			metrics := mb.Emit(WithResource(res))
+			if tt.name == "reaggregate_set" {
+				assert.Empty(t, mb.metricEfaImpairedRemoteConnEvents.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaReadBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaReadRespBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaReadWrErr.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaReadWrs.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaWriteBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaWriteRecvBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaWriteWrErr.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRdmaWriteWrs.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRecvBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRecvWrs.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRetransBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRetransPkts.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRetransTimeoutEvents.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRxBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRxDropped.aggDataPoints)
+				assert.Empty(t, mb.metricEfaRxPkts.aggDataPoints)
+				assert.Empty(t, mb.metricEfaSendBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaSendWrs.aggDataPoints)
+				assert.Empty(t, mb.metricEfaTxBytes.aggDataPoints)
+				assert.Empty(t, mb.metricEfaTxPkts.aggDataPoints)
+				assert.Empty(t, mb.metricEfaUnresponsiveRemoteEvents.aggDataPoints)
+			}
 
 			if tt.expectEmpty {
 				assert.Equal(t, 0, metrics.ResourceMetrics().Len())
@@ -175,511 +340,1237 @@ func TestMetricsBuilder(t *testing.T) {
 			for _, mi := range allMetricsList {
 				switch mi.Name() {
 				case "efa_impaired_remote_conn_events":
-					assert.False(t, validatedMetrics["efa_impaired_remote_conn_events"], "Found a duplicate in the metrics slice: efa_impaired_remote_conn_events")
-					validatedMetrics["efa_impaired_remote_conn_events"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_impaired_remote_conn_events"], "Found a duplicate in the metrics slice: efa_impaired_remote_conn_events")
+						validatedMetrics["efa_impaired_remote_conn_events"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_impaired_remote_conn_events"], "Found a duplicate in the metrics slice: efa_impaired_remote_conn_events")
+						validatedMetrics["efa_impaired_remote_conn_events"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of times EFA SRD connections entered an impaired state resulting in a reduced throughput rate limit", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_impaired_remote_conn_events"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_read_bytes":
-					assert.False(t, validatedMetrics["efa_rdma_read_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_bytes")
-					validatedMetrics["efa_rdma_read_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes received using RDMA read operations", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_read_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_bytes")
+						validatedMetrics["efa_rdma_read_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes received using RDMA read operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_read_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_bytes")
+						validatedMetrics["efa_rdma_read_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes received using RDMA read operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_read_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_read_resp_bytes":
-					assert.False(t, validatedMetrics["efa_rdma_read_resp_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_resp_bytes")
-					validatedMetrics["efa_rdma_read_resp_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes sent in RDMA read response", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_read_resp_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_resp_bytes")
+						validatedMetrics["efa_rdma_read_resp_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes sent in RDMA read response", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_read_resp_bytes"], "Found a duplicate in the metrics slice: efa_rdma_read_resp_bytes")
+						validatedMetrics["efa_rdma_read_resp_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes sent in RDMA read response", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_read_resp_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_read_wr_err":
-					assert.False(t, validatedMetrics["efa_rdma_read_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_read_wr_err")
-					validatedMetrics["efa_rdma_read_wr_err"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of RDMA read work request errors", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_read_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_read_wr_err")
+						validatedMetrics["efa_rdma_read_wr_err"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of RDMA read work request errors", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_read_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_read_wr_err")
+						validatedMetrics["efa_rdma_read_wr_err"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of RDMA read work request errors", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_read_wr_err"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_read_wrs":
-					assert.False(t, validatedMetrics["efa_rdma_read_wrs"], "Found a duplicate in the metrics slice: efa_rdma_read_wrs")
-					validatedMetrics["efa_rdma_read_wrs"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of RDMA read work requests completed", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_read_wrs"], "Found a duplicate in the metrics slice: efa_rdma_read_wrs")
+						validatedMetrics["efa_rdma_read_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of RDMA read work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_read_wrs"], "Found a duplicate in the metrics slice: efa_rdma_read_wrs")
+						validatedMetrics["efa_rdma_read_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of RDMA read work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_read_wrs"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_write_bytes":
-					assert.False(t, validatedMetrics["efa_rdma_write_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_bytes")
-					validatedMetrics["efa_rdma_write_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes written by other instances using RDMA write operations", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_write_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_bytes")
+						validatedMetrics["efa_rdma_write_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes written by other instances using RDMA write operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_write_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_bytes")
+						validatedMetrics["efa_rdma_write_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes written by other instances using RDMA write operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_write_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_write_recv_bytes":
-					assert.False(t, validatedMetrics["efa_rdma_write_recv_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_recv_bytes")
-					validatedMetrics["efa_rdma_write_recv_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes received by RDMA write operations", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_write_recv_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_recv_bytes")
+						validatedMetrics["efa_rdma_write_recv_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes received by RDMA write operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_write_recv_bytes"], "Found a duplicate in the metrics slice: efa_rdma_write_recv_bytes")
+						validatedMetrics["efa_rdma_write_recv_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes received by RDMA write operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_write_recv_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_write_wr_err":
-					assert.False(t, validatedMetrics["efa_rdma_write_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_write_wr_err")
-					validatedMetrics["efa_rdma_write_wr_err"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of RDMA write work request errors", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_write_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_write_wr_err")
+						validatedMetrics["efa_rdma_write_wr_err"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of RDMA write work request errors", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_write_wr_err"], "Found a duplicate in the metrics slice: efa_rdma_write_wr_err")
+						validatedMetrics["efa_rdma_write_wr_err"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of RDMA write work request errors", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_write_wr_err"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rdma_write_wrs":
-					assert.False(t, validatedMetrics["efa_rdma_write_wrs"], "Found a duplicate in the metrics slice: efa_rdma_write_wrs")
-					validatedMetrics["efa_rdma_write_wrs"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of RDMA write work requests completed", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rdma_write_wrs"], "Found a duplicate in the metrics slice: efa_rdma_write_wrs")
+						validatedMetrics["efa_rdma_write_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of RDMA write work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rdma_write_wrs"], "Found a duplicate in the metrics slice: efa_rdma_write_wrs")
+						validatedMetrics["efa_rdma_write_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of RDMA write work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rdma_write_wrs"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_recv_bytes":
-					assert.False(t, validatedMetrics["efa_recv_bytes"], "Found a duplicate in the metrics slice: efa_recv_bytes")
-					validatedMetrics["efa_recv_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes received via recv operations", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_recv_bytes"], "Found a duplicate in the metrics slice: efa_recv_bytes")
+						validatedMetrics["efa_recv_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes received via recv operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_recv_bytes"], "Found a duplicate in the metrics slice: efa_recv_bytes")
+						validatedMetrics["efa_recv_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes received via recv operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_recv_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_recv_wrs":
-					assert.False(t, validatedMetrics["efa_recv_wrs"], "Found a duplicate in the metrics slice: efa_recv_wrs")
-					validatedMetrics["efa_recv_wrs"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of receive work requests completed", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_recv_wrs"], "Found a duplicate in the metrics slice: efa_recv_wrs")
+						validatedMetrics["efa_recv_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of receive work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_recv_wrs"], "Found a duplicate in the metrics slice: efa_recv_wrs")
+						validatedMetrics["efa_recv_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of receive work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_recv_wrs"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_retrans_bytes":
-					assert.False(t, validatedMetrics["efa_retrans_bytes"], "Found a duplicate in the metrics slice: efa_retrans_bytes")
-					validatedMetrics["efa_retrans_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of EFA SRD bytes retransmitted", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_retrans_bytes"], "Found a duplicate in the metrics slice: efa_retrans_bytes")
+						validatedMetrics["efa_retrans_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of EFA SRD bytes retransmitted", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_retrans_bytes"], "Found a duplicate in the metrics slice: efa_retrans_bytes")
+						validatedMetrics["efa_retrans_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of EFA SRD bytes retransmitted", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_retrans_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_retrans_pkts":
-					assert.False(t, validatedMetrics["efa_retrans_pkts"], "Found a duplicate in the metrics slice: efa_retrans_pkts")
-					validatedMetrics["efa_retrans_pkts"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of EFA SRD packets retransmitted", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_retrans_pkts"], "Found a duplicate in the metrics slice: efa_retrans_pkts")
+						validatedMetrics["efa_retrans_pkts"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of EFA SRD packets retransmitted", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_retrans_pkts"], "Found a duplicate in the metrics slice: efa_retrans_pkts")
+						validatedMetrics["efa_retrans_pkts"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of EFA SRD packets retransmitted", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_retrans_pkts"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_retrans_timeout_events":
-					assert.False(t, validatedMetrics["efa_retrans_timeout_events"], "Found a duplicate in the metrics slice: efa_retrans_timeout_events")
-					validatedMetrics["efa_retrans_timeout_events"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of times EFA SRD traffic timed out and resulted in a network path change", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_retrans_timeout_events"], "Found a duplicate in the metrics slice: efa_retrans_timeout_events")
+						validatedMetrics["efa_retrans_timeout_events"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of times EFA SRD traffic timed out and resulted in a network path change", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_retrans_timeout_events"], "Found a duplicate in the metrics slice: efa_retrans_timeout_events")
+						validatedMetrics["efa_retrans_timeout_events"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of times EFA SRD traffic timed out and resulted in a network path change", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_retrans_timeout_events"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rx_bytes":
-					assert.False(t, validatedMetrics["efa_rx_bytes"], "Found a duplicate in the metrics slice: efa_rx_bytes")
-					validatedMetrics["efa_rx_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes received", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rx_bytes"], "Found a duplicate in the metrics slice: efa_rx_bytes")
+						validatedMetrics["efa_rx_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes received", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rx_bytes"], "Found a duplicate in the metrics slice: efa_rx_bytes")
+						validatedMetrics["efa_rx_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes received", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rx_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rx_dropped":
-					assert.False(t, validatedMetrics["efa_rx_dropped"], "Found a duplicate in the metrics slice: efa_rx_dropped")
-					validatedMetrics["efa_rx_dropped"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of packets that were received and then dropped", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rx_dropped"], "Found a duplicate in the metrics slice: efa_rx_dropped")
+						validatedMetrics["efa_rx_dropped"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of packets that were received and then dropped", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rx_dropped"], "Found a duplicate in the metrics slice: efa_rx_dropped")
+						validatedMetrics["efa_rx_dropped"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of packets that were received and then dropped", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rx_dropped"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_rx_pkts":
-					assert.False(t, validatedMetrics["efa_rx_pkts"], "Found a duplicate in the metrics slice: efa_rx_pkts")
-					validatedMetrics["efa_rx_pkts"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of packets received", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_rx_pkts"], "Found a duplicate in the metrics slice: efa_rx_pkts")
+						validatedMetrics["efa_rx_pkts"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of packets received", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_rx_pkts"], "Found a duplicate in the metrics slice: efa_rx_pkts")
+						validatedMetrics["efa_rx_pkts"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of packets received", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_rx_pkts"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_send_bytes":
-					assert.False(t, validatedMetrics["efa_send_bytes"], "Found a duplicate in the metrics slice: efa_send_bytes")
-					validatedMetrics["efa_send_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes sent via send operations", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_send_bytes"], "Found a duplicate in the metrics slice: efa_send_bytes")
+						validatedMetrics["efa_send_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes sent via send operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_send_bytes"], "Found a duplicate in the metrics slice: efa_send_bytes")
+						validatedMetrics["efa_send_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes sent via send operations", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_send_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_send_wrs":
-					assert.False(t, validatedMetrics["efa_send_wrs"], "Found a duplicate in the metrics slice: efa_send_wrs")
-					validatedMetrics["efa_send_wrs"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of send work requests completed", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_send_wrs"], "Found a duplicate in the metrics slice: efa_send_wrs")
+						validatedMetrics["efa_send_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of send work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_send_wrs"], "Found a duplicate in the metrics slice: efa_send_wrs")
+						validatedMetrics["efa_send_wrs"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of send work requests completed", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_send_wrs"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_tx_bytes":
-					assert.False(t, validatedMetrics["efa_tx_bytes"], "Found a duplicate in the metrics slice: efa_tx_bytes")
-					validatedMetrics["efa_tx_bytes"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of bytes transmitted", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_tx_bytes"], "Found a duplicate in the metrics slice: efa_tx_bytes")
+						validatedMetrics["efa_tx_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of bytes transmitted", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_tx_bytes"], "Found a duplicate in the metrics slice: efa_tx_bytes")
+						validatedMetrics["efa_tx_bytes"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of bytes transmitted", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_tx_bytes"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_tx_pkts":
-					assert.False(t, validatedMetrics["efa_tx_pkts"], "Found a duplicate in the metrics slice: efa_tx_pkts")
-					validatedMetrics["efa_tx_pkts"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of packets transmitted", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_tx_pkts"], "Found a duplicate in the metrics slice: efa_tx_pkts")
+						validatedMetrics["efa_tx_pkts"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of packets transmitted", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_tx_pkts"], "Found a duplicate in the metrics slice: efa_tx_pkts")
+						validatedMetrics["efa_tx_pkts"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of packets transmitted", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_tx_pkts"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				case "efa_unresponsive_remote_events":
-					assert.False(t, validatedMetrics["efa_unresponsive_remote_events"], "Found a duplicate in the metrics slice: efa_unresponsive_remote_events")
-					validatedMetrics["efa_unresponsive_remote_events"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "The number of times an EFA SRD remote connection was unresponsive", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-					awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
-					awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
-					awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
-					assert.True(t, ok)
-					assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["efa_unresponsive_remote_events"], "Found a duplicate in the metrics slice: efa_unresponsive_remote_events")
+						validatedMetrics["efa_unresponsive_remote_events"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "The number of times an EFA SRD remote connection was unresponsive", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						awsEfaDeviceAttrVal, ok := dp.Attributes().Get("aws.efa.device")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.device-val", awsEfaDeviceAttrVal.Str())
+						awsEfaPortAttrVal, ok := dp.Attributes().Get("aws.efa.port")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.port-val", awsEfaPortAttrVal.Str())
+						awsEfaEniIDAttrVal, ok := dp.Attributes().Get("aws.efa.eni.id")
+						assert.True(t, ok)
+						assert.Equal(t, "aws.efa.eni.id-val", awsEfaEniIDAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["efa_unresponsive_remote_events"], "Found a duplicate in the metrics slice: efa_unresponsive_remote_events")
+						validatedMetrics["efa_unresponsive_remote_events"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						// 2 points: the merged one above, plus one with a different timestamp that must not have merged with it.
+						assert.Equal(t, 2, mi.Sum().DataPoints().Len())
+						assert.Equal(t, ts+1, mi.Sum().DataPoints().At(1).Timestamp())
+						assert.Equal(t, "The number of times an EFA SRD remote connection was unresponsive", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["efa_unresponsive_remote_events"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("aws.efa.device")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.port")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("aws.efa.eni.id")
+						assert.False(t, ok)
+					}
 				}
 			}
 		})

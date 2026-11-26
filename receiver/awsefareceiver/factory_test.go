@@ -22,7 +22,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	efaCfg, ok := cfg.(*Config)
 	require.True(t, ok)
 	assert.Equal(t, scraperhelper.NewDefaultControllerConfig(), efaCfg.ControllerConfig)
-	assert.Equal(t, metadata.DefaultMetricsBuilderConfig(), efaCfg.MetricsBuilderConfig)
+	assert.Equal(t, metadata.NewDefaultMetricsBuilderConfig(), efaCfg.MetricsBuilderConfig)
 	assert.Empty(t, efaCfg.HostPath)
 }
 

@@ -181,7 +181,8 @@ func (p *PodStore) Shutdown() error {
 				errs = errors.Join(errs, prevMeasErr)
 			}
 			return true
-		})
+		},
+	)
 	return errs
 }
 
@@ -298,7 +299,8 @@ func (p *PodStore) cleanup(now time.Time) {
 			prevMeasurement.(*mapWithExpiry).CleanUp(now)
 			prevMeasurement.(*mapWithExpiry).Unlock()
 			return true
-		})
+		},
+	)
 	p.cache.CleanUp(now)
 }
 

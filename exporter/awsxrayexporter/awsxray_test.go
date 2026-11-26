@@ -277,8 +277,8 @@ func generateConfig(tb testing.TB) *Config {
 	tb.Setenv("AWS_REGION", "us-east-1")
 	factory := NewFactory()
 	exporterConfig := factory.CreateDefaultConfig().(*Config)
-	exporterConfig.Region = "us-east-1"
-	exporterConfig.LocalMode = true
+	exporterConfig.AWSSessionSettings.Region = "us-east-1"
+	exporterConfig.AWSSessionSettings.LocalMode = true
 	return exporterConfig
 }
 
@@ -354,7 +354,7 @@ func constructHTTPClientSpan(traceID pcommon.TraceID) ptrace.Span {
 	attributes := make(map[string]any)
 	attributes["http.method"] = http.MethodGet
 	attributes["http.url"] = "https://api.example.com/users/junit"
-	attributes["http.status_code"] = 200
+	attributes["http.response.status_code"] = 200
 	endTime := time.Now().Round(time.Second)
 	startTime := endTime.Add(-90 * time.Second)
 	spanAttributes := constructSpanAttributes(attributes)
@@ -382,7 +382,7 @@ func constructHTTPServerSpan(traceID pcommon.TraceID) ptrace.Span {
 	attributes["http.method"] = http.MethodGet
 	attributes["http.url"] = "https://api.example.com/users/junit"
 	attributes["http.client_ip"] = "192.168.15.32"
-	attributes["http.status_code"] = 200
+	attributes["http.response.status_code"] = 200
 	endTime := time.Now().Round(time.Second)
 	startTime := endTime.Add(-90 * time.Second)
 	spanAttributes := constructSpanAttributes(attributes)
@@ -467,22 +467,28 @@ func sdkOperationError(status int, apiErr error) error {
 func TestWrapErrorIfBadRequest(t *testing.T) {
 	// Unmodeled 4xx (e.g. auth failures the deserializer does not map) → permanent.
 	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		sdkOperationError(http.StatusForbidden, &smithy.GenericAPIError{Code: "AccessDeniedException"}))))
+		sdkOperationError(http.StatusForbidden, &smithy.GenericAPIError{Code: "AccessDeniedException"}),
+	)))
 	// Modeled 400 → permanent.
 	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		sdkOperationError(http.StatusBadRequest, &types.InvalidRequestException{}))))
+		sdkOperationError(http.StatusBadRequest, &types.InvalidRequestException{}),
+	)))
 	// 429 throttled → permanent (status < 500).
 	assert.True(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		sdkOperationError(http.StatusTooManyRequests, &types.ThrottledException{}))))
+		sdkOperationError(http.StatusTooManyRequests, &types.ThrottledException{}),
+	)))
 	// Unmodeled 500 → retryable.
 	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		sdkOperationError(http.StatusInternalServerError, &smithy.GenericAPIError{Code: "InternalFailure"}))))
+		sdkOperationError(http.StatusInternalServerError, &smithy.GenericAPIError{Code: "InternalFailure"}),
+	)))
 	// Transport failure / canceled context: the SDK wraps these in a
 	// ResponseError with a synthesized status 0 response → retryable.
 	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		sdkOperationError(0, &smithyhttp.RequestSendError{Err: errors.New("dial tcp: connection refused")}))))
+		sdkOperationError(0, &smithyhttp.RequestSendError{Err: errors.New("dial tcp: connection refused")}),
+	)))
 	assert.False(t, consumererror.IsPermanent(wrapErrorIfBadRequest(
-		sdkOperationError(0, &smithy.CanceledError{Err: context.DeadlineExceeded}))))
+		sdkOperationError(0, &smithy.CanceledError{Err: context.DeadlineExceeded}),
+	)))
 	// nil-safe passthrough.
 	assert.NoError(t, wrapErrorIfBadRequest(nil))
 }

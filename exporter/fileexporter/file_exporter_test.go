@@ -13,6 +13,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/DeRuina/timberjack"
@@ -26,6 +27,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pprofile"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal/testdata"
@@ -811,7 +813,7 @@ func TestFlushing(t *testing.T) {
 	}
 	export := buildExportFunc(fe.conf)
 	var err error
-	fe.writer, err = newFileWriter(fe.conf.Path, fe.conf.Append, fe.conf.Rotation, fe.conf.FlushInterval, export)
+	fe.writer, err = newFileWriter(fe.conf.Path, fe.conf.Append, fe.conf.Rotation, fe.conf.FlushInterval, export, fe.conf.Compression, int(fe.conf.CompressionParams.Level), fe.logger)
 	assert.NoError(t, err)
 	err = fe.writer.file.Close()
 	assert.NoError(t, err)
@@ -835,6 +837,111 @@ func TestFlushing(t *testing.T) {
 	// Compare the content.
 	assert.Equal(t, b, bbuf.Bytes())
 	assert.NoError(t, fe.Shutdown(ctx))
+}
+
+type flushTestWriter struct {
+	err   error
+	calls int
+}
+
+func (*flushTestWriter) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (*flushTestWriter) Close() error {
+	return nil
+}
+
+func (w *flushTestWriter) flush() error {
+	w.calls++
+	return w.err
+}
+
+func newFlushTestWriter(t *testing.T, grouped bool, logger *zap.Logger, flushErr error) (*fileWriter, *flushTestWriter) {
+	t.Helper()
+
+	dir := t.TempDir()
+	cfg := &Config{
+		Path:       filepath.Join(dir, "out.json"),
+		FormatType: formatTypeJSON,
+	}
+	if grouped {
+		cfg.Path = filepath.Join(dir, "*.json")
+		cfg.GroupBy = &GroupBy{
+			Enabled:           true,
+			ResourceAttribute: "service.name",
+			MaxOpenFiles:      10,
+		}
+	}
+
+	e := newFileExporter(cfg, logger)
+	require.NoError(t, e.Start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() {
+		require.NoError(t, e.Shutdown(t.Context()))
+	})
+
+	var writer *fileWriter
+	if grouped {
+		var err error
+		writer, err = e.(*groupingFileExporter).getWriter("test")
+		require.NoError(t, err)
+		require.NoError(t, writer.release())
+	} else {
+		writer = e.(*fileExporter).writer
+	}
+
+	require.NoError(t, writer.file.Close())
+	sink := &flushTestWriter{err: flushErr}
+	writer.file = sink
+	writer.flushInterval = time.Second
+	writer.start()
+
+	return writer, sink
+}
+
+func TestPeriodicFlushLogsFirstErrorOnly(t *testing.T) {
+	for _, grouped := range []bool{false, true} {
+		name := "single"
+		if grouped {
+			name = "grouped"
+		}
+
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				core, logs := observer.New(zap.ErrorLevel)
+				firstErr := errors.New("disk full")
+				writer, sink := newFlushTestWriter(t, grouped, zap.New(core), firstErr)
+
+				time.Sleep(time.Second)
+				synctest.Wait()
+
+				require.Equal(t, 1, logs.Len())
+				require.Equal(t, zap.ErrorLevel, logs.All()[0].Level)
+				require.Equal(t, "Failed to flush file. Buffered data may be lost and subsequent writes may fail.", logs.All()[0].Message)
+				require.Equal(t, writer.path, logs.All()[0].ContextMap()["path"])
+				require.Equal(t, firstErr.Error(), logs.All()[0].ContextMap()["error"])
+
+				time.Sleep(3 * time.Second)
+				synctest.Wait()
+
+				require.Equal(t, 4, sink.calls)
+				require.Equal(t, 1, logs.Len(), "later flush failures must not log again")
+			})
+		})
+	}
+}
+
+func TestPeriodicFlushSuccessDoesNotLog(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		core, logs := observer.New(zap.ErrorLevel)
+		_, sink := newFlushTestWriter(t, false, zap.New(core), nil)
+
+		time.Sleep(3 * time.Second)
+		synctest.Wait()
+
+		require.Equal(t, 3, sink.calls)
+		require.Empty(t, logs.All())
+	})
 }
 
 func TestAppend(t *testing.T) {
@@ -866,7 +973,7 @@ func TestAppend(t *testing.T) {
 	}
 	export := buildExportFunc(fe.conf)
 	var err error
-	fe.writer, err = newFileWriter(fe.conf.Path, fe.conf.Append, fe.conf.Rotation, fe.conf.FlushInterval, export)
+	fe.writer, err = newFileWriter(fe.conf.Path, fe.conf.Append, fe.conf.Rotation, fe.conf.FlushInterval, export, fe.conf.Compression, int(fe.conf.CompressionParams.Level), fe.logger)
 	assert.NoError(t, err)
 	err = fe.writer.file.Close()
 	assert.NoError(t, err)
@@ -892,7 +999,7 @@ func TestAppend(t *testing.T) {
 	assert.NoError(t, fe.Shutdown(ctx))
 
 	// Restart the exporter
-	fe.writer, err = newFileWriter(fe.conf.Path, fe.conf.Append, fe.conf.Rotation, fe.conf.FlushInterval, export)
+	fe.writer, err = newFileWriter(fe.conf.Path, fe.conf.Append, fe.conf.Rotation, fe.conf.FlushInterval, export, fe.conf.Compression, int(fe.conf.CompressionParams.Level), fe.logger)
 	assert.NoError(t, err)
 	err = fe.writer.file.Close()
 	assert.NoError(t, err)
@@ -933,7 +1040,8 @@ func TestCreateDirectoryOption(t *testing.T) {
 		exp, err := createLogsExporter(
 			t.Context(),
 			exportertest.NewNopSettings(metadata.Type),
-			cfg)
+			cfg,
+		)
 		require.NoError(t, err)
 		err = exp.Start(t.Context(), componenttest.NewNopHost())
 		require.Error(t, err)
@@ -953,7 +1061,8 @@ func TestCreateDirectoryOption(t *testing.T) {
 		exp, err := createLogsExporter(
 			t.Context(),
 			exportertest.NewNopSettings(metadata.Type),
-			cfg)
+			cfg,
+		)
 		require.NoError(t, err)
 		err = exp.Start(t.Context(), componenttest.NewNopHost())
 		require.NoError(t, err)
@@ -962,4 +1071,175 @@ func TestCreateDirectoryOption(t *testing.T) {
 		_, statErr := os.Stat(nonExistingDir)
 		require.NoError(t, statErr)
 	})
+}
+
+func TestFileExporterPermissions(t *testing.T) {
+	tests := []struct {
+		name     string
+		rotation *Rotation
+	}{
+		{
+			name:     "without rotation",
+			rotation: nil,
+		},
+		{
+			name: "with rotation",
+			rotation: &Rotation{
+				MaxMegabytes: 1,
+				MaxBackups:   defaultMaxBackups,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tempFileName(t)
+			fe := &fileExporter{
+				conf: &Config{
+					Path:       path,
+					FormatType: formatTypeJSON,
+					Rotation:   tt.rotation,
+				},
+			}
+
+			require.NoError(t, fe.Start(t.Context(), componenttest.NewNopHost()))
+			require.NoError(t, fe.consumeLogs(t.Context(), testdata.GenerateLogsTwoLogRecordsSameResource()))
+			require.NoError(t, fe.Shutdown(t.Context()))
+
+			info, err := os.Stat(path)
+			require.NoError(t, err)
+
+			expectedPath := filepath.Join(t.TempDir(), "expected_perms.tmp")
+			f, err := os.OpenFile(expectedPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
+			require.NoError(t, err)
+			require.NoError(t, f.Close())
+			expectedInfo, err := os.Stat(expectedPath)
+			require.NoError(t, err)
+			assert.Equal(t, expectedInfo.Mode().Perm(), info.Mode().Perm())
+		})
+	}
+}
+
+func TestFileAppendLogsExporter(t *testing.T) {
+	type args struct {
+		conf        *Config
+		unmarshaler plog.Unmarshaler
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "json: compression and append configuration",
+			args: args{
+				conf: &Config{
+					Path:          tempFileName(t),
+					FormatType:    "json",
+					Compression:   compressionZSTD,
+					Append:        true,
+					FlushInterval: 100 * time.Millisecond,
+				},
+				unmarshaler: &plog.JSONUnmarshaler{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conf := tt.args.conf
+			fe := &fileExporter{
+				conf:   conf,
+				logger: zap.NewNop(),
+			}
+			require.NotNil(t, fe)
+
+			assert.NoError(t, fe.Start(t.Context(), componenttest.NewNopHost()))
+			defer func() {
+				assert.NoError(t, fe.Shutdown(t.Context()))
+			}()
+
+			batches := []plog.Logs{testdata.GenerateLogsTwoLogRecordsSameResource(), testdata.GenerateLogsOneLogRecord()}
+			for i, batch := range batches {
+				assert.NoError(t, fe.consumeLogs(t.Context(), batch))
+				time.Sleep(2 * time.Second)
+
+				fi, err := os.Open(fe.writer.path)
+				assert.NoError(t, err)
+				defer fi.Close()
+				br := bufio.NewReader(fi)
+
+				for j := 0; j < i+1; j++ {
+					assert.NoError(t, err)
+					buf, _, err := func() ([]byte, bool, error) {
+						if fe.marshaller.formatType == formatTypeJSON && fe.marshaller.compression == "" {
+							return readJSONMessage(br)
+						}
+						return readMessageFromStream(br)
+					}()
+					assert.NoError(t, err)
+
+					decoder := buildUnCompressor(fe.marshaller.compression)
+					buf, err = decoder(buf)
+					assert.NoError(t, err)
+					got, err := tt.args.unmarshaler.UnmarshalLogs(buf)
+					assert.NoError(t, err)
+					assert.Equal(t, batches[j], got)
+				}
+			}
+		})
+	}
+}
+
+func TestFileExporterShutdown(t *testing.T) {
+	tests := []struct {
+		name          string
+		flushInterval time.Duration
+	}{
+		{
+			name: "without flush interval",
+		},
+		{
+			name:          "with flush interval",
+			flushInterval: 10 * time.Millisecond,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Path:          tempFileName(t),
+				FormatType:    formatTypeJSON,
+				FlushInterval: tt.flushInterval,
+			}
+			feI := newFileExporter(cfg, zap.NewNop())
+			require.IsType(t, &fileExporter{}, feI)
+			fe := feI.(*fileExporter)
+
+			require.NoError(t, fe.Start(t.Context(), componenttest.NewNopHost()))
+
+			td := testdata.GenerateTracesTwoSpansSameResource()
+			require.NoError(t, fe.consumeTraces(t.Context(), td))
+
+			require.NoError(t, fe.Shutdown(t.Context()))
+
+			assert.NoError(t, fe.Shutdown(t.Context()))
+
+			// Export after shutdown returns io.ErrClosedPipe.
+			assert.ErrorIs(t, fe.consumeTraces(t.Context(), td), io.ErrClosedPipe)
+			assert.ErrorIs(t, fe.consumeMetrics(t.Context(), testdata.GenerateMetricsTwoMetrics()), io.ErrClosedPipe)
+			assert.ErrorIs(t, fe.consumeLogs(t.Context(), testdata.GenerateLogsTwoLogRecordsSameResource()), io.ErrClosedPipe)
+			assert.ErrorIs(t, fe.consumeProfiles(t.Context(), testdata.GenerateProfilesTwoProfilesSameResource()), io.ErrClosedPipe)
+		})
+	}
+}
+
+func TestFileExporterShutdownBeforeStart(t *testing.T) {
+	cfg := &Config{
+		Path:       tempFileName(t),
+		FormatType: formatTypeJSON,
+	}
+	feI := newFileExporter(cfg, zap.NewNop())
+	require.IsType(t, &fileExporter{}, feI)
+	fe := feI.(*fileExporter)
+
+	assert.NoError(t, fe.Shutdown(t.Context()))
 }

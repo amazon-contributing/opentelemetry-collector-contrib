@@ -199,9 +199,9 @@ func TestAppendOrder(t *testing.T) {
 			c := NewConfigurer(middleware.Handlers())
 			// v1
 			client := awstesting.NewClient(&awsv1.Config{
-				Region:     awsv1.String("mock-region"),
-				DisableSSL: awsv1.Bool(true),
-				Endpoint:   awsv1.String(server.URL),
+				Region:     new("mock-region"),
+				DisableSSL: new(true),
+				Endpoint:   new(server.URL),
 			})
 			assert.NoError(t, c.Configure(SDKv1(&client.Handlers)))
 			s3v1Client := &s3v1.S3{Client: client}
@@ -226,10 +226,10 @@ func TestRoundTripSDKv1(t *testing.T) {
 	middleware, recorder, server := setup(t)
 	defer server.Close()
 	client := awstesting.NewClient(&awsv1.Config{
-		Region:     awsv1.String("mock-region"),
-		DisableSSL: awsv1.Bool(true),
-		Endpoint:   awsv1.String(server.URL),
-		MaxRetries: awsv1.Int(0),
+		Region:     new("mock-region"),
+		DisableSSL: new(true),
+		Endpoint:   new(server.URL),
+		MaxRetries: new(0),
 	})
 	require.Equal(t, 3, client.Handlers.Build.Len())
 	require.Equal(t, 1, client.Handlers.ValidateResponse.Len())

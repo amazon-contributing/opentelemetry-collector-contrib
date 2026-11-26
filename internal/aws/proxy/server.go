@@ -20,6 +20,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/config/confighttp"
+	"go.opentelemetry.io/collector/config/confignet"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
@@ -36,22 +39,43 @@ type Server interface {
 	Shutdown(ctx context.Context) error
 }
 
+var _ Server = (*server)(nil)
+
+type server struct {
+	server       *http.Server
+	serverConfig *confighttp.ServerConfig
+	handler      *proxyHandler
+}
+
+func (s *server) ListenAndServe() error {
+	listener, err := s.serverConfig.ToListener(context.Background())
+	if err != nil {
+		return err
+	}
+
+	return s.server.Serve(listener)
+}
+
+func (s *server) Shutdown(ctx context.Context) error {
+	return s.server.Shutdown(ctx)
+}
+
 // NewServer returns a local TCP server that proxies requests to AWS
 // backend using the given credentials.
-func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
+func NewServer(cfg *Config, host component.Host, settings component.TelemetrySettings) (Server, error) {
 	_, err := net.ResolveTCPAddr("tcp", cfg.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 	if cfg.ProxyAddress != "" {
-		logger.Debug("Using remote proxy", zap.String("address", cfg.ProxyAddress))
+		settings.Logger.Debug("Using remote proxy", zap.String("address", cfg.ProxyAddress))
 	}
 	if cfg.ServiceName == "" {
 		cfg.ServiceName = "xray"
 	}
 
 	ctx := context.Background()
-	awsCfg, err := getAWSConfigSession(ctx, cfg, logger)
+	awsCfg, err := getAWSConfigSession(ctx, cfg, settings.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +100,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 	defaultCreds := awsCfg.Credentials
 
 	sessionCfg := cfg.toSessionConfig()
-	apiRouteMap, credsByRole := buildRoutingMaps(ctx, cfg.AdditionalRoutingRules, cfg.RoleARN, defaultCreds, awsCfg.Region, sessionCfg, logger)
+	apiRouteMap, credsByRole := buildRoutingMaps(ctx, cfg.AdditionalRoutingRules, cfg.RoleARN, defaultCreds, awsCfg.Region, sessionCfg, settings.Logger)
 
 	transport, err := proxyServerTransport(cfg)
 	if err != nil {
@@ -92,7 +116,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 
 		Rewrite: func(r *httputil.ProxyRequest) {
 			if r.In.URL != nil {
-				logger.Debug("Received request on X-Ray receiver TCP proxy server", zap.String("URL", sanitize.URL(r.In.URL)))
+				settings.Logger.Debug("Received request on X-Ray receiver TCP proxy server", zap.String("URL", sanitize.URL(r.In.URL)))
 			}
 
 			// ReverseProxy already strips hop-by-hop headers before Rewrite;
@@ -122,7 +146,7 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 					if parsed, parseErr := url.Parse(rule.AWSEndpoint); parseErr == nil {
 						ruleTargetURL = parsed
 					} else {
-						logger.Error("Unable to parse endpoint", zap.Error(parseErr))
+						settings.Logger.Error("Unable to parse endpoint", zap.Error(parseErr))
 					}
 				}
 			}
@@ -133,9 +157,9 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			r.Out.Host = ruleTargetURL.Host
 
 			// Consume body and calculate payload hash for signing
-			body, payloadHash, err := consumeBody(r.In.Body)
-			if err != nil {
-				logger.Error("Unable to consume request body", zap.Error(err))
+			body, payloadHash, bodyErr := consumeBody(r.In.Body)
+			if bodyErr != nil {
+				settings.Logger.Error("Unable to consume request body", zap.Error(bodyErr))
 				return
 			}
 
@@ -145,16 +169,16 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 			}
 
 			// Retrieve credentials for signing
-			creds, err := ruleCreds.Retrieve(r.Out.Context())
-			if err != nil {
-				logger.Error("Unable to retrieve credentials", zap.Error(err))
+			creds, credsErr := ruleCreds.Retrieve(r.Out.Context())
+			if credsErr != nil {
+				settings.Logger.Error("Unable to retrieve credentials", zap.Error(credsErr))
 				return
 			}
 
 			// Sign request using v4 signer
-			err = signer.SignHTTP(r.Out.Context(), creds, r.Out, payloadHash, ruleServiceName, ruleRegion, time.Now())
-			if err != nil {
-				logger.Error("Unable to sign request", zap.Error(err))
+			signErr := signer.SignHTTP(r.Out.Context(), creds, r.Out, payloadHash, ruleServiceName, ruleRegion, time.Now())
+			if signErr != nil {
+				settings.Logger.Error("Unable to sign request", zap.Error(signErr))
 			}
 		},
 	}
@@ -162,13 +186,30 @@ func NewServer(cfg *Config, logger *zap.Logger) (Server, error) {
 	handler := &proxyHandler{
 		proxy:       reverseProxy,
 		apiRouteMap: apiRouteMap,
-		logger:      logger,
+		logger:      settings.Logger,
 	}
 
-	return &http.Server{
-		Addr:              cfg.Endpoint,
-		Handler:           handler,
-		ReadHeaderTimeout: 20 * time.Second,
+	serverConfig := confighttp.NewDefaultServerConfig()
+	serverConfig.NetAddr = confignet.AddrConfig{
+		Endpoint:  cfg.Endpoint,
+		Transport: "tcp",
+	}
+	serverConfig.ReadHeaderTimeout = 20 * time.Second
+
+	httpServer, err := serverConfig.ToServer(
+		ctx,
+		host.GetExtensions(),
+		settings,
+		handler,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &server{
+		server:       httpServer,
+		serverConfig: &serverConfig,
+		handler:      handler,
 	}, nil
 }
 

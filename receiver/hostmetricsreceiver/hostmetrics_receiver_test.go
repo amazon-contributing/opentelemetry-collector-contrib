@@ -8,9 +8,12 @@ import (
 	"errors"
 	"maps"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/host"
+	"github.com/shirou/gopsutil/v4/process"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
@@ -38,6 +41,7 @@ import (
 
 var allMetrics = []string{
 	"system.cpu.time",
+	"system.cpu.logical.count",
 	"system.cpu.load_average.1m",
 	"system.cpu.load_average.5m",
 	"system.cpu.load_average.15m",
@@ -139,8 +143,15 @@ func assertIncludesExpectedMetrics(t *testing.T, got pmetric.Metrics) {
 		rm := rms.At(i)
 		metrics := getMetricSlice(t, rm)
 		returnedMetricNames := getReturnedMetricNames(metrics)
-		assert.Equal(t, "https://opentelemetry.io/schemas/1.9.0", rm.SchemaUrl(),
-			"SchemaURL is incorrect for metrics: %v", returnedMetricNames)
+		for k := range returnedMetricNames {
+			if strings.Contains(k, "process.") {
+				assert.Equal(t, "https://opentelemetry.io/schemas/1.43.0", rm.SchemaUrl(),
+					"SchemaURL is incorrect for metrics: %v", returnedMetricNames)
+			} else {
+				assert.Equal(t, "https://opentelemetry.io/schemas/1.9.0", rm.SchemaUrl(),
+					"SchemaURL is incorrect for metrics: %v", returnedMetricNames)
+			}
+		}
 		if rm.Resource().Attributes().Len() == 0 {
 			maps.Copy(returnedMetrics, returnedMetricNames)
 		} else {
@@ -246,6 +257,9 @@ func (s *notifyingSink) ConsumeMetrics(_ context.Context, md pmetric.Metrics) er
 func benchmarkScrapeMetrics(b *testing.B, cfg *Config) {
 	sink := &notifyingSink{ch: make(chan int, 10)}
 	tickerCh := make(chan time.Time)
+
+	host.EnableBootTimeCache(true)
+	process.EnableBootTimeCache(true)
 
 	options, err := createAddScraperOptions(b.Context(), cfg, scraperFactories)
 	require.NoError(b, err)

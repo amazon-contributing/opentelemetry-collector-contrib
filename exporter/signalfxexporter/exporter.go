@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sync"
 
 	sfxpb "github.com/signalfx/com_signalfx_metrics_protobuf/model"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/internal/dimensions"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/internal/hostmetadata"
+	componentmetadata "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/internal/translation"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/gopsutilenv"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk"
@@ -36,15 +38,36 @@ type baseMetricsExporter struct {
 	consumer.Metrics
 }
 
+// ExporterHelperBatchingEnabled reports whether the wrapped exporter batches requests.
+func (e *baseMetricsExporter) ExporterHelperBatchingEnabled() bool {
+	return batchingEnabled(e.Component)
+}
+
 // TODO: Find a place for this to be shared.
 type baseLogsExporter struct {
 	component.Component
 	consumer.Logs
 }
 
+// ExporterHelperBatchingEnabled reports whether the wrapped exporter batches requests.
+func (e *baseLogsExporter) ExporterHelperBatchingEnabled() bool {
+	return batchingEnabled(e.Component)
+}
+
 type signalfMetadataExporter struct {
 	exporter.Metrics
 	exporter *signalfxExporter
+}
+
+// ExporterHelperBatchingEnabled reports whether the wrapped exporter batches requests.
+func (sme *signalfMetadataExporter) ExporterHelperBatchingEnabled() bool {
+	return batchingEnabled(sme.Metrics)
+}
+
+// batchingEnabled reports whether c is an exporterhelper exporter with batching enabled.
+func batchingEnabled(c any) bool {
+	b, ok := c.(interface{ ExporterHelperBatchingEnabled() bool })
+	return ok && b.ExporterHelperBatchingEnabled()
 }
 
 func (sme *signalfMetadataExporter) ConsumeMetadata(metadata []*metadata.MetadataUpdate) error {
@@ -124,7 +147,7 @@ func (se *signalfxExporter) start(ctx context.Context, host component.Host) (err
 		},
 		logDataPoints:          se.config.LogDataPoints,
 		logger:                 se.logger,
-		accessTokenPassthrough: se.config.AccessTokenPassthrough,
+		accessTokenPassthrough: se.config.AccessTokenPassthroughConfig.AccessTokenPassthrough,
 		converter:              se.converter,
 		sendOTLPHistograms:     se.config.SendOTLPHistograms,
 	}
@@ -173,7 +196,8 @@ func (se *signalfxExporter) startDimensionClient(ctx context.Context) error {
 			Timeout:                 se.config.DimensionClient.Timeout,
 			DropTags:                se.config.DimensionClient.DropTags,
 			StripK8sLabelPrefix:     se.config.DimensionClient.StripK8sLabelPrefix,
-		})
+		},
+	)
 	dimClient.Start()
 	se.dimClient = dimClient
 	return nil
@@ -195,7 +219,7 @@ func newEventExporter(config *Config, createSettings exporter.Settings) (*signal
 		version:                createSettings.BuildInfo.Version,
 		logger:                 createSettings.Logger,
 		telemetrySettings:      createSettings.TelemetrySettings,
-		entityEventTransformer: dimensions.NewEntityEventTransformer(config.DefaultProperties),
+		entityEventTransformer: dimensions.NewEntityEventTransformer(config.DefaultProperties, config.DimensionClient.StripK8sLabelPrefix),
 	}, nil
 }
 
@@ -219,11 +243,11 @@ func (se *signalfxExporter) startLogs(ctx context.Context, host component.Host) 
 			zippers:   newGzipPool(),
 		},
 		logger:                 se.logger,
-		accessTokenPassthrough: se.config.AccessTokenPassthrough,
+		accessTokenPassthrough: se.config.AccessTokenPassthroughConfig.AccessTokenPassthrough,
 	}
 
 	// Initialize dimension client for entity event processing if entity events processing is enabled.
-	if entityEventsFeatureGate.IsEnabled() {
+	if componentmetadata.ExporterSignalfxConsumeEntityEventsFeatureGate.IsEnabled() {
 		if err := se.startDimensionClient(ctx); err != nil {
 			return err
 		}
@@ -233,9 +257,9 @@ func (se *signalfxExporter) startLogs(ctx context.Context, host component.Host) 
 }
 
 func (se *signalfxExporter) createClient(ctx context.Context, host component.Host) (*http.Client, error) {
-	se.config.TLS = se.config.IngestTLSs
+	se.config.ClientConfig.TLS = se.config.IngestTLSs
 
-	return se.config.ToClient(ctx, host.GetExtensions(), se.telemetrySettings)
+	return se.config.ClientConfig.ToClient(ctx, host.GetExtensions(), se.telemetrySettings)
 }
 
 func (se *signalfxExporter) pushMetrics(ctx context.Context, md pmetric.Metrics) error {
@@ -261,7 +285,7 @@ func (se *signalfxExporter) pushLogs(ctx context.Context, ld plog.Logs) error {
 			sl := ills.At(j)
 
 			// Process logs that represent entity events and skip regular event conversion
-			if entityEventsFeatureGate.IsEnabled() && isEntityEventScope(sl) {
+			if componentmetadata.ExporterSignalfxConsumeEntityEventsFeatureGate.IsEnabled() && isEntityEventScope(sl) {
 				err := se.processEntityEvents(sl.LogRecords())
 				if err != nil {
 					return fmt.Errorf("failed to process entity events: %w", err)
@@ -306,6 +330,22 @@ func (se *signalfxExporter) processEntityEvents(logs plog.LogRecordSlice) error 
 	return nil
 }
 
+// Log deprecation warning for any "include_metrics" entry that's deprecated on collector startup
+func (se *signalfxExporter) logDeprecatedMetricsWarnings() {
+	// Maps deprecated metric name to log message
+	deprecatedMetrics := make(map[string]string)
+	deprecatedMetrics["container_cpu_utilization"] = "The metric \"container_cpu_utilization\" has been deprecated and will " +
+		"be removed in a future release. Please use \"container.cpu.usage\" instead."
+
+	for _, include := range se.config.IncludeMetrics {
+		for deprecatedMetric, deprecationWarning := range deprecatedMetrics {
+			if deprecatedMetric == include.MetricName || slices.Contains(include.MetricNames, deprecatedMetric) {
+				se.logger.Warn(deprecationWarning)
+			}
+		}
+	}
+}
+
 func (se *signalfxExporter) shutdown(_ context.Context) error {
 	if se.dimClient != nil {
 		se.dimClient.Shutdown()
@@ -343,11 +383,11 @@ func buildHeaders(config *Config, version string) map[string]string {
 	// Add any custom headers from the config. They will override the pre-defined
 	// ones above in case of conflict, but, not the content encoding one since
 	// the latter one is defined according to the payload.
-	for k, v := range config.Headers.Iter {
+	for k, v := range config.ClientConfig.Headers.Iter {
 		headers[k] = string(v)
 	}
 	// we want to control how headers are set, overriding user headers with our passthrough.
-	config.Headers = nil
+	config.ClientConfig.Headers = nil
 
 	return headers
 }

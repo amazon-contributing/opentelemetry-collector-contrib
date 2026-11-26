@@ -5,7 +5,6 @@ This extension provides OIDC token management for authenticating to AWS from
 non-AWS environments (e.g., Azure VMs, GCE instances). It auto-detects the cloud
 provider, fetches OIDC tokens, and writes them to a file for sigv4auth to consume.
 
-
 | Status        |           |
 | ------------- |-----------|
 | Stability     | [alpha]  |

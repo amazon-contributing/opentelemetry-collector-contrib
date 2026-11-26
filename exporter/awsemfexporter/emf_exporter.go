@@ -71,7 +71,7 @@ func newEmfExporter(_ context.Context, config *Config, set exporter.Settings) (*
 		config:                config,
 		set:                   set,
 		metricTranslator:      newMetricTranslator(*config),
-		retryCnt:              config.MaxRetries,
+		retryCnt:              config.AWSSessionSettings.MaxRetries,
 		collectorID:           collectorIdentifier.String(),
 		processResourceLabels: func(map[string]string) {},
 		processMetrics:        func(pmetric.Metrics) {},
@@ -254,8 +254,7 @@ func (emf *emfExporter) shutdown(ctx context.Context) error {
 // (network/timeout/canceled) stay retryable; the SDK wraps those in a
 // ResponseError carrying a synthesized response with status code 0.
 func wrapErrorIfBadRequest(err error) error {
-	var re *awshttp.ResponseError
-	if errors.As(err, &re) {
+	if re, ok := errors.AsType[*awshttp.ResponseError](err); ok {
 		if code := re.HTTPStatusCode(); code != 0 && code < http.StatusInternalServerError {
 			return consumererror.NewPermanent(err)
 		}

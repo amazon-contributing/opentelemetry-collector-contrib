@@ -7,10 +7,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/featuregate"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsecscontainermetricsreceiver/internal/metadata"
 )
 
 func TestContainerResource(t *testing.T) {
@@ -29,7 +31,7 @@ func TestContainerResource(t *testing.T) {
 	require.NotNil(t, r)
 	attrMap := r.Attributes()
 	require.Equal(t, 9, attrMap.Len())
-	expected := map[string]string{
+	expected := map[string]any{
 		"container.name":              "container-1",
 		"container.id":                "001",
 		attributeECSDockerName:        "docker-container-1",
@@ -42,6 +44,97 @@ func TestContainerResource(t *testing.T) {
 	}
 
 	verifyAttributeMap(t, expected, attrMap)
+}
+
+func TestContainerResourceFeatureGates(t *testing.T) {
+	cm := &ecsutil.ContainerMetadata{
+		ContainerName: "container-1",
+		DockerID:      "001",
+		DockerName:    "docker-container-1",
+		Image:         "nginx:v1.0",
+		ImageID:       "sha256:8cf1bfb43ff5d9b05af9b6b63983440f137",
+		CreatedAt:     "2020-07-30T22:12:29.837074927Z",
+		StartedAt:     "2020-07-30T22:12:31.153459485Z",
+		KnownStatus:   "RUNNING",
+	}
+
+	tests := []struct {
+		name       string
+		emitV1     bool
+		dontEmitV0 bool
+		expected   map[string]any
+	}{
+		{
+			name:       "default (both false)",
+			emitV1:     false,
+			dontEmitV0: false,
+			expected: map[string]any{
+				"container.name":              "container-1",
+				"container.id":                "001",
+				attributeECSDockerName:        "docker-container-1",
+				"container.image.name":        "nginx",
+				attributeContainerImageID:     "sha256:8cf1bfb43ff5d9b05af9b6b63983440f137",
+				"container.image.tag":         "v1.0",
+				attributeContainerCreatedAt:   "2020-07-30T22:12:29.837074927Z",
+				attributeContainerStartedAt:   "2020-07-30T22:12:31.153459485Z",
+				attributeContainerKnownStatus: "RUNNING",
+			},
+		},
+		{
+			name:       "emit both (emitV1 true, dontEmitV0 false)",
+			emitV1:     true,
+			dontEmitV0: false,
+			expected: map[string]any{
+				"container.name":              "container-1",
+				"container.id":                "001",
+				attributeECSDockerName:        "docker-container-1",
+				"container.image.name":        "nginx",
+				attributeContainerImageID:     "sha256:8cf1bfb43ff5d9b05af9b6b63983440f137",
+				"container.image.tag":         "v1.0",
+				"container.image.tags":        []string{"v1.0"},
+				attributeContainerCreatedAt:   "2020-07-30T22:12:29.837074927Z",
+				attributeContainerStartedAt:   "2020-07-30T22:12:31.153459485Z",
+				attributeContainerKnownStatus: "RUNNING",
+			},
+		},
+		{
+			name:       "emit new only (emitV1 true, dontEmitV0 true)",
+			emitV1:     true,
+			dontEmitV0: true,
+			expected: map[string]any{
+				"container.name":              "container-1",
+				"container.id":                "001",
+				attributeECSDockerName:        "docker-container-1",
+				"container.image.name":        "nginx",
+				attributeContainerImageID:     "sha256:8cf1bfb43ff5d9b05af9b6b63983440f137",
+				"container.image.tags":        []string{"v1.0"},
+				attributeContainerCreatedAt:   "2020-07-30T22:12:29.837074927Z",
+				attributeContainerStartedAt:   "2020-07-30T22:12:31.153459485Z",
+				attributeContainerKnownStatus: "RUNNING",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := featuregate.GlobalRegistry().Set(metadata.ReceiverAwsecscontainermetricsEmitV1ContainerConventionsFeatureGate.ID(), tt.emitV1)
+			require.NoError(t, err)
+			err = featuregate.GlobalRegistry().Set(metadata.ReceiverAwsecscontainermetricsDontEmitV0ContainerConventionsFeatureGate.ID(), tt.dontEmitV0)
+			require.NoError(t, err)
+
+			defer func() {
+				_ = featuregate.GlobalRegistry().Set(metadata.ReceiverAwsecscontainermetricsEmitV1ContainerConventionsFeatureGate.ID(), false)
+				_ = featuregate.GlobalRegistry().Set(metadata.ReceiverAwsecscontainermetricsDontEmitV0ContainerConventionsFeatureGate.ID(), false)
+			}()
+
+			r := containerResource(cm, zap.NewNop())
+			require.NotNil(t, r)
+			attrMap := r.Attributes()
+			require.Equal(t, len(tt.expected), attrMap.Len())
+
+			verifyAttributeMap(t, tt.expected, attrMap)
+		})
+	}
 }
 
 func TestContainerResourceForStoppedContainer(t *testing.T) {
@@ -66,7 +159,7 @@ func TestContainerResourceForStoppedContainer(t *testing.T) {
 	require.True(t, found)
 	require.EqualValues(t, 2, getExitCodeAd.Int())
 	require.Equal(t, 11, attrMap.Len())
-	expected := map[string]string{
+	expected := map[string]any{
 		"container.name":              "container-1",
 		"container.id":                "001",
 		attributeECSDockerName:        "docker-container-1",
@@ -100,7 +193,7 @@ func TestTaskResource(t *testing.T) {
 
 	attrMap := r.Attributes()
 	require.Equal(t, 15, attrMap.Len())
-	expected := map[string]string{
+	expected := map[string]any{
 		attributeECSCluster:           "cluster-1",
 		"aws.ecs.task.arn":            "arn:aws:ecs:us-west-2:111122223333:task/default/158d1c8083dd49d6b527399fd6414f5c",
 		attributeECSTaskID:            "158d1c8083dd49d6b527399fd6414f5c",
@@ -140,7 +233,7 @@ func TestTaskResourceWithClusterARN(t *testing.T) {
 	attrMap := r.Attributes()
 	require.Equal(t, 15, attrMap.Len())
 
-	expected := map[string]string{
+	expected := map[string]any{
 		attributeECSCluster:           "main-cluster",
 		"aws.ecs.task.arn":            "arn:aws:ecs:us-west-2:803860917211:cluster/main-cluster/c8083dd49d6b527399fd6414",
 		attributeECSTaskID:            "c8083dd49d6b527399fd6414",
@@ -161,28 +254,75 @@ func TestTaskResourceWithClusterARN(t *testing.T) {
 	verifyAttributeMap(t, expected, attrMap)
 }
 
-func verifyAttributeMap(t *testing.T, expected map[string]string, found pcommon.Map) {
+func verifyAttributeMap(t *testing.T, expected map[string]any, found pcommon.Map) {
 	for key, val := range expected {
 		attributeVal, found := found.Get(key)
 		require.True(t, found)
 
-		require.Equal(t, val, attributeVal.Str())
+		switch expectedVal := val.(type) {
+		case string:
+			require.Equal(t, expectedVal, attributeVal.Str())
+		case []string:
+			require.Equal(t, pcommon.ValueTypeSlice, attributeVal.Type())
+			require.Equal(t, len(expectedVal), attributeVal.Slice().Len())
+			for i, v := range expectedVal {
+				require.Equal(t, v, attributeVal.Slice().At(i).Str())
+			}
+		default:
+			t.Fatalf("unsupported type %T", expectedVal)
+		}
 	}
 }
 
 func TestGetResourceFromARN(t *testing.T) {
-	region, accountID, taskID := getResourceFromARN("arn:aws:ecs:us-west-2:803860917211:task/test200/d22aaa11bf0e4ab19c2c940a1cbabbee")
-	require.Equal(t, "us-west-2", region)
-	require.Equal(t, "803860917211", accountID)
-	require.Equal(t, "d22aaa11bf0e4ab19c2c940a1cbabbee", taskID)
-	region, accountID, taskID = getResourceFromARN("")
-	require.Empty(t, region)
-	require.Empty(t, accountID)
-	require.Empty(t, taskID)
-	region, accountID, taskID = getResourceFromARN("notarn:aws:ecs:us-west-2:803860917211:task/test2")
-	require.Empty(t, region)
-	require.Empty(t, accountID)
-	require.Empty(t, taskID)
+	tests := []struct {
+		name            string
+		arn             string
+		expectedRegion  string
+		expectedAccount string
+		expectedTaskID  string
+	}{
+		{
+			name:            "new task arn format",
+			arn:             "arn:aws:ecs:us-west-2:803860917211:task/test200/d22aaa11bf0e4ab19c2c940a1cbabbee",
+			expectedRegion:  "us-west-2",
+			expectedAccount: "803860917211",
+			expectedTaskID:  "d22aaa11bf0e4ab19c2c940a1cbabbee",
+		},
+		{
+			name:            "old task arn format",
+			arn:             "arn:aws:ecs:us-west-2:803860917211:task/d22aaa11bf0e4ab19c2c940a1cbabbee",
+			expectedRegion:  "us-west-2",
+			expectedAccount: "803860917211",
+			expectedTaskID:  "d22aaa11bf0e4ab19c2c940a1cbabbee",
+		},
+		{
+			name: "empty arn",
+			arn:  "",
+		},
+		{
+			name: "non-ecs arn",
+			arn:  "notarn:aws:ecs:us-west-2:803860917211:task/test2",
+		},
+		{
+			// Regression test for #51810: an ARN with fewer than 5
+			// colon-separated segments must not panic.
+			name: "malformed arn with too few segments",
+			arn:  "arn:aws:ecs:us-east-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var region, accountID, taskID string
+			require.NotPanics(t, func() {
+				region, accountID, taskID = getResourceFromARN(tt.arn)
+			})
+			require.Equal(t, tt.expectedRegion, region)
+			require.Equal(t, tt.expectedAccount, accountID)
+			require.Equal(t, tt.expectedTaskID, taskID)
+		})
+	}
 }
 
 func TestGetNameFromCluster(t *testing.T) {

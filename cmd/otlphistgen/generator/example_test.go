@@ -26,8 +26,8 @@ func TestHistogramGenerator_GenerateHistogram_Example(t *testing.T) {
 	// Define histogram input parameters
 	input := HistogramInput{
 		Count:      1000,
-		Min:        ptr(10.0),
-		Max:        ptr(200.0),
+		Min:        new(10.0),
+		Max:        new(200.0),
 		Boundaries: []float64{25, 50, 75, 100, 150},
 		Attributes: map[string]string{
 			"service.name": "payment-service",
@@ -246,8 +246,8 @@ func TestAdvancedHistogramFeatures_Example(_ *testing.T) {
 	// Latency histogram with log-normal distribution
 	result, _ := gen.GenerateHistogram(HistogramInput{
 		Count:      2000,
-		Min:        ptr(0.5),
-		Max:        ptr(10000.0),
+		Min:        new(0.5),
+		Max:        new(10000.0),
 		Boundaries: latencyBoundaries,
 		Attributes: map[string]string{
 			"service.name": "api-gateway",
@@ -369,8 +369,8 @@ func TestHistogramGenerator_GenerateHistogram(t *testing.T) {
 
 	input := HistogramInput{
 		Count:      1000,
-		Min:        ptr(10.0),
-		Max:        ptr(200.0),
+		Min:        new(10.0),
+		Max:        new(200.0),
 		Boundaries: []float64{25, 50, 75, 100, 150},
 		Attributes: map[string]string{
 			"service.name": "test-service",
@@ -630,9 +630,4 @@ func abs(x float64) float64 {
 		return -x
 	}
 	return x
-}
-
-// Helper function to create float64 pointers
-func ptr(f float64) *float64 {
-	return &f
 }

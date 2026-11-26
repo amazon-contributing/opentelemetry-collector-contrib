@@ -5,19 +5,23 @@ package kueuescraper
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
+	"github.com/prometheus/prometheus/model/relabel"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awscontainerinsightskueuereceiver/internal/mocks"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver"
@@ -234,4 +238,67 @@ func TestNewKueuePrometheusScraperEndToEnd(t *testing.T) {
 func TestKueuePrometheusScraperJobName(t *testing.T) {
 	// needs to start with containerInsights
 	assert.Equal(t, "containerInsightsKueueMetricsScraper", kmJobName)
+}
+
+func TestRelabelConfigsMatchYAML(t *testing.T) {
+	t.Setenv("HOST_NAME", "node-1")
+
+	relabelYAML := `
+- action: keep
+  regex: ^kueue-controller-manager-metrics-service.*
+  source_labels: [__meta_kubernetes_endpointslice_name]
+- action: keep
+  regex: node-1
+  source_labels: [__meta_kubernetes_endpointslice_endpoint_node_name]
+`
+	metricRelabelYAML := `
+- action: keep
+  regex: "` + kueueMetricsAllowRegex + `"
+  source_labels: [__name__]
+- action: labelmap
+  regex: ^type$
+  replacement: kubernetes_type
+- action: labeldrop
+  regex: ^type$
+- action: replace
+  regex: ([^:]+)(?::\d+)?;(\d+)
+  source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+  replacement: $1:$2
+  target_label: __address__
+- action: replace
+  regex: .*
+  target_label: ClusterName
+  replacement: test-cluster
+`
+	for source, target := range kueueDimensionsRelabelMap {
+		metricRelabelYAML += fmt.Sprintf(`- action: replace
+  regex: (.*)
+  source_labels: [%s]
+  target_label: %s
+  replacement: ${1}
+`, source, target)
+	}
+
+	assertRulesMatchYAML(t, relabelYAML, GetKueueRelabelConfigs())
+	assertRulesMatchYAML(t, metricRelabelYAML, GetKueueMetricRelabelConfigs("test-cluster"))
+}
+
+func assertRulesMatchYAML(t *testing.T, rulesYAML string, got []*relabel.Config) {
+	t.Helper()
+	var want []*relabel.Config
+	require.NoError(t, yaml.UnmarshalStrict([]byte(rulesYAML), &want))
+	require.Len(t, got, len(want))
+	assert.ElementsMatch(t, marshalRules(t, want), marshalRules(t, got))
+}
+
+func marshalRules(t *testing.T, rules []*relabel.Config) []string {
+	t.Helper()
+	out := make([]string, 0, len(rules))
+	for _, r := range rules {
+		require.NoError(t, r.Validate(model.UTF8Validation))
+		b, err := yaml.Marshal(r)
+		require.NoError(t, err)
+		out = append(out, string(b))
+	}
+	return out
 }

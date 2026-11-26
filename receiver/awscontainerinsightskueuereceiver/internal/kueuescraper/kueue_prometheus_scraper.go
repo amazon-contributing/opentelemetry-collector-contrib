@@ -160,7 +160,7 @@ func GetKueueRelabelConfigs() []*relabel.Config {
 			SourceLabels: model.LabelNames{"__meta_kubernetes_endpointslice_endpoint_node_name"},
 		},
 	}
-	return relabelConfigs
+	return withRelabelDefaults(relabelConfigs)
 }
 
 func GetKueueMetricRelabelConfigs(clusterName string) []*relabel.Config {
@@ -207,7 +207,23 @@ func GetKueueMetricRelabelConfigs(clusterName string) []*relabel.Config {
 			},
 		)
 	}
-	return relabelConfigs
+	return withRelabelDefaults(relabelConfigs)
+}
+
+// withRelabelDefaults fills the fields that YAML unmarshalling would default.
+func withRelabelDefaults(cfgs []*relabel.Config) []*relabel.Config {
+	for _, c := range cfgs {
+		if c.Separator == "" {
+			c.Separator = relabel.DefaultRelabelConfig.Separator
+		}
+		if c.Replacement == "" {
+			c.Replacement = relabel.DefaultRelabelConfig.Replacement
+		}
+		if c.Regex.Regexp == nil {
+			c.Regex = relabel.DefaultRelabelConfig.Regex
+		}
+	}
+	return cfgs
 }
 
 func (kps *KueuePrometheusScraper) GetMetrics() []pmetric.Metrics {

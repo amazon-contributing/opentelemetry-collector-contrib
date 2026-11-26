@@ -23,9 +23,10 @@ var langchainSimpleChatSpan = map[string]any{
 }
 
 var langchainSystemMessageSpan = map[string]any{
-	"openinference.span.kind":               "LLM",
-	"llm.model_name":                        "anthropic.claude-3-haiku-20240307-v1:0",
-	"llm.provider":                          "amazon_bedrock",
+	"openinference.span.kind": "LLM",
+	"llm.model_name":          "anthropic.claude-3-haiku-20240307-v1:0",
+	"llm.provider":            "amazon_bedrock",
+
 	"llm.input_messages.0.message.role":     "system",
 	"llm.input_messages.0.message.content":  "You are a pirate.",
 	"llm.input_messages.1.message.role":     "user",
@@ -41,15 +42,18 @@ var langchainSystemMessageSpan = map[string]any{
 }
 
 var langchainToolCallOutputSpan = map[string]any{
-	"openinference.span.kind":              "LLM",
-	"llm.model_name":                       "anthropic.claude-3-haiku-20240307-v1:0",
-	"llm.provider":                         "amazon_bedrock",
+	"openinference.span.kind": "LLM",
+	"llm.model_name":          "anthropic.claude-3-haiku-20240307-v1:0",
+	"llm.provider":            "amazon_bedrock",
+
 	"llm.input_messages.0.message.role":    "user",
 	"llm.input_messages.0.message.content": "What's the weather in Seattle?",
 	"llm.output_messages.0.message.role":   "assistant",
+
 	"llm.output_messages.0.message.tool_calls.0.tool_call.function.name":      "get_weather",
 	"llm.output_messages.0.message.tool_calls.0.tool_call.function.arguments": `{"city": "Seattle"}`,
 	"llm.output_messages.0.message.tool_calls.0.tool_call.id":                 "toolu_bdrk_01GdVCiXNUBY9jGNhN45bFrU",
+
 	"llm.token_count.prompt":       int64(332),
 	"llm.token_count.completion":   int64(53),
 	"llm.token_count.total":        int64(385),
@@ -61,27 +65,30 @@ var langchainToolCallOutputSpan = map[string]any{
 }
 
 var langchainLLMWithToolResultSpan = map[string]any{
-	"openinference.span.kind":              "LLM",
-	"llm.model_name":                       "anthropic.claude-3-haiku-20240307-v1:0",
-	"llm.provider":                         "amazon_bedrock",
+	"openinference.span.kind": "LLM",
+	"llm.model_name":          "anthropic.claude-3-haiku-20240307-v1:0",
+	"llm.provider":            "amazon_bedrock",
+
 	"llm.input_messages.0.message.role":    "user",
 	"llm.input_messages.0.message.content": "What's the weather in Seattle?",
 	"llm.input_messages.1.message.role":    "assistant",
+
 	"llm.input_messages.1.message.tool_calls.0.tool_call.function.name":      "get_weather",
 	"llm.input_messages.1.message.tool_calls.0.tool_call.function.arguments": `{"city": "Seattle"}`,
 	"llm.input_messages.1.message.tool_calls.0.tool_call.id":                 "toolu_bdrk_01GdVCiXNUBY9jGNhN45bFrU",
-	"llm.input_messages.2.message.role":                                      "tool",
-	"llm.input_messages.2.message.content":                                   "72F and sunny in Seattle",
-	"llm.input_messages.2.message.name":                                      "get_weather",
-	"llm.input_messages.2.message.tool_call_id":                              "toolu_bdrk_01GdVCiXNUBY9jGNhN45bFrU",
-	"llm.output_messages.0.message.role":                                     "assistant",
-	"llm.output_messages.0.message.content":                                  "The weather in Seattle is 72F and sunny.",
-	"llm.token_count.prompt":                                                 int64(403),
-	"llm.token_count.completion":                                             int64(15),
-	"llm.token_count.total":                                                  int64(418),
-	"llm.tools.0.tool.json_schema":                                           `{"name": "get_weather", "description": "Get the weather for a city.", "input_schema": {"properties": {"city": {"type": "string"}}, "required": ["city"], "type": "object"}}`,
-	"input.mime_type":                                                        "application/json",
-	"output.mime_type":                                                       "application/json",
+
+	"llm.input_messages.2.message.role":         "tool",
+	"llm.input_messages.2.message.content":      "72F and sunny in Seattle",
+	"llm.input_messages.2.message.name":         "get_weather",
+	"llm.input_messages.2.message.tool_call_id": "toolu_bdrk_01GdVCiXNUBY9jGNhN45bFrU",
+	"llm.output_messages.0.message.role":        "assistant",
+	"llm.output_messages.0.message.content":     "The weather in Seattle is 72F and sunny.",
+	"llm.token_count.prompt":                    int64(403),
+	"llm.token_count.completion":                int64(15),
+	"llm.token_count.total":                     int64(418),
+	"llm.tools.0.tool.json_schema":              `{"name": "get_weather", "description": "Get the weather for a city.", "input_schema": {"properties": {"city": {"type": "string"}}, "required": ["city"], "type": "object"}}`,
+	"input.mime_type":                           "application/json",
+	"output.mime_type":                          "application/json",
 }
 
 var langchainToolSpan = map[string]any{
@@ -103,17 +110,20 @@ var langchainAgentSpan = map[string]any{
 	"output.mime_type":                     "application/json",
 	"llm.input_messages.0.message.role":    "user",
 	"llm.input_messages.0.message.content": "What's the weather in Seattle?",
-	"metadata":                             `{"langgraph_step": 1, "langgraph_node": "agent"}`,
+
+	"metadata": `{"langgraph_step": 1, "langgraph_node": "agent"}`,
 }
 
 var langchainChainOutputWithMetadataSpan = map[string]any{
-	"openinference.span.kind":              "CHAIN",
-	"input.mime_type":                      "application/json",
-	"output.mime_type":                     "application/json",
-	"output.value":                         `{"messages": [{"content": "The weather in Seattle is 72F and sunny.", "additional_kwargs": {"usage": {"prompt_tokens": 403, "completion_tokens": 15, "cache_read_input_tokens": 0, "cache_write_input_tokens": 0, "total_tokens": 418}, "stop_reason": "end_turn", "model_id": "anthropic.claude-3-haiku-20240307-v1:0"}, "type": "ai", "tool_calls": []}]}`,
+	"openinference.span.kind": "CHAIN",
+	"input.mime_type":         "application/json",
+	"output.mime_type":        "application/json",
+	"output.value":            `{"messages": [{"content": "The weather in Seattle is 72F and sunny.", "additional_kwargs": {"usage": {"prompt_tokens": 403, "completion_tokens": 15, "cache_read_input_tokens": 0, "cache_write_input_tokens": 0, "total_tokens": 418}, "stop_reason": "end_turn", "model_id": "anthropic.claude-3-haiku-20240307-v1:0"}, "type": "ai", "tool_calls": []}]}`,
+
 	"llm.input_messages.0.message.role":    "user",
 	"llm.input_messages.0.message.content": "What's the weather in Seattle?",
-	"metadata":                             `{"langgraph_step": 3, "langgraph_node": "agent"}`,
+
+	"metadata": `{"langgraph_step": 3, "langgraph_node": "agent"}`,
 }
 
 var langchainChainOutputWithToolCallSpan = map[string]any{
@@ -167,12 +177,14 @@ var langchainChainSpan = map[string]any{
 }
 
 var langchainShouldContinueSpan = map[string]any{
-	"openinference.span.kind":              "CHAIN",
-	"input.mime_type":                      "application/json",
-	"output.value":                         "__end__",
+	"openinference.span.kind": "CHAIN",
+	"input.mime_type":         "application/json",
+	"output.value":            "__end__",
+
 	"llm.input_messages.0.message.role":    "user",
 	"llm.input_messages.0.message.content": "What's the weather in Seattle?",
-	"metadata":                             `{"langgraph_step": 3, "langgraph_node": "agent"}`,
+
+	"metadata": `{"langgraph_step": 3, "langgraph_node": "agent"}`,
 }
 
 var langchainLangGraphTopLevelSpan = map[string]any{
@@ -188,15 +200,17 @@ var bedrockConverseLLMSpan = map[string]any{
 	"llm.model_name":                    "anthropic.claude-3-haiku-20240307-v1:0",
 	"llm.invocation_parameters":         `{"maxTokens": 100, "temperature": 0.7}`,
 	"llm.input_messages.0.message.role": "user",
+
 	"llm.input_messages.0.message.contents.0.message_content.type": "text",
 	"llm.input_messages.0.message.contents.0.message_content.text": "Say hello in one word",
-	"llm.output_messages.0.message.role":                           "assistant",
-	"llm.output_messages.0.message.content":                        "Hello.",
-	"llm.token_count.prompt":                                       int64(12),
-	"llm.token_count.completion":                                   int64(5),
-	"llm.token_count.total":                                        int64(17),
-	"input.value":                                                  "Say hello in one word",
-	"output.value":                                                 "Hello.",
+
+	"llm.output_messages.0.message.role":    "assistant",
+	"llm.output_messages.0.message.content": "Hello.",
+	"llm.token_count.prompt":                int64(12),
+	"llm.token_count.completion":            int64(5),
+	"llm.token_count.total":                 int64(17),
+	"input.value":                           "Say hello in one word",
+	"output.value":                          "Hello.",
 }
 
 var bedrockConverseWithSystemSpan = map[string]any{
@@ -204,18 +218,22 @@ var bedrockConverseWithSystemSpan = map[string]any{
 	"llm.model_name":                    "anthropic.claude-3-haiku-20240307-v1:0",
 	"llm.invocation_parameters":         `{"maxTokens": 100, "temperature": 0.7}`,
 	"llm.input_messages.0.message.role": "system",
+
 	"llm.input_messages.0.message.contents.0.message_content.type": "text",
 	"llm.input_messages.0.message.contents.0.message_content.text": "You are a pirate.",
-	"llm.input_messages.1.message.role":                            "user",
+
+	"llm.input_messages.1.message.role": "user",
+
 	"llm.input_messages.1.message.contents.0.message_content.type": "text",
 	"llm.input_messages.1.message.contents.0.message_content.text": "Say hello in one word",
-	"llm.output_messages.0.message.role":                           "assistant",
-	"llm.output_messages.0.message.content":                        "Ahoy!",
-	"llm.token_count.prompt":                                       int64(18),
-	"llm.token_count.completion":                                   int64(7),
-	"llm.token_count.total":                                        int64(25),
-	"input.value":                                                  "Say hello in one word",
-	"output.value":                                                 "Ahoy!",
+
+	"llm.output_messages.0.message.role":    "assistant",
+	"llm.output_messages.0.message.content": "Ahoy!",
+	"llm.token_count.prompt":                int64(18),
+	"llm.token_count.completion":            int64(7),
+	"llm.token_count.total":                 int64(25),
+	"input.value":                           "Say hello in one word",
+	"output.value":                          "Ahoy!",
 }
 
 var bedrockConverseToolUseSpan = map[string]any{
@@ -223,50 +241,56 @@ var bedrockConverseToolUseSpan = map[string]any{
 	"llm.model_name":                    "anthropic.claude-3-haiku-20240307-v1:0",
 	"llm.invocation_parameters":         `{"maxTokens": 200}`,
 	"llm.input_messages.0.message.role": "user",
+
 	"llm.input_messages.0.message.contents.0.message_content.type": "text",
 	"llm.input_messages.0.message.contents.0.message_content.text": "What's the weather in Seattle?",
-	"llm.output_messages.0.message.role":                           "assistant",
-	"llm.token_count.prompt":                                       int64(331),
-	"llm.token_count.completion":                                   int64(53),
-	"llm.token_count.total":                                        int64(384),
-	"input.value":                                                  "What's the weather in Seattle?",
+
+	"llm.output_messages.0.message.role": "assistant",
+	"llm.token_count.prompt":             int64(331),
+	"llm.token_count.completion":         int64(53),
+	"llm.token_count.total":              int64(384),
+	"input.value":                        "What's the weather in Seattle?",
 }
 
 var llamaindexLLMSpan = map[string]any{
-	"openinference.span.kind":                    "LLM",
-	"llm.model_name":                             "anthropic.claude-3-haiku-20240307-v1:0",
-	"llm.invocation_parameters":                  `{"context_window":200000,"num_output":512,"is_chat_model":true,"is_function_calling_model":true,"model_name":"anthropic.claude-3-haiku-20240307-v1:0"}`,
-	"llm.input_messages.0.message.role":          "user",
-	"llm.input_messages.0.message.content":       "Say hello in one word",
-	"llm.output_messages.0.message.role":         "assistant",
-	"llm.output_messages.0.message.content":      "Hello.",
-	"llm.token_count.prompt":                     int64(12),
-	"llm.token_count.completion":                 int64(5),
-	"llm.token_count.total":                      int64(17),
+	"openinference.span.kind":               "LLM",
+	"llm.model_name":                        "anthropic.claude-3-haiku-20240307-v1:0",
+	"llm.invocation_parameters":             `{"context_window":200000,"num_output":512,"is_chat_model":true,"is_function_calling_model":true,"model_name":"anthropic.claude-3-haiku-20240307-v1:0"}`,
+	"llm.input_messages.0.message.role":     "user",
+	"llm.input_messages.0.message.content":  "Say hello in one word",
+	"llm.output_messages.0.message.role":    "assistant",
+	"llm.output_messages.0.message.content": "Hello.",
+	"llm.token_count.prompt":                int64(12),
+	"llm.token_count.completion":            int64(5),
+	"llm.token_count.total":                 int64(17),
+
 	"llm.token_count.prompt_details.cache_read":  int64(0),
 	"llm.token_count.prompt_details.cache_write": int64(0),
-	"input.value":                                `{"messages": ["ChatMessage(role=<MessageRole.USER: 'user'>, content='Say hello in one word')"]}`,
-	"input.mime_type":                            "application/json",
-	"output.value":                               "assistant: Hello.",
+
+	"input.value":     `{"messages": ["ChatMessage(role=<MessageRole.USER: 'user'>, content='Say hello in one word')"]}`,
+	"input.mime_type": "application/json",
+	"output.value":    "assistant: Hello.",
 }
 
 var llamaindexSystemMessageSpan = map[string]any{
-	"openinference.span.kind":                    "LLM",
-	"llm.model_name":                             "anthropic.claude-3-haiku-20240307-v1:0",
-	"llm.invocation_parameters":                  `{"context_window":200000,"num_output":512,"is_chat_model":true,"is_function_calling_model":true,"model_name":"anthropic.claude-3-haiku-20240307-v1:0"}`,
-	"llm.input_messages.0.message.role":          "system",
-	"llm.input_messages.0.message.content":       "You are a pirate.",
-	"llm.input_messages.1.message.role":          "user",
-	"llm.input_messages.1.message.content":       "Say hello in one word",
-	"llm.output_messages.0.message.role":         "assistant",
-	"llm.output_messages.0.message.content":      "Ahoy!",
-	"llm.token_count.prompt":                     int64(18),
-	"llm.token_count.completion":                 int64(7),
-	"llm.token_count.total":                      int64(25),
+	"openinference.span.kind":               "LLM",
+	"llm.model_name":                        "anthropic.claude-3-haiku-20240307-v1:0",
+	"llm.invocation_parameters":             `{"context_window":200000,"num_output":512,"is_chat_model":true,"is_function_calling_model":true,"model_name":"anthropic.claude-3-haiku-20240307-v1:0"}`,
+	"llm.input_messages.0.message.role":     "system",
+	"llm.input_messages.0.message.content":  "You are a pirate.",
+	"llm.input_messages.1.message.role":     "user",
+	"llm.input_messages.1.message.content":  "Say hello in one word",
+	"llm.output_messages.0.message.role":    "assistant",
+	"llm.output_messages.0.message.content": "Ahoy!",
+	"llm.token_count.prompt":                int64(18),
+	"llm.token_count.completion":            int64(7),
+	"llm.token_count.total":                 int64(25),
+
 	"llm.token_count.prompt_details.cache_read":  int64(0),
 	"llm.token_count.prompt_details.cache_write": int64(0),
-	"input.mime_type":                            "application/json",
-	"output.value":                               "assistant: Ahoy!",
+
+	"input.mime_type": "application/json",
+	"output.value":    "assistant: Ahoy!",
 }
 
 var crewaiCrewKickoffSpan = map[string]any{
@@ -313,21 +337,22 @@ var toolWithParametersSpan = map[string]any{
 }
 
 var attributesToRemoveSpan = map[string]any{
-	"openinference.span.kind":                      "LLM",
-	"llm.model_name":                               "gpt-4",
-	"input.mime_type":                              "application/json",
-	"output.mime_type":                             "application/json",
-	"metadata":                                     `{"key":"value"}`,
-	"llm.token_count.total":                        int64(100),
-	"llm.system":                                   "openai",
-	"llm.prompt_template.template":                 "Hello {name}",
-	"llm.prompt_template.variables":                `{"name":"world"}`,
-	"tool.parameters":                              `{"type":"object"}`,
-	"llm.cost.total":                               "0.005",
-	"llm.cost.prompt":                              "0.003",
-	"llm.cost.completion":                          "0.002",
-	"llm.function_call":                            `{"name":"search"}`,
-	"llm.prompts":                                  "Tell me a joke",
+	"openinference.span.kind":       "LLM",
+	"llm.model_name":                "gpt-4",
+	"input.mime_type":               "application/json",
+	"output.mime_type":              "application/json",
+	"metadata":                      `{"key":"value"}`,
+	"llm.token_count.total":         int64(100),
+	"llm.system":                    "openai",
+	"llm.prompt_template.template":  "Hello {name}",
+	"llm.prompt_template.variables": `{"name":"world"}`,
+	"tool.parameters":               `{"type":"object"}`,
+	"llm.cost.total":                "0.005",
+	"llm.cost.prompt":               "0.003",
+	"llm.cost.completion":           "0.002",
+	"llm.function_call":             `{"name":"search"}`,
+	"llm.prompts":                   "Tell me a joke",
+
 	"llm.token_count.prompt_details.cache_read":    int64(50),
 	"llm.token_count.prompt_details.cache_write":   int64(10),
 	"llm.token_count.prompt_details.audio":         int64(5),
@@ -336,12 +361,14 @@ var attributesToRemoveSpan = map[string]any{
 }
 
 var multimodalContentSpan = map[string]any{
-	"openinference.span.kind":                                                 "LLM",
-	"llm.input_messages.0.message.role":                                       "user",
+	"openinference.span.kind":           "LLM",
+	"llm.input_messages.0.message.role": "user",
+
 	"llm.input_messages.0.message.contents.0.message_content.type":            "text",
 	"llm.input_messages.0.message.contents.0.message_content.text":            "What's in this image?",
 	"llm.input_messages.0.message.contents.1.message_content.type":            "image",
 	"llm.input_messages.0.message.contents.1.message_content.image.image.url": "https://example.com/cat.jpg",
-	"llm.output_messages.0.message.role":                                      "assistant",
-	"llm.output_messages.0.message.content":                                   "I see a cat.",
+
+	"llm.output_messages.0.message.role":    "assistant",
+	"llm.output_messages.0.message.content": "I see a cat.",
 }

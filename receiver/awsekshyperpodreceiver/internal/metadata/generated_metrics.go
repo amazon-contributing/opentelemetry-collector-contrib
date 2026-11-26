@@ -3,26 +3,48 @@
 package metadata
 
 import (
+	"slices"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/xpdata/xhash"
 	"go.opentelemetry.io/collector/receiver"
 )
 
+const (
+	AggregationStrategySum = "sum"
+	AggregationStrategyAvg = "avg"
+	AggregationStrategyMin = "min"
+	AggregationStrategyMax = "max"
+)
+
+// dataPointKey hashes dp's attributes and timestamps for O(1) dedup lookup.
+func dataPointKey(dp pmetric.NumberDataPoint) uint64 {
+	return xhash.Hash64(
+		xhash.WithMap(dp.Attributes()),
+		xhash.WithUint64(uint64(dp.StartTimestamp())),
+		xhash.WithUint64(uint64(dp.Timestamp())),
+	)
+}
+
 var MetricsInfo = metricsInfo{
 	HyperpodNodeHealthStatusSchedulable: metricInfo{
-		Name: "hyperpod_node_health_status_schedulable",
+		Name:       "hyperpod_node_health_status_schedulable",
+		Attributes: []string{"cluster_name", "instance_id", "node_name"},
 	},
 	HyperpodNodeHealthStatusUnschedulable: metricInfo{
-		Name: "hyperpod_node_health_status_unschedulable",
+		Name:       "hyperpod_node_health_status_unschedulable",
+		Attributes: []string{"cluster_name", "instance_id", "node_name"},
 	},
 	HyperpodNodeHealthStatusUnschedulablePendingReboot: metricInfo{
-		Name: "hyperpod_node_health_status_unschedulable_pending_reboot",
+		Name:       "hyperpod_node_health_status_unschedulable_pending_reboot",
+		Attributes: []string{"cluster_name", "instance_id", "node_name"},
 	},
 	HyperpodNodeHealthStatusUnschedulablePendingReplacement: metricInfo{
-		Name: "hyperpod_node_health_status_unschedulable_pending_replacement",
+		Name:       "hyperpod_node_health_status_unschedulable_pending_replacement",
+		Attributes: []string{"cluster_name", "instance_id", "node_name"},
 	},
 }
 
@@ -34,13 +56,16 @@ type metricsInfo struct {
 }
 
 type metricInfo struct {
-	Name string
+	Name       string
+	Attributes []string
 }
 
 type metricHyperpodNodeHealthStatusSchedulable struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                                  // data buffer for generated metric.
+	config        HyperpodNodeHealthStatusSchedulableMetricConfig // metric config provided by user.
+	capacity      int                                             // max observed number of data points added to the metric.
+	aggDataPoints []int64                                         // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                                  // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills hyperpod_node_health_status_schedulable metric with initial data.
@@ -50,19 +75,55 @@ func (m *metricHyperpodNodeHealthStatusSchedulable) init() {
 	m.data.SetUnit("1")
 	m.data.SetEmptyGauge()
 	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricHyperpodNodeHealthStatusSchedulable) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, clusterNameAttributeValue string, instanceIDAttributeValue string, nodeNameAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyClusterName) {
+		dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyInstanceID) {
+		dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusSchedulableMetricAttributeKeyNodeName) {
+		dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Gauge().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
-	dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
-	dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -75,13 +136,18 @@ func (m *metricHyperpodNodeHealthStatusSchedulable) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricHyperpodNodeHealthStatusSchedulable) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricHyperpodNodeHealthStatusSchedulable(cfg MetricConfig) metricHyperpodNodeHealthStatusSchedulable {
+func newMetricHyperpodNodeHealthStatusSchedulable(cfg HyperpodNodeHealthStatusSchedulableMetricConfig) metricHyperpodNodeHealthStatusSchedulable {
 	m := metricHyperpodNodeHealthStatusSchedulable{config: cfg}
 
 	if cfg.Enabled {
@@ -92,9 +158,11 @@ func newMetricHyperpodNodeHealthStatusSchedulable(cfg MetricConfig) metricHyperp
 }
 
 type metricHyperpodNodeHealthStatusUnschedulable struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                                    // data buffer for generated metric.
+	config        HyperpodNodeHealthStatusUnschedulableMetricConfig // metric config provided by user.
+	capacity      int                                               // max observed number of data points added to the metric.
+	aggDataPoints []int64                                           // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                                    // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills hyperpod_node_health_status_unschedulable metric with initial data.
@@ -104,19 +172,55 @@ func (m *metricHyperpodNodeHealthStatusUnschedulable) init() {
 	m.data.SetUnit("1")
 	m.data.SetEmptyGauge()
 	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricHyperpodNodeHealthStatusUnschedulable) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, clusterNameAttributeValue string, instanceIDAttributeValue string, nodeNameAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyClusterName) {
+		dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyInstanceID) {
+		dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulableMetricAttributeKeyNodeName) {
+		dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Gauge().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
-	dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
-	dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -129,13 +233,18 @@ func (m *metricHyperpodNodeHealthStatusUnschedulable) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricHyperpodNodeHealthStatusUnschedulable) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricHyperpodNodeHealthStatusUnschedulable(cfg MetricConfig) metricHyperpodNodeHealthStatusUnschedulable {
+func newMetricHyperpodNodeHealthStatusUnschedulable(cfg HyperpodNodeHealthStatusUnschedulableMetricConfig) metricHyperpodNodeHealthStatusUnschedulable {
 	m := metricHyperpodNodeHealthStatusUnschedulable{config: cfg}
 
 	if cfg.Enabled {
@@ -146,9 +255,11 @@ func newMetricHyperpodNodeHealthStatusUnschedulable(cfg MetricConfig) metricHype
 }
 
 type metricHyperpodNodeHealthStatusUnschedulablePendingReboot struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                                                 // data buffer for generated metric.
+	config        HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig // metric config provided by user.
+	capacity      int                                                            // max observed number of data points added to the metric.
+	aggDataPoints []int64                                                        // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                                                 // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills hyperpod_node_health_status_unschedulable_pending_reboot metric with initial data.
@@ -158,19 +269,55 @@ func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReboot) init() {
 	m.data.SetUnit("1")
 	m.data.SetEmptyGauge()
 	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReboot) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, clusterNameAttributeValue string, instanceIDAttributeValue string, nodeNameAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyClusterName) {
+		dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyInstanceID) {
+		dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulablePendingRebootMetricAttributeKeyNodeName) {
+		dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Gauge().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
-	dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
-	dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -183,13 +330,18 @@ func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReboot) updateCapacit
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReboot) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricHyperpodNodeHealthStatusUnschedulablePendingReboot(cfg MetricConfig) metricHyperpodNodeHealthStatusUnschedulablePendingReboot {
+func newMetricHyperpodNodeHealthStatusUnschedulablePendingReboot(cfg HyperpodNodeHealthStatusUnschedulablePendingRebootMetricConfig) metricHyperpodNodeHealthStatusUnschedulablePendingReboot {
 	m := metricHyperpodNodeHealthStatusUnschedulablePendingReboot{config: cfg}
 
 	if cfg.Enabled {
@@ -200,9 +352,11 @@ func newMetricHyperpodNodeHealthStatusUnschedulablePendingReboot(cfg MetricConfi
 }
 
 type metricHyperpodNodeHealthStatusUnschedulablePendingReplacement struct {
-	data     pmetric.Metric // data buffer for generated metric.
-	config   MetricConfig   // metric config provided by user.
-	capacity int            // max observed number of data points added to the metric.
+	data          pmetric.Metric                                                      // data buffer for generated metric.
+	config        HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig // metric config provided by user.
+	capacity      int                                                                 // max observed number of data points added to the metric.
+	aggDataPoints []int64                                                             // slice containing number of aggregated datapoints at each index
+	dpIndex       map[uint64]int                                                      // maps a data point's hash to its index, for O(1) dedup lookup.
 }
 
 // init fills hyperpod_node_health_status_unschedulable_pending_replacement metric with initial data.
@@ -212,19 +366,55 @@ func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReplacement) init() {
 	m.data.SetUnit("1")
 	m.data.SetEmptyGauge()
 	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
+	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
 func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReplacement) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, clusterNameAttributeValue string, instanceIDAttributeValue string, nodeNameAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyClusterName) {
+		dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyInstanceID) {
+		dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricAttributeKeyNodeName) {
+		dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	}
+
+	var s string
+	key := dataPointKey(dp)
+	dps := m.data.Gauge().DataPoints()
+	if i, ok := m.dpIndex[key]; ok {
+		dpi := dps.At(i)
+		switch s = m.config.AggregationStrategy; s {
+		case AggregationStrategySum, AggregationStrategyAvg:
+			dpi.SetIntValue(dpi.IntValue() + val)
+			m.aggDataPoints[i] += 1
+			return
+		case AggregationStrategyMin:
+			if dpi.IntValue() > val {
+				dpi.SetIntValue(val)
+			}
+			return
+		case AggregationStrategyMax:
+			if dpi.IntValue() < val {
+				dpi.SetIntValue(val)
+			}
+			return
+		}
+	}
+
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("cluster_name", clusterNameAttributeValue)
-	dp.Attributes().PutStr("instance_id", instanceIDAttributeValue)
-	dp.Attributes().PutStr("node_name", nodeNameAttributeValue)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	m.dpIndex[key] = dps.Len()
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -237,13 +427,18 @@ func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReplacement) updateCa
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricHyperpodNodeHealthStatusUnschedulablePendingReplacement) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricHyperpodNodeHealthStatusUnschedulablePendingReplacement(cfg MetricConfig) metricHyperpodNodeHealthStatusUnschedulablePendingReplacement {
+func newMetricHyperpodNodeHealthStatusUnschedulablePendingReplacement(cfg HyperpodNodeHealthStatusUnschedulablePendingReplacementMetricConfig) metricHyperpodNodeHealthStatusUnschedulablePendingReplacement {
 	m := metricHyperpodNodeHealthStatusUnschedulablePendingReplacement{config: cfg}
 
 	if cfg.Enabled {

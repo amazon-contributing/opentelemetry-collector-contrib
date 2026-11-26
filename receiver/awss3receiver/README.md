@@ -23,6 +23,10 @@ The receiver supports:
   - **Event-driven**: Process new objects as they arrive via SQS notifications
 
 ## Configuration
+
+> **Note:** This receiver was renamed from `awss3` to `aws_s3` to match the snake_case naming convention.
+> The deprecated component type `awss3` is still accepted as an alias and will log a deprecation warning.
+
 The following exporter configuration parameters are supported.
 
 | Name                    | Description                                                                                                                                | Default     | Required |
@@ -52,6 +56,7 @@ The following exporter configuration parameters are supported.
 | `notifications:`        |                                                                                                                                            |             |          |
 | `opampextension`        | Name of the OpAMP Extension to use to send ingest progress notifications.                                                                  |             |          |
 | `tag_object_after_ingestion`        | If enabled the receiver will attempt to tag the object after successfully ingesting it.                                                                  | false       | Optional |
+| `skip_ingesting_tagged_objects`        | If enabled the receiver will skip objects tagged by `tag_object_after_ingestion`. This can be used as a checkpointing mechanism, and requires an additional `s3:GetObjectTagging` permission                                                                  | false       | Optional |
 
 There are two modes of operation:
 
@@ -96,7 +101,7 @@ extension:
     unmarshaling_separator: "\r?\n"
 
 receivers:
-  awss3:
+  aws_s3:
     starttime: "2024-01-01 01:00"
     endtime: "2024-01-02"
     s3downloader:
@@ -111,7 +116,7 @@ receivers:
         suffix: ".txt"
 
 receivers:
-  awss3/sqs_traces:
+  aws_s3/sqs_traces:
     s3downloader:
       region: us-east-1
       s3_bucket: mybucket
@@ -127,11 +132,11 @@ exporters:
 service:
   pipelines:
     traces:
-      receivers: [awss3/traces]
+      receivers: [aws_s3/traces]
       exporters: [otlp_grpc]
 
     traces/sqs:
-      receivers: [awss3/sqs_traces]
+      receivers: [aws_s3/sqs_traces]
       exporters: [otlp_grpc]
 ```
 
