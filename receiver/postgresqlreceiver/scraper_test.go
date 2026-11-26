@@ -3565,6 +3565,10 @@ func TestQueryPlanStoreStatus(t *testing.T) {
 		}
 	}
 	infoProbe := func(m sqlmock.Sqlmock) *sqlmock.ExpectedQuery { return m.ExpectQuery(planStoreInfoProbeSQL) }
+	infoReadable := func(m sqlmock.Sqlmock) {
+		extensionPresent(true)(m)
+		infoProbe(m).WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	}
 
 	tests := []struct {
 		name    string
@@ -3578,10 +3582,10 @@ func TestQueryPlanStoreStatus(t *testing.T) {
 			want:   planStoreMissing,
 		},
 		{
-			name: "extension created and library loaded",
+			name: "extension created, library loaded and plans readable",
 			expect: func(m sqlmock.Sqlmock) {
-				extensionPresent(true)(m)
-				infoProbe(m).WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+				infoReadable(m)
+				m.ExpectExec(planStoreReadProbeSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 			},
 			want: planStoreReady,
 		},
@@ -3594,10 +3598,42 @@ func TestQueryPlanStoreStatus(t *testing.T) {
 			want: planStoreNotLoaded,
 		},
 		{
-			name: "any other info probe error is left for the plan read to report",
+			name: "monitoring user cannot read the info view",
+			expect: func(m sqlmock.Sqlmock) {
+				extensionPresent(true)(m)
+				infoProbe(m).WillReturnError(&pq.Error{Code: pgInsufficientPrivilege})
+			},
+			want: planStoreNoPermission,
+		},
+		{
+			name: "monitoring user can read the info view but not pg_store_plans",
+			expect: func(m sqlmock.Sqlmock) {
+				infoReadable(m)
+				m.ExpectExec(planStoreReadProbeSQL).WillReturnError(&pq.Error{Code: pgInsufficientPrivilege})
+			},
+			want: planStoreNoPermission,
+		},
+		{
+			name: "other postgres error on the info probe is left for the plan read to report",
+			expect: func(m sqlmock.Sqlmock) {
+				extensionPresent(true)(m)
+				infoProbe(m).WillReturnError(&pq.Error{Code: "08006"})
+			},
+			want: planStoreReady,
+		},
+		{
+			name: "non-postgres error on the info probe is left for the plan read to report",
 			expect: func(m sqlmock.Sqlmock) {
 				extensionPresent(true)(m)
 				infoProbe(m).WillReturnError(errors.New("connection reset by peer"))
+			},
+			want: planStoreReady,
+		},
+		{
+			name: "other error on the pg_store_plans probe is left for the plan read to report",
+			expect: func(m sqlmock.Sqlmock) {
+				infoReadable(m)
+				m.ExpectExec(planStoreReadProbeSQL).WillReturnError(errors.New("connection reset by peer"))
 			},
 			want: planStoreReady,
 		},
@@ -3632,7 +3668,7 @@ func TestQueryPlanStoreStatus(t *testing.T) {
 
 // The probes are the receiver's own statements, so they must carry the prefix the top query filter excludes.
 func TestPlanStoreProbesAreExcludedFromTopQueries(t *testing.T) {
-	for _, probe := range []string{planStoreExtensionProbeSQL, planStoreInfoProbeSQL, capturedQueryPlanSQL} {
+	for _, probe := range []string{planStoreExtensionProbeSQL, planStoreInfoProbeSQL, planStoreReadProbeSQL, capturedQueryPlanSQL} {
 		require.True(t, strings.HasPrefix(probe, "/* otel-collector-ignore */"), probe)
 	}
 }

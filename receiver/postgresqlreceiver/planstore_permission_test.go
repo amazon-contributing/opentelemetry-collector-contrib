@@ -4,53 +4,13 @@
 package postgresqlreceiver
 
 import (
-	"errors"
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
-
-// TestQueryPlanStoreStatusMapsProbeErrors checks how the info view probe result maps to a status.
-func TestQueryPlanStoreStatusMapsProbeErrors(t *testing.T) {
-	tests := []struct {
-		name      string
-		infoErr   error
-		infoOK    bool
-		wantState planStoreStatus
-	}{
-		{name: "readable", infoOK: true, wantState: planStoreReady},
-		{name: "library not preloaded", infoErr: &pq.Error{Code: pgObjectNotInPrerequisiteState}, wantState: planStoreNotLoaded},
-		{name: "monitoring user lacks SELECT", infoErr: &pq.Error{Code: pgInsufficientPrivilege}, wantState: planStoreNoPermission},
-		{name: "other probe error is left for the lookup", infoErr: &pq.Error{Code: "08006"}, wantState: planStoreReady},
-		{name: "non-postgres probe error is left for the lookup", infoErr: errors.New("connection reset"), wantState: planStoreReady},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
-			require.NoError(t, err)
-			defer db.Close()
-
-			mock.ExpectQuery("pg_extension").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-			infoQuery := mock.ExpectQuery("pg_store_plans_info")
-			if tc.infoOK {
-				infoQuery.WillReturnRows(sqlmock.NewRows([]string{"one"}).AddRow(1))
-			} else {
-				infoQuery.WillReturnError(tc.infoErr)
-			}
-
-			c := &postgreSQLClient{client: db}
-			status, err := c.queryPlanStoreStatus(t.Context())
-			require.NoError(t, err)
-			require.Equal(t, tc.wantState, status)
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
-}
 
 // TestQueryPlanStoreNoPermissionWarnsOnceNamesGrantAndResumes covers the monitoring user that cannot read
 // the plan store: lookups stay off, the cause is reported once at the default log level, and they resume
