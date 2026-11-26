@@ -3738,6 +3738,11 @@ func newPlanStoreScraper(t *testing.T, c *planStoreFakeClient) (*postgreSQLScrap
 // collectAgain makes the next scrapeTopQuery a new collection instead of one skipped for its interval.
 func collectAgain(t *testing.T, s *postgreSQLScraper) plog.Logs {
 	t.Helper()
+	// A collection is identified by its start time, so the clock must have moved since the last one. On
+	// platforms with a coarse clock, two collections in a row can otherwise start at the same instant.
+	for last := s.lastExecutionTimestamp; !time.Now().After(last); {
+		time.Sleep(time.Millisecond)
+	}
 	s.lastExecutionTimestamp = time.Now().Add(-time.Hour)
 	out, err := s.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	require.NoError(t, err)

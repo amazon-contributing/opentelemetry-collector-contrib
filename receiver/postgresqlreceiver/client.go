@@ -388,8 +388,7 @@ func (c *postgreSQLClient) queryPlanStoreStatus(ctx context.Context) (planStoreS
 	}
 	var one int
 	err := c.client.QueryRowContext(ctx, planStoreInfoProbeSQL).Scan(&one)
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) {
+	if pqErr, ok := errors.AsType[*pq.Error](err); ok {
 		switch pqErr.Code {
 		case pgObjectNotInPrerequisiteState:
 			return planStoreNotLoaded, nil
