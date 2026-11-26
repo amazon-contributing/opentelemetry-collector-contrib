@@ -359,20 +359,28 @@ const (
 // pgObjectNotInPrerequisiteState is the SQLSTATE pg_store_plans raises when its library is not preloaded.
 const pgObjectNotInPrerequisiteState = "55000"
 
+// The plan store probes carry the otel-collector-ignore prefix so that the top query filter does not report
+// the receiver's own statements.
+const (
+	// planStoreExtensionProbeSQL tells whether CREATE EXTENSION has run in the connected database.
+	planStoreExtensionProbeSQL = "/* otel-collector-ignore */ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')"
+	// planStoreInfoProbeSQL fails with SQLSTATE 55000 when the pg_store_plans library is not preloaded.
+	planStoreInfoProbeSQL = "/* otel-collector-ignore */ SELECT 1 FROM pg_store_plans_info"
+)
+
 // queryPlanStoreStatus reports whether captured plans can be read in the connected database. Creating the
 // extension is not enough: without the preloaded library every read fails, so it also probes the info view,
 // which is cheap and fails with the same error. Any other probe failure is left for the lookup to report.
 func (c *postgreSQLClient) queryPlanStoreStatus(ctx context.Context) (planStoreStatus, error) {
 	var present bool
-	if err := c.client.QueryRowContext(ctx,
-		"SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')").Scan(&present); err != nil {
+	if err := c.client.QueryRowContext(ctx, planStoreExtensionProbeSQL).Scan(&present); err != nil {
 		return planStoreReady, err
 	}
 	if !present {
 		return planStoreMissing, nil
 	}
 	var one int
-	err := c.client.QueryRowContext(ctx, "/* otel-collector-ignore */ SELECT 1 FROM pg_store_plans_info").Scan(&one)
+	err := c.client.QueryRowContext(ctx, planStoreInfoProbeSQL).Scan(&one)
 	var pqErr *pq.Error
 	if errors.As(err, &pqErr) && pqErr.Code == pgObjectNotInPrerequisiteState {
 		return planStoreNotLoaded, nil

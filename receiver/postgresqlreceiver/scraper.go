@@ -491,17 +491,23 @@ func (p *postgreSQLScraper) queryPlanStoreSkipped(database string, now time.Time
 // plans become readable again.
 func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient client, database string, now time.Time) bool {
 	status, err := dbClient.queryPlanStoreStatus(ctx)
+	prev, wasUnavailable := p.storePlansUnavailable[database]
 	if err != nil {
+		if wasUnavailable {
+			// Still unknown: keep skipping for the rest of this collection and check again on the next one.
+			// Reading the plan anyway would fail, and the empty result would be cached for the cache TTL.
+			p.storePlansUnavailable[database] = storePlansMark{checkedAt: now, status: prev.status}
+			return false
+		}
 		// Could not determine availability; let the lookup proceed and surface any error there.
 		return true
 	}
-	prev, wasUnavailable := p.storePlansUnavailable[database]
 	if status != planStoreReady {
 		p.storePlansUnavailable[database] = storePlansMark{checkedAt: now, status: status}
 		if !wasUnavailable || prev.status != status {
-			msg := "pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no agent restart is needed"
+			msg := "pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no collector restart is needed"
 			if status == planStoreNotLoaded {
-				msg = "pg_store_plans extension is created but not loaded; add it to shared_preload_libraries and restart PostgreSQL. Query plans will not be collected for this database until then, no agent restart is needed"
+				msg = "pg_store_plans extension is created but not loaded; add it to shared_preload_libraries and restart PostgreSQL. Query plans will not be collected for this database until then, no collector restart is needed"
 			}
 			p.logger.Warn(msg, zap.String("database", database))
 		}
@@ -640,6 +646,9 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 	heap.Init(&pq)
 	explained := int64(0)
 	count := 0
+	// readable holds the databases whose plan store was checked and found readable in this collection. The
+	// status cannot change within a collection, so the probes run once per database instead of once per query.
+	readable := make(map[string]bool)
 	for pq.Len() > 0 && count < int(topNQuery) {
 		item := heap.Pop(&pq).(*priorityqueue.QueueItem[map[string]any, float64])
 		query := item.Value[string(conventions.DBQueryTextKey)].(string)
@@ -657,11 +666,12 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 		// monitoring user cannot read. Skip the attempt; the query is still reported.
 		isSuperuser, _ := item.Value[dbAttributePrefix+"rolsuper"].(string)
 		if !ok && isSuperuser != "true" && explained < maxExplainEachInterval {
-			// Skip the lookup for databases known to lack pg_store_plans until their re-check is due; the query is still reported below without a plan.
+			// Skip the lookup for databases found unable to serve plans, for the rest of this collection; the query is still reported below without a plan.
 			if !p.queryPlanStoreSkipped(database, collectionTime) {
 				dbClient, err := clientFactory.getClient(ctx, database)
 				if err == nil {
-					if p.queryPlanStoreReady(ctx, dbClient, database, collectionTime) {
+					if readable[database] || p.queryPlanStoreReady(ctx, dbClient, database, collectionTime) {
+						readable[database] = true
 						plan, err = dbClient.explainQuery(ctx, rawQuery, queryID, logger)
 						if err != nil {
 							logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
