@@ -505,9 +505,14 @@ func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient cl
 	if status != planStoreReady {
 		p.storePlansUnavailable[database] = storePlansMark{checkedAt: now, status: status}
 		if !wasUnavailable || prev.status != status {
-			msg := "pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no collector restart is needed"
-			if status == planStoreNotLoaded {
+			var msg string
+			switch status {
+			case planStoreNotLoaded:
 				msg = "pg_store_plans extension is created but not loaded; add it to shared_preload_libraries and restart PostgreSQL. Query plans will not be collected for this database until then, no collector restart is needed"
+			case planStoreNoPermission:
+				msg = "pg_store_plans extension is created but the monitoring user cannot read it; grant SELECT on pg_store_plans_info and pg_store_plans to that user. Query plans will not be collected for this database until then, no collector restart is needed"
+			default:
+				msg = "pg_store_plans extension not installed; query plans will not be collected for this database until it is created, no collector restart is needed"
 			}
 			p.logger.Warn(msg, zap.String("database", database))
 		}

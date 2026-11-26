@@ -354,10 +354,16 @@ const (
 	// planStoreNotLoaded means the extension is created but pg_store_plans is not in shared_preload_libraries,
 	// so every read fails until PostgreSQL is restarted with it.
 	planStoreNotLoaded
+	// planStoreNoPermission means the extension is usable but the monitoring user is not allowed to read it,
+	// so every read fails until the privilege is granted.
+	planStoreNoPermission
 )
 
 // pgObjectNotInPrerequisiteState is the SQLSTATE pg_store_plans raises when its library is not preloaded.
 const pgObjectNotInPrerequisiteState = "55000"
+
+// pgInsufficientPrivilege is the SQLSTATE PostgreSQL raises when the user is not allowed to read a relation.
+const pgInsufficientPrivilege = "42501"
 
 // The plan store probes carry the otel-collector-ignore prefix so that the top query filter does not report
 // the receiver's own statements.
@@ -370,7 +376,8 @@ const (
 
 // queryPlanStoreStatus reports whether captured plans can be read in the connected database. Creating the
 // extension is not enough: without the preloaded library every read fails, so it also probes the info view,
-// which is cheap and fails with the same error. Any other probe failure is left for the lookup to report.
+// which is cheap and fails with the same error. A user who may not read the info view is reported separately,
+// because every read would fail the same way. Any other probe failure is left for the lookup to report.
 func (c *postgreSQLClient) queryPlanStoreStatus(ctx context.Context) (planStoreStatus, error) {
 	var present bool
 	if err := c.client.QueryRowContext(ctx, planStoreExtensionProbeSQL).Scan(&present); err != nil {
@@ -382,8 +389,13 @@ func (c *postgreSQLClient) queryPlanStoreStatus(ctx context.Context) (planStoreS
 	var one int
 	err := c.client.QueryRowContext(ctx, planStoreInfoProbeSQL).Scan(&one)
 	var pqErr *pq.Error
-	if errors.As(err, &pqErr) && pqErr.Code == pgObjectNotInPrerequisiteState {
-		return planStoreNotLoaded, nil
+	if errors.As(err, &pqErr) {
+		switch pqErr.Code {
+		case pgObjectNotInPrerequisiteState:
+			return planStoreNotLoaded, nil
+		case pgInsufficientPrivilege:
+			return planStoreNoPermission, nil
+		}
 	}
 	return planStoreReady, nil
 }

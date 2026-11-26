@@ -18,6 +18,7 @@ issues: [742]
 subtext: |
   A database found without pg_store_plans is re-checked on each top query collection instead of being skipped until restart.
   An extension that is created but not preloaded is reported once with the shared_preload_libraries requirement, and plans resume after PostgreSQL restarts with it.
+  A monitoring user that cannot read the plan store is reported once with the missing grant, and plans resume after the grant.
 
 # e.g. '[aws]'
 # Include 'aws' if the change is done done by cwa
