@@ -29,7 +29,7 @@ The Gen AI Adapter Connector transforms [OpenInference](https://arize-ai.github.
 It supports two pipeline paths:
 
 - **traces-to-traces**: Transforms span attributes from OpenInference format to OTel GenAI semconv (e.g., `llm.model_name` to `gen_ai.request.model`, `llm.token_count.prompt` to `gen_ai.usage.input_tokens`).
-- **traces-to-logs**: Extracts Large Language Object (LLO) content (prompts, completions, tool calls) from span attributes and events, and emits them as Gen AI log events with structured input/output messages in the [OTel semconv parts format](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-input-messages.json).
+- **traces-to-logs**: Extracts Large Language Object (LLO) content (prompts, completions, tool calls) from span attributes and events, and emits them as Gen AI log events with structured input/output messages in the [OTel semconv parts format](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/model/gen-ai/gen-ai-input-messages.json).
 
 ## Configuration
 
