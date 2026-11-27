@@ -43,7 +43,16 @@ func (*mockK8sAPIServer) GetMetrics() []pmetric.Metrics {
 	return []pmetric.Metrics{md}
 }
 
+// setStaticAWSEnv sets a static region and credentials so Start does not call IMDS.
+func setStaticAWSEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_ACCESS_KEY_ID", "test")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+}
+
 func TestReceiver(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	metricsReceiver, err := newAWSContainerInsightReceiver(
 		componenttest.NewNopTelemetrySettings(),
@@ -65,6 +74,7 @@ func TestReceiver(t *testing.T) {
 }
 
 func TestCollectData(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	metricsReceiver, err := newAWSContainerInsightReceiver(
 		componenttest.NewNopTelemetrySettings(),
@@ -91,6 +101,7 @@ func TestCollectData(t *testing.T) {
 }
 
 func TestCollectDataWithErrConsumer(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	metricsReceiver, err := newAWSContainerInsightReceiver(
 		componenttest.NewNopTelemetrySettings(),
@@ -112,6 +123,7 @@ func TestCollectDataWithErrConsumer(t *testing.T) {
 }
 
 func TestCollectDataWithECS(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	cfg.ContainerOrchestrator = ci.ECS
 	metricsReceiver, err := newAWSContainerInsightReceiver(
@@ -138,6 +150,7 @@ func TestCollectDataWithECS(t *testing.T) {
 }
 
 func TestCollectDataWithSystemd(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	cfg.ContainerOrchestrator = ci.EKS
 	cfg.KubeConfigPath = "/tmp/kube-config"
@@ -188,11 +201,7 @@ func (*MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factor
 }
 
 func TestAWSContainerInsightReceiverStart(t *testing.T) {
-	// Static region and credentials so building the AWS config succeeds
-	// without touching IMDS, letting Start reach middleware discovery.
-	t.Setenv("AWS_REGION", "us-east-1")
-	t.Setenv("AWS_ACCESS_KEY_ID", "test")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	setStaticAWSEnv(t)
 
 	// Create a mock host
 	mockHost := new(MockHost)
