@@ -42,6 +42,16 @@ const (
 	waitForKubeletInterval = 10 * time.Second
 )
 
+// A newly provisioned node can serve the kubelet port before its serving
+// certificate is signed, so /pods fails the TLS handshake for the first
+// 10-15 seconds. On the Kubernetes (DaemonSet) path, Start polls the kubelet
+// for a bounded time instead of failing on the first attempt.
+// These are variables so tests can shorten them.
+var (
+	kubeletStartupPollInterval = 2 * time.Second
+	kubeletStartupTimeout      = 30 * time.Second
+)
+
 var _ receiver.Metrics = (*awsContainerInsightReceiver)(nil)
 
 type metricsProvider interface {
@@ -125,15 +135,17 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 		if err != nil {
 			return fmt.Errorf("cannot initialize kubelet client: %w", err)
 		}
-		// wait for kubelet availability, but don't block on it
+		// wait for kubelet availability. The systemd path does not block on it; the
+		// Kubernetes path blocks for about kubeletStartupTimeout so Start still fails
+		// (and the pod restarts) if the kubelet never becomes reachable.
 		if acir.config.RunOnSystemd {
 			go func() {
-				if err = waitForKubelet(ctx, client, acir.settings.Logger); err != nil {
+				if err := waitForKubelet(ctx, client, waitForKubeletInterval, acir.settings.Logger); err != nil {
 					acir.settings.Logger.Error("Unable to connect to kubelet", zap.Error(err))
 					return
 				}
 				acir.settings.Logger.Debug("Kubelet is available. Initializing the receiver")
-				if err = acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
+				if err := acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
 					acir.settings.Logger.Error("Unable to initialize receiver", zap.Error(err))
 					return
 				}
@@ -141,7 +153,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 				acir.start(ctx)
 			}()
 		} else {
-			if err := checkKubelet(client); err != nil {
+			if err := waitForKubeletOnStartup(ctx, client, acir.settings.Logger); err != nil {
 				return err
 			}
 			if err := acir.initEKS(ctx, host, hostInfo, hostName, client); err != nil {
@@ -577,20 +589,34 @@ func (acir *awsContainerInsightReceiver) getK8sAPIServerEndpoint() (string, erro
 	return endpoint, nil
 }
 
-func waitForKubelet(ctx context.Context, client *kubeletutil.KubeletClient, logger *zap.Logger) error {
+func waitForKubelet(ctx context.Context, client *kubeletutil.KubeletClient, interval time.Duration, logger *zap.Logger) error {
 	for {
 		err := checkKubelet(client)
 		if err == nil {
 			return nil
 		}
-		logger.Debug("Kubelet unavailable. Waiting for next interval", zap.Error(err), zap.Stringer("interval", waitForKubeletInterval))
+		logger.Debug("Kubelet unavailable. Waiting for next interval", zap.Error(err), zap.Stringer("interval", interval))
 		select {
-		case <-time.After(waitForKubeletInterval):
+		case <-time.After(interval):
 			continue
 		case <-ctx.Done():
-			return fmt.Errorf("context closed without getting kubelet client: %w", ctx.Err())
+			return fmt.Errorf("%w: %w", ctx.Err(), err)
 		}
 	}
+}
+
+// waitForKubeletOnStartup blocks until the kubelet answers /pods or about
+// kubeletStartupTimeout has elapsed. The bound is approximate: each probe is a
+// kubelet HTTP call with no per-request timeout, so a hung call can extend the
+// wait by one attempt. It is used on the Kubernetes path, where Start must still
+// fail (and the pod restart) if the kubelet never becomes reachable.
+func waitForKubeletOnStartup(ctx context.Context, client *kubeletutil.KubeletClient, logger *zap.Logger) error {
+	waitCtx, cancel := context.WithTimeout(ctx, kubeletStartupTimeout)
+	defer cancel()
+	if err := waitForKubelet(waitCtx, client, kubeletStartupPollInterval, logger); err != nil {
+		return fmt.Errorf("kubelet not reachable after %s: %w", kubeletStartupTimeout, err)
+	}
+	return nil
 }
 
 func checkKubelet(client *kubeletutil.KubeletClient) error {
