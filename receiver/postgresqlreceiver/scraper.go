@@ -88,6 +88,7 @@ type postgreSQLScraper struct {
 	// found out. The receiver warns once per cause and checks again once per top-query collection, so plan
 	// lookups resume on the first collection after the extension is created and loaded.
 	storePlansUnavailable map[string]storePlansMark
+	planLookupErrs        map[string]string
 }
 
 // storePlansMark records why plans are unavailable in a database and which collection found out.
@@ -95,6 +96,11 @@ type storePlansMark struct {
 	checkedAt time.Time
 	status    planStoreStatus
 }
+
+const (
+	planLookupConnectMsg = "failed to connect to the database for the plan lookup"
+	planLookupStatusMsg  = "failed to check whether pg_store_plans can be read"
+)
 
 type errsMux struct {
 	sync.RWMutex
@@ -479,6 +485,22 @@ func (p *postgreSQLScraper) clearTopQueryErr() {
 	p.lastTopQueryErr = ""
 }
 
+func (p *postgreSQLScraper) logPlanLookupErrOnce(database, msg string, err error) {
+	key := database + "\x00" + msg
+	if p.planLookupErrs[key] == err.Error() {
+		return
+	}
+	if p.planLookupErrs == nil {
+		p.planLookupErrs = make(map[string]string)
+	}
+	p.planLookupErrs[key] = err.Error()
+	p.logger.Warn(msg, zap.String("database", database), zap.Error(err))
+}
+
+func (p *postgreSQLScraper) clearPlanLookupErr(database, msg string) {
+	delete(p.planLookupErrs, database+"\x00"+msg)
+}
+
 // queryPlanStoreSkipped reports whether database was already found unable to serve plans in the collection
 // that started at now, so its remaining queries in that collection skip the check.
 func (p *postgreSQLScraper) queryPlanStoreSkipped(database string, now time.Time) bool {
@@ -493,6 +515,7 @@ func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient cl
 	status, err := dbClient.queryPlanStoreStatus(ctx)
 	prev, wasUnavailable := p.storePlansUnavailable[database]
 	if err != nil {
+		p.logPlanLookupErrOnce(database, planLookupStatusMsg, err)
 		if wasUnavailable {
 			// Still unknown: keep skipping for the rest of this collection and check again on the next one.
 			// Reading the plan anyway would fail, and the empty result would be cached for the cache TTL.
@@ -502,6 +525,7 @@ func (p *postgreSQLScraper) queryPlanStoreReady(ctx context.Context, dbClient cl
 		// Could not determine availability; let the lookup proceed and surface any error there.
 		return true
 	}
+	p.clearPlanLookupErr(database, planLookupStatusMsg)
 	if status != planStoreReady {
 		p.storePlansUnavailable[database] = storePlansMark{checkedAt: now, status: status}
 		if !wasUnavailable || prev.status != status {
@@ -674,7 +698,11 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			// Skip the lookup for databases found unable to serve plans, for the rest of this collection; the query is still reported below without a plan.
 			if !p.queryPlanStoreSkipped(database, collectionTime) {
 				dbClient, err := clientFactory.getClient(ctx, database)
+				if err != nil {
+					p.logPlanLookupErrOnce(database, planLookupConnectMsg, err)
+				}
 				if err == nil {
+					p.clearPlanLookupErr(database, planLookupConnectMsg)
 					if readable[database] || p.queryPlanStoreReady(ctx, dbClient, database, collectionTime) {
 						readable[database] = true
 						plan, err = dbClient.explainQuery(ctx, rawQuery, queryID, logger)
