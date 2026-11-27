@@ -75,7 +75,7 @@ type client interface {
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(ctx context.Context, query, queryID string, logger *zap.Logger) (string, error)
-	queryPlanStoreAvailable(ctx context.Context) (bool, error)
+	queryPlanStoreStatus(ctx context.Context) (planStoreStatus, error)
 	getSessionStates(ctx context.Context) (map[string]int64, error)
 }
 
@@ -343,12 +343,74 @@ func (c *postgreSQLClient) capturedQueryPlan(ctx context.Context, queryID string
 	return plan, tx.Commit()
 }
 
-// queryPlanStoreAvailable reports whether the pg_store_plans extension is installed in the connected database.
-func (c *postgreSQLClient) queryPlanStoreAvailable(ctx context.Context) (bool, error) {
+// planStoreStatus describes whether captured plans can be read in a database.
+type planStoreStatus int
+
+const (
+	// planStoreReady means the extension is created and its library is loaded, or the state could not be told apart.
+	planStoreReady planStoreStatus = iota
+	// planStoreMissing means CREATE EXTENSION has not run in the database.
+	planStoreMissing
+	// planStoreNotLoaded means the extension is created but pg_store_plans is not in shared_preload_libraries,
+	// so every read fails until PostgreSQL is restarted with it.
+	planStoreNotLoaded
+	// planStoreNoPermission means the extension is usable but the monitoring user is not allowed to read it,
+	// so every read fails until the privilege is granted.
+	planStoreNoPermission
+)
+
+// pgObjectNotInPrerequisiteState is the SQLSTATE pg_store_plans raises when its library is not preloaded.
+const pgObjectNotInPrerequisiteState = "55000"
+
+// pgInsufficientPrivilege is the SQLSTATE PostgreSQL raises when the user is not allowed to read a relation.
+const pgInsufficientPrivilege = "42501"
+
+// The plan store probes carry the otel-collector-ignore prefix so that the top query filter does not report
+// the receiver's own statements.
+const (
+	// planStoreExtensionProbeSQL tells whether CREATE EXTENSION has run in the connected database.
+	planStoreExtensionProbeSQL = "/* otel-collector-ignore */ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')"
+	// planStoreInfoProbeSQL fails with SQLSTATE 55000 when the pg_store_plans library is not preloaded.
+	planStoreInfoProbeSQL = "/* otel-collector-ignore */ SELECT 1 FROM pg_store_plans_info"
+	// planStoreReadProbeSQL fails with SQLSTATE 42501 when the user may not read pg_store_plans itself. LIMIT 0
+	// returns no rows, but PostgreSQL still checks the privilege when the statement starts.
+	planStoreReadProbeSQL = "/* otel-collector-ignore */ SELECT 1 FROM pg_store_plans LIMIT 0"
+)
+
+// queryPlanStoreStatus reports whether captured plans can be read in the connected database. Creating the
+// extension is not enough: without the preloaded library every read fails, so it also probes the info view,
+// which is cheap and fails with the same error. A user who may not read the info view or pg_store_plans is
+// reported separately, because every read would fail the same way. Any other probe failure is left for the
+// lookup to report.
+func (c *postgreSQLClient) queryPlanStoreStatus(ctx context.Context) (planStoreStatus, error) {
 	var present bool
-	err := c.client.QueryRowContext(ctx,
-		"SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_store_plans')").Scan(&present)
-	return present, err
+	if err := c.client.QueryRowContext(ctx, planStoreExtensionProbeSQL).Scan(&present); err != nil {
+		return planStoreReady, err
+	}
+	if !present {
+		return planStoreMissing, nil
+	}
+	var one int
+	if err := c.client.QueryRowContext(ctx, planStoreInfoProbeSQL).Scan(&one); err != nil {
+		return planStoreStatusFromProbeError(err), nil
+	}
+	// The info view and pg_store_plans have separate privileges, and the plan read uses pg_store_plans.
+	_, err := c.client.ExecContext(ctx, planStoreReadProbeSQL)
+	return planStoreStatusFromProbeError(err), nil
+}
+
+// planStoreStatusFromProbeError maps a probe error to a status. Errors other than the two SQLSTATEs that
+// identify the cause are left for the lookup to report, so they map to planStoreReady.
+func planStoreStatusFromProbeError(err error) planStoreStatus {
+	if pqErr, ok := errors.AsType[*pq.Error](err); ok {
+		switch pqErr.Code {
+		case pgObjectNotInPrerequisiteState:
+			return planStoreNotLoaded
+		case pgInsufficientPrivilege:
+			return planStoreNoPermission
+		}
+	}
+	return planStoreReady
 }
 
 var _ client = (*postgreSQLClient)(nil)
