@@ -3533,7 +3533,8 @@ func TestQueryPlanStoreProbeErrorKeepsMarkedDatabaseSkipped(t *testing.T) {
 			require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t1), "an unknown state must not start lookups")
 			require.True(t, p.queryPlanStoreSkipped("appdb", t1), "the other queries in this collection must skip")
 			require.Equal(t, storePlansMark{checkedAt: t1, status: marked}, p.storePlansUnavailable["appdb"])
-			require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len(), "a failed probe must not warn again")
+			require.Equal(t, 1, logs.FilterMessage(planLookupStatusMsg).Len())
+			require.Equal(t, 2, logs.FilterLevelExact(zap.WarnLevel).Len(), "a failed probe must not repeat the cause warning")
 			require.Zero(t, logs.FilterLevelExact(zap.InfoLevel).Len(), "a failed probe must not report a resume")
 
 			// The probe works again and the store is readable: lookups resume, logged once.
@@ -3555,7 +3556,8 @@ func TestQueryPlanStoreProbeErrorLetsUnmarkedDatabaseProceed(t *testing.T) {
 
 	require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", time.Unix(1_700_000_000, 0)))
 	require.Empty(t, p.storePlansUnavailable)
-	require.Zero(t, logs.Len())
+	require.Equal(t, 1, logs.FilterMessage(planLookupStatusMsg).Len())
+	require.Equal(t, 1, logs.Len())
 }
 
 func TestQueryPlanStoreStatus(t *testing.T) {
@@ -3836,7 +3838,8 @@ func TestCollectTopQueryChecksPlanStoreOncePerCollection(t *testing.T) {
 		_, cached := s.queryPlanCache.Get(planStoreCacheKey("appdb", id))
 		assert.False(t, cached, "no empty plan may be cached for %s while plans cannot be read", id)
 	}
-	assert.Equal(t, 1, warnCount(logs))
+	assert.Equal(t, 1, logs.FilterMessage(planLookupStatusMsg).Len())
+	assert.Equal(t, 2, warnCount(logs))
 
 	// The extension is readable: both queries get a plan, with one probe for the database.
 	c.err = nil
@@ -3944,4 +3947,89 @@ func TestExplainQueryObfuscatesCapturedPlanLiterals(t *testing.T) {
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
+}
+
+func TestQueryPlanStoreStatusErrorWarnsOncePerError(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	c := &toggleStoreClient{err: errors.New("connection refused")}
+	now := time.Unix(1_700_000_000, 0)
+
+	assert.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now))
+	assert.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now.Add(time.Minute)))
+	require.Equal(t, 1, logs.Len())
+	entry := logs.All()[0]
+	assert.Equal(t, planLookupStatusMsg, entry.Message)
+	assert.Equal(t, "appdb", entry.ContextMap()["database"])
+	assert.Equal(t, "connection refused", entry.ContextMap()["error"])
+
+	c.err = errors.New("password authentication failed")
+	assert.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now.Add(2*time.Minute)))
+	assert.Equal(t, 2, logs.Len())
+
+	assert.True(t, p.queryPlanStoreReady(t.Context(), c, "otherdb", now.Add(2*time.Minute)))
+	assert.Equal(t, 3, logs.Len())
+
+	c.err = nil
+	c.status = planStoreReady
+	assert.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now.Add(3*time.Minute)))
+	assert.Equal(t, 3, logs.Len())
+
+	c.err = errors.New("password authentication failed")
+	assert.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now.Add(4*time.Minute)))
+	assert.Equal(t, 4, logs.Len())
+}
+
+func TestQueryPlanStoreStatusErrorOnUnavailableDatabaseWarnsOnce(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	c := &toggleStoreClient{status: planStoreMissing}
+	now := time.Unix(1_700_000_000, 0)
+
+	assert.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now))
+	require.Equal(t, 1, logs.Len())
+
+	c.err = errors.New("connection refused")
+	assert.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now.Add(time.Minute)))
+	assert.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", now.Add(2*time.Minute)))
+	require.Equal(t, 2, logs.Len())
+	assert.Equal(t, planLookupStatusMsg, logs.All()[1].Message)
+}
+
+type failingDatabaseFactory struct {
+	*countingClientFactory
+	database string
+	err      error
+}
+
+func (f *failingDatabaseFactory) getClient(ctx context.Context, database string) (client, error) {
+	if database == f.database && f.err != nil {
+		return nil, f.err
+	}
+	return f.countingClientFactory.getClient(ctx, database)
+}
+
+func TestCollectTopQueryLogsConnectFailureOncePerError(t *testing.T) {
+	c := &planStoreFakeClient{status: planStoreMissing, rows: planStoreTopQueryRows("appdb", "q1", "q2")}
+	s, factory, logs := newPlanStoreScraper(t, c)
+	failing := &failingDatabaseFactory{countingClientFactory: factory, database: "appdb", err: errors.New("connection refused")}
+	s.clientFactory = failing
+
+	topQueryPlans(t, collectAgain(t, s))
+	topQueryPlans(t, collectAgain(t, s))
+	require.Equal(t, 1, logs.Len())
+	entry := logs.All()[0]
+	assert.Equal(t, planLookupConnectMsg, entry.Message)
+	assert.Equal(t, "appdb", entry.ContextMap()["database"])
+	assert.Zero(t, c.probes)
+	assert.Zero(t, c.explains)
+
+	failing.err = nil
+	topQueryPlans(t, collectAgain(t, s))
+	assert.Equal(t, 1, c.probes)
+	assert.Equal(t, 1, logs.FilterMessage(planLookupConnectMsg).Len())
+
+	failing.err = errors.New("connection refused")
+	topQueryPlans(t, collectAgain(t, s))
+	assert.Equal(t, 2, logs.FilterMessage(planLookupConnectMsg).Len())
 }
