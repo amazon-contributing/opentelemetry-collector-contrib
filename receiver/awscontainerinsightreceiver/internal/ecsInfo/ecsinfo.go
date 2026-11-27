@@ -124,11 +124,7 @@ func NewECSInfo(refreshInterval time.Duration, hostIPProvider hostIPProvider, ho
 	}
 
 	for _, run := range []func(context.Context){ecsInfo.initContainerInfo, ecsInfo.initTaskInfo, ecsInfo.initCgroupScanner} {
-		ecsInfo.wg.Add(1)
-		go func() {
-			defer ecsInfo.wg.Done()
-			run(ctx)
-		}()
+		ecsInfo.wg.Go(func() { run(ctx) })
 	}
 
 	return ecsInfo, nil

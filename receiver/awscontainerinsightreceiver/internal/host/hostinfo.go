@@ -126,15 +126,8 @@ func NewInfo(ctx context.Context, awsSessionSettings awsutil.AWSSessionSettings,
 		logger,
 	)
 
-	mInfo.wg.Add(2)
-	go func() {
-		defer mInfo.wg.Done()
-		mInfo.lazyInitEBSVolume(ctx)
-	}()
-	go func() {
-		defer mInfo.wg.Done()
-		mInfo.lazyInitEC2Tags(ctx)
-	}()
+	mInfo.wg.Go(func() { mInfo.lazyInitEBSVolume(ctx) })
+	mInfo.wg.Go(func() { mInfo.lazyInitEC2Tags(ctx) })
 	return mInfo, nil
 }
 
