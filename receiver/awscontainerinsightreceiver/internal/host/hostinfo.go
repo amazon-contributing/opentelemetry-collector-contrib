@@ -6,6 +6,7 @@ package host // import "github.com/open-telemetry/opentelemetry-collector-contri
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,6 +18,7 @@ import (
 // Info contains information about a host
 type Info struct {
 	cancel                context.CancelFunc
+	wg                    *sync.WaitGroup
 	logger                *zap.Logger
 	awsConfig             aws.Config
 	refreshInterval       time.Duration
@@ -80,6 +82,7 @@ func NewInfo(ctx context.Context, awsSessionSettings awsutil.AWSSessionSettings,
 	ctx, cancel := context.WithCancel(ctx)
 	mInfo := &Info{
 		cancel:           cancel,
+		wg:               &sync.WaitGroup{},
 		refreshInterval:  refreshInterval,
 		instanceIDReadyC: make(chan bool),
 		instanceIPReadyC: make(chan bool),
@@ -123,8 +126,15 @@ func NewInfo(ctx context.Context, awsSessionSettings awsutil.AWSSessionSettings,
 		logger,
 	)
 
-	go mInfo.lazyInitEBSVolume(ctx)
-	go mInfo.lazyInitEC2Tags(ctx)
+	mInfo.wg.Add(2)
+	go func() {
+		defer mInfo.wg.Done()
+		mInfo.lazyInitEBSVolume(ctx)
+	}()
+	go func() {
+		defer mInfo.wg.Done()
+		mInfo.lazyInitEC2Tags(ctx)
+	}()
 	return mInfo, nil
 }
 
@@ -233,4 +243,7 @@ func (m *Info) ExtractEbsIDsUsedByKubernetes() map[string]string {
 // Shutdown stops the host Info
 func (m *Info) Shutdown() {
 	m.cancel()
+	if m.wg != nil {
+		m.wg.Wait()
+	}
 }

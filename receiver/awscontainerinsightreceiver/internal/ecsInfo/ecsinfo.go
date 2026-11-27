@@ -5,6 +5,7 @@ package ecsinfo // import "github.com/open-telemetry/opentelemetry-collector-con
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -24,6 +25,7 @@ type EcsInfo struct {
 	refreshInterval       time.Duration
 	clusterName           string
 	cancel                context.CancelFunc
+	wg                    sync.WaitGroup
 	hostIPProvider        hostIPProvider
 	isTaskInfoReadyC      chan bool
 	isContainerInfoReadyC chan bool
@@ -121,11 +123,13 @@ func NewECSInfo(refreshInterval time.Duration, hostIPProvider hostIPProvider, ho
 		opt(ecsInfo)
 	}
 
-	go ecsInfo.initContainerInfo(ctx)
-
-	go ecsInfo.initTaskInfo(ctx)
-
-	go ecsInfo.initCgroupScanner(ctx)
+	for _, run := range []func(context.Context){ecsInfo.initContainerInfo, ecsInfo.initTaskInfo, ecsInfo.initCgroupScanner} {
+		ecsInfo.wg.Add(1)
+		go func() {
+			defer ecsInfo.wg.Done()
+			run(ctx)
+		}()
+	}
 
 	return ecsInfo, nil
 }
@@ -176,4 +180,5 @@ func (e *EcsInfo) initCgroupScanner(ctx context.Context) {
 // Shutdown stops the ecs Info
 func (e *EcsInfo) Shutdown() {
 	e.cancel()
+	e.wg.Wait()
 }

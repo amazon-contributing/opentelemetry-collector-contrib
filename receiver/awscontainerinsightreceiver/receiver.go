@@ -62,6 +62,7 @@ type awsContainerInsightReceiver struct {
 	prometheusScraper        *k8sapiserver.PrometheusScraper
 	podResourcesStore        *stores.PodResourcesStore
 	ecsInfo                  *ecsinfo.EcsInfo
+	hostInfo                 *hostinfo.Info
 	dcgmScraper              *prometheusscraper.SimplePrometheusScraper
 	nvmeEBSScraper           *prometheusscraper.SimplePrometheusScraper
 	nvmeLISScraper           *prometheusscraper.SimplePrometheusScraper
@@ -107,6 +108,7 @@ func (acir *awsContainerInsightReceiver) Start(ctx context.Context, host compone
 	if hostInfoErr != nil {
 		return hostInfoErr
 	}
+	acir.hostInfo = hostInfo
 
 	hostName := os.Getenv(ci.HostName)
 	if hostName == "" {
@@ -519,6 +521,10 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 
 	if acir.ecsInfo != nil {
 		acir.ecsInfo.Shutdown()
+	}
+
+	if acir.hostInfo != nil {
+		acir.hostInfo.Shutdown()
 	}
 
 	return errs
