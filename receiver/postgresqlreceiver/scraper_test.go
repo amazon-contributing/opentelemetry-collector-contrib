@@ -22,6 +22,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tj/assert"
@@ -1991,9 +1992,9 @@ func (*mockClient) explainQuery(context.Context, string, string, *zap.Logger) (s
 	panic("unimplemented")
 }
 
-// queryPlanStoreAvailable implements client.
-func (*mockClient) queryPlanStoreAvailable(context.Context) (bool, error) {
-	return true, nil
+// queryPlanStoreStatus implements client.
+func (*mockClient) queryPlanStoreStatus(context.Context) (planStoreStatus, error) {
+	return planStoreReady, nil
 }
 
 func (m *mockClient) getSessionStates(ctx context.Context) (map[string]int64, error) {
@@ -3427,16 +3428,443 @@ func TestLogTopQueryErrOnce(t *testing.T) {
 // storeAbsentClient reports pg_store_plans as not installed.
 type storeAbsentClient struct{ *mockClient }
 
-func (storeAbsentClient) queryPlanStoreAvailable(context.Context) (bool, error) { return false, nil }
+func (storeAbsentClient) queryPlanStoreStatus(context.Context) (planStoreStatus, error) {
+	return planStoreMissing, nil
+}
 
 func TestQueryPlanStoreReadyWarnsOnceAndSkips(t *testing.T) {
 	core, logs := observer.New(zap.WarnLevel)
-	p := &postgreSQLScraper{logger: zap.New(core), storePlansMissing: make(map[string]bool)}
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	now := time.Unix(1_700_000_000, 0)
 
-	ready := p.queryPlanStoreReady(t.Context(), storeAbsentClient{}, "appdb")
+	ready := p.queryPlanStoreReady(t.Context(), storeAbsentClient{}, "appdb", now)
 	require.False(t, ready, "plan lookups must be skipped when pg_store_plans is absent")
-	require.True(t, p.storePlansMissing["appdb"], "the database must be marked so later polls skip it")
+	require.Contains(t, p.storePlansUnavailable, "appdb", "the database must be marked so later polls skip it")
+	require.True(t, p.queryPlanStoreSkipped("appdb", now), "other queries in the same collection must skip")
+	require.False(t, p.queryPlanStoreSkipped("appdb", now.Add(time.Second)), "the next collection must check again")
 	require.Equal(t, 1, logs.Len(), "a missing extension must warn once")
+}
+
+// toggleStoreClient reports the pg_store_plans status it is set to, or err when that is set.
+type toggleStoreClient struct {
+	*mockClient
+	status planStoreStatus
+	err    error
+}
+
+func (c *toggleStoreClient) queryPlanStoreStatus(context.Context) (planStoreStatus, error) {
+	return c.status, c.err
+}
+
+func TestQueryPlanStoreResumesAfterExtensionCreated(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	c := &toggleStoreClient{status: planStoreMissing}
+	t0 := time.Unix(1_700_000_000, 0)
+
+	// Extension absent: marked missing, and skipped for the rest of that collection only.
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t0))
+	require.True(t, p.queryPlanStoreSkipped("appdb", t0))
+
+	// Next collection, still absent: checked again, stays skipped within the collection, does not warn again.
+	t1 := t0.Add(time.Minute)
+	require.False(t, p.queryPlanStoreSkipped("appdb", t1), "each new collection must re-check")
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t1))
+	require.True(t, p.queryPlanStoreSkipped("appdb", t1))
+	require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len(), "a persistently missing extension must warn once")
+
+	// The extension is created while the agent keeps running: the next collection resumes lookups.
+	c.status = planStoreReady
+	t2 := t1.Add(time.Minute)
+	require.False(t, p.queryPlanStoreSkipped("appdb", t2))
+	require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t2))
+	require.NotContains(t, p.storePlansUnavailable, "appdb", "the mark must be cleared so lookups are no longer skipped")
+	require.False(t, p.queryPlanStoreSkipped("appdb", t2))
+	require.Equal(t, 1, logs.FilterLevelExact(zap.InfoLevel).Len(), "resuming must be logged once")
+}
+
+func TestQueryPlanStoreNotLoadedWarnsPerCauseAndResumes(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	c := &toggleStoreClient{status: planStoreMissing}
+	t0 := time.Unix(1_700_000_000, 0)
+
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t0))
+	require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len())
+
+	// The extension is created before the library is preloaded: a different cause, so it warns again and names
+	// the preload requirement, and lookups stay off because every read would fail.
+	c.status = planStoreNotLoaded
+	t1 := t0.Add(time.Minute)
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t1))
+	require.True(t, p.queryPlanStoreSkipped("appdb", t1))
+	warns := logs.FilterLevelExact(zap.WarnLevel).All()
+	require.Len(t, warns, 2)
+	require.Contains(t, warns[1].Message, "shared_preload_libraries")
+
+	// Same cause on the next collection: no further warning.
+	t2 := t1.Add(time.Minute)
+	require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t2))
+	require.Equal(t, 2, logs.FilterLevelExact(zap.WarnLevel).Len())
+
+	// PostgreSQL restarted with the library: the next collection resumes.
+	c.status = planStoreReady
+	require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t2.Add(time.Minute)))
+	require.NotContains(t, p.storePlansUnavailable, "appdb")
+	require.Equal(t, 1, logs.FilterLevelExact(zap.InfoLevel).Len())
+}
+
+// A probe that fails for a database already found unavailable must not let lookups proceed: the plan read would
+// fail too, and the empty result would be cached for the whole cache TTL.
+func TestQueryPlanStoreProbeErrorKeepsMarkedDatabaseSkipped(t *testing.T) {
+	for _, marked := range []planStoreStatus{planStoreMissing, planStoreNotLoaded} {
+		t.Run(fmt.Sprintf("status %d", marked), func(t *testing.T) {
+			core, logs := observer.New(zap.InfoLevel)
+			p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+			c := &toggleStoreClient{status: marked}
+			t0 := time.Unix(1_700_000_000, 0)
+
+			require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t0))
+			require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len())
+
+			// The probe fails on the next collection: still skipped, same cause, checked again on the one after.
+			c.err = errors.New("connection reset by peer")
+			t1 := t0.Add(time.Minute)
+			require.False(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t1), "an unknown state must not start lookups")
+			require.True(t, p.queryPlanStoreSkipped("appdb", t1), "the other queries in this collection must skip")
+			require.Equal(t, storePlansMark{checkedAt: t1, status: marked}, p.storePlansUnavailable["appdb"])
+			require.Equal(t, 1, logs.FilterLevelExact(zap.WarnLevel).Len(), "a failed probe must not warn again")
+			require.Zero(t, logs.FilterLevelExact(zap.InfoLevel).Len(), "a failed probe must not report a resume")
+
+			// The probe works again and the store is readable: lookups resume, logged once.
+			c.err = nil
+			c.status = planStoreReady
+			require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", t1.Add(time.Minute)))
+			require.NotContains(t, p.storePlansUnavailable, "appdb")
+			require.Equal(t, 1, logs.FilterLevelExact(zap.InfoLevel).Len())
+		})
+	}
+}
+
+// A database that was never found unavailable still lets the lookup proceed when the probe fails, so that the
+// lookup reports the real error.
+func TestQueryPlanStoreProbeErrorLetsUnmarkedDatabaseProceed(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	p := &postgreSQLScraper{logger: zap.New(core), storePlansUnavailable: make(map[string]storePlansMark)}
+	c := &toggleStoreClient{err: errors.New("connection reset by peer")}
+
+	require.True(t, p.queryPlanStoreReady(t.Context(), c, "appdb", time.Unix(1_700_000_000, 0)))
+	require.Empty(t, p.storePlansUnavailable)
+	require.Zero(t, logs.Len())
+}
+
+func TestQueryPlanStoreStatus(t *testing.T) {
+	extensionPresent := func(present bool) func(sqlmock.Sqlmock) {
+		return func(m sqlmock.Sqlmock) {
+			m.ExpectQuery(planStoreExtensionProbeSQL).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(present))
+		}
+	}
+	infoProbe := func(m sqlmock.Sqlmock) *sqlmock.ExpectedQuery { return m.ExpectQuery(planStoreInfoProbeSQL) }
+	infoReadable := func(m sqlmock.Sqlmock) {
+		extensionPresent(true)(m)
+		infoProbe(m).WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	}
+
+	tests := []struct {
+		name    string
+		expect  func(sqlmock.Sqlmock)
+		want    planStoreStatus
+		wantErr string
+	}{
+		{
+			name:   "extension missing runs only the pg_extension probe",
+			expect: extensionPresent(false),
+			want:   planStoreMissing,
+		},
+		{
+			name: "extension created, library loaded and plans readable",
+			expect: func(m sqlmock.Sqlmock) {
+				infoReadable(m)
+				m.ExpectExec(planStoreReadProbeSQL).WillReturnResult(sqlmock.NewResult(0, 0))
+			},
+			want: planStoreReady,
+		},
+		{
+			name: "extension created but library not preloaded",
+			expect: func(m sqlmock.Sqlmock) {
+				extensionPresent(true)(m)
+				infoProbe(m).WillReturnError(&pq.Error{Code: pgObjectNotInPrerequisiteState})
+			},
+			want: planStoreNotLoaded,
+		},
+		{
+			name: "monitoring user cannot read the info view",
+			expect: func(m sqlmock.Sqlmock) {
+				extensionPresent(true)(m)
+				infoProbe(m).WillReturnError(&pq.Error{Code: pgInsufficientPrivilege})
+			},
+			want: planStoreNoPermission,
+		},
+		{
+			name: "monitoring user can read the info view but not pg_store_plans",
+			expect: func(m sqlmock.Sqlmock) {
+				infoReadable(m)
+				m.ExpectExec(planStoreReadProbeSQL).WillReturnError(&pq.Error{Code: pgInsufficientPrivilege})
+			},
+			want: planStoreNoPermission,
+		},
+		{
+			name: "other postgres error on the info probe is left for the plan read to report",
+			expect: func(m sqlmock.Sqlmock) {
+				extensionPresent(true)(m)
+				infoProbe(m).WillReturnError(&pq.Error{Code: "08006"})
+			},
+			want: planStoreReady,
+		},
+		{
+			name: "non-postgres error on the info probe is left for the plan read to report",
+			expect: func(m sqlmock.Sqlmock) {
+				extensionPresent(true)(m)
+				infoProbe(m).WillReturnError(errors.New("connection reset by peer"))
+			},
+			want: planStoreReady,
+		},
+		{
+			name: "other error on the pg_store_plans probe is left for the plan read to report",
+			expect: func(m sqlmock.Sqlmock) {
+				infoReadable(m)
+				m.ExpectExec(planStoreReadProbeSQL).WillReturnError(errors.New("connection reset by peer"))
+			},
+			want: planStoreReady,
+		},
+		{
+			name: "pg_extension probe error is returned",
+			expect: func(m sqlmock.Sqlmock) {
+				m.ExpectQuery(planStoreExtensionProbeSQL).WillReturnError(errors.New("connection reset by peer"))
+			},
+			want:    planStoreReady,
+			wantErr: "connection reset by peer",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			require.NoError(t, err)
+			defer db.Close()
+			tc.expect(mock)
+
+			got, err := (&postgreSQLClient{client: db}).queryPlanStoreStatus(t.Context())
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tc.want, got)
+			// An unexpected extra query fails the call above, so this also proves no probe was skipped.
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+// The probes are the receiver's own statements, so they must carry the prefix the top query filter excludes.
+func TestPlanStoreProbesAreExcludedFromTopQueries(t *testing.T) {
+	for _, probe := range []string{planStoreExtensionProbeSQL, planStoreInfoProbeSQL, planStoreReadProbeSQL, capturedQueryPlanSQL} {
+		require.True(t, strings.HasPrefix(probe, "/* otel-collector-ignore */"), probe)
+	}
+}
+
+// planStoreFakeClient serves top query rows for one database and counts what the call site asks of it.
+type planStoreFakeClient struct {
+	*mockClient
+	status   planStoreStatus
+	err      error
+	rows     func() []map[string]any
+	probes   int
+	explains int
+}
+
+func (*planStoreFakeClient) Close() error { return nil }
+
+func (c *planStoreFakeClient) getTopQuery(context.Context, int64, []string, *zap.Logger) ([]map[string]any, error) {
+	return c.rows(), nil
+}
+
+func (c *planStoreFakeClient) queryPlanStoreStatus(context.Context) (planStoreStatus, error) {
+	c.probes++
+	return c.status, c.err
+}
+
+func (c *planStoreFakeClient) explainQuery(_ context.Context, _, queryID string, _ *zap.Logger) (string, error) {
+	c.explains++
+	return "plan-" + queryID, nil
+}
+
+// countingClientFactory hands out one fake client and counts getClient calls per database.
+type countingClientFactory struct {
+	client *planStoreFakeClient
+	calls  map[string]int
+}
+
+func (f *countingClientFactory) getClient(_ context.Context, database string) (client, error) {
+	f.calls[database]++
+	return f.client, nil
+}
+
+func (*countingClientFactory) close() error { return nil }
+
+// setCredentialProvider implements postgreSQLClientFactory (no-op for the fake).
+func (*countingClientFactory) setCredentialProvider(dbauth.Provider) {}
+
+// planStoreUserID is the userid of every fake top query row; the plan cache key includes it.
+const planStoreUserID = "16415"
+
+// planStoreCacheKey is the plan cache key of a query in database, as collectTopQuery builds it.
+func planStoreCacheKey(database, queryID string) string {
+	return database + "\x00" + planStoreUserID + "\x00" + queryID
+}
+
+// planStoreTopQueryRows returns a row builder for one query per queryID in database. The counters grow with
+// every call, because rows whose counters did not grow since the last collection are not reported.
+func planStoreTopQueryRows(database string, queryIDs ...string) func() []map[string]any {
+	generation := 0
+	return func() []map[string]any {
+		generation++
+		rows := make([]map[string]any, 0, len(queryIDs))
+		for _, id := range queryIDs {
+			n := int64(generation)
+			rows = append(rows, map[string]any{
+				"db.namespace":                                  database,
+				"db.query.text":                                 "select " + id,
+				dbAttributePrefix + "raw_query":                 "select " + id,
+				dbAttributePrefix + "rolsuper":                  "false",
+				dbAttributePrefix + "rolname":                   "app",
+				dbAttributePrefix + "userid":                    planStoreUserID,
+				dbAttributePrefix + queryidColumnName:           id,
+				dbAttributePrefix + callsColumnName:             10 * n,
+				dbAttributePrefix + rowsColumnName:              10 * n,
+				dbAttributePrefix + sharedBlksDirtiedColumnName: 10 * n,
+				dbAttributePrefix + sharedBlksHitColumnName:     10 * n,
+				dbAttributePrefix + sharedBlksReadColumnName:    10 * n,
+				dbAttributePrefix + sharedBlksWrittenColumnName: 10 * n,
+				dbAttributePrefix + tempBlksReadColumnName:      10 * n,
+				dbAttributePrefix + tempBlksWrittenColumnName:   10 * n,
+				dbAttributePrefix + totalExecTimeColumnName:     float64(100 * n),
+				dbAttributePrefix + totalPlanTimeColumnName:     float64(100 * n),
+			})
+		}
+		return rows
+	}
+}
+
+func newPlanStoreScraper(t *testing.T, c *planStoreFakeClient) (*postgreSQLScraper, *countingClientFactory, *observer.ObservedLogs) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{}
+	cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+	core, logs := observer.New(zap.InfoLevel)
+	settings := receivertest.NewNopSettings(metadata.Type)
+	settings.TelemetrySettings = component.TelemetrySettings{Logger: zap.New(core)}
+	factory := &countingClientFactory{client: c, calls: map[string]int{}}
+	s, err := newPostgreSQLScraper(settings, cfg, factory, newCache(100), newTTLCache[string](10, time.Minute))
+	require.NoError(t, err)
+	// Drop what the constructor logged (the feature gate notice), so tests only see what a collection logs.
+	logs.TakeAll()
+	return s, factory, logs
+}
+
+// collectAgain makes the next scrapeTopQuery a new collection instead of one skipped for its interval.
+func collectAgain(t *testing.T, s *postgreSQLScraper) plog.Logs {
+	t.Helper()
+	// A collection is identified by its start time, so the clock must have moved since the last one. On
+	// platforms with a coarse clock, two collections in a row can otherwise start at the same instant.
+	for last := s.lastExecutionTimestamp; !time.Now().After(last); {
+		time.Sleep(time.Millisecond)
+	}
+	s.lastExecutionTimestamp = time.Now().Add(-time.Hour)
+	out, err := s.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+	require.NoError(t, err)
+	return out
+}
+
+// topQueryPlans returns the plan of every reported top query, in no particular order.
+func topQueryPlans(t *testing.T, out plog.Logs) []string {
+	t.Helper()
+	if out.ResourceLogs().Len() == 0 {
+		return nil
+	}
+	records := out.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	plans := make([]string, 0, records.Len())
+	for i := 0; i < records.Len(); i++ {
+		plan, exists := records.At(i).Attributes().Get("postgresql.query_plan")
+		require.True(t, exists)
+		plans = append(plans, plan.Str())
+	}
+	return plans
+}
+
+func warnCount(logs *observer.ObservedLogs) int { return logs.FilterLevelExact(zap.WarnLevel).Len() }
+
+// Two top queries in one database across the whole life of the extension, through collectTopQuery itself: a
+// database that cannot serve plans opens one connection and runs one probe per collection, reads no plan, and
+// caches nothing, however many queries it has.
+func TestCollectTopQueryChecksPlanStoreOncePerCollection(t *testing.T) {
+	c := &planStoreFakeClient{status: planStoreMissing, rows: planStoreTopQueryRows("appdb", "q1", "q2")}
+	s, factory, logs := newPlanStoreScraper(t, c)
+
+	// Missing: one connection, one probe, no plan read, one warning, both queries reported without a plan.
+	plans := topQueryPlans(t, collectAgain(t, s))
+	assert.Equal(t, []string{"", ""}, plans)
+	assert.Equal(t, 1, factory.calls["appdb"], "a skipped database must not open a connection per query")
+	assert.Equal(t, 1, c.probes)
+	assert.Equal(t, 0, c.explains)
+	assert.Equal(t, 1, warnCount(logs))
+
+	// Still missing on the next collection: checked again, no second warning.
+	plans = topQueryPlans(t, collectAgain(t, s))
+	assert.Equal(t, []string{"", ""}, plans)
+	assert.Equal(t, 2, factory.calls["appdb"])
+	assert.Equal(t, 2, c.probes, "every collection must check again")
+	assert.Equal(t, 0, c.explains)
+	assert.Equal(t, 1, warnCount(logs))
+
+	// The probe fails: the database stays skipped, so no plan is read and no empty plan is cached.
+	c.err = errors.New("connection reset by peer")
+	plans = topQueryPlans(t, collectAgain(t, s))
+	assert.Equal(t, []string{"", ""}, plans)
+	assert.Equal(t, 3, c.probes)
+	assert.Equal(t, 0, c.explains)
+	for _, id := range []string{"q1", "q2"} {
+		_, cached := s.queryPlanCache.Get(planStoreCacheKey("appdb", id))
+		assert.False(t, cached, "no empty plan may be cached for %s while plans cannot be read", id)
+	}
+	assert.Equal(t, 1, warnCount(logs))
+
+	// The extension is readable: both queries get a plan, with one probe for the database.
+	c.err = nil
+	c.status = planStoreReady
+	plans = topQueryPlans(t, collectAgain(t, s))
+	assert.ElementsMatch(t, []string{"plan-q1", "plan-q2"}, plans)
+	assert.Equal(t, 4, c.probes, "one probe for the database, not one per query")
+	assert.Equal(t, 2, c.explains)
+	assert.Equal(t, 1, logs.FilterLevelExact(zap.InfoLevel).Len(), "resuming must be logged once")
+}
+
+// In a ready database every uncached query reads its plan, and the readiness probes run once per collection.
+func TestCollectTopQueryProbesReadyDatabaseOnce(t *testing.T) {
+	c := &planStoreFakeClient{status: planStoreReady, rows: planStoreTopQueryRows("appdb", "q1", "q2", "q3")}
+	s, factory, logs := newPlanStoreScraper(t, c)
+
+	plans := topQueryPlans(t, collectAgain(t, s))
+	assert.ElementsMatch(t, []string{"plan-q1", "plan-q2", "plan-q3"}, plans)
+	assert.Equal(t, 1, c.probes, "readiness cannot change within a collection")
+	assert.Equal(t, 3, c.explains)
+	assert.Equal(t, 3, factory.calls["appdb"], "each plan read uses its own connection")
+	assert.Zero(t, logs.Len())
+
+	// Plans are cached now, so the next collection neither probes nor reads them again.
+	plans = topQueryPlans(t, collectAgain(t, s))
+	assert.ElementsMatch(t, []string{"plan-q1", "plan-q2", "plan-q3"}, plans)
+	assert.Equal(t, 1, c.probes)
+	assert.Equal(t, 3, c.explains)
 }
 
 func TestCollectSessionStates(t *testing.T) {
