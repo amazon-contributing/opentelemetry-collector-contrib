@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestTryConfigure(t *testing.T) {
-	testCases := []SDKVersion{SDKv1(&request.Handlers{}), SDKv2(&aws.Config{})}
+	testCases := []SDKVersion{SDKv2(&aws.Config{})}
 	for _, testCase := range testCases {
 		id := component.MustNewID("test")
 		host := new(MockExtensionsHost)

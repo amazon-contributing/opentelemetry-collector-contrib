@@ -5,21 +5,10 @@ package awsmiddleware // import "github.com/amazon-contributing/opentelemetry-co
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 )
 
 type SDKVersion interface {
 	unused()
-}
-
-type sdkVersion1 struct {
-	SDKVersion
-	handlers *request.Handlers
-}
-
-// SDKv1 takes in AWS SDKv1 client request handlers.
-func SDKv1(handlers *request.Handlers) SDKVersion {
-	return sdkVersion1{handlers: handlers}
 }
 
 type sdkVersion2 struct {
