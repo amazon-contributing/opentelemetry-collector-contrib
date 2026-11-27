@@ -55,10 +55,11 @@ func (*mockFileInfo) Sys() any {
 
 func TestGetEBSVolumeID(t *testing.T) {
 	tests := []struct {
-		name     string
-		client   func(t *testing.T) ebsVolumeClient
-		devPath  string
-		expected string
+		name          string
+		client        func(t *testing.T) ebsVolumeClient
+		devPath       string
+		expected      string
+		skipOnWindows bool
 	}{
 		{
 			name: "Able to get EBS volume with no symlink to nvme device",
@@ -84,7 +85,8 @@ func TestGetEBSVolumeID(t *testing.T) {
 			expected: "aws://us-west-2/vol-0c241693efb58734a",
 		},
 		{
-			name: "Able to get EBS volume through nvme symlink",
+			name:          "Able to get EBS volume through nvme symlink",
+			skipOnWindows: true,
 			client: func(t *testing.T) ebsVolumeClient {
 				return mockEBSVolumeClient(func(_ context.Context, _ *ec2.DescribeVolumesInput, _ ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error) {
 					t.Helper()
@@ -133,7 +135,7 @@ func TestGetEBSVolumeID(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if runtime.GOOS == "windows" && test.name == "Able to get EBS volume through nvme symlink" {
+			if test.skipOnWindows && runtime.GOOS == "windows" {
 				t.Skip("nvme symlinks are not resolved on Windows")
 			}
 			e := &ebsVolume{
