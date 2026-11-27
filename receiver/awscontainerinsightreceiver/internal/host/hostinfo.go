@@ -130,7 +130,11 @@ func NewInfo(ctx context.Context, awsSessionSettings awsutil.AWSSessionSettings,
 
 func (m *Info) lazyInitEBSVolume(ctx context.Context) {
 	// wait until the instance id is ready
-	<-m.instanceIDReadyC
+	select {
+	case <-m.instanceIDReadyC:
+	case <-ctx.Done():
+		return
+	}
 	// Because ebs volumes only change occasionally, we refresh every 5 collection intervals to reduce ec2 api calls
 	m.ebsVolume = m.ebsVolumeCreator(ctx, m.awsConfig, m.GetInstanceID(), m.GetRegion(),
 		5*m.refreshInterval, m.logger)
@@ -139,7 +143,11 @@ func (m *Info) lazyInitEBSVolume(ctx context.Context) {
 
 func (m *Info) lazyInitEC2Tags(ctx context.Context) {
 	// wait until the instance id is ready
-	<-m.instanceIDReadyC
+	select {
+	case <-m.instanceIDReadyC:
+	case <-ctx.Done():
+		return
+	}
 	m.ec2Tags = m.ec2TagsCreator(ctx, m.awsConfig, m.GetInstanceID(), m.GetRegion(), m.containerOrchestrator, m.refreshInterval, m.logger)
 	close(m.ec2TagsReadyC)
 }

@@ -61,6 +61,7 @@ type awsContainerInsightReceiver struct {
 	k8sapiserver             metricsProvider
 	prometheusScraper        *k8sapiserver.PrometheusScraper
 	podResourcesStore        *stores.PodResourcesStore
+	ecsInfo                  *ecsinfo.EcsInfo
 	dcgmScraper              *prometheusscraper.SimplePrometheusScraper
 	nvmeEBSScraper           *prometheusscraper.SimplePrometheusScraper
 	nvmeLISScraper           *prometheusscraper.SimplePrometheusScraper
@@ -256,6 +257,7 @@ func (acir *awsContainerInsightReceiver) initECS(host component.Host, hostInfo *
 	if err != nil {
 		return err
 	}
+	acir.ecsInfo = ecsInfo
 
 	localNodeDecorator, err := stores.NewLocalNodeDecorator(acir.settings.Logger, acir.config.ContainerOrchestrator,
 		hostInfo, hostName, stores.WithECSInfo(ecsInfo))
@@ -279,7 +281,11 @@ func (acir *awsContainerInsightReceiver) start(ctx context.Context) {
 	// we want to wait until at least two cadvisor collection intervals happens before collecting the metrics
 	secondsInMin := time.Now().Second()
 	if secondsInMin < 30 {
-		time.Sleep(time.Duration(30-secondsInMin) * time.Second)
+		select {
+		case <-time.After(time.Duration(30-secondsInMin) * time.Second):
+		case <-ctx.Done():
+			return
+		}
 	}
 	ticker := time.NewTicker(acir.config.CollectionInterval)
 	defer ticker.Stop()
@@ -509,6 +515,10 @@ func (acir *awsContainerInsightReceiver) Shutdown(context.Context) error {
 
 	if acir.podResourcesStore != nil {
 		acir.podResourcesStore.Shutdown()
+	}
+
+	if acir.ecsInfo != nil {
+		acir.ecsInfo.Shutdown()
 	}
 
 	return errs

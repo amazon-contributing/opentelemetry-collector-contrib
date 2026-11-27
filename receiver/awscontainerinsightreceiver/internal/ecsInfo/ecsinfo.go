@@ -131,7 +131,11 @@ func NewECSInfo(refreshInterval time.Duration, hostIPProvider hostIPProvider, ho
 }
 
 func (e *EcsInfo) initContainerInfo(ctx context.Context) {
-	<-e.hostIPProvider.GetInstanceIPReadyC()
+	select {
+	case <-e.hostIPProvider.GetInstanceIPReadyC():
+	case <-ctx.Done():
+		return
+	}
 
 	e.logger.Info("instance ip is ready and begin initializing ecs container info")
 
@@ -140,7 +144,11 @@ func (e *EcsInfo) initContainerInfo(ctx context.Context) {
 }
 
 func (e *EcsInfo) initTaskInfo(ctx context.Context) {
-	<-e.hostIPProvider.GetInstanceIPReadyC()
+	select {
+	case <-e.hostIPProvider.GetInstanceIPReadyC():
+	case <-ctx.Done():
+		return
+	}
 
 	e.logger.Info("instance ip is ready and begin initializing ecs task info")
 
@@ -150,8 +158,13 @@ func (e *EcsInfo) initTaskInfo(ctx context.Context) {
 }
 
 func (e *EcsInfo) initCgroupScanner(ctx context.Context) {
-	<-e.isContainerInfoReadyC
-	<-e.isTaskInfoReadyC
+	for _, readyC := range []chan bool{e.isContainerInfoReadyC, e.isTaskInfoReadyC} {
+		select {
+		case <-readyC:
+		case <-ctx.Done():
+			return
+		}
+	}
 
 	e.logger.Info("info ready and begin getting info")
 
