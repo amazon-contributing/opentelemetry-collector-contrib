@@ -5,6 +5,7 @@ package ecsinfo // import "github.com/open-telemetry/opentelemetry-collector-con
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -24,6 +25,7 @@ type EcsInfo struct {
 	refreshInterval       time.Duration
 	clusterName           string
 	cancel                context.CancelFunc
+	wg                    sync.WaitGroup
 	hostIPProvider        hostIPProvider
 	isTaskInfoReadyC      chan bool
 	isContainerInfoReadyC chan bool
@@ -121,17 +123,19 @@ func NewECSInfo(refreshInterval time.Duration, hostIPProvider hostIPProvider, ho
 		opt(ecsInfo)
 	}
 
-	go ecsInfo.initContainerInfo(ctx)
-
-	go ecsInfo.initTaskInfo(ctx)
-
-	go ecsInfo.initCgroupScanner(ctx)
+	for _, run := range []func(context.Context){ecsInfo.initContainerInfo, ecsInfo.initTaskInfo, ecsInfo.initCgroupScanner} {
+		ecsInfo.wg.Go(func() { run(ctx) })
+	}
 
 	return ecsInfo, nil
 }
 
 func (e *EcsInfo) initContainerInfo(ctx context.Context) {
-	<-e.hostIPProvider.GetInstanceIPReadyC()
+	select {
+	case <-e.hostIPProvider.GetInstanceIPReadyC():
+	case <-ctx.Done():
+		return
+	}
 
 	e.logger.Info("instance ip is ready and begin initializing ecs container info")
 
@@ -140,7 +144,11 @@ func (e *EcsInfo) initContainerInfo(ctx context.Context) {
 }
 
 func (e *EcsInfo) initTaskInfo(ctx context.Context) {
-	<-e.hostIPProvider.GetInstanceIPReadyC()
+	select {
+	case <-e.hostIPProvider.GetInstanceIPReadyC():
+	case <-ctx.Done():
+		return
+	}
 
 	e.logger.Info("instance ip is ready and begin initializing ecs task info")
 
@@ -150,8 +158,13 @@ func (e *EcsInfo) initTaskInfo(ctx context.Context) {
 }
 
 func (e *EcsInfo) initCgroupScanner(ctx context.Context) {
-	<-e.isContainerInfoReadyC
-	<-e.isTaskInfoReadyC
+	for _, readyC := range []chan bool{e.isContainerInfoReadyC, e.isTaskInfoReadyC} {
+		select {
+		case <-readyC:
+		case <-ctx.Done():
+			return
+		}
+	}
 
 	e.logger.Info("info ready and begin getting info")
 
@@ -163,4 +176,5 @@ func (e *EcsInfo) initCgroupScanner(ctx context.Context) {
 // Shutdown stops the ecs Info
 func (e *EcsInfo) Shutdown() {
 	e.cancel()
+	e.wg.Wait()
 }

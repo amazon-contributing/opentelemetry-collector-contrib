@@ -43,7 +43,17 @@ func (*mockK8sAPIServer) GetMetrics() []pmetric.Metrics {
 	return []pmetric.Metrics{md}
 }
 
+// setStaticAWSEnv sets a static region and credentials and disables IMDS so Start does not call it.
+func setStaticAWSEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_ACCESS_KEY_ID", "test")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+}
+
 func TestReceiver(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	metricsReceiver, err := newAWSContainerInsightReceiver(
 		componenttest.NewNopTelemetrySettings(),
@@ -65,6 +75,7 @@ func TestReceiver(t *testing.T) {
 }
 
 func TestCollectData(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	metricsReceiver, err := newAWSContainerInsightReceiver(
 		componenttest.NewNopTelemetrySettings(),
@@ -77,6 +88,7 @@ func TestCollectData(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	ctx := t.Context()
 	r.k8sapiserver = &mockK8sAPIServer{}
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -91,6 +103,7 @@ func TestCollectData(t *testing.T) {
 }
 
 func TestCollectDataWithErrConsumer(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	metricsReceiver, err := newAWSContainerInsightReceiver(
 		componenttest.NewNopTelemetrySettings(),
@@ -103,6 +116,7 @@ func TestCollectDataWithErrConsumer(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	r.containerMetricsProvider = &mockCadvisor{}
 	r.k8sapiserver = &mockK8sAPIServer{}
 	ctx := t.Context()
@@ -112,6 +126,7 @@ func TestCollectDataWithErrConsumer(t *testing.T) {
 }
 
 func TestCollectDataWithECS(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	cfg.ContainerOrchestrator = ci.ECS
 	metricsReceiver, err := newAWSContainerInsightReceiver(
@@ -125,6 +140,7 @@ func TestCollectDataWithECS(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	ctx := t.Context()
 
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -138,6 +154,7 @@ func TestCollectDataWithECS(t *testing.T) {
 }
 
 func TestCollectDataWithSystemd(t *testing.T) {
+	setStaticAWSEnv(t)
 	cfg := createDefaultConfig().(*Config)
 	cfg.ContainerOrchestrator = ci.EKS
 	cfg.KubeConfigPath = "/tmp/kube-config"
@@ -153,6 +170,7 @@ func TestCollectDataWithSystemd(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	ctx := t.Context()
 
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -188,11 +206,7 @@ func (*MockHost) GetFactory(_ component.Kind, _ component.Type) component.Factor
 }
 
 func TestAWSContainerInsightReceiverStart(t *testing.T) {
-	// Static region and credentials so building the AWS config succeeds
-	// without touching IMDS, letting Start reach middleware discovery.
-	t.Setenv("AWS_REGION", "us-east-1")
-	t.Setenv("AWS_ACCESS_KEY_ID", "test")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	setStaticAWSEnv(t)
 
 	// Create a mock host
 	mockHost := new(MockHost)

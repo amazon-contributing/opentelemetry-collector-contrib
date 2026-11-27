@@ -185,7 +185,10 @@ func TestNewPrometheusScraperEndToEnd(t *testing.T) {
 	targets := []*mocks.TestData{
 		{
 			Name: "prometheus",
+			// Serve the data more than once so a single timed-out scrape does not lose it.
 			Pages: []mocks.MockPrometheusResponse{
+				{Code: 200, Data: renameMetric},
+				{Code: 200, Data: renameMetric},
 				{Code: 200, Data: renameMetric},
 			},
 		},

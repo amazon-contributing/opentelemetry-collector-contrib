@@ -6,6 +6,7 @@ package host // import "github.com/open-telemetry/opentelemetry-collector-contri
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,6 +18,7 @@ import (
 // Info contains information about a host
 type Info struct {
 	cancel                context.CancelFunc
+	wg                    *sync.WaitGroup
 	logger                *zap.Logger
 	awsConfig             aws.Config
 	refreshInterval       time.Duration
@@ -80,6 +82,7 @@ func NewInfo(ctx context.Context, awsSessionSettings awsutil.AWSSessionSettings,
 	ctx, cancel := context.WithCancel(ctx)
 	mInfo := &Info{
 		cancel:           cancel,
+		wg:               &sync.WaitGroup{},
 		refreshInterval:  refreshInterval,
 		instanceIDReadyC: make(chan bool),
 		instanceIPReadyC: make(chan bool),
@@ -123,14 +126,18 @@ func NewInfo(ctx context.Context, awsSessionSettings awsutil.AWSSessionSettings,
 		logger,
 	)
 
-	go mInfo.lazyInitEBSVolume(ctx)
-	go mInfo.lazyInitEC2Tags(ctx)
+	mInfo.wg.Go(func() { mInfo.lazyInitEBSVolume(ctx) })
+	mInfo.wg.Go(func() { mInfo.lazyInitEC2Tags(ctx) })
 	return mInfo, nil
 }
 
 func (m *Info) lazyInitEBSVolume(ctx context.Context) {
 	// wait until the instance id is ready
-	<-m.instanceIDReadyC
+	select {
+	case <-m.instanceIDReadyC:
+	case <-ctx.Done():
+		return
+	}
 	// Because ebs volumes only change occasionally, we refresh every 5 collection intervals to reduce ec2 api calls
 	m.ebsVolume = m.ebsVolumeCreator(ctx, m.awsConfig, m.GetInstanceID(), m.GetRegion(),
 		5*m.refreshInterval, m.logger)
@@ -139,7 +146,11 @@ func (m *Info) lazyInitEBSVolume(ctx context.Context) {
 
 func (m *Info) lazyInitEC2Tags(ctx context.Context) {
 	// wait until the instance id is ready
-	<-m.instanceIDReadyC
+	select {
+	case <-m.instanceIDReadyC:
+	case <-ctx.Done():
+		return
+	}
 	m.ec2Tags = m.ec2TagsCreator(ctx, m.awsConfig, m.GetInstanceID(), m.GetRegion(), m.containerOrchestrator, m.refreshInterval, m.logger)
 	close(m.ec2TagsReadyC)
 }
@@ -225,4 +236,7 @@ func (m *Info) ExtractEbsIDsUsedByKubernetes() map[string]string {
 // Shutdown stops the host Info
 func (m *Info) Shutdown() {
 	m.cancel()
+	if m.wg != nil {
+		m.wg.Wait()
+	}
 }
