@@ -12,10 +12,6 @@ import (
 
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	s3v2 "github.com/aws/aws-sdk-go-v2/service/s3"
-	awsv1 "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/awstesting"
-	s3v1 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -119,7 +115,7 @@ func TestInvalidHandlers(t *testing.T) {
 	middleware := new(MockMiddlewareExtension)
 	middleware.On("Handlers").Return([]RequestHandler{handler}, []ResponseHandler{handler})
 	c := NewConfigurer(middleware.Handlers())
-	testCases := []SDKVersion{SDKv1(&request.Handlers{}), SDKv2(&awsv2.Config{})}
+	testCases := []SDKVersion{SDKv2(&awsv2.Config{})}
 	for _, testCase := range testCases {
 		err := c.Configure(testCase)
 		assert.Error(t, err)
@@ -197,53 +193,15 @@ func TestAppendOrder(t *testing.T) {
 				[]ResponseHandler{handler},
 			)
 			c := NewConfigurer(middleware.Handlers())
-			// v1
-			client := awstesting.NewClient(&awsv1.Config{
-				Region:     new("mock-region"),
-				DisableSSL: new(true),
-				Endpoint:   new(server.URL),
-			})
-			assert.NoError(t, c.Configure(SDKv1(&client.Handlers)))
-			s3v1Client := &s3v1.S3{Client: client}
-			_, err := s3v1Client.ListBuckets(&s3v1.ListBucketsInput{})
-			require.NoError(t, err)
-			assert.Equal(t, testCase.wantOrder, recorder.order)
-			recorder.order = nil
-			// v2
 			cfg := awsv2.Config{Region: "us-east-1"}
 			assert.NoError(t, c.Configure(SDKv2(&cfg)))
 			s3v2Client := s3v2.NewFromConfig(cfg, func(options *s3v2.Options) {
 				options.BaseEndpoint = awsv2.String(server.URL)
 			})
-			_, err = s3v2Client.ListBuckets(t.Context(), &s3v2.ListBucketsInput{})
+			_, err := s3v2Client.ListBuckets(t.Context(), &s3v2.ListBucketsInput{})
 			require.NoError(t, err)
 			assert.Equal(t, testCase.wantOrder, recorder.order)
 		})
-	}
-}
-
-func TestRoundTripSDKv1(t *testing.T) {
-	middleware, recorder, server := setup(t)
-	defer server.Close()
-	client := awstesting.NewClient(&awsv1.Config{
-		Region:     new("mock-region"),
-		DisableSSL: new(true),
-		Endpoint:   new(server.URL),
-		MaxRetries: new(0),
-	})
-	require.Equal(t, 3, client.Handlers.Build.Len())
-	require.Equal(t, 1, client.Handlers.ValidateResponse.Len())
-	assert.NoError(t, NewConfigurer(middleware.Handlers()).Configure(SDKv1(&client.Handlers)))
-	assert.Equal(t, 5, client.Handlers.Build.Len())
-	assert.Equal(t, 2, client.Handlers.ValidateResponse.Len())
-	s3Client := &s3v1.S3{Client: client}
-	output, err := s3Client.ListBuckets(&s3v1.ListBucketsInput{})
-	require.NoError(t, err)
-	assert.NotNil(t, output)
-	assert.GreaterOrEqual(t, recorder.Latency(), testLatency)
-	assert.Equal(t, recorder.requestIDs, recorder.responseIDs)
-	for _, operation := range recorder.operations {
-		assert.Equal(t, "ListBuckets", operation)
 	}
 }
 

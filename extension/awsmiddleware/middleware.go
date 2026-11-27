@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/smithy-go/middleware"
 	"go.opentelemetry.io/collector/extension"
 )
@@ -125,32 +124,11 @@ func NewConfigurer(requestHandlers []RequestHandler, responseHandlers []Response
 // Configure configures the handlers on the provided AWS SDK.
 func (c Configurer) Configure(sdkVersion SDKVersion) error {
 	switch v := sdkVersion.(type) {
-	case sdkVersion1:
-		return c.configureSDKv1(v.handlers)
 	case sdkVersion2:
 		return c.configureSDKv2(v.cfg)
 	default:
 		return fmt.Errorf("%w: %T", errUnsupportedVersion, v)
 	}
-}
-
-// configureSDKv1 adds middleware to the AWS SDK v1. Request handlers are added to the
-// Build handler list and response handlers are added to the ValidateResponse handler list.
-// Build will only be run once per request, but if there are errors, ValidateResponse will
-// be run again for each configured retry.
-func (c Configurer) configureSDKv1(handlers *request.Handlers) error {
-	var errs error
-	for _, handler := range c.requestHandlers {
-		if err := appendHandler(&handlers.Build, namedRequestHandler(handler), handler.Position()); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
-		}
-	}
-	for _, handler := range c.responseHandlers {
-		if err := appendHandler(&handlers.ValidateResponse, namedResponseHandler(handler), handler.Position()); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("%w (%q): %w", errInvalidHandler, handler.ID(), err))
-		}
-	}
-	return errs
 }
 
 // configureSDKv2 adds middleware to the AWS SDK v2. Request handlers are added to the
@@ -174,21 +152,6 @@ func (c Configurer) configureSDKv2(config *aws.Config) error {
 		config.APIOptions = append(config.APIOptions, withDeserializeOption(&responseMiddleware{ResponseHandler: handler}, relativePosition))
 	}
 	return errs
-}
-
-// appendHandler adds the handler to the list based on the position.
-func appendHandler(handlerList *request.HandlerList, handler request.NamedHandler, position HandlerPosition) error {
-	relativePosition, err := toRelativePosition(position)
-	if err != nil {
-		return err
-	}
-	switch relativePosition {
-	case middleware.Before:
-		handlerList.PushFrontNamed(handler)
-	case middleware.After:
-		handlerList.PushBackNamed(handler)
-	}
-	return nil
 }
 
 // toRelativePosition maps the HandlerPosition to a middleware.RelativePosition. It also validates that

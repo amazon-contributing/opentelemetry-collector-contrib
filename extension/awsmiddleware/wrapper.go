@@ -7,7 +7,6 @@ import (
 	"context"
 
 	sdkmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/smithy-go/middleware"
 	"github.com/aws/smithy-go/transport/http"
 	"github.com/google/uuid"
@@ -17,21 +16,6 @@ type (
 	requestIDKey     struct{}
 	operationNameKey struct{}
 )
-
-func namedRequestHandler(handler RequestHandler) request.NamedHandler {
-	return request.NamedHandler{Name: handler.ID(), Fn: func(r *request.Request) {
-		ctx := mustRequestID(r.Context())
-		ctx = SetOperationName(ctx, r.Operation.Name)
-		r.SetContext(ctx)
-		handler.HandleRequest(ctx, r.HTTPRequest)
-	}}
-}
-
-func namedResponseHandler(handler ResponseHandler) request.NamedHandler {
-	return request.NamedHandler{Name: handler.ID(), Fn: func(r *request.Request) {
-		handler.HandleResponse(r.Context(), r.HTTPResponse)
-	}}
-}
 
 type requestMiddleware struct {
 	RequestHandler
