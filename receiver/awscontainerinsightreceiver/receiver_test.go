@@ -43,12 +43,13 @@ func (*mockK8sAPIServer) GetMetrics() []pmetric.Metrics {
 	return []pmetric.Metrics{md}
 }
 
-// setStaticAWSEnv sets a static region and credentials so Start does not call IMDS.
+// setStaticAWSEnv sets a static region and credentials and disables IMDS so Start does not call it.
 func setStaticAWSEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("AWS_ACCESS_KEY_ID", "test")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
 }
 
 func TestReceiver(t *testing.T) {
