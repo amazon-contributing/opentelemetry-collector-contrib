@@ -143,9 +143,18 @@ func (m *MockPodResourcesClient) Shutdown() {
 	m.shutdownCalled = true
 }
 
+// resetPodResourcesStore clears the NewPodResourcesStore singleton now and after the test.
+func resetPodResourcesStore(t *testing.T) {
+	reset := func() {
+		once = sync.Once{}
+		instance = nil
+	}
+	reset()
+	t.Cleanup(reset)
+}
+
 func TestNewPodResourcesStore(t *testing.T) {
-	once = sync.Once{}
-	instance = nil
+	resetPodResourcesStore(t)
 	logger := zap.NewNop()
 	_, err := NewPodResourcesStore(logger)
 	assert.Error(t, err, "Expected error creating pod resources store because the kubelet socket should not exist")
