@@ -6,6 +6,7 @@ package stores // import "github.com/open-telemetry/opentelemetry-collector-cont
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -143,6 +144,8 @@ func (m *MockPodResourcesClient) Shutdown() {
 }
 
 func TestNewPodResourcesStore(t *testing.T) {
+	once = sync.Once{}
+	instance = nil
 	logger := zap.NewNop()
 	_, err := NewPodResourcesStore(logger)
 	assert.Error(t, err, "Expected error creating pod resources store because the kubelet socket should not exist")
