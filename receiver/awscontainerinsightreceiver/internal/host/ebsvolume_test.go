@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -132,6 +133,9 @@ func TestGetEBSVolumeID(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			if runtime.GOOS == "windows" && test.name == "Able to get EBS volume through nvme symlink" {
+				t.Skip("nvme symlinks are not resolved on Windows")
+			}
 			e := &ebsVolume{
 				maxJitterTime: time.Millisecond,
 				instanceID:    "instanceID",
