@@ -88,7 +88,7 @@ func TestCollectData(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
-	t.Cleanup(func() { assert.NoError(t, r.Shutdown(t.Context())) })
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	ctx := t.Context()
 	r.k8sapiserver = &mockK8sAPIServer{}
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -116,7 +116,7 @@ func TestCollectDataWithErrConsumer(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
-	t.Cleanup(func() { assert.NoError(t, r.Shutdown(t.Context())) })
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	r.containerMetricsProvider = &mockCadvisor{}
 	r.k8sapiserver = &mockK8sAPIServer{}
 	ctx := t.Context()
@@ -140,7 +140,7 @@ func TestCollectDataWithECS(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
-	t.Cleanup(func() { assert.NoError(t, r.Shutdown(t.Context())) })
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	ctx := t.Context()
 
 	r.containerMetricsProvider = &mockCadvisor{}
@@ -170,7 +170,7 @@ func TestCollectDataWithSystemd(t *testing.T) {
 
 	r := metricsReceiver.(*awsContainerInsightReceiver)
 	_ = r.Start(t.Context(), componenttest.NewNopHost())
-	t.Cleanup(func() { assert.NoError(t, r.Shutdown(t.Context())) })
+	t.Cleanup(func() { assert.NoError(t, r.Shutdown(context.WithoutCancel(t.Context()))) })
 	ctx := t.Context()
 
 	r.containerMetricsProvider = &mockCadvisor{}
